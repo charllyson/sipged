@@ -6,7 +6,6 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_style.dart';
-import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
 
 class ScheduleRoadState extends Equatable {
   final bool initialized;
@@ -18,7 +17,7 @@ class ScheduleRoadState extends Equatable {
   final String currentServiceKey;
 
   final List<ScheduleRoadData> services;
-  final List<ScheduleLaneClass> lanes;
+  final List<ScheduleRoadData> lanes;
   final List<ScheduleRoadData> execucoes;
   final Map<int, Map<int, ScheduleRoadData>> execIndex;
 
@@ -45,7 +44,6 @@ class ScheduleRoadState extends Equatable {
   final double mapZoom;
   final String? busyReason;
 
-  /// Revisões para evitar comparação profunda cara no Equatable.
   final int servicesRevision;
   final int lanesRevision;
   final int execRevision;
@@ -59,7 +57,7 @@ class ScheduleRoadState extends Equatable {
     this.totalEstacas = 0,
     this.currentServiceKey = 'geral',
     this.services = const <ScheduleRoadData>[],
-    this.lanes = const <ScheduleLaneClass>[],
+    this.lanes = const <ScheduleRoadData>[],
     this.execucoes = const <ScheduleRoadData>[],
     this.execIndex = const <int, Map<int, ScheduleRoadData>>{},
     this.minDate,
@@ -106,7 +104,7 @@ class ScheduleRoadState extends Equatable {
     int? totalEstacas,
     String? currentServiceKey,
     List<ScheduleRoadData>? services,
-    List<ScheduleLaneClass>? lanes,
+    List<ScheduleRoadData>? lanes,
     List<ScheduleRoadData>? execucoes,
     Map<int, Map<int, ScheduleRoadData>>? execIndex,
     DateTime? minDate,
@@ -237,7 +235,7 @@ class ScheduleRoadState extends Equatable {
 
   bool get _isGeral => currentServiceKey.toLowerCase() == 'geral';
 
-  bool _laneEnabled(ScheduleLaneClass l) =>
+  bool _laneEnabled(ScheduleRoadData l) =>
       _isGeral ? true : l.isAllowed(currentServiceKey);
 
   bool _cellEnabled(ScheduleRoadData e) {

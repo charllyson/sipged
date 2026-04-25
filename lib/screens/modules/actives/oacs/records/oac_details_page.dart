@@ -6,11 +6,12 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_widgets/input/date_field_change.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/DataTime/date_field_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -31,7 +32,6 @@ class OacDetailsPage extends StatefulWidget {
 class _OacDetailsPageState extends State<OacDetailsPage> {
   final _formKey = GlobalKey<FormState>();
 
-  // ===== Identificação / localização =====
   final _orderCtrl = TextEditingController();
   final _scoreCtrl = TextEditingController();
 
@@ -49,7 +49,6 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
   final _longitudeCtrl = TextEditingController();
   final _altitudeCtrl = TextEditingController();
 
-  // ===== Tipologia / implantação =====
   final _tipoCtrl = TextEditingController();
   final _materialCtrl = TextEditingController();
   final _seccaoCtrl = TextEditingController();
@@ -62,13 +61,11 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
   final _cotaMontanteCtrl = TextEditingController();
   final _cotaJusanteCtrl = TextEditingController();
 
-  // ===== Hidráulica / drenagem =====
   final _baciaCtrl = TextEditingController();
   final _vazaoProjetoCtrl = TextEditingController();
   final _declividadeCtrl = TextEditingController();
   final _observacoesHidraulicaCtrl = TextEditingController();
 
-  // ===== Condição / manutenção (geral) =====
   final _empresaRespCtrl = TextEditingController();
   final _contratosRelacionadosCtrl = TextEditingController();
   final _custoEstimadoCtrl = TextEditingController();
@@ -76,7 +73,6 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
 
   final _observacoesGeraisCtrl = TextEditingController();
 
-  // ===== Datas =====
   final _dtImplantacaoCtrl = TextEditingController();
   final _dtUltimaInspecaoCtrl = TextEditingController();
   final _dtUltimaManutCtrl = TextEditingController();
@@ -87,7 +83,6 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
   DateTime? _dtUltimaManut;
   DateTime? _dtProximaInspecao;
 
-  // ===== Auditoria =====
   final _createdByCtrl = TextEditingController();
   final _updatedByCtrl = TextEditingController();
   String? _createdById;
@@ -95,11 +90,9 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
   String _createdAtStr = '-';
   String _updatedAtStr = '-';
 
-  // ===== hidratação =====
   String? _currentId;
   bool _hydrated = false;
 
-  // ===== mapa =====
   MapController? _mapController;
   void Function(LatLng)? _setActivePoint;
 
@@ -690,7 +683,8 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                           SizedBox(
                             width: w(3),
                             child: CustomTextField(
-                              controller: TextEditingController(text: _createdAtStr),
+                              controller:
+                              TextEditingController(text: _createdAtStr),
                               labelText: 'Criado em',
                               width: w(3),
                               enabled: false,
@@ -699,7 +693,8 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                           SizedBox(
                             width: w(3),
                             child: CustomTextField(
-                              controller: TextEditingController(text: _updatedAtStr),
+                              controller:
+                              TextEditingController(text: _updatedAtStr),
                               labelText: 'Atualizado em',
                               width: w(3),
                               enabled: false,
@@ -720,9 +715,12 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                             onPressed: isSaving ? null : () => _handleSave(st),
                             icon: isSaving
                                 ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              width: 18,
+                              height: 18,
+                              child: LoadingTreeDotsGrey(
+                                size: 18,
+                                centered: false,
+                              ),
                             )
                                 : const Icon(
                               Icons.save_outlined,

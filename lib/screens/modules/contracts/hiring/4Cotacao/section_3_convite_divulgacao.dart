@@ -1,10 +1,10 @@
 // lib/screens/modules/contracts/hiring/4Cotacao/section_3_convite_divulgacao.dart
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
 

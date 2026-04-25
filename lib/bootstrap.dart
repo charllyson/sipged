@@ -1,63 +1,52 @@
+// lib/bootstrap.dart
+
 import 'dart:async';
-
-import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:intl/date_symbol_data_local.dart';
-import 'package:provider/provider.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
-import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
-import 'package:sipged/_blocs/system/login/login_cubit.dart';
-import 'package:sipged/_blocs/system/login/login_repository.dart';
-
-import '_blocs/modules/contracts/budget/budget_cubit.dart';
-import '_blocs/modules/contracts/budget/budget_repository.dart';
-import '_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_cubit.dart';
 import 'firebase_options_flavors.dart';
+import 'gate_page.dart';
 
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
 
-import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
-import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
+import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
+import 'package:sipged/_blocs/system/login/login_cubit.dart';
+import 'package:sipged/_blocs/system/login/login_repository.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
+import 'package:sipged/_blocs/system/user/user_repository.dart';
+
+import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
-
-import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_cubit.dart';
-
-import 'package:sipged/_blocs/modules/contracts/validity/validity_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_repository.dart';
 
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
-import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_store.dart';
+import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/budget/budget_repository.dart';
 
-import 'package:sipged/_blocs/modules/financial/payments/adjustment/payment_adjustment_bloc.dart';
-import 'package:sipged/_blocs/modules/financial/payments/report/payment_reports_bloc.dart';
-import 'package:sipged/_blocs/modules/financial/payments/report/payments_report_storage_bloc.dart';
-import 'package:sipged/_blocs/modules/financial/payments/revision/payment_revision_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
 
-import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
-import 'package:sipged/_blocs/modules/transit/infractions/infractions_bloc.dart';
-import 'package:sipged/_blocs/modules/transit/infractions/infractions_controller.dart';
-
-import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_repository.dart';
-import 'package:sipged/_blocs/system/user/user_cubit.dart';
-import 'package:sipged/_blocs/system/user/user_state.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -92,306 +81,357 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_repository.dart';
 
-import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-import 'package:sipged/gate_page.dart';
+import 'package:sipged/_blocs/modules/financial/payments/adjustment/payment_adjustment_bloc.dart';
+import 'package:sipged/_blocs/modules/financial/payments/report/payment_reports_bloc.dart';
+import 'package:sipged/_blocs/modules/financial/payments/report/payments_report_storage_bloc.dart';
+import 'package:sipged/_blocs/modules/financial/payments/revision/payment_revision_bloc.dart';
+
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
+import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_store.dart';
+
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
+import 'package:sipged/_blocs/modules/transit/infractions/infractions_bloc.dart';
+import 'package:sipged/_blocs/modules/transit/infractions/infractions_controller.dart';
+
+Future<void> _loadEnvIfNeeded() async {
+  final shouldLoadEnv = !kIsWeb || !kReleaseMode;
+
+  if (!shouldLoadEnv) return;
+
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e, s) {
+    debugPrint('[Bootstrap] Falha ao carregar .env: $e');
+    debugPrintStack(stackTrace: s);
+  }
+}
 
 Future<void> _initFirebase() async {
   if (kIsWeb) {
-    await Firebase.initializeApp(options: FirebaseOptionsFlavors.forWeb());
+    await Firebase.initializeApp(
+      options: FirebaseOptionsFlavors.forWeb(),
+    );
   } else {
     await Firebase.initializeApp();
   }
 }
 
 Future<void> _connectToEmulatorsIfNeeded() async {
-  const useEmu = bool.fromEnvironment('USE_EMULATOR', defaultValue: false);
+  const useEmu = bool.fromEnvironment(
+    'USE_EMULATOR',
+    defaultValue: false,
+  );
+
   if (!useEmu) return;
 
   const host = 'localhost';
+
   FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
   await FirebaseAuth.instance.useAuthEmulator(host, 9099);
   FirebaseStorage.instance.useStorageEmulator(host, 9199);
 }
 
 Future<void> bootstrapAndRunApp() async {
-  runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  await runZonedGuarded<Future<void>>(
+        () async {
+      WidgetsFlutterBinding.ensureInitialized();
 
-    FlutterError.onError = (details) {
-      if (kIsWeb) {
-        final s = details.stack;
-        if (s != null) {
-          debugPrintStack(stackTrace: s);
-        }
-        return;
-      }
-      FlutterError.presentError(details);
-    };
+      Intl.defaultLocale = 'pt_BR';
 
-    PlatformDispatcher.instance.onError = (error, stack) {
-      return true;
-    };
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FlutterError.presentError(details);
 
-    await initializeDateFormatting('pt_BR');
-    await _initFirebase();
-    await _connectToEmulatorsIfNeeded();
-
-    Provider.debugCheckInvalidValueType = null;
-
-    runApp(
-      MultiProvider(
-        providers: [
-          BlocProvider<MapOverlayCubit>(create: (_) => MapOverlayCubit()),
-
-          BlocProvider<SetupCubit>(
-            create: (_) => SetupCubit()..loadSystemSetup(),
-          ),
-
-          RepositoryProvider<LoginRepository>(
-            create: (_) => LoginRepository(),
-          ),
-          BlocProvider<LoginCubit>(
-            create: (ctx) => LoginCubit(
-              repository: ctx.read<LoginRepository>(),
-            ),
-          ),
-
-          Provider<NominatimBloc>(
-            create: (_) => NominatimBloc(),
-            dispose: (_, b) => b.dispose(),
-          ),
-
-          RepositoryProvider<UserRepository>(
-            create: (_) => UserRepository(),
-          ),
-          BlocProvider<UserCubit>(
-            create: (ctx) => UserCubit(
-              ctx.read<UserRepository>(),
-            )..warmup(
-              listenRealtime: true,
-              bindCurrentUser: true,
-            ),
-          ),
-
-          BlocProvider<ActiveOaesCubit>(
-            create: (_) => ActiveOaesCubit()..warmup(),
-          ),
-          BlocProvider<ActiveOacsCubit>(
-            create: (_) => ActiveOacsCubit()..warmup(),
-          ),
-          BlocProvider<ActiveRoadsCubit>(
-            create: (_) => ActiveRoadsCubit()..warmup(),
-          ),
-          BlocProvider<ActiveRailwaysCubit>(
-            create: (_) => ActiveRailwaysCubit()..warmup(),
-          ),
-
-          BlocProvider<AccidentsCubit>(
-            create: (_) => AccidentsCubit(),
-          ),
-          Provider<InfractionsBloc>(
-            create: (_) => InfractionsBloc(),
-            dispose: (_, b) => b.dispose(),
-          ),
-          ChangeNotifierProxyProvider<InfractionsBloc, InfractionsController>(
-            create: (ctx) => InfractionsController(
-              bloc: ctx.read<InfractionsBloc>(),
-            ),
-            update: (_, iBloc, ctrl) => ctrl!..updateDeps(iBloc),
-          ),
-
-          BlocProvider<ReportMeasurementCubit>(
-            create: (_) => ReportMeasurementCubit(),
-          ),
-
-          BlocProvider<ValidityCubit>(
-            create: (_) => ValidityCubit(
-              repository: ValidityRepository(),
-            ),
-          ),
-
-          RepositoryProvider<BudgetRepository>(
-            create: (_) => BudgetRepository(),
-          ),
-          BlocProvider<BudgetCubit>(
-            create: (ctx) => BudgetCubit(
-              repository: ctx.read<BudgetRepository>(),
-            ),
-          ),
-
-          BlocProvider<AdjustmentMeasurementCubit>(
-            create: (_) => AdjustmentMeasurementCubit(),
-          ),
-
-          BlocProvider<RevisionMeasurementCubit>(
-            create: (_) => RevisionMeasurementCubit(),
-          ),
-
-          RepositoryProvider<AdditivesRepository>(
-            create: (_) => AdditivesRepository(),
-          ),
-
-          RepositoryProvider<ApostillesRepository>(
-            create: (_) => ApostillesRepository(),
-          ),
-
-          RepositoryProvider<DfdRepository>(
-            create: (_) => DfdRepository(),
-          ),
-          BlocProvider<DfdCubit>(
-            create: (ctx) => DfdCubit(
-              repository: ctx.read<DfdRepository>(),
-            ),
-          ),
-
-          RepositoryProvider<PublicacaoExtratoRepository>(
-            create: (_) => PublicacaoExtratoRepository(),
-          ),
-          BlocProvider<PublicacaoExtratoCubit>(
-            create: (ctx) => PublicacaoExtratoCubit(
-              ctx.read<PublicacaoExtratoRepository>(),
-            ),
-          ),
-
-          RepositoryProvider<EditalRepository>(
-            create: (_) => EditalRepository(),
-          ),
-          BlocProvider<EditalCubit>(
-            create: (ctx) => EditalCubit(
-              ctx.read<EditalRepository>(),
-            ),
-          ),
-
-          RepositoryProvider<ProcessRepository>(
-            create: (_) => ProcessRepository(),
-          ),
-          BlocProvider<ProcessCubit>(
-            create: (ctx) => ProcessCubit(
-              repository: ctx.read<ProcessRepository>(),
-            ),
-          ),
-
-          BlocProvider<GeneralDashboardCubit>(
-            create: (ctx) => GeneralDashboardCubit(
-              processCubit: ctx.read<ProcessCubit>(),
-              additivesRepository: ctx.read<AdditivesRepository>(),
-              apostillesRepository: ctx.read<ApostillesRepository>(),
-              reportMeasurementCubit: ctx.read<ReportMeasurementCubit>(),
-              adjustmentMeasurementCubit:
-              ctx.read<AdjustmentMeasurementCubit>(),
-              revisionMeasurementCubit: ctx.read<RevisionMeasurementCubit>(),
-              dfdCubit: ctx.read<DfdCubit>(),
-              editalCubit: ctx.read<EditalCubit>(),
-            )..initialize(),
-          ),
-
-          RepositoryProvider<ScheduleRoadRepository>(
-            create: (_) => ScheduleRoadRepository(),
-          ),
-          BlocProvider<ScheduleRoadCubit>(
-            create: (ctx) => ScheduleRoadCubit(
-              repository: ctx.read<ScheduleRoadRepository>(),
-            ),
-          ),
-
-          Provider<PaymentReportBloc>(
-            create: (_) => PaymentReportBloc(),
-          ),
-          Provider<PaymentsReportStorageBloc>(
-            create: (_) => PaymentsReportStorageBloc(),
-          ),
-          Provider<PaymentRevisionBloc>(
-            create: (_) => PaymentRevisionBloc(),
-          ),
-          Provider<PaymentAdjustmentBloc>(
-            create: (_) => PaymentAdjustmentBloc(),
-          ),
-
-          RepositoryProvider<EtpRepository>(
-            create: (_) => EtpRepository(),
-          ),
-          BlocProvider<EtpCubit>(
-            create: (ctx) => EtpCubit(
-              ctx.read<EtpRepository>(),
-            ),
-          ),
-
-          RepositoryProvider<TrRepository>(
-            create: (_) => TrRepository(),
-          ),
-          BlocProvider<TrCubit>(
-            create: (ctx) => TrCubit(
-              ctx.read<TrRepository>(),
-            ),
-          ),
-
-          RepositoryProvider<CotacaoRepository>(
-            create: (_) => CotacaoRepository(),
-          ),
-          BlocProvider<CotacaoCubit>(
-            create: (ctx) => CotacaoCubit(
-              ctx.read<CotacaoRepository>(),
-            ),
-          ),
-
-          RepositoryProvider<HabilitacaoRepository>(
-            create: (_) => HabilitacaoRepository(),
-          ),
-          BlocProvider<HabilitacaoCubit>(
-            create: (ctx) => HabilitacaoCubit(
-              ctx.read<HabilitacaoRepository>(),
-            ),
-          ),
-
-          RepositoryProvider<DotacaoRepository>(
-            create: (_) => DotacaoRepository(),
-          ),
-          BlocProvider<DotacaoCubit>(
-            create: (ctx) => DotacaoCubit(
-              ctx.read<DotacaoRepository>(),
-            ),
-          ),
-
-          RepositoryProvider<MinutaContratoRepository>(
-            create: (_) => MinutaContratoRepository(),
-          ),
-          BlocProvider<MinutaContratoCubit>(
-            create: (ctx) => MinutaContratoCubit(
-              ctx.read<MinutaContratoRepository>(),
-            ),
-          ),
-
-          RepositoryProvider<ParecerJuridicoRepository>(
-            create: (_) => ParecerJuridicoRepository(),
-          ),
-          BlocProvider<ParecerJuridicoCubit>(
-            create: (ctx) => ParecerJuridicoCubit(
-              ctx.read<ParecerJuridicoRepository>(),
-            ),
-          ),
-
-          RepositoryProvider<TermoArquivamentoRepository>(
-            create: (_) => TermoArquivamentoRepository(),
-          ),
-          BlocProvider<TermoArquivamentoCubit>(
-            create: (ctx) => TermoArquivamentoCubit(
-              ctx.read<TermoArquivamentoRepository>(),
-            ),
-          ),
-
-          ChangeNotifierProvider<PhysicsFinanceStore>(
-            create: (_) => PhysicsFinanceStore(),
-          ),
-        ],
-        builder: (context, _) {
-          return BlocBuilder<UserCubit, UserState>(
-            buildWhen: (a, b) => a.current != b.current,
-            builder: (context, userState) {
-              return const GatePage();
-            },
+        if (details.stack != null) {
+          debugPrintStack(
+            label: details.exceptionAsString(),
+            stackTrace: details.stack,
           );
-        },
-      ),
-    );
-  }, (error, stack) {});
+        }
+      };
+
+      PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+        debugPrint('[PlatformDispatcher] $error');
+        debugPrintStack(stackTrace: stack);
+        return true;
+      };
+
+      await _loadEnvIfNeeded();
+      await initializeDateFormatting('pt_BR');
+      await _initFirebase();
+      await _connectToEmulatorsIfNeeded();
+
+      Provider.debugCheckInvalidValueType = null;
+
+      runApp(
+        MultiProvider(
+          providers: [
+            BlocProvider<MapOverlayCubit>(
+              create: (_) => MapOverlayCubit(),
+            ),
+
+            BlocProvider<SetupCubit>(
+              create: (_) => SetupCubit(),
+            ),
+
+            RepositoryProvider<LoginRepository>(
+              create: (_) => LoginRepository(),
+            ),
+            BlocProvider<LoginCubit>(
+              create: (ctx) => LoginCubit(
+                repository: ctx.read<LoginRepository>(),
+              ),
+            ),
+
+            Provider<NominatimBloc>(
+              create: (_) => NominatimBloc(),
+              dispose: (_, b) => b.dispose(),
+            ),
+
+            RepositoryProvider<UserRepository>(
+              create: (_) => UserRepository(),
+            ),
+            BlocProvider<UserCubit>(
+              create: (ctx) => UserCubit(
+                ctx.read<UserRepository>(),
+              )..warmup(
+                listenRealtime: true,
+                bindCurrentUser: true,
+              ),
+            ),
+
+            BlocProvider<ActiveOaesCubit>(
+              create: (_) => ActiveOaesCubit()..warmup(),
+            ),
+            BlocProvider<ActiveOacsCubit>(
+              create: (_) => ActiveOacsCubit()..warmup(),
+            ),
+            BlocProvider<ActiveRoadsCubit>(
+              create: (_) => ActiveRoadsCubit()..warmup(),
+            ),
+            BlocProvider<ActiveRailwaysCubit>(
+              create: (_) => ActiveRailwaysCubit()..warmup(),
+            ),
+
+            BlocProvider<AccidentsCubit>(
+              create: (_) => AccidentsCubit(),
+            ),
+
+            Provider<InfractionsBloc>(
+              create: (_) => InfractionsBloc(),
+              dispose: (_, b) => b.dispose(),
+            ),
+            ChangeNotifierProxyProvider<InfractionsBloc, InfractionsController>(
+              create: (ctx) => InfractionsController(
+                bloc: ctx.read<InfractionsBloc>(),
+              ),
+              update: (_, iBloc, ctrl) {
+                final controller = ctrl ??
+                    InfractionsController(
+                      bloc: iBloc,
+                    );
+
+                controller.updateDeps(iBloc);
+                return controller;
+              },
+            ),
+
+            BlocProvider<ReportMeasurementCubit>(
+              create: (_) => ReportMeasurementCubit(),
+            ),
+
+            BlocProvider<ValidityCubit>(
+              create: (_) => ValidityCubit(
+                repository: ValidityRepository(),
+              ),
+            ),
+
+            RepositoryProvider<BudgetRepository>(
+              create: (_) => BudgetRepository(),
+            ),
+            BlocProvider<BudgetCubit>(
+              create: (ctx) => BudgetCubit(
+                repository: ctx.read<BudgetRepository>(),
+              ),
+            ),
+
+            BlocProvider<AdjustmentMeasurementCubit>(
+              create: (_) => AdjustmentMeasurementCubit(),
+            ),
+
+            BlocProvider<RevisionMeasurementCubit>(
+              create: (_) => RevisionMeasurementCubit(),
+            ),
+
+            RepositoryProvider<AdditivesRepository>(
+              create: (_) => AdditivesRepository(),
+            ),
+
+            RepositoryProvider<ApostillesRepository>(
+              create: (_) => ApostillesRepository(),
+            ),
+
+            RepositoryProvider<DfdRepository>(
+              create: (_) => DfdRepository(),
+            ),
+            BlocProvider<DfdCubit>(
+              create: (ctx) => DfdCubit(
+                repository: ctx.read<DfdRepository>(),
+              ),
+            ),
+
+            RepositoryProvider<PublicacaoExtratoRepository>(
+              create: (_) => PublicacaoExtratoRepository(),
+            ),
+            BlocProvider<PublicacaoExtratoCubit>(
+              create: (ctx) => PublicacaoExtratoCubit(
+                ctx.read<PublicacaoExtratoRepository>(),
+              ),
+            ),
+
+            RepositoryProvider<EditalRepository>(
+              create: (_) => EditalRepository(),
+            ),
+            BlocProvider<EditalCubit>(
+              create: (ctx) => EditalCubit(
+                ctx.read<EditalRepository>(),
+              ),
+            ),
+
+            RepositoryProvider<ProcessRepository>(
+              create: (_) => ProcessRepository(),
+            ),
+            BlocProvider<ProcessCubit>(
+              create: (ctx) => ProcessCubit(
+                repository: ctx.read<ProcessRepository>(),
+              ),
+            ),
+
+            BlocProvider<GeneralDashboardCubit>(
+              create: (ctx) => GeneralDashboardCubit(
+                processCubit: ctx.read<ProcessCubit>(),
+                additivesRepository: ctx.read<AdditivesRepository>(),
+                apostillesRepository: ctx.read<ApostillesRepository>(),
+                reportMeasurementCubit: ctx.read<ReportMeasurementCubit>(),
+                adjustmentMeasurementCubit:
+                ctx.read<AdjustmentMeasurementCubit>(),
+                revisionMeasurementCubit: ctx.read<RevisionMeasurementCubit>(),
+                dfdCubit: ctx.read<DfdCubit>(),
+                editalCubit: ctx.read<EditalCubit>(),
+              )..initialize(),
+            ),
+
+            RepositoryProvider<ScheduleRoadRepository>(
+              create: (_) => ScheduleRoadRepository(),
+            ),
+            BlocProvider<ScheduleRoadCubit>(
+              create: (ctx) => ScheduleRoadCubit(
+                repository: ctx.read<ScheduleRoadRepository>(),
+              ),
+            ),
+
+            Provider<PaymentReportBloc>(
+              create: (_) => PaymentReportBloc(),
+              dispose: (_, bloc) => bloc.dispose(),
+            ),
+            Provider<PaymentsReportStorageBloc>(
+              create: (_) => PaymentsReportStorageBloc(),
+              dispose: (_, bloc) => bloc.dispose(),
+            ),
+            Provider<PaymentRevisionBloc>(
+              create: (_) => PaymentRevisionBloc(),
+              dispose: (_, bloc) => bloc.dispose(),
+            ),
+            Provider<PaymentAdjustmentBloc>(
+              create: (_) => PaymentAdjustmentBloc(),
+              dispose: (_, bloc) => bloc.dispose(),
+            ),
+
+            RepositoryProvider<EtpRepository>(
+              create: (_) => EtpRepository(),
+            ),
+            BlocProvider<EtpCubit>(
+              create: (ctx) => EtpCubit(
+                ctx.read<EtpRepository>(),
+              ),
+            ),
+
+            RepositoryProvider<TrRepository>(
+              create: (_) => TrRepository(),
+            ),
+            BlocProvider<TrCubit>(
+              create: (ctx) => TrCubit(
+                ctx.read<TrRepository>(),
+              ),
+            ),
+
+            RepositoryProvider<CotacaoRepository>(
+              create: (_) => CotacaoRepository(),
+            ),
+            BlocProvider<CotacaoCubit>(
+              create: (ctx) => CotacaoCubit(
+                ctx.read<CotacaoRepository>(),
+              ),
+            ),
+
+            RepositoryProvider<HabilitacaoRepository>(
+              create: (_) => HabilitacaoRepository(),
+            ),
+            BlocProvider<HabilitacaoCubit>(
+              create: (ctx) => HabilitacaoCubit(
+                ctx.read<HabilitacaoRepository>(),
+              ),
+            ),
+
+            RepositoryProvider<DotacaoRepository>(
+              create: (_) => DotacaoRepository(),
+            ),
+            BlocProvider<DotacaoCubit>(
+              create: (ctx) => DotacaoCubit(
+                ctx.read<DotacaoRepository>(),
+              ),
+            ),
+
+            RepositoryProvider<MinutaContratoRepository>(
+              create: (_) => MinutaContratoRepository(),
+            ),
+            BlocProvider<MinutaContratoCubit>(
+              create: (ctx) => MinutaContratoCubit(
+                ctx.read<MinutaContratoRepository>(),
+              ),
+            ),
+
+            RepositoryProvider<ParecerJuridicoRepository>(
+              create: (_) => ParecerJuridicoRepository(),
+            ),
+            BlocProvider<ParecerJuridicoCubit>(
+              create: (ctx) => ParecerJuridicoCubit(
+                ctx.read<ParecerJuridicoRepository>(),
+              ),
+            ),
+
+            RepositoryProvider<TermoArquivamentoRepository>(
+              create: (_) => TermoArquivamentoRepository(),
+            ),
+            BlocProvider<TermoArquivamentoCubit>(
+              create: (ctx) => TermoArquivamentoCubit(
+                ctx.read<TermoArquivamentoRepository>(),
+              ),
+            ),
+
+            ChangeNotifierProvider<PhysicsFinanceStore>(
+              create: (_) => PhysicsFinanceStore(),
+            ),
+          ],
+          builder: (context, _) {
+            return const GatePage();
+          },
+        ),
+      );
+    },
+        (Object error, StackTrace stack) {
+      debugPrint('[ZoneGuarded] $error');
+      debugPrintStack(stackTrace: stack);
+    },
+  );
 }

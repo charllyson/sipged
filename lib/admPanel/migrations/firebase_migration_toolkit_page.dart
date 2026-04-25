@@ -1,8 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
@@ -358,7 +359,7 @@ class _FirebaseMigrationToolkitPageState
           child: UpBar(
             leading: const Padding(
               padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
+              child: CircleButtonChange(),
             ),
           ),
         ),
@@ -411,10 +412,11 @@ class _FirebaseMigrationToolkitPageState
                           onPressed: _isLoading ? null : _loadCollection,
                           icon: _isLoading
                               ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                            height: 22,
+                            width: 22,
+                            child: LoadingTreeDotsGrey(
+                              size: 22,
+                              centered: false,
                             ),
                           )
                               : const Icon(
@@ -445,7 +447,9 @@ class _FirebaseMigrationToolkitPageState
                   if (_isLoading)
                     const Padding(
                       padding: EdgeInsets.only(top: 16),
-                      child: Center(child: CircularProgressIndicator()),
+                      child: Center(
+                        child: LoadingTreeDotsGrey(size: 90),
+                      ),
                     )
                   else if (_hasLoaded && _docIds.isEmpty)
                     const Padding(
@@ -648,10 +652,11 @@ class _FirebaseMigrationToolkitPageState
                               : _copySelectedToTarget,
                           icon: _isCopying
                               ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                            height: 22,
+                            width: 22,
+                            child: LoadingTreeDotsGrey(
+                              size: 22,
+                              centered: false,
                             ),
                           )
                               : const Icon(Icons.copy_all_outlined, size: 18),

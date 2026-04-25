@@ -1,19 +1,17 @@
-// lib/screens/adm/manager_permissions_users_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/images/photo_circle/photo_circle.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
-// Cubit de usuário
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 
-// ✅ helpers centralizados
 import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:sipged/_blocs/system/permitions/module_permission.dart' as pp;
 
@@ -89,7 +87,9 @@ class _ManagerPermissionsUsersPageState
         if (state.isLoadingUsers && state.all.isEmpty) {
           return const Scaffold(
             backgroundColor: Colors.white,
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: LoadingTreeDotsGrey(size: 110),
+            ),
           );
         }
 
@@ -97,7 +97,7 @@ class _ManagerPermissionsUsersPageState
             (state.loadUsersError?.isNotEmpty ?? false)) {
           return Scaffold(
             backgroundColor: Colors.white,
-            appBar: const UpBar(leading: BackCircleButton()),
+            appBar: const UpBar(leading: CircleButtonChange()),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -128,7 +128,7 @@ class _ManagerPermissionsUsersPageState
         if (users.isEmpty) {
           return Scaffold(
             backgroundColor: Colors.white,
-            appBar: const UpBar(leading: BackCircleButton()),
+            appBar: const UpBar(leading: CircleButtonChange()),
             body: const Center(
               child: Text('Nenhum usuário encontrado.'),
             ),
@@ -141,7 +141,7 @@ class _ManagerPermissionsUsersPageState
           appBar: UpBar(
             leading: const Padding(
               padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
+              child: CircleButtonChange(),
             ),
           ),
           backgroundColor: Colors.white,

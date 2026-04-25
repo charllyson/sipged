@@ -1,4 +1,3 @@
-// lib/screens/modules/contracts/measurement/adjustment/adjustment_measurement.dart
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -14,7 +13,8 @@ import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
@@ -163,14 +163,15 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
       builder: (context, state) {
         if (state.status == AdjustmentMeasurementStatus.loading &&
             state.adjustments.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: LoadingTreeDotsGrey(size: 110),
+          );
         }
 
         final labels = state.adjustments.map((m) => (m.order ?? 0).toString()).toList();
         final values = state.adjustments.map((m) => m.value ?? 0.0).toList();
         final total = state.adjustments.fold<double>(0.0, (s, m) => s + (m.value ?? 0.0));
 
-        // (aqui você depois pluga apostilas/aditivos se quiser)
         final double totalApostilles = 0.0;
         final double totalAdditives = 0.0;
         final double valorTotalDisponivel = totalApostilles + totalAdditives;
@@ -222,11 +223,8 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                             processNumberAdjustmentController: processCtrl,
                             dateAdjustmentController: dateCtrl,
                             valueAdjustmentController: valueCtrl,
-
-                            // ✅ overlay upload
                             sideLoading: state.uploading,
                             sideUploadProgress: state.uploadProgress,
-
                             onSave: () async {
                               final ok = await confirmDialog(
                                 context,
@@ -290,18 +288,12 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 );
                               }
                             },
-
                             onClear: () {
                               cubit.clearSelection();
                               setState(() => _selectedSideIndex = null);
                             },
-
-                            // ==========================
-                            // ✅ SideListBox – upload/delete/rename real
-                            // ==========================
                             sideItems: attachments,
                             selectedSideIndex: _selectedSideIndex,
-
                             onAddSideItem: (state.selected != null &&
                                 state.selected?.id != null &&
                                 contractId != null &&
@@ -314,7 +306,6 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                   adjustmentId: state.selected!.id!,
                                 );
 
-                                // seleciona o último item anexado
                                 if (mounted) {
                                   setState(() {
                                     _selectedSideIndex =
@@ -342,9 +333,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                               }
                             }
                                 : null,
-
                             onTapSideItem: (i) => setState(() => _selectedSideIndex = i),
-
                             onDeleteSideItem: (i) async {
                               if (contractId == null || contractId.isEmpty) return;
                               final sel = state.selected;
@@ -380,7 +369,6 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 );
                               }
                             },
-
                             onRenamePersist: ({
                               required int index,
                               required Attachment oldItem,
@@ -402,7 +390,6 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 return false;
                               }
                             },
-
                             onSideItemsChanged: (newItems) async {
                               final next = _onlyAttachments(newItems);
                               await cubit.updateAttachments(next);
@@ -418,8 +405,6 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 });
                               }
                             },
-
-                            // dropdown
                             orderOptions: orderOptions,
                             greyOrderItems: greyOrderItems,
                             onChangedOrder: (value) {
@@ -493,8 +478,6 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                 const FootBar(),
               ],
             ),
-
-            // mantém teu loading geral (salvar/delete/rename etc.)
             if (state.isSaving)
               Stack(
                 children: [
@@ -502,7 +485,9 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                     dismissible: false,
                     color: Colors.black.withValues(alpha: 0.4),
                   ),
-                  const Center(child: CircularProgressIndicator()),
+                  const Center(
+                    child: LoadingTreeDotsGrey(size: 120),
+                  ),
                 ],
               ),
           ],

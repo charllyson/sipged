@@ -1,4 +1,3 @@
-// lib/screens/modules/actives/oaes/active_oaes_details.dart
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -11,17 +10,14 @@ import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
-import 'package:sipged/_widgets/dates/selector/selector_dates.dart';
-
-// 📷 componentes de fotos
+import 'package:sipged/_widgets/DataTime/selector/selector_dates.dart';
 import 'package:sipged/_widgets/images/carousel/photo_item.dart';
 import 'package:sipged/_widgets/images/carousel/photo_gallery_dialog.dart';
 import 'package:sipged/_widgets/images/carousel/photo_thumb.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
-
-// ⬇️ Botão quadrado de câmera/galeria + preview
 import 'package:sipged/_widgets/images/carousel/photo_picker_square.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/screens/modules/actives/oaes/network/details_panel_body.dart';
@@ -32,22 +28,15 @@ class ActiveOaesDetails extends StatefulWidget {
     super.key,
     required this.marker,
     this.onClose,
-
-    // ▶️ SideListBox (compatível com String | Attachment)
     required this.sideItems,
     this.selectedSideIndex,
     this.onAddSideItem,
     this.onTapSideItem,
     this.onDeleteSideItem,
-
-    // ✅ novo padrão SideListBox
     this.onRenamePersist,
     this.onItemsChanged,
-
-    // overlay opcional do SideListBox (se quiser plugar progresso externo)
     this.sideLoading = false,
     this.sideUploadProgress,
-
     this.isEditable = true,
     this.titleSideList = 'Projetos e Documentos',
   });
@@ -55,16 +44,13 @@ class ActiveOaesDetails extends StatefulWidget {
   final MarkerChangedData<ActiveOaesData> marker;
   final VoidCallback? onClose;
 
-  // ---- SideListBox props ----
-  final List<dynamic> sideItems; // List<Attachment> OU List<String>
+  final List<dynamic> sideItems;
   final int? selectedSideIndex;
 
-  // ✅ agora compatível com async/sync
   final FutureOr<void> Function()? onAddSideItem;
   final FutureOr<void> Function(int index)? onTapSideItem;
   final FutureOr<void> Function(int index)? onDeleteSideItem;
 
-  // ✅ rename embutido
   final Future<bool> Function({
   required int index,
   required Attachment oldItem,
@@ -73,7 +59,6 @@ class ActiveOaesDetails extends StatefulWidget {
 
   final void Function(List<dynamic> newItems)? onItemsChanged;
 
-  // overlay
   final bool sideLoading;
   final double? sideUploadProgress;
 
@@ -93,7 +78,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
   int? _selectedYear;
   int? _selectedMonth;
 
-  // ===== BUSY / BARRIER =====
   bool _busy = false;
 
   Future<T> _withBusy<T>(Future<T> Function() task) async {
@@ -110,7 +94,10 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     await _withBusy(() async => Future.sync(fn));
   }
 
-  Future<void> _wrapBusyIndex(FutureOr<void> Function(int index)? fn, int index) async {
+  Future<void> _wrapBusyIndex(
+      FutureOr<void> Function(int index)? fn,
+      int index,
+      ) async {
     if (fn == null) return;
     await _withBusy(() async => Future.sync(() => fn(index)));
   }
@@ -121,7 +108,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     _loadInitialPhotos();
   }
 
-  // 🔁 Reage à troca de OAE (marker)
   @override
   void didUpdateWidget(covariant ActiveOaesDetails oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -169,7 +155,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     await _repo.savePhotos(id, _allPhotos);
   }
 
-  // ====== upload a partir de bytes (câmera/galeria) ======
   Future<void> _addPhotoFromBytes(Uint8List bytes) async {
     await _withBusy(() async {
       final d = widget.marker.data;
@@ -251,7 +236,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     final entries = <MapEntry<String, String>>[
       MapEntry('Identificação', d.identificationName ?? '-'),
       MapEntry('UF', d.state ?? '-'),
-      // TODO: substituir município quando houver campo específico
       MapEntry('Município', d.state ?? '-'),
       MapEntry('Nota', (d.score != null) ? d.score!.toStringAsFixed(1) : '-'),
       MapEntry('Ordem', d.order?.toString() ?? '-'),
@@ -288,20 +272,17 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                     onAddPressed: widget.isEditable && !_busy
                         ? () => _wrapBusy(widget.onAddSideItem)
                         : null,
-                    onTap: !_busy ? (i) => _wrapBusyIndex(widget.onTapSideItem, i) : null,
+                    onTap: !_busy
+                        ? (i) => _wrapBusyIndex(widget.onTapSideItem, i)
+                        : null,
                     onDelete: widget.isEditable && !_busy
                         ? (i) => _wrapBusyIndex(widget.onDeleteSideItem, i)
                         : null,
-
-                    // ✅ padrão novo
                     enableRename: widget.isEditable,
                     onRenamePersist: widget.onRenamePersist,
                     onItemsChanged: widget.onItemsChanged,
-
-                    // ✅ overlay
                     loading: widget.sideLoading,
                     uploadProgress: widget.sideUploadProgress,
-
                     width: sideWidth,
                   ),
                 ),
@@ -327,8 +308,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                     header,
                     const Divider(height: 1),
                     const SizedBox(height: 12),
-
-                    // ====== Fotos ==========================================================
                     SizedBox(
                       height: photosHeight,
                       child: ListView.separated(
@@ -377,8 +356,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // ====== Filtro de datas ======
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0),
                       child: AbsorbPointer(
@@ -409,8 +386,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // ====== Modelo 3D ======
                     const SectionTitle(text: 'Modelo 3D'),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0),
@@ -420,7 +395,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                       ),
                     ),
                     const SizedBox(height: 24),
-
                     const SectionTitle(text: 'Projetos e Documentos da OAE'),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
@@ -456,7 +430,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
               );
             },
           ),
-
           if (_busy) ...[
             Positioned.fill(
               child: ModalBarrier(
@@ -477,21 +450,21 @@ class _PositionedFillBusy extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Positioned.fill(
+    return Positioned.fill(
       child: IgnorePointer(
         child: Center(
           child: Card(
             elevation: 6,
-            shape: RoundedRectangleBorder(
+            shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.all(Radius.circular(12)),
             ),
             child: Padding(
-              padding: EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16.0),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [
+                children: const [
                   SizedBox(width: 4),
-                  CircularProgressIndicator(strokeWidth: 3),
+                  LoadingTreeDotsGrey(size: 36, centered: false),
                   SizedBox(width: 12),
                   Text(
                     'Processando...',
@@ -508,9 +481,6 @@ class _PositionedFillBusy extends StatelessWidget {
   }
 }
 
-/// ---------------------------------------------------------------------------
-/// Adaptador: Attachment -> PhotoItem (PhotoUrlItem) + CarouselMetadata
-/// ---------------------------------------------------------------------------
 extension _AttachmentToPhoto on Attachment {
   PhotoItem toPhotoItem() {
     final meta = pm.CarouselMetadata(

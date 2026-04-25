@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
@@ -56,7 +57,9 @@ class _ActiveRailwaysRecordsPageState
         final currentUser = userState.current;
         if (currentUser == null) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: LoadingTreeDotsGrey(size: 110),
+            ),
           );
         }
 
@@ -72,7 +75,9 @@ class _ActiveRailwaysRecordsPageState
             if (!st.initialized ||
                 st.loadStatus == ActiveRailwaysLoadStatus.loading) {
               return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
+                body: Center(
+                  child: LoadingTreeDotsGrey(size: 110),
+                ),
               );
             }
 
@@ -154,7 +159,9 @@ class _ActiveRailwaysRecordsPageState
                         dismissible: false,
                         color: Colors.black.withValues(alpha: 0.35),
                       ),
-                      const Center(child: CircularProgressIndicator()),
+                      const Center(
+                        child: LoadingTreeDotsGrey(size: 120),
+                      ),
                     ],
                   ),
               ],

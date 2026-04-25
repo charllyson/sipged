@@ -36,7 +36,7 @@ class PhotoBytesItem extends PhotoItem {
     return fmt == pm.ImgFmt.heic;
   }
 
-  factory PhotoBytesItem.fromPicked(CarouselPhoto p, {pm.CarouselMetadata? meta}) {
+  factory PhotoBytesItem.fromPicked(CarouselData p, {pm.CarouselMetadata? meta}) {
     return PhotoBytesItem(p.bytes, meta: meta);
   }
 }

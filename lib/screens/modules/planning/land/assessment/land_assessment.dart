@@ -8,9 +8,10 @@ import 'package:sipged/_blocs/modules/planning/land/assessment/land_assessment_s
 
 import 'package:sipged/_utils/formats/sipged_format_dates.dart';
 import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
-import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class LandAssessment extends StatefulWidget {
   final String contractId;
@@ -357,10 +358,11 @@ class _LandAssessmentState extends State<LandAssessment> {
                     TextButton.icon(
                       onPressed: state.loading
                           ? null
-                          : () => context.read<LandAssessmentCubit>().initialize(
-                        contractId: widget.contractId,
-                        propertyId: widget.propertyId,
-                      ),
+                          : () =>
+                          context.read<LandAssessmentCubit>().initialize(
+                            contractId: widget.contractId,
+                            propertyId: widget.propertyId,
+                          ),
                       icon: const Icon(Icons.refresh),
                       label: const Text('Recarregar'),
                     ),
@@ -376,7 +378,10 @@ class _LandAssessmentState extends State<LandAssessment> {
                           ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: LoadingTreeDotsGrey(
+                          size: 16,
+                          centered: false,
+                        ),
                       )
                           : const Icon(Icons.save),
                       label: Text(

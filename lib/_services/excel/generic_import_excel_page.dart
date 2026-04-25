@@ -9,7 +9,8 @@ import 'package:sipged/_widgets/input/text_field_change.dart';
 // 🔔 Notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 // 🪟 Janela estilo macOS
 
@@ -44,7 +45,6 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
   int _totalParaAtualizar = 0;
   bool _atualizando = false;
 
-  // 🔔 helper
   void _notify(
       String title, {
         AppNotificationType type = AppNotificationType.info,
@@ -169,14 +169,12 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
     if (valor is String) {
       final str = valor.trim();
 
-      // dd/MM/yyyy
       if (RegExp(r'\d{2}/\d{2}/\d{4}').hasMatch(str)) {
         try {
           return DateFormat('dd/MM/yyyy').parse(str);
         } catch (_) {}
       }
 
-      // ISO
       if (RegExp(r'\d{4}-\d{2}-\d{2}').hasMatch(str)) {
         return DateTime.tryParse(str);
       }
@@ -238,8 +236,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
                   child: ListView(
                     shrinkWrap: true,
                     children: _camposDoExcel.map((campo) {
-                      final existe =
-                      _camposExistentesNoBanco.contains(campo);
+                      final existe = _camposExistentesNoBanco.contains(campo);
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -261,13 +258,11 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
                                 'Campo novo',
                                 style: TextStyle(fontSize: 12),
                               ),
-                              value:
-                              _camposSelecionados.contains(campo),
+                              value: _camposSelecionados.contains(campo),
                               onChanged: (val) {
                                 setState(() {
                                   if (val == true) {
-                                    if (!_camposSelecionados
-                                        .contains(campo)) {
+                                    if (!_camposSelecionados.contains(campo)) {
                                       _camposSelecionados.add(campo);
                                     }
                                   } else {
@@ -295,8 +290,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
                                 if (val == 'Ignorar') {
                                   _camposSelecionados.remove(campo);
                                 } else {
-                                  if (!_camposSelecionados
-                                      .contains(campo)) {
+                                  if (!_camposSelecionados.contains(campo)) {
                                     _camposSelecionados.add(campo);
                                   }
                                 }
@@ -313,8 +307,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: () =>
-                          Navigator.of(dialogCtx).pop(),
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
                       child: const Text('Cancelar'),
                     ),
                     const SizedBox(width: 8),
@@ -366,8 +359,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
         builder: (dialogCtx) {
           final texto = previewFiltrado.entries
               .map(
-                (e) =>
-            '${e.key}: ${e.value} (${e.value.runtimeType})',
+                (e) => '${e.key}: ${e.value} (${e.value.runtimeType})',
           )
               .join('\n');
 
@@ -393,8 +385,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: () =>
-                          Navigator.of(dialogCtx).pop(),
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
                       child: const Text('Cancelar'),
                     ),
                     const SizedBox(width: 8),
@@ -464,10 +455,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
                 valor = double.tryParse(valorOriginal.toString());
                 break;
               case 'bool':
-                valor = valorOriginal
-                    .toString()
-                    .toLowerCase()
-                    .contains('true') ||
+                valor = valorOriginal.toString().toLowerCase().contains('true') ||
                     valorOriginal.toString() == '1';
                 break;
               case 'DateTime':
@@ -493,17 +481,12 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
         final order = row['order'];
 
         if (order == null) {
-          // sem 'order' -> novo doc
           await collection.add(dadosFiltrados);
         } else {
-          final snapshot = await collection
-              .where('order', isEqualTo: order)
-              .limit(1)
-              .get();
+          final snapshot =
+          await collection.where('order', isEqualTo: order).limit(1).get();
           if (snapshot.docs.isNotEmpty) {
-            await collection
-                .doc(snapshot.docs.first.id)
-                .update(dadosFiltrados);
+            await collection.doc(snapshot.docs.first.id).update(dadosFiltrados);
           } else {
             await collection.add(dadosFiltrados);
           }
@@ -515,8 +498,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
       _notify(
         'Importação concluída',
         type: AppNotificationType.success,
-        subtitle:
-        '$_atualizados de $_totalParaAtualizar atualizados',
+        subtitle: '$_atualizados de $_totalParaAtualizar atualizados',
       );
     } catch (e) {
       _notify(
@@ -554,8 +536,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
           children: [
             CustomTextField(
               controller: _pathController,
-              labelText:
-                'Caminho da coleção ou subcoleção no Firestore',
+              labelText: 'Caminho da coleção ou subcoleção no Firestore',
             ),
             const SizedBox(height: 16),
             if (_atualizando) ...[
@@ -577,23 +558,20 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
-              onPressed:
-              _colecaoExiste != false ? _pickAndPreviewExcel : null,
+              onPressed: _colecaoExiste != false ? _pickAndPreviewExcel : null,
               icon: const Icon(Icons.upload_file),
               label: const Text('Importar Excel'),
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
-              onPressed: _jsonData.isNotEmpty
-                  ? _listarCamposExistentes
-                  : null,
+              onPressed: _jsonData.isNotEmpty ? _listarCamposExistentes : null,
               icon: const Icon(Icons.list),
               label: const Text('Selecionar campos'),
             ),
             if (_loading || _carregandoCampos)
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: CircularProgressIndicator(),
+                child: LoadingTreeDotsGrey(centered: false),
               ),
           ],
         ),

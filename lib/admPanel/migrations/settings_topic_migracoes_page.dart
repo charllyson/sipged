@@ -1,4 +1,3 @@
-// lib/screens/settings/settings_topic_migracoes_page.dart
 import 'package:flutter/material.dart';
 import 'package:sipged/_services/firestore/cleanup/cleanup_subcollections_tile.dart';
 import 'package:sipged/_services/firestore/cleanup/selective_delete_tile.dart';
@@ -9,16 +8,14 @@ import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/tiles/tile_widget.dart';
 import 'package:sipged/admPanel/migrations/firebase_migration_toolkit_page.dart';
 
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
-// 🔔 Notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
-// 🪟 WindowDialog
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
-
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
 class SettingsTopicMigracoesPage extends StatefulWidget {
   const SettingsTopicMigracoesPage({super.key});
@@ -33,7 +30,7 @@ class _SettingsTopicMigracoesPageState
   @override
   Widget build(BuildContext context) {
     final topSafe = MediaQuery.of(context).padding.top;
-    const barHeight = 72.0; // mantenha igual às outras páginas
+    const barHeight = 72.0;
     final topPadding = topSafe + barHeight + 12;
 
     return Scaffold(
@@ -48,7 +45,7 @@ class _SettingsTopicMigracoesPageState
           child: UpBar(
             leading: const Padding(
               padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
+              child: CircleButtonChange(),
             ),
           ),
         ),
@@ -80,8 +77,8 @@ class _SettingsTopicMigracoesPageState
                         if (context.mounted) {
                           NotificationCenter.instance.show(
                             AppNotification(
-                              title: const Text(
-                                  'Migração concluída com sucesso!'),
+                              title:
+                              const Text('Migração concluída com sucesso!'),
                               type: AppNotificationType.success,
                               leadingLabel: const Text('Firebase'),
                               duration: const Duration(seconds: 4),
@@ -127,15 +124,12 @@ class _SettingsTopicMigracoesPageState
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
                   _section('Limpeza'),
                   const CleanUpSubcollectionsTile(),
                   const SizedBox(height: 8),
                   const SelectiveDeleteSubcollectionTile(),
                   const SizedBox(height: 12),
-
                   TileWidget(
                     title: 'Apagar coleção inteira',
                     subtitle: 'Operação irreversível — cuidado!',
@@ -154,12 +148,10 @@ class _SettingsTopicMigracoesPageState
                             if (context.mounted) {
                               NotificationCenter.instance.show(
                                 AppNotification(
-                                  title:
-                                  const Text('Coleção deletada!'),
+                                  title: const Text('Coleção deletada!'),
                                   type: AppNotificationType.success,
                                   leadingLabel: const Text('Firebase'),
-                                  duration:
-                                  const Duration(seconds: 4),
+                                  duration: const Duration(seconds: 4),
                                 ),
                               );
                             }
@@ -192,8 +184,6 @@ class _SettingsTopicMigracoesPageState
   }
 }
 
-// ------- helpers UI -------
-
 Widget _section(String text) => Padding(
   padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
   child: Text(
@@ -202,7 +192,6 @@ Widget _section(String text) => Padding(
   ),
 );
 
-// 🪟 Agora usando WindowDialog para perguntar o path
 Future<String?> _askPath(BuildContext context) async {
   final controller = TextEditingController();
 
@@ -226,8 +215,7 @@ Future<String?> _askPath(BuildContext context) async {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () =>
-                        Navigator.of(dialogCtx).pop(null),
+                    onPressed: () => Navigator.of(dialogCtx).pop(null),
                     child: const Text('Cancelar'),
                   ),
                   const SizedBox(width: 8),
@@ -254,6 +242,11 @@ void _loading(BuildContext context) {
   showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const Center(child: CircularProgressIndicator()),
+    builder: (_) => const Material(
+      color: Colors.black26,
+      child: Center(
+        child: LoadingTreeDotsGrey(size: 110),
+      ),
+    ),
   );
 }

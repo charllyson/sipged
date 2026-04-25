@@ -22,9 +22,9 @@ import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/pdf/pdf_preview.dart';
+import 'package:sipged/_services/pdf/pdf_preview.dart';
 
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
 class PaymentsReportController extends ChangeNotifier with SipGedValidation {
   PaymentsReportController({

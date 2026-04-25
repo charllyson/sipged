@@ -18,7 +18,7 @@ class PhotoCarousel extends StatelessWidget {
     Widget? leading,
     List<String> existingUrls = const [],
     Map<String, pm.CarouselMetadata>? existingMetaByUrl,
-    List<CarouselPhoto> newPhotos = const [],
+    List<CarouselData> newPhotos = const [],
     List<pm.CarouselMetadata> newMetas = const [],
     void Function(int index)? onRemoveExisting,
     void Function(int index)? onRemoveNew,

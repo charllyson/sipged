@@ -4,6 +4,7 @@ import 'package:sipged/_services/firestore/migrate/migration_service.dart';
 // ✅ notificações ricas
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class MigrationCollections extends StatelessWidget {
   const MigrationCollections({super.key});
@@ -14,19 +15,17 @@ class MigrationCollections extends StatelessWidget {
       leading: const Icon(Icons.swap_horiz),
       tileColor: Colors.white10,
       onTap: () async {
-        // Loading modal
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) => const Center(child: CircularProgressIndicator()),
+          builder: (_) => const LoadingTreeDotsGrey(),
         );
         try {
           await migrarMeasurementsParaColecoesNovas();
 
           if (!context.mounted) return;
-          Navigator.pop(context); // fecha loading
+          Navigator.pop(context);
 
-          // 🔔 sucesso
           NotificationCenter.instance.show(
             AppNotification(
               title: const Text('Migração concluída'),
@@ -38,9 +37,8 @@ class MigrationCollections extends StatelessWidget {
           );
         } catch (e) {
           if (!context.mounted) return;
-          Navigator.pop(context); // fecha loading
+          Navigator.pop(context);
 
-          // 🔔 erro
           NotificationCenter.instance.show(
             AppNotification(
               title: const Text('Erro na migração'),

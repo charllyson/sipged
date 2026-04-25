@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/buttons/float_action_button.dart';
+import 'package:sipged/_widgets/buttons/container_button_change.dart';
 import 'package:sipged/_widgets/resize/resize_handle.dart';
 
 class ResizeChange extends StatefulWidget {
@@ -226,7 +226,7 @@ class _ResizeChangeState extends State<ResizeChange> {
   }) {
     final primary = Theme.of(context).colorScheme.primary;
 
-    return FloatActionButton(
+    return ContainerButtonChange(
       tooltip: widget.resizeTooltip,
       icon: _iconForResizeHandle(handle),
       cursor: cursor,
@@ -310,7 +310,7 @@ class _ResizeChangeState extends State<ResizeChange> {
               Positioned(
                 top: widget.actionButtonOffset.top,
                 left: widget.actionButtonOffset.left,
-                child: FloatActionButton(
+                child: ContainerButtonChange(
                   tooltip: widget.moveTooltip,
                   icon: widget.moveIcon,
                   cursor: SystemMouseCursors.move,
@@ -327,7 +327,7 @@ class _ResizeChangeState extends State<ResizeChange> {
               Positioned(
                 top: widget.actionButtonOffset.top,
                 right: widget.actionButtonOffset.right,
-                child: FloatActionButton(
+                child: ContainerButtonChange(
                   tooltip: widget.removeTooltip,
                   icon: widget.removeIcon,
                   cursor: SystemMouseCursors.click,

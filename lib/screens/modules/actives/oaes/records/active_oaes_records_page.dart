@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/screens/modules/actives/oaes/records/list_oaes_page.dart';
 import 'package:sipged/screens/modules/actives/oaes/records/tab_bar_oaes_page.dart';
 
@@ -57,7 +57,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
             appBar: UpBar(
               leading: Padding(
                 padding: EdgeInsets.only(left: 12.0),
-                child: BackCircleButton(),
+                child: CircleButtonChange(),
               ),
               showPhotoMenu: true,
             ),

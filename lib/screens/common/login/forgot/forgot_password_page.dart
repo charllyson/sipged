@@ -4,16 +4,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/images/logos/sisgeo_logo.dart';
-import 'package:sipged/_widgets/input/icon_button_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-
-// 🔔 Notificações centralizadas
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -40,15 +38,18 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     _emailCtrl = TextEditingController();
     _emailFocus = FocusNode();
 
-    _companyController = TextEditingController(text: SetupData.defaultModuleLabel);
-    _bgGradient = SetupData.gradientForModule(SetupData.defaultModuleLabel);
+    _companyController =
+        TextEditingController(text: SetupData.defaultModuleLabel);
+    _bgGradient =
+        SetupData.gradientForModule(SetupData.defaultModuleLabel);
 
     _emailCtrl.addListener(() {
       final has = _emailCtrl.text.trim().isNotEmpty;
-      if (has != _hasEmail) setState(() => _hasEmail = has);
+      if (has != _hasEmail) {
+        setState(() => _hasEmail = has);
+      }
     });
 
-    // carrega o último e-mail salvo (se houver)
     _preloadEmail();
   }
 
@@ -89,7 +90,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       AppNotification(
         type: type,
         title: Text(title),
-        subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+        subtitle:
+        (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
       ),
     );
   }
@@ -134,7 +136,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         type: AppNotificationType.error,
       );
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -147,7 +151,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         showPhotoMenu: false,
         leading: Padding(
           padding: const EdgeInsets.only(left: 10),
-          child: BackCircleButton(),
+          child: CircleButtonChange(
+            icon: Icons.arrow_back,
+            tooltip: 'Voltar',
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
         ),
       ),
       body: Container(
@@ -172,19 +180,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           bottom: 18 + MediaQuery.of(context).viewInsets.bottom,
                         ),
                         child: ConstrainedBox(
-                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                          constraints:
+                          BoxConstraints(minHeight: constraints.maxHeight),
                           child: IntrinsicHeight(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 const SizedBox(height: 8),
-
-                                // ✅ Logo igual ao SignIn
                                 const SiGedLogo(),
                                 const SizedBox(height: 24),
-
                                 _buildForgotCard(context),
-
                                 const Spacer(),
                                 const SizedBox(height: 12),
                               ],
@@ -197,7 +202,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 },
               ),
             ),
-
             if (_loading)
               Positioned.fill(
                 child: Container(
@@ -205,17 +209,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.6,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
+                      LoadingTreeDotsGrey(
+                        size: 22,
+                        strokeWidth: 2.6,
+                        color: Colors.white,
+                        centered: false,
                       ),
                       SizedBox(height: 12),
                       Text(
-                        "Enviando...",
+                        'Enviando...',
                         style: TextStyle(color: Colors.white, fontSize: 20),
                       ),
                     ],
@@ -251,7 +253,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 18),
-
             CustomTextField(
               controller: _emailCtrl,
               focusNode: _emailFocus,
@@ -262,21 +263,27 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               keyboardType: TextInputType.emailAddress,
               enabled: !_loading,
               suffix: _hasEmail
-                  ? IconButtonChange(
-                radius: 28,
-                iconData: Icons.clear,
-                onTap: _loading
-                    ? null
-                    : () {
-                  _emailCtrl.clear();
-                  _emailFocus.requestFocus();
-                },
+                  ? Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: SizedBox.square(
+                  dimension: 28,
+                  child: CircleButtonChange(
+                    radius: 14,
+                    iconSize: 18,
+                    icon: Icons.clear,
+                    tooltip: 'Limpar',
+                    onPressed: _loading
+                        ? null
+                        : () {
+                      _emailCtrl.clear();
+                      _emailFocus.requestFocus();
+                    },
+                  ),
+                ),
               )
                   : null,
             ),
-
             const SizedBox(height: 16),
-
             SizedBox(
               height: 48,
               width: double.infinity,
@@ -284,7 +291,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 onPressed: _loading ? null : _send,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
-                  disabledBackgroundColor: Colors.blue.withValues(alpha: 0.35),
+                  disabledBackgroundColor:
+                  Colors.blue.withValues(alpha: 0.35),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -299,12 +307,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 10),
-
             TextButton(
               onPressed: _loading ? null : () => Navigator.of(context).pop(),
-              child: const Text('Voltar para o login', style: TextStyle(fontSize: 12)),
+              child: const Text(
+                'Voltar para o login',
+                style: TextStyle(fontSize: 12),
+              ),
             ),
           ],
         ),

@@ -1,8 +1,8 @@
-// lib/screens/menus/menu_drawer.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_widgets/menu/drawer/menu_drawer_item.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import 'package:sipged/_widgets/texts/divider_text.dart';
 import 'package:sipged/_widgets/menu/drawer/menu_drawer_sub_item.dart';
@@ -81,7 +81,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
     }
 
     if (userData == null || state.isLoadingUsers) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingTreeDotsGrey();
     }
 
     return ListView(

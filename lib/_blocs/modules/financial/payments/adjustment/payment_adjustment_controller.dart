@@ -12,7 +12,7 @@ import 'package:sipged/_utils/formats/sipged_format_dates.dart';
 import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/pdf/pdf_preview.dart';
+import 'package:sipged/_services/pdf/pdf_preview.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
@@ -23,7 +23,7 @@ import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
 class PaymentsAdjustmentController extends ChangeNotifier
     with SipGedValidation {

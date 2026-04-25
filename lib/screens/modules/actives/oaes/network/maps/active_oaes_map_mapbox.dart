@@ -1,4 +1,3 @@
-// lib/screens/modules/actives/oaes/active_oaes_map_cesium.dart
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 
@@ -8,6 +7,7 @@ import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class ActiveOaesMapMapbox extends StatelessWidget {
   const ActiveOaesMapMapbox({
@@ -26,7 +26,10 @@ class ActiveOaesMapMapbox extends StatelessWidget {
       return Stack(
         children: [
           BackgroundChange(),
-          const Center(child: CircularProgressIndicator()),
+          const LoadingTreeDotsGrey(
+            size: 32,
+            strokeWidth: 3,
+          ),
         ],
       );
     }

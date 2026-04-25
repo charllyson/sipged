@@ -15,8 +15,9 @@ import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import '../create/create_detailed_reports_page.dart';
 import 'report_measurement_form_section.dart';
@@ -659,7 +660,9 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                     dismissible: false,
                     color: Colors.black.withValues(alpha: 0.4),
                   ),
-                  const Center(child: CircularProgressIndicator()),
+                  const Center(
+                    child: LoadingTreeDotsGrey(size: 120),
+                  ),
                 ],
               ),
           ],

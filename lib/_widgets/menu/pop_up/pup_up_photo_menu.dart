@@ -5,6 +5,7 @@ import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/images/photo_circle/photo_circle.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/admPanel/system_hub_page.dart';
 import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:sipged/screens/common/profile/profile_page.dart';
@@ -24,11 +25,13 @@ class PopUpPhotoMenu extends StatelessWidget {
     );
 
     if (userData == null) {
-      return const Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: LoadingTreeDotsGrey(
+          size: 20,
+          strokeWidth: 2,
+          centered: false,
         ),
       );
     }

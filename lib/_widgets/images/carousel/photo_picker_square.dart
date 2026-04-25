@@ -9,14 +9,11 @@ import 'package:sipged/_widgets/images/carousel/custom_camera_page.dart';
 import 'package:sipged/_widgets/images/carousel/photo_preview_page.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class PhotoPickerSquare extends StatefulWidget {
   final bool enabled;
-
-  /// Fluxo legado
   final VoidCallback? onTap;
-
-  /// Callbacks finais
   final Future<void> Function(Uint8List bytes)? onPickFromCamera;
   final Future<void> Function(Uint8List bytes)? onPickFromGallery;
 
@@ -92,10 +89,11 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.6),
+                const LoadingTreeDotsGrey(
+                  size: 22,
+                  strokeWidth: 2.6,
+                  color: Colors.white,
+                  centered: false,
                 ),
                 const SizedBox(width: 12),
                 Text(

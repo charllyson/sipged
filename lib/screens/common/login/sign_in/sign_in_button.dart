@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_state.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class SignInButton extends StatelessWidget {
   const SignInButton({super.key});
@@ -19,7 +20,6 @@ class SignInButton extends StatelessWidget {
         final isLoading = st.isLoading;
         final canSubmit = st.canSubmitEmailPass && !isLoading;
 
-        // ✅ texto dinâmico
         final label = st.hasSavedEmail ? 'Continuar' : 'Entrar';
 
         return Column(
@@ -30,7 +30,8 @@ class SignInButton extends StatelessWidget {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
-                  disabledBackgroundColor: Colors.blue.withValues(alpha: 0.35),
+                  disabledBackgroundColor:
+                  Colors.blue.withValues(alpha: 0.35),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -46,13 +47,11 @@ class SignInButton extends StatelessWidget {
                     ? Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
+                    LoadingTreeDotsGrey(
+                      size: 18,
+                      strokeWidth: 2,
+                      color: Colors.white,
+                      centered: false,
                     ),
                     SizedBox(width: 10),
                     Text(

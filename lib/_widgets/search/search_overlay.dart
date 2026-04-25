@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/search/search_box.dart';
 import '../map/suggestions/search_suggestion.dart';
 
@@ -95,8 +96,7 @@ class SearchOverlay {
       final top = (r.top + (r.height - height) / 2)
           .clamp(8.0, media.size.height - height - 8.0);
 
-      final originX =
-      expandSide == SearchExpandSide.left ? r.right : r.left;
+      final originX = expandSide == SearchExpandSide.left ? r.right : r.left;
 
       const double listTopGap = 6.0;
       const double itemH = 52.0;
@@ -118,9 +118,8 @@ class SearchOverlay {
             curve: Curves.easeOut,
             tween: Tween<double>(begin: 0.0, end: endWidth),
             builder: (ctx, w, child) {
-              final left = expandSide == SearchExpandSide.left
-                  ? (originX - w)
-                  : originX;
+              final left =
+              expandSide == SearchExpandSide.left ? (originX - w) : originX;
 
               final canInteract = w >= 12.0;
 
@@ -180,30 +179,25 @@ class SearchOverlay {
                                 return ListTile(
                                   dense: true,
                                   leading: Icon(
-                                    s.icon ??
-                                        _iconForKind(s.kind),
+                                    s.icon ?? _iconForKind(s.kind),
                                     size: 20,
                                     color: Colors.black54,
                                   ),
                                   title: Text(
                                     s.title,
                                     maxLines: 2,
-                                    overflow:
-                                    TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                    const TextStyle(fontSize: 14),
                                   ),
                                   subtitle:
-                                  (s.subtitle?.isNotEmpty ??
-                                      false)
+                                  (s.subtitle?.isNotEmpty ?? false)
                                       ? Text(
                                     s.subtitle!,
                                     maxLines: 1,
                                     overflow: TextOverflow
                                         .ellipsis,
-                                    style:
-                                    const TextStyle(
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.black54,
                                     ),
@@ -329,15 +323,14 @@ class _OverlayLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12.0),
+    return const Padding(
+      padding: EdgeInsets.all(12.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
+        children: [
+          LoadingTreeDotsGrey(
+            size: 28,
+            centered: false,
           ),
           SizedBox(width: 10),
           Text(

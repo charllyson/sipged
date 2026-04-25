@@ -1,13 +1,13 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sipged/_services/firestore/explorer/firestore_export_stub.dart';
-import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:flutter/material.dart';
 
-// ✅ notificações ricas
+import 'package:sipged/_services/firestore/explorer/firestore_export_stub.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class FieldMapping {
   final TextEditingController oldFieldCtrl;
@@ -33,11 +33,30 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
   final _newCollectionCtrl = TextEditingController();
   final List<FieldMapping> _fieldMappings = [];
   final List<Map<String, TextEditingController>> _subcollections = [];
+
   Map<String, dynamic>? firestoreData;
   bool isLoading = false;
   bool _somentePrimeiroDoc = true;
   bool _somentePrimeiroDocSub = true;
   String? _ultimaSubcolecaoBuscada;
+
+  @override
+  void dispose() {
+    _collectionCtrl.dispose();
+    _newCollectionCtrl.dispose();
+
+    for (final mapping in _fieldMappings) {
+      mapping.oldFieldCtrl.dispose();
+      mapping.newFieldCtrl.dispose();
+    }
+
+    for (final pair in _subcollections) {
+      pair['old']?.dispose();
+      pair['new']?.dispose();
+    }
+
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,18 +117,27 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                             children: [
                               Row(
                                 children: [
-                                  const Text('Apenas na 1º coleção', style: TextStyle(color: Colors.grey)),
+                                  const Text(
+                                    'Apenas na 1º coleção',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
                                   Switch(
                                     value: _somentePrimeiroDoc,
-                                    onChanged: (value) => setState(() => _somentePrimeiroDoc = value),
+                                    onChanged: (value) =>
+                                        setState(() => _somentePrimeiroDoc = value),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               ElevatedButton(
                                 onPressed: _loadData,
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                child: const Text('Buscar dados nesta coleção', style: TextStyle(color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                ),
+                                child: const Text(
+                                  'Buscar dados nesta coleção',
+                                  style: TextStyle(color: Colors.white),
+                                ),
                               ),
                             ],
                           ),
@@ -119,26 +147,45 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                             children: [
                               ElevatedButton.icon(
                                 onPressed: () async {
-                                  final confirmar = await confirmDialog(context,
+                                  final confirmar = await confirmDialog(
+                                    context,
                                     'Deseja realmente renomear esta coleção? Essa ação não pode ser desfeita.',
                                   );
-                                  if (confirmar) _copiarColecao();
+                                  if (confirmar) {
+                                    await _copiarColecao();
+                                  }
                                 },
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                ),
                                 icon: const Icon(Icons.copy, color: Colors.white),
-                                label: const Text('Duplicar coleção com o novo nome', style: TextStyle(color: Colors.white)),
+                                label: const Text(
+                                  'Duplicar coleção com o novo nome',
+                                  style: TextStyle(color: Colors.white),
+                                ),
                               ),
                               const SizedBox(height: 12),
                               ElevatedButton.icon(
                                 onPressed: () async {
-                                  final confirmar = await confirmDialog(context,
+                                  final confirmar = await confirmDialog(
+                                    context,
                                     'Deseja realmente transformar os arrays em subcoleções e remover os arrays originais?',
                                   );
-                                  if (confirmar) await _replicarECriarColecoesDeArrays();
+                                  if (confirmar) {
+                                    await _replicarECriarColecoesDeArrays();
+                                  }
                                 },
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                icon: const Icon(Icons.auto_fix_high, color: Colors.white),
-                                label: const Text('Tansformar arrays em subcoleções', style: TextStyle(color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                ),
+                                icon: const Icon(
+                                  Icons.auto_fix_high,
+                                  color: Colors.white,
+                                ),
+                                label: const Text(
+                                  'Tansformar arrays em subcoleções',
+                                  style: TextStyle(color: Colors.white),
+                                ),
                               ),
                             ],
                           ),
@@ -151,9 +198,10 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Container(
                         decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(8),
-                            color: Colors.white),
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.white,
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: Row(
@@ -178,17 +226,30 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                                 children: [
                                   Row(
                                     children: [
-                                      const Text('Apenas no 1º doc. da subcoleção', style: TextStyle(color: Colors.grey)),
+                                      const Text(
+                                        'Apenas no 1º doc. da subcoleção',
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
                                       Switch(
                                         value: _somentePrimeiroDocSub,
-                                        onChanged: (value) => setState(() => _somentePrimeiroDocSub = value),
+                                        onChanged: (value) => setState(
+                                              () => _somentePrimeiroDocSub = value,
+                                        ),
                                       ),
                                     ],
                                   ),
                                   ElevatedButton(
-                                    onPressed: () => _buscarSubcolecao(pair['old']!.text.trim(), pair['new']!.text.trim()),
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                    child: const Text('Buscar dados nesta subcoleção', style: TextStyle(color: Colors.white)),
+                                    onPressed: () => _buscarSubcolecao(
+                                      pair['old']!.text.trim(),
+                                      pair['new']!.text.trim(),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                    ),
+                                    child: const Text(
+                                      'Buscar dados nesta subcoleção',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -197,14 +258,28 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                                 children: [
                                   ElevatedButton.icon(
                                     onPressed: () async {
-                                      final confirmar = await confirmDialog(context,
+                                      final confirmar = await confirmDialog(
+                                        context,
                                         'Deseja realmente renomear esta subcoleção? A subcoleção original será apagada.',
                                       );
-                                      if (confirmar) _replicarSubcolecao(pair['old']!.text.trim(), pair['new']!.text.trim());
+                                      if (confirmar) {
+                                        await _replicarSubcolecao(
+                                          pair['old']!.text.trim(),
+                                          pair['new']!.text.trim(),
+                                        );
+                                      }
                                     },
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                    icon: const Icon(Icons.copy, color: Colors.white),
-                                    label: const Text('Renomear subcoleção', style: TextStyle(color: Colors.white)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.copy,
+                                      color: Colors.white,
+                                    ),
+                                    label: const Text(
+                                      'Renomear subcoleção',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -222,11 +297,16 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                   ),
                   const SizedBox(height: 16),
                   if (isLoading)
-                    const Center(child: CircularProgressIndicator())
+                    const LoadingTreeDotsGrey(
+                      size: 32,
+                      strokeWidth: 3,
+                    )
                   else if (firestoreData == null)
                     const Center(child: Text('Nenhum dado carregado.'))
                   else
-                    SingleChildScrollView(child: _multiDocTable(firestoreData!)),
+                    SingleChildScrollView(
+                      child: _multiDocTable(firestoreData!),
+                    ),
                 ],
               ),
             ),
@@ -235,7 +315,11 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
         if (isLoading)
           Container(
             color: Colors.black.withValues(alpha: 0.5),
-            child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+            child: const LoadingTreeDotsGrey(
+              size: 36,
+              strokeWidth: 3,
+              color: Colors.white,
+            ),
           ),
       ],
     );
@@ -243,7 +327,10 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
 
   void _adicionarSubcolecao() {
     setState(() {
-      _subcollections.add({'old': TextEditingController(), 'new': TextEditingController()});
+      _subcollections.add({
+        'old': TextEditingController(),
+        'new': TextEditingController(),
+      });
     });
   }
 
@@ -268,7 +355,8 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
 
     try {
       final colName = _collectionCtrl.text.trim();
-      final parentSnapshot = await FirebaseFirestore.instance.collection(colName).get();
+      final parentSnapshot =
+      await FirebaseFirestore.instance.collection(colName).get();
 
       if (parentSnapshot.docs.isEmpty) {
         setState(() => isLoading = false);
@@ -283,13 +371,16 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
         return;
       }
 
-      final parentDocs = _somentePrimeiroDocSub ? [parentSnapshot.docs.first] : parentSnapshot.docs;
+      final parentDocs = _somentePrimeiroDocSub
+          ? [parentSnapshot.docs.first]
+          : parentSnapshot.docs;
       final result = <String, dynamic>{};
 
       for (final parentDoc in parentDocs) {
         final subSnapshot = await parentDoc.reference.collection(nomeOriginal).get();
         for (final doc in subSnapshot.docs) {
-          result['${parentDoc.id}/${doc.id}'] = Map<String, dynamic>.from(doc.data());
+          result['${parentDoc.id}/${doc.id}'] =
+          Map<String, dynamic>.from(doc.data());
           if (_somentePrimeiroDoc) break;
         }
       }
@@ -328,7 +419,9 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
     if (nomeOriginal.isEmpty || nomeNovo.isEmpty) {
       NotificationCenter.instance.show(
         AppNotification(
-          title: const Text('Informe os nomes da subcoleção original e nova.'),
+          title: const Text(
+            'Informe os nomes da subcoleção original e nova.',
+          ),
           type: AppNotificationType.warning,
           leadingLabel: const Text('Firestore'),
           duration: const Duration(seconds: 4),
@@ -340,7 +433,8 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
     setState(() => isLoading = true);
     try {
       final colName = _collectionCtrl.text.trim();
-      final parentSnapshot = await FirebaseFirestore.instance.collection(colName).get();
+      final parentSnapshot =
+      await FirebaseFirestore.instance.collection(colName).get();
 
       for (final parentDoc in parentSnapshot.docs) {
         final subRefOriginal = parentDoc.reference.collection(nomeOriginal);
@@ -356,7 +450,8 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                   (m) => m.oldFieldCtrl.text.trim() == oldField,
               orElse: () => FieldMapping(
                 oldFieldCtrl: TextEditingController(text: oldField),
-                newFieldCtrl: TextEditingController(text: _formatarNome(oldField)),
+                newFieldCtrl:
+                TextEditingController(text: _formatarNome(oldField)),
               ),
             );
 
@@ -376,7 +471,9 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
       if (!mounted) return;
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Subcoleção "$nomeOriginal" renomeada e original removida.'),
+          title: Text(
+            'Subcoleção "$nomeOriginal" renomeada e original removida.',
+          ),
           type: AppNotificationType.success,
           leadingLabel: const Text('Firestore'),
         ),
@@ -420,6 +517,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
 
     final result = <String, dynamic>{};
     final docsToProcess = _somentePrimeiroDoc ? [snapshot.docs.first] : snapshot.docs;
+
     for (final doc in docsToProcess) {
       result[doc.id] = Map<String, dynamic>.from(doc.data());
     }
@@ -427,6 +525,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
     setState(() {
       firestoreData = result;
       isLoading = false;
+      _ultimaSubcolecaoBuscada = null;
       _preencherCamposAutomaticamente();
     });
   }
@@ -490,7 +589,8 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
 
   Future<void> _replicarECriarColecoesDeArrays() async {
     final origem = _collectionCtrl.text.trim();
-    final destino = _newCollectionCtrl.text.trim().isEmpty ? origem : _newCollectionCtrl.text.trim();
+    final destino =
+    _newCollectionCtrl.text.trim().isEmpty ? origem : _newCollectionCtrl.text.trim();
     if (origem.isEmpty) return;
 
     setState(() => isLoading = true);
@@ -518,7 +618,8 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
 
           if (value is List) {
             final subcollectionName = _formatarNome(key);
-            final subcollectionRef = destinoCol.doc(doc.id).collection(subcollectionName);
+            final subcollectionRef =
+            destinoCol.doc(doc.id).collection(subcollectionName);
 
             for (final item in value) {
               if (item is Map) {
@@ -536,7 +637,9 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
       if (!mounted) return;
       NotificationCenter.instance.show(
         AppNotification(
-          title: const Text('Coleção replicada e arrays convertidos para subcoleções.'),
+          title: const Text(
+            'Coleção replicada e arrays convertidos para subcoleções.',
+          ),
           type: AppNotificationType.success,
           leadingLabel: const Text('Firestore'),
         ),
@@ -562,7 +665,8 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
 
     final col = FirebaseFirestore.instance.collection(colName);
     final snapshot = await col.get();
-    final parentDocs = _somentePrimeiroDocSub ? [snapshot.docs.first] : snapshot.docs;
+    final parentDocs =
+    _somentePrimeiroDocSub ? [snapshot.docs.first] : snapshot.docs;
 
     for (final parentDoc in parentDocs) {
       final subSnapshot = await parentDoc.reference.collection(nomeSubcolecao).get();
@@ -624,7 +728,9 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
         final oldField = map.oldFieldCtrl.text.trim();
         final newField = _formatarNome(map.newFieldCtrl.text.trim());
 
-        if (oldField.isEmpty || newField.isEmpty || !data.containsKey(oldField)) continue;
+        if (oldField.isEmpty || newField.isEmpty || !data.containsKey(oldField)) {
+          continue;
+        }
 
         final converted = _converterTipo(data[oldField], map.selectedType);
 
@@ -646,21 +752,25 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
       ),
     );
 
-    _loadData();
+    await _loadData();
   }
 
   dynamic _converterTipo(dynamic valor, String tipo) {
     switch (tipo) {
       case 'string':
         return valor.toString();
+
       case 'number':
-        final clean = valor.toString()
+        final clean = valor
+            .toString()
             .replaceAll(RegExp(r'[^\d,.-]'), '')
             .replaceAll('.', '')
             .replaceAll(',', '.');
         return num.tryParse(clean) ?? 0;
+
       case 'boolean':
         return valor.toString().toLowerCase() == 'true';
+
       case 'timestamp':
         if (valor is Timestamp) return valor;
         if (valor is String) {
@@ -671,10 +781,15 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
           }
         }
         return Timestamp.now();
+
       case 'list':
         return valor is List ? valor.map((e) => e.toString()).toList() : [valor];
+
       case 'network':
-        return valor is Map ? valor.map((k, v) => MapEntry(k.toString(), v.toString())) : {};
+        return valor is Map
+            ? valor.map((k, v) => MapEntry(k.toString(), v.toString()))
+            : {};
+
       default:
         return valor;
     }
@@ -683,10 +798,14 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
   Widget _multiDocTable(Map<String, dynamic> data) {
     final docIds = data.keys.toList();
     final allKeys = _fieldMappings.map((e) => e.oldFieldCtrl.text).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Renomear campos do firestore:', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text(
+          'Renomear campos do firestore:',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 12),
         Wrap(
           spacing: 16,
@@ -714,11 +833,17 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                     DropdownMenuItem(value: 'string', child: Text('String')),
                     DropdownMenuItem(value: 'number', child: Text('Number')),
                     DropdownMenuItem(value: 'boolean', child: Text('Boolean')),
-                    DropdownMenuItem(value: 'timestamp', child: Text('Timestamp')),
+                    DropdownMenuItem(
+                      value: 'timestamp',
+                      child: Text('Timestamp'),
+                    ),
                     DropdownMenuItem(value: 'list', child: Text('List')),
                     DropdownMenuItem(value: 'network', child: Text('Map')),
                   ],
-                  onChanged: (value) => setState(() => _fieldMappings[i].selectedType = value!),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _fieldMappings[i].selectedType = value);
+                  },
                 ),
               ],
             );
@@ -728,7 +853,8 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
           onPressed: () async {
-            final confirmar = await confirmDialog(context,
+            final confirmar = await confirmDialog(
+              context,
               _ultimaSubcolecaoBuscada != null
                   ? 'Deseja renomear os campos da subcoleção "${_ultimaSubcolecaoBuscada!}"?'
                   : 'Tem certeza que deseja renomear os campos da coleção principal?',
@@ -754,16 +880,24 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                 ),
               );
             } finally {
-              setState(() => isLoading = false);
+              if (mounted) {
+                setState(() => isLoading = false);
+              }
             }
           },
-          child: const Text('Renomear campos e converter tipos', style: TextStyle(color: Colors.white)),
+          child: const Text(
+            'Renomear campos e converter tipos',
+            style: TextStyle(color: Colors.white),
+          ),
         ),
         const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            columns: [const DataColumn(label: Text('ID'))] + allKeys.map((k) => DataColumn(label: Text(k))).toList(),
+            columns: [
+              const DataColumn(label: Text('ID')),
+              ...allKeys.map((k) => DataColumn(label: Text(k))),
+            ],
             rows: docIds.map((id) {
               final doc = data[id] as Map<String, dynamic>;
               return DataRow(
@@ -772,7 +906,12 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                   ...allKeys.map((k) {
                     final v = doc[k];
                     final val = _prepareForJson(v);
-                    return DataCell(Text(val.toString(), overflow: TextOverflow.ellipsis));
+                    return DataCell(
+                      Text(
+                        val.toString(),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
                   }),
                 ],
               );
@@ -784,37 +923,59 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
   }
 
   void _exportarComoJson() {
-    final jsonStr = const JsonEncoder.withIndent('  ').convert(_prepareForJson(firestoreData));
-    downloadJson('firestore_dump.json', jsonStr); // <- bridge
+    final jsonStr = const JsonEncoder.withIndent('  ')
+        .convert(_prepareForJson(firestoreData));
+    downloadJson('firestore_dump.json', jsonStr);
   }
 
   void _exportarComoCSV() {
     final buffer = StringBuffer();
     final keys = _fieldMappings.map((e) => e.oldFieldCtrl.text).toList();
+
     buffer.writeln('ID,${keys.join(",")}');
     firestoreData!.forEach((id, data) {
-      final values = keys.map((k) => '"${_prepareForJson(data[k] ?? "")}"').join(',');
+      final values =
+      keys.map((k) => '"${_prepareForJson(data[k] ?? "")}"').join(',');
       buffer.writeln('$id,$values');
     });
-    downloadCsv('firestore_dump.csv', buffer.toString()); // <- bridge
+
+    downloadCsv('firestore_dump.csv', buffer.toString());
   }
 
   dynamic _prepareForJson(dynamic value) {
-    if (value is Timestamp) return value.toDate().toIso8601String();
-    if (value is GeoPoint) return {'latitude': value.latitude, 'longitude': value.longitude};
-    if (value is Map) return value.map((k, v) => MapEntry(k.toString(), _prepareForJson(v)));
-    if (value is List) return value.map(_prepareForJson).toList();
+    if (value is Timestamp) {
+      return value.toDate().toIso8601String();
+    }
+    if (value is GeoPoint) {
+      return {
+        'latitude': value.latitude,
+        'longitude': value.longitude,
+      };
+    }
+    if (value is Map) {
+      return value.map((k, v) => MapEntry(k.toString(), _prepareForJson(v)));
+    }
+    if (value is List) {
+      return value.map(_prepareForJson).toList();
+    }
     return value;
   }
 
   String _formatarNome(String original) {
     final semAcentos = _removerAcentos(original);
-    return semAcentos.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '').replaceAll(RegExp(r'_+'), '_').trim();
+    return semAcentos
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9_]'), '')
+        .replaceAll(RegExp(r'_+'), '_')
+        .trim();
   }
 
   String _removerAcentos(String str) {
-    const com = 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ';
-    const sem = 'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC';
+    const com =
+        'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ';
+    const sem =
+        'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC';
+
     for (int i = 0; i < com.length; i++) {
       str = str.replaceAll(com[i], sem[i]);
     }

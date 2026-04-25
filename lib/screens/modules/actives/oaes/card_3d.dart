@@ -1,4 +1,3 @@
-// lib/screens/modules/actives/oaes/active_oaes_3d_card.dart
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -6,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/screens/modules/actives/oaes/active_oaes_ifc_viewer_page.dart';
 
 class OaeModel3DCard extends StatefulWidget {
@@ -25,7 +25,6 @@ class OaeModel3DCard extends StatefulWidget {
 class _OaeModel3DCardState extends State<OaeModel3DCard> {
   bool _busy = false;
 
-  /// Modelo IFC em memória (apenas sessão atual, sem Firebase por enquanto)
   Uint8List? _ifcBytes;
   String? _ifcFileName;
 
@@ -65,7 +64,6 @@ class _OaeModel3DCardState extends State<OaeModel3DCard> {
       setState(() {});
 
       if (!mounted) return;
-      // Já abre o viewer logo após importar
       await _openViewerWithCurrentModel();
     });
   }
@@ -134,7 +132,6 @@ class _OaeModel3DCardState extends State<OaeModel3DCard> {
         onTap: _busy ? null : _handleOpenViewer,
         child: Row(
           children: [
-            // Thumb / ícone grande
             Container(
               width: 64,
               height: 64,
@@ -154,14 +151,9 @@ class _OaeModel3DCardState extends State<OaeModel3DCard> {
               ),
               child: _busy
                   ? const Center(
-                child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor:
-                    AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
+                child: LoadingTreeDotsGrey(
+                  size: 28,
+                  centered: false,
                 ),
               )
                   : const Icon(
@@ -171,7 +163,6 @@ class _OaeModel3DCardState extends State<OaeModel3DCard> {
               ),
             ),
             const SizedBox(width: 12),
-            // Texto + ações
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

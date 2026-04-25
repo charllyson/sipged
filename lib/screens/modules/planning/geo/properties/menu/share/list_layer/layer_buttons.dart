@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/buttons/geo_action_button.dart';
+import 'package:sipged/_widgets/buttons/icon_button_changed.dart';
 
 class LayerButtons extends StatelessWidget {
   final VoidCallback? onAdd;
@@ -31,37 +31,52 @@ class LayerButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 4,
+      runSpacing: 4,
       children: [
-        GeoActionButton(
+        IconButtonChanged(
           icon: Icons.add,
-          color: Colors.green.shade600,
           tooltip: addTooltip,
+          selected: false,
+          size: 32,
+          iconSize: 18,
+          enabled: onAdd != null,
           onTap: onAdd,
         ),
-        GeoActionButton(
+        IconButtonChanged(
           icon: Icons.arrow_upward,
-          color: Colors.blue.shade700,
           tooltip: moveUpTooltip,
+          selected: false,
+          size: 32,
+          iconSize: 18,
+          enabled: onMoveUp != null,
           onTap: onMoveUp,
         ),
-        GeoActionButton(
+        IconButtonChanged(
           icon: Icons.remove,
-          color: Colors.red.shade600,
           tooltip: removeTooltip,
+          selected: false,
+          size: 32,
+          iconSize: 18,
+          enabled: onRemove != null,
           onTap: onRemove,
         ),
-        GeoActionButton(
+        IconButtonChanged(
           icon: Icons.arrow_downward,
-          color: Colors.grey.shade700,
           tooltip: moveDownTooltip,
+          selected: false,
+          size: 32,
+          iconSize: 18,
+          enabled: onMoveDown != null,
           onTap: onMoveDown,
         ),
-        GeoActionButton(
+        IconButtonChanged(
           icon: Icons.copy_outlined,
-          color: Colors.orange.shade700,
           tooltip: duplicateTooltip,
+          selected: false,
+          size: 32,
+          iconSize: 18,
+          enabled: onDuplicate != null,
           onTap: onDuplicate,
         ),
       ],

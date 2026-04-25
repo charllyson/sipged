@@ -8,7 +8,7 @@ import 'package:sipged/_widgets/tiles/tile_widget.dart';
 import 'package:sipged/admPanel/system/manager_permissions_users_page.dart';
 import 'package:sipged/screens/common/setup/initial_setup_page.dart';
 
-import '../../_widgets/buttons/back_circle_button.dart';
+import '../../_widgets/buttons/circle_button_change.dart';
 import '../../_widgets/menu/upBar/up_bar.dart';
 
 class SettingsSystemPage extends StatelessWidget {
@@ -33,7 +33,7 @@ class SettingsSystemPage extends StatelessWidget {
       appBar: UpBar(
         leading: const Padding(
           padding: EdgeInsets.only(left: 12.0),
-          child: BackCircleButton(),
+          child: CircleButtonChange(),
         ),
       ),
       body: LayoutBuilder(

@@ -6,10 +6,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/auto_icon.dart';
-import 'package:sipged/_widgets/pdf/pdf_preview.dart';
+import 'package:sipged/_services/pdf/pdf_preview.dart';
 
 // ✅ dialog mac
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
 // ✅ input usado no rename
 import 'package:sipged/_widgets/input/text_field_change.dart';

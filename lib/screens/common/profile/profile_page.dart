@@ -1,4 +1,3 @@
-// lib/screens/common/profile/profile_page.dart
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -14,8 +13,9 @@ import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 class UserProfilePage extends StatefulWidget {
@@ -260,7 +260,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
           appBar: UpBar(
             leading: const Padding(
               padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
+              child: CircleButtonChange(),
             ),
             photoMenu: const SizedBox.shrink(),
           ),
@@ -272,7 +272,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                   _header(user),
                   Expanded(
                     child: user == null
-                        ? const Center(child: CircularProgressIndicator())
+                        ? const LoadingTreeDotsGrey(size: 110)
                         : LayoutBuilder(
                       builder: (context, c) {
                         final isWide = c.maxWidth >= 860;
@@ -378,11 +378,11 @@ class _UserProfilePageState extends State<UserProfilePage> {
                               onPressed: _saving ? null : () => _onSave(user),
                               icon: _saving
                                   ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.6,
-                                  color: Colors.white,
+                                width: 22,
+                                height: 22,
+                                child: LoadingTreeDotsGrey(
+                                  size: 22,
+                                  centered: false,
                                 ),
                               )
                                   : const Icon(Icons.save),

@@ -6,10 +6,8 @@ import 'package:flutter/material.dart';
 // 🔔 Notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
-
-// 🪟 Janela macOS-like
-// onde está o showWindowDialogMac
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class ImportExcelPage extends StatefulWidget {
   final String firstCollection;
@@ -32,7 +30,6 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
   List<Map<String, dynamic>> _jsonData = [];
   final Map<String, String> _tiposPorCampo = {};
 
-  // 🔔 helper
   void _notify(
       String title, {
         AppNotificationType type = AppNotificationType.info,
@@ -54,7 +51,7 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
         _jsonData = [];
       });
 
-      FilePickerResult? result = await FilePicker.platform.pickFiles();
+      final result = await FilePicker.platform.pickFiles();
       if (result == null) {
         _notify('Importação cancelada', type: AppNotificationType.warning);
         return;
@@ -92,7 +89,11 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
 
       _mostrarPreviewComSelecao();
     } catch (e) {
-      _notify('Erro ao importar', type: AppNotificationType.error, subtitle: '$e');
+      _notify(
+        'Erro ao importar',
+        type: AppNotificationType.error,
+        subtitle: '$e',
+      );
     } finally {
       if (mounted) setState(() => _importando = false);
     }
@@ -104,7 +105,6 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
     if (valor is String) {
       final str = valor.trim();
 
-      // Data dd/MM/yyyy
       if (RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(str)) {
         final partes = str.split('/');
         try {
@@ -118,12 +118,10 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
         }
       }
 
-      // Data ISO
       if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(str)) {
         return DateTime.tryParse(str);
       }
 
-      // Double com vírgula
       final strConvertido = str.replaceAll('.', '').replaceAll(',', '.');
       final parsedDouble = double.tryParse(strConvertido);
       if (parsedDouble != null) return parsedDouble;
@@ -142,10 +140,10 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
     };
 
     final Map<String, bool> colunasSelecionadas = {
-      for (var col in colunas) col: true,
+      for (final col in colunas) col: true,
     };
 
-    for (var col in colunas) {
+    for (final col in colunas) {
       _tiposPorCampo[col] = _detectarTipo(_jsonData, col);
     }
 
@@ -165,7 +163,6 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Conteúdo principal (tabela)
                 Expanded(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -184,7 +181,8 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
                                       value: colunasSelecionadas[coluna],
                                       onChanged: (val) {
                                         setStateDialog(() {
-                                          colunasSelecionadas[coluna] = val ?? false;
+                                          colunasSelecionadas[coluna] =
+                                              val ?? false;
                                         });
                                       },
                                     ),
@@ -193,7 +191,8 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
                                       width: 90,
                                       child: DropdownButton<String>(
                                         isExpanded: true,
-                                        value: _tiposPorCampo[coluna] ?? 'String',
+                                        value: _tiposPorCampo[coluna] ??
+                                            'String',
                                         underline: const SizedBox(),
                                         items: const [
                                           'String',
@@ -206,7 +205,9 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
                                             value: tipo,
                                             child: Text(
                                               tipo,
-                                              style: const TextStyle(fontSize: 12),
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                              ),
                                             ),
                                           );
                                         }).toList(),
@@ -223,7 +224,9 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
                                     Flexible(
                                       child: Text(
                                         coluna,
-                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                         overflow: TextOverflow.ellipsis,
                                         maxLines: 2,
                                       ),
@@ -246,7 +249,8 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
                           },
                           cells: colunas.map((coluna) {
                             final valor = linha[coluna];
-                            final isSelectedCol = colunasSelecionadas[coluna] == true;
+                            final isSelectedCol =
+                                colunasSelecionadas[coluna] == true;
                             return DataCell(
                               isSelectedCol
                                   ? Text(
@@ -264,10 +268,7 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 12),
-
-                // Barra de ações
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -432,9 +433,11 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
               ),
             ),
             if (_importando)
-              const CircularProgressIndicator(
+              const LoadingTreeDotsGrey(
+                size: 40,
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                color: Colors.blue,
+                centered: false,
               ),
           ],
         ),

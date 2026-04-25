@@ -6,7 +6,7 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
 import 'package:sipged/_widgets/menu/tab/tab_banner.dart';
 
@@ -235,7 +235,7 @@ class _TabChangedState extends State<TabChanged> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const SizedBox(width: 8),
-                    BackCircleButton(),
+                    CircleButtonChange(),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TabBar(

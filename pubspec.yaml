@@ -86,6 +86,7 @@ dependencies:
   # =========================
   fl_chart: ^1.0.0
   percent_indicator: ^4.2.3
+  rive: ^0.13.20
 
   # =========================
   # PDF (visualização + geração + impressão)
@@ -152,3 +153,4 @@ flutter:
     - assets/logos/sipged/sipged.png
     - assets/logos/sipged/sipged-mono.png
     - .env
+    - assets/rive/tree-dots-grey-loading.riv

@@ -14,10 +14,12 @@ import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_e
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
 
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
-import 'package:sipged/_widgets/list/demand/list_demand_page.dart';
+import 'package:sipged/screens/common/demand/list_demand_page.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/screens/common/home/home_page.dart';
 import 'package:sipged/screens/modules/financial/budget/budget_network_page.dart';
 import 'package:sipged/screens/modules/financial/dashboard/financial_dashboard_network_page.dart';
@@ -36,8 +38,8 @@ import 'package:sipged/screens/panels/overview-dashboard/general_dashboard_page.
 import 'package:sipged/screens/modules/contracts/measurement/tab_bar_measurement_page.dart';
 import 'package:sipged/screens/modules/contracts/validity/validity_tab_bar.dart';
 
-import 'package:sipged/screens/modules/operation/schedule/physical/civil/schedule_civil_workspace_page.dart';
-import 'package:sipged/_widgets/schedule/civil/schedule_civil_controller.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/vertical/schedule_civil_workspace_page.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/vertical/schedule_civil_controller.dart';
 
 import 'package:sipged/screens/modules/actives/airports/network/active_airports_network_page.dart';
 import 'package:sipged/screens/modules/actives/airports/records/active_airports_records_page.dart';
@@ -48,12 +50,11 @@ import 'package:sipged/screens/modules/actives/oaes/records/active_oaes_records_
 import 'package:sipged/screens/modules/actives/roads/network/active_roads_network_page.dart';
 import 'package:sipged/screens/modules/actives/roads/records/active_roads_records_page.dart';
 
-import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_road_workspace_page.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_road_workspace_page.dart';
 import 'package:sipged/screens/modules/planning/geo/geo_network_page.dart';
 import 'package:sipged/screens/menus/menu_drawer.dart';
 
 import 'package:sipged/_blocs/system/module/module_data.dart';
-import 'package:sipged/_widgets/buttons/float_button_menu.dart';
 
 import 'package:sipged/screens/modules/planning/land/land_page.dart';
 
@@ -529,7 +530,10 @@ class _MenuListPageState extends State<MenuListPage> {
         if (currentUser == null) {
           return const Scaffold(
             backgroundColor: Colors.white,
-            body: Center(child: CircularProgressIndicator()),
+            body: LoadingTreeDotsGrey(
+              size: 34,
+              strokeWidth: 3,
+            ),
           );
         }
 
@@ -557,11 +561,45 @@ class _MenuListPageState extends State<MenuListPage> {
                 HomeBody(onSelect: _onSelectPage)
               else
                 _getPage(_selectedItem!, currentUser),
-              const FloatButtonMenu(),
+              const _PositionedDrawerButton(),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _PositionedDrawerButton extends StatelessWidget {
+  const _PositionedDrawerButton();
+
+  @override
+  Widget build(BuildContext context) {
+    const double barHeight = 56.0;
+    const double buttonSize = 48.0;
+    const EdgeInsets margin = EdgeInsets.symmetric(horizontal: 12.0);
+
+    final safeTop = MediaQuery.of(context).padding.top;
+    final computedTop = safeTop + (barHeight - buttonSize) / 2;
+
+    return Positioned(
+      top: computedTop,
+      left: margin.left,
+      child: Builder(
+        builder: (ctx) {
+          return CircleButtonChange(
+            icon: Icons.menu,
+            tooltip: 'Abrir menu',
+            radius: buttonSize / 2,
+            onPressed: () {
+              final scaffold = Scaffold.maybeOf(ctx);
+              if (scaffold != null) {
+                scaffold.openDrawer();
+              }
+            },
+          );
+        },
+      ),
     );
   }
 }

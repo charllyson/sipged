@@ -6,6 +6,7 @@ import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class ActiveOaesMapMapbox extends StatelessWidget {
   const ActiveOaesMapMapbox({
@@ -21,7 +22,9 @@ class ActiveOaesMapMapbox extends StatelessWidget {
   Widget build(BuildContext context) {
     if (state.loadStatus == ActiveOaesLoadStatus.loading &&
         !state.initialized) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: LoadingTreeDotsGrey(size: 110),
+      );
     }
 
     final taggedMarkers = state.filteredAll

@@ -7,7 +7,7 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/screens/modules/actives/oaes/network/maps/active_oaes_map_mapbox.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';

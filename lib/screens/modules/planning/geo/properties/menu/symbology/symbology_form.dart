@@ -9,7 +9,7 @@ import 'package:sipged/_utils/number_field.dart';
 import 'package:sipged/_widgets/draw/text/text_change_data.dart';
 import 'package:sipged/_widgets/draw/text/text_change_data_style.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/menu/share/layer_type/layer_type_section.dart';
 
 class SymbologyForm extends StatefulWidget {

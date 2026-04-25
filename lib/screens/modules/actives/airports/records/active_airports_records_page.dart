@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
@@ -52,7 +53,9 @@ class _ActiveAirportRecordsPageState extends State<ActiveAirportRecordsPage> {
         final currentUser = userState.current;
         if (currentUser == null) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: LoadingTreeDotsGrey(size: 110),
+            ),
           );
         }
 
@@ -65,11 +68,15 @@ class _ActiveAirportRecordsPageState extends State<ActiveAirportRecordsPage> {
               cubit.warmup();
             }
 
-            if (!st.initialized || st.loadStatus == ActiveOaesLoadStatus.loading) {
+            if (!st.initialized ||
+                st.loadStatus == ActiveOaesLoadStatus.loading) {
               return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
+                body: Center(
+                  child: LoadingTreeDotsGrey(size: 110),
+                ),
               );
             }
+
             if (st.loadStatus == ActiveOaesLoadStatus.failure) {
               return Scaffold(
                 body: Center(child: Text('Erro: ${st.error ?? '-'}')),
@@ -140,7 +147,9 @@ class _ActiveAirportRecordsPageState extends State<ActiveAirportRecordsPage> {
                         dismissible: false,
                         color: Colors.black.withValues(alpha: 0.4),
                       ),
-                      const Center(child: CircularProgressIndicator()),
+                      const Center(
+                        child: LoadingTreeDotsGrey(size: 120),
+                      ),
                     ],
                   ),
               ],

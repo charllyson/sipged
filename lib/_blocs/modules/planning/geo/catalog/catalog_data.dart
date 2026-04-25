@@ -14,6 +14,53 @@ enum CatalogType {
   donut,
   line,
   card,
+
+  // Novos componentes
+  costRuler,
+  gauge,
+  horizontalBars,
+  radar,
+  treemap,
+  selectorDates,
+  dateField,
+  switcher,
+  textField,
+  pagedTable,
+}
+
+abstract final class CatalogIconMapper {
+  static const Map<String, IconData> _icons = {
+    'bar_chart_rounded': Icons.bar_chart_rounded,
+    'donut_large_rounded': Icons.donut_large_rounded,
+    'show_chart_rounded': Icons.show_chart_rounded,
+    'crop_7_5_rounded': Icons.crop_7_5_rounded,
+    'straighten_rounded': Icons.straighten_rounded,
+    'speed_rounded': Icons.speed_rounded,
+    'view_stream_rounded': Icons.view_stream_rounded,
+    'radar_rounded': Icons.radar_rounded,
+    'grid_view_rounded': Icons.grid_view_rounded,
+    'date_range_rounded': Icons.date_range_rounded,
+    'event_rounded': Icons.event_rounded,
+    'toggle_on_rounded': Icons.toggle_on_rounded,
+    'text_fields_rounded': Icons.text_fields_rounded,
+    'table_rows_rounded': Icons.table_rows_rounded,
+    'help_outline_rounded': Icons.help_outline_rounded,
+  };
+
+  static IconData? fromKey(String? key) {
+    if (key == null || key.trim().isEmpty) return null;
+    return _icons[key];
+  }
+
+  static String? toKey(IconData? icon) {
+    if (icon == null) return null;
+
+    for (final entry in _icons.entries) {
+      if (entry.value == icon) return entry.key;
+    }
+
+    return null;
+  }
 }
 
 @immutable
@@ -21,7 +68,6 @@ class CatalogData {
   final String id;
   final String title;
   final IconData? icon;
-  final String? category;
   final String? description;
 
   final String? key;
@@ -40,7 +86,6 @@ class CatalogData {
     this.id = '',
     this.title = '',
     this.icon,
-    this.category,
     this.description,
     this.key,
     this.label,
@@ -60,7 +105,6 @@ class CatalogData {
     String? id,
     String? title,
     IconData? icon,
-    String? category,
     String? description,
     String? key,
     String? label,
@@ -77,7 +121,6 @@ class CatalogData {
       id: id ?? this.id,
       title: title ?? this.title,
       icon: icon ?? this.icon,
-      category: category ?? this.category,
       description: description ?? this.description,
       key: key ?? this.key,
       label: label ?? this.label,
@@ -118,15 +161,7 @@ class CatalogData {
     return {
       'id': id,
       'title': title,
-      'icon': icon == null
-          ? null
-          : {
-        'codePoint': icon!.codePoint,
-        'fontFamily': icon!.fontFamily,
-        'fontPackage': icon!.fontPackage,
-        'matchTextDirection': icon!.matchTextDirection,
-      },
-      'category': category,
+      'iconKey': CatalogIconMapper.toKey(icon),
       'description': description,
       'key': key,
       'label': label,
@@ -142,22 +177,12 @@ class CatalogData {
   }
 
   factory CatalogData.fromMap(Map<String, dynamic> map) {
-    IconData? parsedIcon;
-    final rawIcon = map['icon'];
-    if (rawIcon is Map<String, dynamic>) {
-      parsedIcon = IconData(
-        rawIcon['codePoint'] as int,
-        fontFamily: rawIcon['fontFamily']?.toString(),
-        fontPackage: rawIcon['fontPackage']?.toString(),
-        matchTextDirection: rawIcon['matchTextDirection'] == true,
-      );
-    }
+    final rawIconKey = map['iconKey']?.toString();
 
     return CatalogData(
       id: map['id']?.toString() ?? '',
       title: map['title']?.toString() ?? '',
-      icon: parsedIcon,
-      category: map['category']?.toString(),
+      icon: CatalogIconMapper.fromKey(rawIconKey),
       description: map['description']?.toString(),
       key: map['key']?.toString(),
       label: map['label']?.toString(),
@@ -176,7 +201,9 @@ class CatalogData {
       selectedValue: map['selectedValue']?.toString(),
       options: (map['options'] as List?)?.map((e) => e.toString()).toList(),
       bindingValue: map['bindingValue'] is Map<String, dynamic>
-          ? FeatureDataBinding.fromMap(map['bindingValue'] as Map<String, dynamic>)
+          ? FeatureDataBinding.fromMap(
+        map['bindingValue'] as Map<String, dynamic>,
+      )
           : null,
     );
   }
@@ -187,7 +214,6 @@ class CatalogData {
         other.id == id &&
         other.title == title &&
         other.icon == icon &&
-        other.category == category &&
         other.description == description &&
         other.key == key &&
         other.label == label &&
@@ -206,7 +232,6 @@ class CatalogData {
     id,
     title,
     icon,
-    category,
     description,
     key,
     label,
@@ -232,6 +257,26 @@ extension ComponentTypeMapper on CatalogType {
         return 'chart_line';
       case CatalogType.card:
         return 'widget_card';
+      case CatalogType.costRuler:
+        return 'widget_cost_ruler';
+      case CatalogType.gauge:
+        return 'chart_gauge';
+      case CatalogType.horizontalBars:
+        return 'chart_horizontal_bars';
+      case CatalogType.radar:
+        return 'chart_radar';
+      case CatalogType.treemap:
+        return 'chart_treemap';
+      case CatalogType.selectorDates:
+        return 'filter_selector_dates';
+      case CatalogType.dateField:
+        return 'input_date_field';
+      case CatalogType.switcher:
+        return 'input_switch';
+      case CatalogType.textField:
+        return 'input_text_field';
+      case CatalogType.pagedTable:
+        return 'table_paged';
     }
   }
 
@@ -245,6 +290,26 @@ extension ComponentTypeMapper on CatalogType {
         return 'Linha';
       case CatalogType.card:
         return 'Card resumo';
+      case CatalogType.costRuler:
+        return 'Régua de custo';
+      case CatalogType.gauge:
+        return 'Gauge';
+      case CatalogType.horizontalBars:
+        return 'Barras horizontais';
+      case CatalogType.radar:
+        return 'Radar';
+      case CatalogType.treemap:
+        return 'Treemap';
+      case CatalogType.selectorDates:
+        return 'Seletor de datas';
+      case CatalogType.dateField:
+        return 'Campo de data';
+      case CatalogType.switcher:
+        return 'Switch';
+      case CatalogType.textField:
+        return 'Campo de texto';
+      case CatalogType.pagedTable:
+        return 'Tabela paginada';
     }
   }
 
@@ -258,6 +323,26 @@ extension ComponentTypeMapper on CatalogType {
         return const Size(420, 280);
       case CatalogType.card:
         return const Size(260, 140);
+      case CatalogType.costRuler:
+        return const Size(420, 180);
+      case CatalogType.gauge:
+        return const Size(280, 280);
+      case CatalogType.horizontalBars:
+        return const Size(420, 320);
+      case CatalogType.radar:
+        return const Size(420, 360);
+      case CatalogType.treemap:
+        return const Size(460, 320);
+      case CatalogType.selectorDates:
+        return const Size(520, 180);
+      case CatalogType.dateField:
+        return const Size(260, 90);
+      case CatalogType.switcher:
+        return const Size(180, 90);
+      case CatalogType.textField:
+        return const Size(320, 90);
+      case CatalogType.pagedTable:
+        return const Size(760, 360);
     }
   }
 
@@ -271,6 +356,26 @@ extension ComponentTypeMapper on CatalogType {
         return CatalogType.line;
       case 'widget_card':
         return CatalogType.card;
+      case 'widget_cost_ruler':
+        return CatalogType.costRuler;
+      case 'chart_gauge':
+        return CatalogType.gauge;
+      case 'chart_horizontal_bars':
+        return CatalogType.horizontalBars;
+      case 'chart_radar':
+        return CatalogType.radar;
+      case 'chart_treemap':
+        return CatalogType.treemap;
+      case 'filter_selector_dates':
+        return CatalogType.selectorDates;
+      case 'input_date_field':
+        return CatalogType.dateField;
+      case 'input_switch':
+        return CatalogType.switcher;
+      case 'input_text_field':
+        return CatalogType.textField;
+      case 'table_paged':
+        return CatalogType.pagedTable;
       default:
         return null;
     }
@@ -426,6 +531,225 @@ extension ComponentTypeMapper on CatalogType {
             hint: 'Informe o subtítulo',
           ),
         ];
+
+      case CatalogType.costRuler:
+        return const [
+          CatalogData(
+            key: 'title',
+            label: 'Título',
+            type: CatalogPropertyType.text,
+            hint: 'Título da régua',
+          ),
+          CatalogData(
+            key: 'valueField',
+            label: 'Valor',
+            type: CatalogPropertyType.binding,
+            hint: 'Arraste o valor principal',
+            acceptsDrop: true,
+          ),
+          CatalogData(
+            key: 'divisorField',
+            label: 'Divisor',
+            type: CatalogPropertyType.binding,
+            hint: 'Arraste o divisor',
+            acceptsDrop: true,
+          ),
+          CatalogData(
+            key: 'unitLabel',
+            label: 'Unidade',
+            type: CatalogPropertyType.text,
+            hint: 'Ex.: km, h, un, m²',
+          ),
+        ];
+
+      case CatalogType.gauge:
+        return const [
+          CatalogData(
+            key: 'headerLabel',
+            label: 'Cabeçalho',
+            type: CatalogPropertyType.text,
+            hint: 'Texto do topo',
+          ),
+          CatalogData(
+            key: 'centerValue',
+            label: 'Valor central',
+            type: CatalogPropertyType.binding,
+            hint: 'Arraste o valor percentual',
+            acceptsDrop: true,
+          ),
+          CatalogData(
+            key: 'footerLabel',
+            label: 'Rodapé',
+            type: CatalogPropertyType.text,
+            hint: 'Texto inferior',
+          ),
+        ];
+
+      case CatalogType.horizontalBars:
+        return const [
+          CatalogData(
+            key: 'labelField',
+            label: 'Label',
+            type: CatalogPropertyType.binding,
+            hint: 'Arraste o campo label',
+            acceptsDrop: true,
+          ),
+          CatalogData(
+            key: 'valueField',
+            label: 'Valor',
+            type: CatalogPropertyType.binding,
+            hint: 'Arraste o campo valor',
+            acceptsDrop: true,
+          ),
+          CatalogData(
+            key: 'title',
+            label: 'Título',
+            type: CatalogPropertyType.text,
+            hint: 'Título do gráfico',
+          ),
+        ];
+
+      case CatalogType.radar:
+        return const [
+          CatalogData(
+            key: 'labelField',
+            label: 'Label',
+            type: CatalogPropertyType.binding,
+            hint: 'Arraste o eixo/categoria',
+            acceptsDrop: true,
+          ),
+          CatalogData(
+            key: 'valueField',
+            label: 'Valor',
+            type: CatalogPropertyType.binding,
+            hint: 'Arraste o valor',
+            acceptsDrop: true,
+          ),
+          CatalogData(
+            key: 'title',
+            label: 'Título',
+            type: CatalogPropertyType.text,
+            hint: 'Título do radar',
+          ),
+        ];
+
+      case CatalogType.treemap:
+        return const [
+          CatalogData(
+            key: 'labelField',
+            label: 'Label',
+            type: CatalogPropertyType.binding,
+            hint: 'Arraste o campo label',
+            acceptsDrop: true,
+          ),
+          CatalogData(
+            key: 'valueField',
+            label: 'Valor',
+            type: CatalogPropertyType.binding,
+            hint: 'Arraste o valor total',
+            acceptsDrop: true,
+          ),
+          CatalogData(
+            key: 'title',
+            label: 'Título',
+            type: CatalogPropertyType.text,
+            hint: 'Título do treemap',
+          ),
+        ];
+
+      case CatalogType.selectorDates:
+        return const [
+          CatalogData(
+            key: 'dateField',
+            label: 'Campo de data',
+            type: CatalogPropertyType.binding,
+            hint: 'Arraste um campo de data',
+            acceptsDrop: true,
+          ),
+          CatalogData(
+            key: 'title',
+            label: 'Título',
+            type: CatalogPropertyType.text,
+            hint: 'Título do seletor',
+          ),
+          CatalogData(
+            key: 'enableDaySelection',
+            label: 'Selecionar dia',
+            type: CatalogPropertyType.select,
+            selectedValue: 'false',
+            options: ['true', 'false'],
+          ),
+        ];
+
+      case CatalogType.dateField:
+        return const [
+          CatalogData(
+            key: 'labelText',
+            label: 'Label',
+            type: CatalogPropertyType.text,
+            hint: 'Texto do campo',
+          ),
+          CatalogData(
+            key: 'hintText',
+            label: 'Hint',
+            type: CatalogPropertyType.text,
+            hint: 'Texto de ajuda',
+          ),
+        ];
+
+      case CatalogType.switcher:
+        return const [
+          CatalogData(
+            key: 'textOn',
+            label: 'Texto ON',
+            type: CatalogPropertyType.text,
+            hint: 'Ex.: Ligado',
+          ),
+          CatalogData(
+            key: 'textOff',
+            label: 'Texto OFF',
+            type: CatalogPropertyType.text,
+            hint: 'Ex.: Desligado',
+          ),
+        ];
+
+      case CatalogType.textField:
+        return const [
+          CatalogData(
+            key: 'labelText',
+            label: 'Label',
+            type: CatalogPropertyType.text,
+            hint: 'Texto do campo',
+          ),
+          CatalogData(
+            key: 'hintText',
+            label: 'Hint',
+            type: CatalogPropertyType.text,
+            hint: 'Texto de ajuda',
+          ),
+          CatalogData(
+            key: 'prefixText',
+            label: 'Prefixo',
+            type: CatalogPropertyType.text,
+            hint: r'Ex.: R$',
+          ),
+        ];
+
+      case CatalogType.pagedTable:
+        return const [
+          CatalogData(
+            key: 'title',
+            label: 'Título',
+            type: CatalogPropertyType.text,
+            hint: 'Título da tabela',
+          ),
+          CatalogData(
+            key: 'rowsPerPage',
+            label: 'Linhas por página',
+            type: CatalogPropertyType.number,
+            hint: 'Ex.: 10, 25, 50',
+          ),
+        ];
     }
   }
 }
@@ -436,43 +760,184 @@ abstract final class CatalogRegistry {
       id: 'chart_bar_vertical',
       title: 'Barra vertical',
       icon: Icons.bar_chart_rounded,
-      category: 'Gráficos',
       description: 'Categoria + valor agregado',
     ),
     CatalogData(
       id: 'chart_donut',
       title: 'Rosca',
       icon: Icons.donut_large_rounded,
-      category: 'Gráficos',
       description: 'Segmentos proporcionais',
     ),
     CatalogData(
       id: 'chart_line',
       title: 'Linha',
       icon: Icons.show_chart_rounded,
-      category: 'Gráficos',
       description: 'Série temporal ou evolução',
     ),
     CatalogData(
       id: 'widget_card',
       title: 'Card resumo',
       icon: Icons.crop_7_5_rounded,
-      category: 'Widgets',
       description: 'Resumo com título e valor',
+    ),
+    CatalogData(
+      id: 'widget_cost_ruler',
+      title: 'Régua de custo',
+      icon: Icons.straighten_rounded,
+      description: 'Indicador comparativo por faixa',
+    ),
+    CatalogData(
+      id: 'chart_gauge',
+      title: 'Gauge',
+      icon: Icons.speed_rounded,
+      description: 'Indicador circular percentual',
+    ),
+    CatalogData(
+      id: 'chart_horizontal_bars',
+      title: 'Barras horizontais',
+      icon: Icons.view_stream_rounded,
+      description: 'Ranking horizontal por valor',
+    ),
+    CatalogData(
+      id: 'chart_radar',
+      title: 'Radar',
+      icon: Icons.radar_rounded,
+      description: 'Comparação multieixos',
+    ),
+    CatalogData(
+      id: 'chart_treemap',
+      title: 'Treemap',
+      icon: Icons.grid_view_rounded,
+      description: 'Distribuição proporcional por área',
+    ),
+    CatalogData(
+      id: 'filter_selector_dates',
+      title: 'Seletor de datas',
+      icon: Icons.date_range_rounded,
+      description: 'Filtro por ano, mês e dia',
+    ),
+    CatalogData(
+      id: 'input_date_field',
+      title: 'Campo de data',
+      icon: Icons.event_rounded,
+      description: 'Entrada de data',
+    ),
+    CatalogData(
+      id: 'input_switch',
+      title: 'Switch',
+      icon: Icons.toggle_on_rounded,
+      description: 'Controle liga/desliga',
+    ),
+    CatalogData(
+      id: 'input_text_field',
+      title: 'Campo de texto',
+      icon: Icons.text_fields_rounded,
+      description: 'Entrada textual',
+    ),
+    CatalogData(
+      id: 'table_paged',
+      title: 'Tabela paginada',
+      icon: Icons.table_rows_rounded,
+      description: 'Tabela com paginação',
     ),
   ];
 
   static final Map<String, List<CatalogData>> groupedItems = _buildGroupedItems();
 
   static Map<String, List<CatalogData>> _buildGroupedItems() {
-    final grouped = <String, List<CatalogData>>{};
-
-    for (final item in items) {
-      final category = (item.category ?? 'Outros').trim();
-      grouped.putIfAbsent(category, () => <CatalogData>[]);
-      grouped[category]!.add(item);
-    }
-
-    return grouped;
+    return {
+      'Gráficos': const [
+        CatalogData(
+          id: 'chart_bar_vertical',
+          title: 'Barra vertical',
+          icon: Icons.bar_chart_rounded,
+          description: 'Categoria + valor agregado',
+        ),
+        CatalogData(
+          id: 'chart_donut',
+          title: 'Rosca',
+          icon: Icons.donut_large_rounded,
+          description: 'Segmentos proporcionais',
+        ),
+        CatalogData(
+          id: 'chart_line',
+          title: 'Linha',
+          icon: Icons.show_chart_rounded,
+          description: 'Série temporal ou evolução',
+        ),
+        CatalogData(
+          id: 'chart_gauge',
+          title: 'Gauge',
+          icon: Icons.speed_rounded,
+          description: 'Indicador circular percentual',
+        ),
+        CatalogData(
+          id: 'chart_horizontal_bars',
+          title: 'Barras horizontais',
+          icon: Icons.view_stream_rounded,
+          description: 'Ranking horizontal por valor',
+        ),
+        CatalogData(
+          id: 'chart_radar',
+          title: 'Radar',
+          icon: Icons.radar_rounded,
+          description: 'Comparação multieixos',
+        ),
+        CatalogData(
+          id: 'chart_treemap',
+          title: 'Treemap',
+          icon: Icons.grid_view_rounded,
+          description: 'Distribuição proporcional por área',
+        ),
+      ],
+      'Widgets': const [
+        CatalogData(
+          id: 'widget_card',
+          title: 'Card resumo',
+          icon: Icons.crop_7_5_rounded,
+          description: 'Resumo com título e valor',
+        ),
+        CatalogData(
+          id: 'widget_cost_ruler',
+          title: 'Régua de custo',
+          icon: Icons.straighten_rounded,
+          description: 'Indicador comparativo por faixa',
+        ),
+      ],
+      'Filtros e entradas': const [
+        CatalogData(
+          id: 'filter_selector_dates',
+          title: 'Seletor de datas',
+          icon: Icons.date_range_rounded,
+          description: 'Filtro por ano, mês e dia',
+        ),
+        CatalogData(
+          id: 'input_date_field',
+          title: 'Campo de data',
+          icon: Icons.event_rounded,
+          description: 'Entrada de data',
+        ),
+        CatalogData(
+          id: 'input_switch',
+          title: 'Switch',
+          icon: Icons.toggle_on_rounded,
+          description: 'Controle liga/desliga',
+        ),
+        CatalogData(
+          id: 'input_text_field',
+          title: 'Campo de texto',
+          icon: Icons.text_fields_rounded,
+          description: 'Entrada textual',
+        ),
+      ],
+      'Tabelas': const [
+        CatalogData(
+          id: 'table_paged',
+          title: 'Tabela paginada',
+          icon: Icons.table_rows_rounded,
+          description: 'Tabela com paginação',
+        ),
+      ],
+    };
   }
 }

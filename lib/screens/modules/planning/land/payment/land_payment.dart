@@ -7,10 +7,11 @@ import 'package:sipged/_blocs/modules/planning/land/payment/land_payment_state.d
 
 import 'package:sipged/_utils/formats/sipged_format_dates.dart';
 import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
-import 'package:sipged/_widgets/input/date_field_change.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/DataTime/date_field_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class LandPayment extends StatefulWidget {
   final String contractId;
@@ -139,8 +140,9 @@ class _LandPaymentState extends State<LandPayment> {
         ? SipGedFormatDates.dateToDdMMyyyy(d.paymentAuthorizationDate!)
         : '';
 
-    paymentDateCtrl.text =
-    d.paymentDate != null ? SipGedFormatDates.dateToDdMMyyyy(d.paymentDate!) : '';
+    paymentDateCtrl.text = d.paymentDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(d.paymentDate!)
+        : '';
 
     paidValueCtrl.text = d.paidValue > 0 ? d.paidValue.toStringAsFixed(2) : '';
 
@@ -372,10 +374,11 @@ class _LandPaymentState extends State<LandPayment> {
                         ElevatedButton.icon(
                           icon: state.saving
                               ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                            width: 18,
+                            height: 18,
+                            child: LoadingTreeDotsGrey(
+                              size: 18,
+                              centered: false,
                             ),
                           )
                               : const Icon(Icons.save),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 
 import 'package:sipged/_widgets/map/map_box/map_mapbox_layer.dart';
 import 'package:sipged/_services/map/map_box/mapbox_data.dart';
@@ -6,6 +7,7 @@ import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class ActiveOaesMapMapbox extends StatelessWidget {
   const ActiveOaesMapMapbox({
@@ -21,7 +23,15 @@ class ActiveOaesMapMapbox extends StatelessWidget {
   Widget build(BuildContext context) {
     if (state.loadStatus == ActiveOaesLoadStatus.loading &&
         !state.initialized) {
-      return const Center(child: CircularProgressIndicator());
+      return Stack(
+        children: [
+          BackgroundChange(),
+          const LoadingTreeDotsGrey(
+            size: 34,
+            strokeWidth: 3,
+          ),
+        ],
+      );
     }
 
     final taggedMarkers = state.filteredAll
@@ -39,15 +49,8 @@ class ActiveOaesMapMapbox extends StatelessWidget {
       final d = m.data;
       final nota = d.score?.toDouble() ?? 0;
       final Color notaColor = ActiveOaesData.getColorByNota(nota);
-
-      final red = (notaColor.r * 255).round().clamp(0, 255);
-      final green = (notaColor.g * 255).round().clamp(0, 255);
-      final blue = (notaColor.b * 255).round().clamp(0, 255);
-
       final colorHex =
-          '#${red.toRadixString(16).padLeft(2, '0')}'
-          '${green.toRadixString(16).padLeft(2, '0')}'
-          '${blue.toRadixString(16).padLeft(2, '0')}';
+          '#${notaColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
 
       return MapboxData(
         lon: m.point.longitude,
@@ -65,22 +68,25 @@ class ActiveOaesMapMapbox extends StatelessWidget {
       return null;
     }
 
-    return MapBoxChanged(
-      markers: mapboxMarkers,
-      zoom: 1.7,
-      pitch: 0,
-      bearing: 0,
-      onMarkerTap: (evt) {
-        if (onOpenDetails == null) return;
-
-        final idExtra = evt.idExtra;
-        if (idExtra == null || idExtra.isEmpty) return;
-
-        final marker = findMarkerById(idExtra);
-        if (marker != null) {
-          onOpenDetails!(marker);
-        }
-      },
+    return Stack(
+      children: [
+        BackgroundChange(),
+        MapBoxChanged(
+          markers: mapboxMarkers,
+          zoom: 1.7,
+          pitch: 0,
+          bearing: 0,
+          onMarkerTap: (evt) {
+            if (onOpenDetails == null) return;
+            final idExtra = evt.idExtra;
+            if (idExtra == null || idExtra.isEmpty) return;
+            final marker = findMarkerById(idExtra);
+            if (marker != null) {
+              onOpenDetails!(marker);
+            }
+          },
+        ),
+      ],
     );
   }
 }

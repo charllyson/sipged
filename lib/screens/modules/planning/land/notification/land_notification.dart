@@ -5,9 +5,10 @@ import 'package:sipged/_blocs/modules/planning/land/notification/land_notificati
 import 'package:sipged/_blocs/modules/planning/land/notification/land_notification_state.dart';
 
 import 'package:sipged/_utils/formats/sipged_format_dates.dart';
-import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class LandNotification extends StatefulWidget {
   final String contractId;
@@ -414,8 +415,9 @@ class _LandNotificationState extends State<LandNotification> {
                                   ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                                child: LoadingTreeDotsGrey(
+                                  size: 16,
+                                  centered: false,
                                 ),
                               )
                                   : const Icon(Icons.save),

@@ -1,4 +1,3 @@
-// lib/screens/modules/contracts/apostilles/apostilles_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -12,6 +11,7 @@ import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
@@ -41,8 +41,6 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
   String? _lastFilledId;
   int? _selectedAttachmentIndex;
-
-  /// ✅ aplica o "próximo order" apenas UMA vez após o primeiro load (loaded)
   bool _initialNextOrderApplied = false;
 
   @override
@@ -149,7 +147,6 @@ class _ApostillesPageState extends State<ApostillesPage> {
     );
   }
 
-  /// ✅ SideListBox renomeia e pede para persistir aqui
   Future<bool> _persistRenameAttachment({
     required int index,
     required Attachment oldItem,
@@ -202,17 +199,14 @@ class _ApostillesPageState extends State<ApostillesPage> {
                       builder: (context, constraints) {
                         return SingleChildScrollView(
                           child: ConstrainedBox(
-                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                            constraints:
+                            BoxConstraints(minHeight: constraints.maxHeight),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SectionTitle(
                                   text: 'Cadastrar apostilamentos no sistema',
                                 ),
-
-                                // ======================
-                                // FORMULÁRIO
-                                // ======================
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 12),
                                   child: ApostilleFormSection(
@@ -231,7 +225,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       _cubit.createNewApostille();
                                       _clearForm();
 
-                                      _orderCtrl.text = state.nextAvailableOrder.toString();
+                                      _orderCtrl.text =
+                                          state.nextAvailableOrder.toString();
 
                                       _cubit.updateFormValidity(
                                         orderText: _orderCtrl.text,
@@ -266,8 +261,6 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                         valueText: _valueCtrl.text,
                                       );
                                     },
-
-                                    // ===== SideListBox =====
                                     sideItems: state.sideAttachments,
                                     selectedSideIndex: _selectedAttachmentIndex,
                                     onAddSideItem: state.canAddFile
@@ -281,11 +274,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       if (!mounted) return;
                                       setState(() => _selectedAttachmentIndex = null);
                                     },
-
-                                    // ✅ rename persist (o próprio FormSection vai decidir se habilita)
                                     onRenamePersist: _persistRenameAttachment,
-
-                                    // mantém seleção válida
                                     onItemsChanged: (newItems) {
                                       final len = newItems.length;
                                       if (_selectedAttachmentIndex != null &&
@@ -295,12 +284,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                     },
                                   ),
                                 ),
-
-                                // ======================
-                                // GRÁFICO
-                                // ======================
                                 const SectionTitle(text: 'Gráfico dos apostilamentos'),
-
                                 if (!isLoading && state.apostilles.isEmpty)
                                   const Padding(
                                     padding: EdgeInsets.all(24),
@@ -317,7 +301,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       if (index < 0) {
                                         _cubit.createNewApostille();
                                         _clearForm();
-                                        _orderCtrl.text = state.nextAvailableOrder.toString();
+                                        _orderCtrl.text =
+                                            state.nextAvailableOrder.toString();
                                         return;
                                       }
 
@@ -326,18 +311,14 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
                                       final sel = _cubit.state.selected;
                                       if (sel?.apostilleOrder != null) {
-                                        _orderCtrl.text = sel!.apostilleOrder.toString();
+                                        _orderCtrl.text =
+                                            sel!.apostilleOrder.toString();
                                       }
                                     },
                                   ),
-
-                                // ======================
-                                // TABELA
-                                // ======================
                                 const SectionTitle(
                                   text: 'Apostilamentos cadastrados no sistema',
                                 ),
-
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 12),
                                   child: ApostilleTableSection(
@@ -349,7 +330,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       _cubit.reloadAttachments();
 
                                       if (a.apostilleOrder != null) {
-                                        _orderCtrl.text = a.apostilleOrder.toString();
+                                        _orderCtrl.text =
+                                            a.apostilleOrder.toString();
                                       }
                                     },
                                     onDelete: (a) async {
@@ -358,7 +340,6 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                     },
                                   ),
                                 ),
-
                                 const SizedBox(height: 20),
                               ],
                             ),
@@ -370,7 +351,6 @@ class _ApostillesPageState extends State<ApostillesPage> {
                   const FootBar(),
                 ],
               ),
-
               if (state.isSaving)
                 Stack(
                   children: [
@@ -378,7 +358,9 @@ class _ApostillesPageState extends State<ApostillesPage> {
                       dismissible: false,
                       color: Colors.black.withValues(alpha: 0.4),
                     ),
-                    const Center(child: CircularProgressIndicator()),
+                    const Center(
+                      child: LoadingTreeDotsGrey(size: 120),
+                    ),
                   ],
                 ),
             ],

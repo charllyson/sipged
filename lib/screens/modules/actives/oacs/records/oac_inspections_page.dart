@@ -3,7 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/DataTime/date_field_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
@@ -22,26 +23,22 @@ class OacInspectionsPage extends StatefulWidget {
 
 class _OacInspectionsPageState extends State<OacInspectionsPage> {
   final _formKey = GlobalKey<FormState>();
-  final _repo = ActiveOacsRepository(); // usado para upload
+  final _repo = ActiveOacsRepository();
 
-  // ===== Form inspeção (UI)
   final _inspectorCtrl = TextEditingController();
   final _scoreCtrl = TextEditingController();
-  final _methodCtrl = TextEditingController(); // substitui "condition"
-  final _anomaliesCtrl = TextEditingController(); // tags separadas por vírgula
-  final _notesCtrl = TextEditingController(); // aqui vai defects/actions + observações
-  final _costCtrl = TextEditingController(); // (não existe no Entry -> vai para notes)
+  final _methodCtrl = TextEditingController();
+  final _anomaliesCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  final _costCtrl = TextEditingController();
 
   final _dateCtrl = TextEditingController();
   final _nextDateCtrl = TextEditingController();
   DateTime? _date;
   DateTime? _nextDate;
 
-  // Edição
   String? _editingInspectionId;
 
-  // Anexos em memória por inspeção (UI-only)
-  // Observação: como OacInspectionEntry não tem attachments, isto não persiste no Firestore.
   final Map<String, List<Attachment>> _attachmentsByInspection = {};
 
   @override
@@ -112,10 +109,9 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
     cubit.patchForm(
       base.copyWith(
         inspections: inspections,
-        // manter campos agregados do documento coerentes (opcional)
         lastInspectionDate:
         inspections.isEmpty ? base.lastInspectionDate : inspections.first.date,
-        nextInspectionDate: base.nextInspectionDate, // você pode derivar se quiser
+        nextInspectionDate: base.nextInspectionDate,
       ),
     );
   }
@@ -151,10 +147,8 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
           );
         }
 
-        // Lista tipada correta
         final inspections = _readInspectionsFromForm(oac);
 
-        // Ordena (mais recente primeiro)
         inspections.sort((a, b) => b.date.compareTo(a.date));
 
         void onEdit(OacInspectionEntry ins) {
@@ -163,15 +157,12 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
             _date = ins.date;
             _dateCtrl.text = _fmtDate(ins.date);
 
-            // método/inspector/score/notes
             _inspectorCtrl.text = ins.inspectorUserId ?? '';
             _scoreCtrl.text = ins.score?.toString() ?? '';
             _methodCtrl.text = ins.method ?? '';
             _anomaliesCtrl.text = (ins.anomalies ?? const <String>[]).join(', ');
             _notesCtrl.text = ins.notes ?? '';
 
-            // nextDate/cost ficam no notes (fallback)
-            // Se você quiser, pode implementar parser no notes.
             _nextDate = null;
             _nextDateCtrl.text = '-';
             _costCtrl.clear();
@@ -343,10 +334,11 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                                   onPressed: st.saving ? null : onSaveInspection,
                                   icon: st.saving
                                       ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                                    width: 18,
+                                    height: 18,
+                                    child: LoadingTreeDotsGrey(
+                                      size: 18,
+                                      centered: false,
                                     ),
                                   )
                                       : const Icon(Icons.save_outlined),
@@ -438,7 +430,6 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                                 items: attachments,
                                 onAddPressed: () =>
                                     onUploadInspectionAttachment(ins.id),
-                                // onDelete: (a) => onRemoveInspectionAttachment(ins.id, a),
                               ),
                             ],
                           ),

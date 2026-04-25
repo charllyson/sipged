@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_widgets/windows/window_dialog.dart';
+import 'package:sipged/_widgets/dialog/windows/window_dialog.dart';
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 

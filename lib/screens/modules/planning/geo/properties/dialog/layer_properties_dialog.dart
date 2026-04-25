@@ -5,7 +5,7 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_labels.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_simple.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/dialog/layer_placeholder_menu.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/dialog/layer_properties_menu.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/dialog/layer_properties_types.dart';

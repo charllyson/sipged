@@ -7,7 +7,7 @@ import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 import 'package:sipged/_widgets/draw/shapes/shape_picker.dart';
 import 'package:sipged/_utils/number_field.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/menu/share/layer_type/layer_type_section.dart';
 
 class LabelsForm extends StatefulWidget {

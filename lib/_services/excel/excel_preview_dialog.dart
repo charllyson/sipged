@@ -13,7 +13,7 @@ import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // ✅ janela estilo macOS
-import 'package:sipged/_widgets/windows/window_dialog.dart';
+import 'package:sipged/_widgets/dialog/windows/window_dialog.dart';
 
 class ExcelPreviewDialog extends StatefulWidget {
   final List<Map<String, dynamic>> jsonData;

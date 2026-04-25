@@ -57,6 +57,71 @@ class WorkspaceWidgets extends StatelessWidget {
     return 'Filtro: ${filter.label}';
   }
 
+  Widget _buildPendingWidget(
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        String? subtitle,
+      }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+
+    return ColoredBox(
+      color: isDark ? const Color(0xFF121212) : Colors.white,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        padding: const EdgeInsets.all(16),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.04)
+                : Colors.black.withValues(alpha: 0.02),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.10)
+                  : Colors.black.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 42,
+                    color: primary.withValues(alpha: 0.90),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    subtitle ?? 'Componente em implementação',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: (isDark ? Colors.white : Colors.black)
+                          .withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -84,8 +149,8 @@ class WorkspaceWidgets extends StatelessWidget {
                   },
                   chartTitle: item.resolvedTitle,
                   labels: item.resolvedLabels ?? const <String>[],
-                  values: item.resolvedValues?.cast<double?>() ??
-                      const <double?>[],
+                  values:
+                  item.resolvedValues?.cast<double?>() ?? const <double?>[],
                   expandToMaxWidth: true,
                   widthGraphic: size.width,
                   heightGraphic: size.height,
@@ -144,6 +209,96 @@ class WorkspaceWidgets extends StatelessWidget {
                 value: item.resolvedValue?.trim(),
                 label: _resolveCardLabel(activeFilter),
               ),
+            );
+
+          case CatalogType.costRuler:
+            return _buildPendingWidget(
+              context,
+              icon: Icons.straighten_rounded,
+              title: item.resolvedTitle?.trim().isNotEmpty == true
+                  ? item.resolvedTitle!.trim()
+                  : 'Régua de custo',
+            );
+
+          case CatalogType.gauge:
+            return _buildPendingWidget(
+              context,
+              icon: Icons.speed_rounded,
+              title: item.resolvedTitle?.trim().isNotEmpty == true
+                  ? item.resolvedTitle!.trim()
+                  : 'Gauge',
+            );
+
+          case CatalogType.horizontalBars:
+            return _buildPendingWidget(
+              context,
+              icon: Icons.view_stream_rounded,
+              title: item.resolvedTitle?.trim().isNotEmpty == true
+                  ? item.resolvedTitle!.trim()
+                  : 'Barras horizontais',
+            );
+
+          case CatalogType.radar:
+            return _buildPendingWidget(
+              context,
+              icon: Icons.radar_rounded,
+              title: item.resolvedTitle?.trim().isNotEmpty == true
+                  ? item.resolvedTitle!.trim()
+                  : 'Radar',
+            );
+
+          case CatalogType.treemap:
+            return _buildPendingWidget(
+              context,
+              icon: Icons.grid_view_rounded,
+              title: item.resolvedTitle?.trim().isNotEmpty == true
+                  ? item.resolvedTitle!.trim()
+                  : 'Treemap',
+            );
+
+          case CatalogType.selectorDates:
+            return _buildPendingWidget(
+              context,
+              icon: Icons.date_range_rounded,
+              title: item.resolvedTitle?.trim().isNotEmpty == true
+                  ? item.resolvedTitle!.trim()
+                  : 'Seletor de datas',
+            );
+
+          case CatalogType.dateField:
+            return _buildPendingWidget(
+              context,
+              icon: Icons.event_rounded,
+              title: item.resolvedTitle?.trim().isNotEmpty == true
+                  ? item.resolvedTitle!.trim()
+                  : 'Campo de data',
+            );
+
+          case CatalogType.switcher:
+            return _buildPendingWidget(
+              context,
+              icon: Icons.toggle_on_rounded,
+              title: item.resolvedTitle?.trim().isNotEmpty == true
+                  ? item.resolvedTitle!.trim()
+                  : 'Switch',
+            );
+
+          case CatalogType.textField:
+            return _buildPendingWidget(
+              context,
+              icon: Icons.text_fields_rounded,
+              title: item.resolvedTitle?.trim().isNotEmpty == true
+                  ? item.resolvedTitle!.trim()
+                  : 'Campo de texto',
+            );
+
+          case CatalogType.pagedTable:
+            return _buildPendingWidget(
+              context,
+              icon: Icons.table_rows_rounded,
+              title: item.resolvedTitle?.trim().isNotEmpty == true
+                  ? item.resolvedTitle!.trim()
+                  : 'Tabela paginada',
             );
         }
       },

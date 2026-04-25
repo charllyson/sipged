@@ -1,24 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
-
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
-
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-
-// 🔁 NOVO PADRÃO
 import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
-
 import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
 import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
-
-// 🔔 Notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class HiringBudgetPage extends StatefulWidget {
   const HiringBudgetPage({super.key, required this.contractData});
@@ -106,8 +100,6 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
       ),
       builder: (context, _) {
         final ctrl = context.watch<bc.MagicTableController>();
-
-        // ✅ BudgetCubit agora é a fonte
         final cubit = context.read<BudgetCubit>();
 
         final isLoading = context.select<BudgetCubit, bool>(
@@ -120,31 +112,24 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
           appBar: UpBar(
             leading: Padding(
               padding: const EdgeInsets.only(left: 12.0),
-              child: const BackCircleButton(),
+              child: const CircleButtonChange(),
             ),
           ),
           body: Stack(
             children: [
               const Positioned.fill(child: BackgroundChange()),
-
               Positioned.fill(
                 child: MagicTableChanged(
                   selectAllOnEdit: false,
                   controller: ctrl,
                   onInit: (c) => _load(cubit, c, contractId),
-
-                  // 🔒 esconda apenas no BudgetPage:
                   allowAddColumn: false,
                   allowRemoveColumn: false,
                   allowAddRow: false,
-
-                  // auto-save após mudança estrutural (se existir no seu fluxo)
                   onRequestSaveAfterStructureChange: (c) =>
                       _saveNow(cubit, c, contractId),
-
                   bottomScrollGap: 90,
                   rightScrollGap: 60,
-
                   floatingActionsBuilder: (ctx, c) => [
                     FloatingActionButton.small(
                       backgroundColor: Colors.white,
@@ -166,7 +151,8 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
                             AppNotification(
                               title: const Text('Nada para salvar'),
                               subtitle: const Text(
-                                  'Cole dados do Excel antes de salvar.'),
+                                'Cole dados do Excel antes de salvar.',
+                              ),
                               type: AppNotificationType.info,
                             ),
                           );
@@ -179,37 +165,38 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
                   ],
                 ),
               ),
-
-              // Rodapé fixo
               const Align(
                 alignment: Alignment.bottomCenter,
                 child: FootBar(),
               ),
-
               if (isBusy) ...[
                 const ModalBarrier(
-                    dismissible: false, color: Colors.black38),
+                  dismissible: false,
+                  color: Colors.black38,
+                ),
                 Center(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: const [
                         BoxShadow(
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                            color: Colors.black26),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                          color: Colors.black26,
+                        ),
                       ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 3),
+                        const LoadingTreeDotsGrey(
+                          size: 28,
+                          centered: false,
                         ),
                         const SizedBox(width: 12),
                         Text(
@@ -217,7 +204,9 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
                               ? 'Salvando orçamento...'
                               : 'Carregando orçamento...',
                           style: const TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w600),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),

@@ -19,7 +19,7 @@ import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_scope_data.dart';
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
@@ -266,7 +266,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
     return _basePanels.map((panel) {
       if (panel.id == _panelFerramentasId) {
         return panel.copyWith(
-          child: GeoFerramentasPanel(
+          child: ToolboxPanel(
             mapData: mapData,
             editorState: editorState,
             measurementState: measurementState,

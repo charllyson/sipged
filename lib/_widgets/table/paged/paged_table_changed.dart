@@ -3,7 +3,7 @@ import 'package:sipged/_widgets/table/paged/paged_colum.dart';
 import 'package:sipged/_widgets/table/paged/paged_pagination_bar.dart';
 import 'package:sipged/_widgets/table/paged/paged_row.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_metrics.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
 class PagedTableChanged<T> extends StatefulWidget {
   final List<T> listData;

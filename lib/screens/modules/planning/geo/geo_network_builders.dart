@@ -163,7 +163,7 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
     required bool active,
     required VoidCallback onTap,
   }) {
-    return BackCircleButton(
+    return CircleButtonChange(
       icon: icon,
       tooltip: tooltip,
       radius: 19,

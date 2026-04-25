@@ -7,6 +7,7 @@ import 'package:sipged/_utils/images/image_adapter_loader.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 import 'package:sipged/_widgets/images/carousel/photo_item.dart';
 import 'package:sipged/_widgets/images/carousel/photo_metadata_overlay.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 enum _FitMode { cover, contain }
 
@@ -103,8 +104,9 @@ class _PhotoGalleryDialogState extends State<_PhotoGalleryDialog> {
         future: _loadWebUrl(item.url),
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
-            return const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
+            return const LoadingTreeDotsGrey(
+              size: 24,
+              strokeWidth: 2,
             );
           }
           if (!snap.hasData) {

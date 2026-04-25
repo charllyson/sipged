@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class CustomCameraPage extends StatefulWidget {
   const CustomCameraPage({super.key});
@@ -185,12 +186,12 @@ class _CustomCameraPageState extends State<CustomCameraPage>
   Widget _buildPreview() {
     final c = _controller;
     if (c == null || !c.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingTreeDotsGrey();
     }
 
     final previewSize = c.value.previewSize;
     if (previewSize == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingTreeDotsGrey();
     }
 
     return Positioned.fill(

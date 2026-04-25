@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/tiles/tile_widget.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'cleanup_subcollections_util.dart';
 
 import 'package:sipged/_widgets/notification/app_notification.dart';
@@ -26,61 +27,58 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
         final collectionPath = params.$1.trim();
         final subs = params.$2;
 
-        final ok =
-            await showWindowDialog<bool>(
-              context: context,
-              title: 'Confirmar limpeza',
-              width: 520,
-              barrierDismissible: true,
-              child: Builder(
-                builder: (dialogCtx) {
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+        final ok = await showWindowDialog<bool>(
+          context: context,
+          title: 'Confirmar limpeza',
+          width: 520,
+          barrierDismissible: true,
+          child: Builder(
+            builder: (dialogCtx) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Isto irá APAGAR as subcoleções em TODOS os documentos de:\n'
+                          'Coleção: $collectionPath\n'
+                          'Subcoleções: ${subs.join(', ')}\n\n'
+                          'As demais coleções não serão tocadas. Deseja continuar?',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text(
-                          'Isto irá APAGAR as subcoleções em TODOS os documentos de:\n'
-                              'Coleção: $collectionPath\n'
-                              'Subcoleções: ${subs.join(', ')}\n\n'
-                              'As demais coleções não serão tocadas. Deseja continuar?',
-                          style: const TextStyle(fontSize: 14),
+                        TextButton(
+                          onPressed: () => Navigator.of(dialogCtx).pop(false),
+                          child: const Text('Cancelar'),
                         ),
-                        const SizedBox(height: 18),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed:
-                                  () => Navigator.of(dialogCtx).pop(false),
-                              child: const Text('Cancelar'),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton(
-                              onPressed:
-                                  () => Navigator.of(dialogCtx).pop(true),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.red.shade600,
-                              ),
-                              child: const Text('Apagar'),
-                            ),
-                          ],
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: () => Navigator.of(dialogCtx).pop(true),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.red.shade600,
+                          ),
+                          child: const Text('Apagar'),
                         ),
                       ],
                     ),
-                  );
-                },
-              ),
-            ) ??
-                false;
+                  ],
+                ),
+              );
+            },
+          ),
+        ) ??
+            false;
 
         if (!context.mounted || !ok) return;
 
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) => const Center(child: CircularProgressIndicator()),
+          builder: (_) => const LoadingTreeDotsGrey(),
         );
 
         Map<String, Map<String, int>> dry = const {};
@@ -117,7 +115,7 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) => const Center(child: CircularProgressIndicator()),
+          builder: (_) => const LoadingTreeDotsGrey(),
         );
 
         Map<String, Map<String, int>> res = const {};
@@ -164,62 +162,59 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
     final colCtrl = TextEditingController();
     final subCtrl = TextEditingController();
 
-    final ok =
-        await showWindowDialog<bool>(
-          context: context,
-          title: 'Limpeza de subcoleções',
-          width: 520,
-          barrierDismissible: true,
-          child: Builder(
-            builder: (dialogCtx) {
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+    final ok = await showWindowDialog<bool>(
+      context: context,
+      title: 'Limpeza de subcoleções',
+      width: 520,
+      barrierDismissible: true,
+      child: Builder(
+        builder: (dialogCtx) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CustomTextField(
+                  controller: colCtrl,
+                  labelText: 'Caminho da coleção',
+                ),
+                const SizedBox(height: 12),
+                CustomTextField(
+                  controller: subCtrl,
+                  labelText: 'Subcoleções (separadas por vírgula)',
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    CustomTextField(
-                      controller: colCtrl,
-                      labelText: 'Caminho da coleção',
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(false),
+                      child: const Text('Cancelar'),
                     ),
-                    const SizedBox(height: 12),
-                    CustomTextField(
-                      controller: subCtrl,
-                      labelText: 'Subcoleções (separadas por vírgula)',
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed:
-                              () => Navigator.of(dialogCtx).pop(false),
-                          child: const Text('Cancelar'),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          onPressed: () {
-                            if (colCtrl.text.trim().isEmpty ||
-                                subCtrl.text.trim().isEmpty) {
-                              return;
-                            }
-                            Navigator.of(dialogCtx).pop(true);
-                          },
-                          child: const Text('Continuar'),
-                        ),
-                      ],
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () {
+                        if (colCtrl.text.trim().isEmpty ||
+                            subCtrl.text.trim().isEmpty) {
+                          return;
+                        }
+                        Navigator.of(dialogCtx).pop(true);
+                      },
+                      child: const Text('Continuar'),
                     ),
                   ],
                 ),
-              );
-            },
-          ),
-        ) ??
-            false;
+              ],
+            ),
+          );
+        },
+      ),
+    ) ??
+        false;
 
     if (!ok) return null;
 
-    final subs =
-    subCtrl.text
+    final subs = subCtrl.text
         .split(RegExp(r'[,\n]'))
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
@@ -236,9 +231,8 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
     final text = data.entries.map((docEntry) {
       final path = docEntry.key;
       final subs = docEntry.value;
-      final subsStr = subs.entries.map((e) => '  ${e.key}: ${e.value}').join(
-        '\n',
-      );
+      final subsStr =
+      subs.entries.map((e) => '  ${e.key}: ${e.value}').join('\n');
       return '$path\n$subsStr';
     }).join('\n\n');
 

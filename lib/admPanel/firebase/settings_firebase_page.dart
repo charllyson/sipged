@@ -7,13 +7,14 @@ import 'package:sipged/_services/firestore/migrate/migration.dart';
 import 'package:sipged/_services/firestore/firebase_utils.dart';
 import 'package:sipged/_services/excel/excel_import_controller.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/admPanel/firebase/section_header.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/tiles/tile_widget.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
-import '../../_widgets/buttons/back_circle_button.dart';
+import '../../_widgets/buttons/circle_button_change.dart';
 import '../../_widgets/menu/upBar/up_bar.dart';
 
 class SettingsFirebasePage extends StatelessWidget {
@@ -39,7 +40,7 @@ class SettingsFirebasePage extends StatelessWidget {
           child: UpBar(
             leading: const Padding(
               padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
+              child: CircleButtonChange(),
             ),
           ),
         ),
@@ -304,8 +305,11 @@ void _showLoading(BuildContext context) {
   showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const Center(
-      child: CircularProgressIndicator(),
+    builder: (_) => const Material(
+      color: Colors.black26,
+      child: Center(
+        child: LoadingTreeDotsGrey(size: 110),
+      ),
     ),
   );
 }

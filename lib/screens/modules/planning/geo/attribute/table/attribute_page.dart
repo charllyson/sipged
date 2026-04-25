@@ -5,7 +5,7 @@ import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_state.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_metrics.dart';
-import 'package:sipged/_widgets/windows/window_dialog.dart';
+import 'package:sipged/_widgets/dialog/windows/window_dialog.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/table/attribute_bottom_bar.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/table/attribute_content.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/table/attribute_error.dart';

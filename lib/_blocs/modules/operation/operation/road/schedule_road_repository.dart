@@ -3,14 +3,12 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_style.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
-import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
 
 class ScheduleRoadRepository {
   ScheduleRoadRepository({
@@ -25,7 +23,7 @@ class ScheduleRoadRepository {
   final Map<String, List<ScheduleRoadData>> _execCache = {};
   final Map<String, List<ScheduleRoadData>> _servicesCache = {};
   final Map<String, Map<String, double>> _totalsCache = {};
-  final Map<String, List<ScheduleLaneClass>> _lanesCache = {};
+  final Map<String, List<ScheduleRoadData>> _lanesCache = {};
   final Map<String, ({List<int> periods, Map<String, List<double>> grid})>
   _physfinCache = {};
   final Map<String, ScheduleRoadData?> _geometryCache = {};
@@ -48,7 +46,10 @@ class ScheduleRoadRepository {
       String contractId,
       String collection,
       ) {
-    return _firestore.collection('contracts').doc(contractId).collection(collection);
+    return _firestore
+        .collection('contracts')
+        .doc(contractId)
+        .collection(collection);
   }
 
   Reference _photosFolderRef({
@@ -77,7 +78,11 @@ class ScheduleRoadRepository {
   }
 
   DocumentReference<Map<String, dynamic>> _budgetMetaRef(String contractId) =>
-      _firestore.collection('contracts').doc(contractId).collection('budget').doc('meta');
+      _firestore
+          .collection('contracts')
+          .doc(contractId)
+          .collection('budget')
+          .doc('meta');
 
   DocumentReference<Map<String, dynamic>> _physFinDoc(String contractId) =>
       _firestore
@@ -144,38 +149,6 @@ class ScheduleRoadRepository {
     }
   }
 
-  List<List<LatLng>> _parseMulti(dynamic g) {
-    if (g is! List) return const <List<LatLng>>[];
-
-    final out = <List<LatLng>>[];
-    for (final seg in g) {
-      if (seg is! List) continue;
-
-      final line = <LatLng>[];
-      for (final p in seg) {
-        if (p is List && p.length >= 2) {
-          final lon = (p[0] as num?)?.toDouble();
-          final lat = (p[1] as num?)?.toDouble();
-          if (lat != null && lon != null) {
-            line.add(LatLng(lat, lon));
-          }
-        } else if (p is Map) {
-          final lat = (p['lat'] ?? p['latitude']) as num?;
-          final lon = (p['lng'] ?? p['longitude']) as num?;
-          if (lat != null && lon != null) {
-            line.add(LatLng(lat.toDouble(), lon.toDouble()));
-          }
-        } else if (p is GeoPoint) {
-          line.add(LatLng(p.latitude, p.longitude));
-        }
-      }
-
-      if (line.isNotEmpty) out.add(line);
-    }
-
-    return out;
-  }
-
   List<LatLng> _parsePoints(dynamic v) {
     if (v is! List) return const <LatLng>[];
 
@@ -201,21 +174,182 @@ class ScheduleRoadRepository {
     return out;
   }
 
-  List<List<dynamic>>? _toMultiList(List<List<LatLng>>? ml) {
-    if (ml == null) return null;
-    return ml
-        .map((seg) => seg.map((p) => <double>[p.longitude, p.latitude]).toList())
+  List<List<LatLng>> _parseMulti(dynamic g) {
+    if (g is! List) return const <List<LatLng>>[];
+
+    final out = <List<LatLng>>[];
+
+    for (final seg in g) {
+      if (seg is Map) {
+        final pts = seg['points'];
+        final line = _parsePoints(pts);
+        if (line.isNotEmpty) out.add(line);
+        continue;
+      }
+
+      if (seg is List) {
+        final line = <LatLng>[];
+        for (final p in seg) {
+          if (p is List && p.length >= 2) {
+            final lon = (p[0] as num?)?.toDouble();
+            final lat = (p[1] as num?)?.toDouble();
+            if (lat != null && lon != null) {
+              line.add(LatLng(lat, lon));
+            }
+          } else if (p is Map) {
+            final lat = (p['lat'] ?? p['latitude']) as num?;
+            final lon = (p['lng'] ?? p['longitude']) as num?;
+            if (lat != null && lon != null) {
+              line.add(LatLng(lat.toDouble(), lon.toDouble()));
+            }
+          } else if (p is GeoPoint) {
+            line.add(LatLng(p.latitude, p.longitude));
+          }
+        }
+        if (line.isNotEmpty) out.add(line);
+      }
+    }
+
+    return out;
+  }
+
+  List<Map<String, dynamic>>? _toMultiFirestore(
+      List<List<LatLng>>? multiLine,
+      ) {
+    if (multiLine == null) return null;
+
+    return multiLine
+        .map(
+          (segment) => <String, dynamic>{
+        'points': segment
+            .map(
+              (p) => <String, double>{
+            'latitude': p.latitude,
+            'longitude': p.longitude,
+          },
+        )
+            .toList(growable: false),
+      },
+    )
         .toList(growable: false);
   }
 
-  List<dynamic>? _toPoints(List<LatLng>? pts) {
+  List<Map<String, double>>? _toPoints(List<LatLng>? pts) {
     if (pts == null) return null;
     return pts
-        .map((p) => <String, double>{
-      'latitude': p.latitude,
-      'longitude': p.longitude,
-    })
+        .map(
+          (p) => <String, double>{
+        'latitude': p.latitude,
+        'longitude': p.longitude,
+      },
+    )
         .toList(growable: false);
+  }
+
+  List<LatLng> _coordsToLine(dynamic coords) {
+    if (coords is! List) return const <LatLng>[];
+
+    final line = <LatLng>[];
+    for (final p in coords) {
+      if (p is List && p.length >= 2) {
+        final lon = (p[0] as num?)?.toDouble();
+        final lat = (p[1] as num?)?.toDouble();
+        if (lat != null && lon != null) {
+          line.add(LatLng(lat, lon));
+        }
+      }
+    }
+    return line;
+  }
+
+  List<List<LatLng>> _coordsToMultiLine(dynamic coords) {
+    if (coords is! List) return const <List<LatLng>>[];
+
+    final out = <List<LatLng>>[];
+    for (final seg in coords) {
+      final line = _coordsToLine(seg);
+      if (line.length >= 2) {
+        out.add(line);
+      }
+    }
+    return out;
+  }
+
+  void _collectLinesFromGeometry(
+      Map<String, dynamic>? geometry,
+      List<List<LatLng>> out,
+      ) {
+    if (geometry == null) return;
+
+    final type = geometry['type']?.toString();
+    final coords = geometry['coordinates'];
+
+    switch (type) {
+      case 'LineString':
+        final line = _coordsToLine(coords);
+        if (line.length >= 2) out.add(line);
+        break;
+
+      case 'MultiLineString':
+        out.addAll(_coordsToMultiLine(coords));
+        break;
+
+      case 'GeometryCollection':
+        final geometries = geometry['geometries'];
+        if (geometries is List) {
+          for (final g in geometries) {
+            if (g is Map) {
+              _collectLinesFromGeometry(
+                Map<String, dynamic>.from(g),
+                out,
+              );
+            }
+          }
+        }
+        break;
+    }
+  }
+
+  List<List<LatLng>> _extractLinesFromGeoJson(Map<String, dynamic> geojson) {
+    final out = <List<LatLng>>[];
+    final type = geojson['type']?.toString();
+
+    switch (type) {
+      case 'LineString':
+      case 'MultiLineString':
+      case 'GeometryCollection':
+        _collectLinesFromGeometry(geojson, out);
+        break;
+
+      case 'Feature':
+        final geometry = geojson['geometry'];
+        if (geometry is Map) {
+          _collectLinesFromGeometry(
+            Map<String, dynamic>.from(geometry),
+            out,
+          );
+        }
+        break;
+
+      case 'FeatureCollection':
+        final features = geojson['features'];
+        if (features is List) {
+          for (final f in features) {
+            if (f is Map) {
+              final geometry = f['geometry'];
+              if (geometry is Map) {
+                _collectLinesFromGeometry(
+                  Map<String, dynamic>.from(geometry),
+                  out,
+                );
+              }
+            }
+          }
+        }
+        break;
+    }
+
+    return out.where((e) => e.length >= 2).toList(growable: false);
   }
 
   Future<List<ScheduleRoadData>> loadAvailableServicesFromBudget(
@@ -333,11 +467,14 @@ class ScheduleRoadRepository {
     return frozen;
   }
 
-  Future<void> saveFaixas(String contractId, List<ScheduleLaneClass> rows) async {
-    final positions = rows.map((r) => r.pos).toList(growable: false);
-    final names = rows.map((r) => r.nome).toList(growable: false);
-    final alturas = rows.map((r) => r.altura).toList(growable: false);
-    final allowed = rows.map((r) => r.allowedByService).toList(growable: false);
+  Future<void> saveFaixas(String contractId, List<ScheduleRoadData> rows) async {
+    final positions =
+    rows.map((r) => (r.pos ?? '').trim()).toList(growable: false);
+    final names = rows.map((r) => (r.nome ?? '').trim()).toList(growable: false);
+    final alturas = rows.map((r) => r.altura ?? 20.0).toList(growable: false);
+    final anchors = rows.map((r) => r.anchor).toList(growable: false);
+    final allowed =
+    rows.map((r) => r.allowedByService).toList(growable: false);
 
     await _firestore
         .collection('contracts')
@@ -348,6 +485,7 @@ class ScheduleRoadRepository {
       'lane_positions': positions,
       'lane_names': names,
       'lane_alturas': alturas,
+      'lane_anchors': anchors,
       'lane_allowed_by_service': allowed,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -356,7 +494,7 @@ class ScheduleRoadRepository {
     clearContractCache(contractId);
   }
 
-  Future<List<ScheduleLaneClass>> loadFaixas(String contractId) async {
+  Future<List<ScheduleRoadData>> loadFaixas(String contractId) async {
     final cached = _lanesCache[contractId];
     if (cached != null) return cached;
 
@@ -367,10 +505,10 @@ class ScheduleRoadRepository {
         .doc('lanes')
         .get();
 
-    if (!doc.exists) return const <ScheduleLaneClass>[];
+    if (!doc.exists) return const <ScheduleRoadData>[];
 
     final data = doc.data() ?? const <String, dynamic>{};
-    if (data.isEmpty) return const <ScheduleLaneClass>[];
+    if (data.isEmpty) return const <ScheduleRoadData>[];
 
     final positions = (data['lane_positions'] as List?)
         ?.map((e) => e?.toString() ?? '')
@@ -387,15 +525,19 @@ class ScheduleRoadRepository {
         .toList(growable: false) ??
         const <double>[];
 
-    final rawAllowed = (data['lane_allowed_by_service'] as List?) ?? const <dynamic>[];
+    final rawAnchors = (data['lane_anchors'] as List?) ?? const <dynamic>[];
+    final rawAllowed =
+        (data['lane_allowed_by_service'] as List?) ?? const <dynamic>[];
 
     if (positions.isEmpty || names.isEmpty || positions.length != names.length) {
-      return const <ScheduleLaneClass>[];
+      return const <ScheduleRoadData>[];
     }
 
-    final rows = <ScheduleLaneClass>[];
+    final rows = <ScheduleRoadData>[];
     for (var i = 0; i < names.length; i++) {
       final alt = i < alturas.length ? alturas[i] : 20.0;
+      final anchor =
+      (i < rawAnchors.length && rawAnchors[i] is num) ? (rawAnchors[i] as num).toInt() : null;
 
       Map<String, bool> allowedByService = const <String, bool>{};
       if (i < rawAllowed.length && rawAllowed[i] is Map) {
@@ -406,16 +548,18 @@ class ScheduleRoadRepository {
       }
 
       rows.add(
-        ScheduleLaneClass(
+        ScheduleRoadData.lane(
+          faixaIndex: i,
           pos: positions[i],
           nome: names[i],
           altura: alt,
+          anchor: anchor,
           allowedByService: allowedByService,
         ),
       );
     }
 
-    final frozen = List<ScheduleLaneClass>.unmodifiable(rows);
+    final frozen = List<ScheduleRoadData>.unmodifiable(rows);
     _lanesCache[contractId] = frozen;
     return frozen;
   }
@@ -433,7 +577,10 @@ class ScheduleRoadRepository {
       'lane_positions': const <String>['EIXO'],
       'lane_names': const <String>['FAIXA ÚNICA'],
       'lane_alturas': const <double>[20.0],
-      'lane_allowed_by_service': const <Map<String, bool>>[<String, bool>{}],
+      'lane_anchors': const <int?>[0],
+      'lane_allowed_by_service': const <Map<String, bool>>[
+        <String, bool>{},
+      ],
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
@@ -541,7 +688,7 @@ class ScheduleRoadRepository {
       throw 'Faixa inválida.';
     }
     if (!lanes[faixaIndex].isAllowed(serviceKey)) {
-      throw 'Serviço "$serviceKey" não é aplicável na faixa ${lanes[faixaIndex].label}.';
+      throw 'Serviço "$serviceKey" não é aplicável na faixa ${lanes[faixaIndex].laneLabel}.';
     }
 
     final col = _contractCol(contractId, _collectionForService(serviceKey));
@@ -568,7 +715,7 @@ class ScheduleRoadRepository {
       'status': norm,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      'takenAtMs': ?takenMs,
+      'takenAtMs': takenMs,
     };
 
     DocumentReference<Map<String, dynamic>>? docRef;
@@ -674,7 +821,7 @@ class ScheduleRoadRepository {
           'fotos_meta': FieldValue.arrayUnion(uploadedMetas),
           'updatedAt': FieldValue.serverTimestamp(),
           'updatedBy': currentUserId,
-          'takenAtMs': ?takenMs,
+          'takenAtMs': takenMs,
         });
       }
     }
@@ -717,7 +864,7 @@ class ScheduleRoadRepository {
           'fotos_meta': FieldValue.arrayRemove(metasToRemove),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
-        'takenAtMs': ?takenMs,
+        'takenAtMs': takenMs,
       });
     }
 
@@ -729,7 +876,7 @@ class ScheduleRoadRepository {
         'fotos_meta': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
-        'takenAtMs': ?takenMs,
+        'takenAtMs': takenMs,
       });
 
       clearContractCache(contractId);
@@ -759,7 +906,12 @@ class ScheduleRoadRepository {
       for (final u in newOrdered) {
         final m = byUrl[u];
         metasAll.add(
-          m != null ? Map<String, dynamic>.from(m) : <String, dynamic>{'url': u, 'name': u.split('/').last},
+          m != null
+              ? Map<String, dynamic>.from(m)
+              : <String, dynamic>{
+            'url': u,
+            'name': u.split('/').last,
+          },
         );
       }
     } catch (_) {
@@ -778,7 +930,7 @@ class ScheduleRoadRepository {
       'fotos_meta': metasAll,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      'takenAtMs': ?takenMs,
+      'takenAtMs': takenMs,
     });
 
     clearContractCache(contractId);
@@ -806,8 +958,7 @@ class ScheduleRoadRepository {
       if (e is int) return e;
       if (e is num) return e.toInt();
       return int.tryParse(e.toString()) ?? 0;
-    })
-        .toList(growable: false);
+    }).toList(growable: false);
 
     final rawGrid = (data['grid'] as Map?) ?? const <String, dynamic>{};
     final grid = <String, List<double>>{};
@@ -927,9 +1078,9 @@ class ScheduleRoadRepository {
 
     final base = <String, dynamic>{
       'contractId': contractId,
-      'summarySubjectContract': ?summarySubjectContract,
+      'summarySubjectContract': summarySubjectContract,
       if (data.geometryType != null) 'geometryType': data.geometryType,
-      if (data.multiLine != null) 'multiLine': _toMultiList(data.multiLine),
+      if (data.multiLine != null) 'multiLine': _toMultiFirestore(data.multiLine),
       if (data.points != null) 'points': _toPoints(data.points),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': uid,
@@ -966,61 +1117,28 @@ class ScheduleRoadRepository {
     required Map<String, dynamic> geojson,
     String? summarySubjectContract,
   }) async {
-    Map<String, dynamic>? geometry;
+    final lines = _extractLinesFromGeoJson(geojson);
 
-    if (geojson['type'] == 'Feature') {
-      geometry = (geojson['geometry'] as Map?)?.cast<String, dynamic>();
-    } else if (geojson['type'] == 'FeatureCollection') {
-      final feats = (geojson['features'] as List?) ?? const [];
-      if (feats.isNotEmpty) {
-        geometry = (feats.first['geometry'] as Map?)?.cast<String, dynamic>();
-      }
-    } else if (geojson['type'] == 'LineString' ||
-        geojson['type'] == 'MultiLineString') {
-      geometry = geojson.cast<String, dynamic>();
+    if (lines.isEmpty) {
+      throw Exception(
+        'GeoJSON inválido: nenhum LineString/MultiLineString encontrado.',
+      );
     }
 
-    if (geometry == null) {
-      throw Exception('GeoJSON inválido: geometry ausente.');
-    }
-
-    final type = geometry['type']?.toString();
-    final coords = geometry['coordinates'];
-
-    String? geometryType;
+    String geometryType;
     List<List<LatLng>>? multi;
     List<LatLng>? pts;
 
-    if (type == 'LineString') {
-      final tmp = <LatLng>[];
-      for (final p in (coords as List)) {
-        if (p is List && p.length >= 2) {
-          final lon = (p[0] as num).toDouble();
-          final lat = (p[1] as num).toDouble();
-          tmp.add(LatLng(lat, lon));
-        }
-      }
+    if (lines.length == 1) {
       geometryType = 'LineString';
-      pts = tmp;
+      pts = List<LatLng>.from(lines.first, growable: false);
       multi = null;
-    } else if (type == 'MultiLineString') {
-      final ml = <List<LatLng>>[];
-      for (final seg in (coords as List)) {
-        final line = <LatLng>[];
-        for (final p in (seg as List)) {
-          if (p is List && p.length >= 2) {
-            final lon = (p[0] as num).toDouble();
-            final lat = (p[1] as num).toDouble();
-            line.add(LatLng(lat, lon));
-          }
-        }
-        if (line.isNotEmpty) ml.add(line);
-      }
-      geometryType = 'MultiLineString';
-      pts = null;
-      multi = ml;
     } else {
-      throw Exception('Geometry não suportada: $type');
+      geometryType = 'MultiLineString';
+      multi = List<List<LatLng>>.unmodifiable(
+        lines.map((e) => List<LatLng>.unmodifiable(e)),
+      );
+      pts = null;
     }
 
     final meta = ScheduleRoadData(
@@ -1041,10 +1159,12 @@ class ScheduleRoadRepository {
 
     final base = <String, dynamic>{
       'contractId': contractId,
-      'summarySubjectContract': ?summarySubjectContract,
-      if (meta.geometryType != null) 'geometryType': meta.geometryType,
-      if (meta.multiLine != null) 'multiLine': _toMultiList(meta.multiLine),
-      if (meta.points != null) 'points': _toPoints(meta.points),
+      'summarySubjectContract': summarySubjectContract,
+      'geometryType': geometryType,
+      if (multi != null) 'multiLine': _toMultiFirestore(multi),
+      if (pts != null) 'points': _toPoints(pts),
+      if (multi != null) 'points': FieldValue.delete(),
+      if (pts != null) 'multiLine': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': uid,
     };

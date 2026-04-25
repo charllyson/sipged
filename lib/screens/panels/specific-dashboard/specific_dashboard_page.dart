@@ -22,7 +22,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart'
 
 // ===== Widgets / Seções auxiliares =====
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
@@ -75,7 +75,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
         appBar: UpBar(
           leading: Padding(
             padding: EdgeInsets.only(left: 12.0),
-            child: BackCircleButton(),
+            child: CircleButtonChange(),
           ),
         ),
         body: Stack(

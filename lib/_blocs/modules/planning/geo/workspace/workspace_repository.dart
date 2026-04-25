@@ -204,6 +204,88 @@ class WorkspaceRepository {
           titleKey: 'title',
           subtitleKey: 'subtitle',
         );
+
+      case CatalogType.horizontalBars:
+        return _resolveGroupedChart(
+          item: item,
+          featuresByLayer: featuresByLayer,
+          activeFilter: activeFilter,
+          titleKey: 'title',
+          fallbackSort: 'descending',
+        );
+
+      case CatalogType.treemap:
+        return _resolveGroupedChart(
+          item: item,
+          featuresByLayer: featuresByLayer,
+          activeFilter: activeFilter,
+          titleKey: 'title',
+          fallbackSort: 'descending',
+        );
+
+      case CatalogType.costRuler:
+        return _resolvePendingItem(
+          item: item,
+          titleKey: 'title',
+          fallbackTitle: 'Régua de custo',
+          subtitle: 'Componente em implementação',
+        );
+
+      case CatalogType.gauge:
+        return _resolvePendingItem(
+          item: item,
+          titleKey: 'headerLabel',
+          fallbackTitle: 'Gauge',
+          subtitle: 'Componente em implementação',
+        );
+
+      case CatalogType.radar:
+        return _resolvePendingItem(
+          item: item,
+          titleKey: 'title',
+          fallbackTitle: 'Radar',
+          subtitle: 'Componente em implementação',
+        );
+
+      case CatalogType.selectorDates:
+        return _resolvePendingItem(
+          item: item,
+          titleKey: 'title',
+          fallbackTitle: 'Seletor de datas',
+          subtitle: 'Componente em implementação',
+        );
+
+      case CatalogType.dateField:
+        return _resolvePendingItem(
+          item: item,
+          titleKey: 'labelText',
+          fallbackTitle: 'Campo de data',
+          subtitle: 'Componente em implementação',
+        );
+
+      case CatalogType.switcher:
+        return _resolvePendingItem(
+          item: item,
+          titleKey: 'textOn',
+          fallbackTitle: 'Switch',
+          subtitle: 'Componente em implementação',
+        );
+
+      case CatalogType.textField:
+        return _resolvePendingItem(
+          item: item,
+          titleKey: 'labelText',
+          fallbackTitle: 'Campo de texto',
+          subtitle: 'Componente em implementação',
+        );
+
+      case CatalogType.pagedTable:
+        return _resolvePendingItem(
+          item: item,
+          titleKey: 'title',
+          fallbackTitle: 'Tabela paginada',
+          subtitle: 'Componente em implementação',
+        );
     }
   }
 
@@ -430,6 +512,24 @@ class WorkspaceRepository {
       subtitle: subtitle,
       label: resolvedLabel,
       value: resolvedValue,
+    );
+  }
+
+  WorkspaceData _resolvePendingItem({
+    required WorkspaceData item,
+    required String titleKey,
+    required String fallbackTitle,
+    String? subtitle,
+  }) {
+    final title = item.getNullableTextProperty(titleKey) ?? fallbackTitle;
+
+    return item.copyWithResolvedData(
+      title: title,
+      subtitle: subtitle,
+      label: null,
+      value: null,
+      labels: null,
+      values: null,
     );
   }
 

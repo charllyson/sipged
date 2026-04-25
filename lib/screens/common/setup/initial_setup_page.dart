@@ -10,10 +10,11 @@ import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/windows/window_dialog.dart';
+import 'package:sipged/_widgets/dialog/windows/window_dialog.dart';
 import 'package:sipged/screens/common/setup/initial_setup_form.dart';
 import 'package:sipged/screens/common/setup/initial_setup_header.dart';
 import 'package:sipged/screens/modules/contracts/hiring/1Dfd/setup_region_map.dart';
@@ -617,9 +618,12 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
             onPressed: _saving ? null : _submit,
             icon: _saving
                 ? const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              width: 18,
+              height: 18,
+              child: LoadingTreeDotsGrey(
+                size: 18,
+                centered: false,
+              ),
             )
                 : const Icon(Icons.check),
             label: Text(pageMode ? 'Salvar configurações' : 'Salvar e entrar'),
@@ -854,7 +858,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
       appBar: UpBar(
         leading: const Padding(
           padding: EdgeInsets.only(left: 12.0),
-          child: BackCircleButton(),
+          child: CircleButtonChange(),
         ),
         titleWidgets: const [
           Text(

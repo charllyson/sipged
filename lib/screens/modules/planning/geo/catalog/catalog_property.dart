@@ -22,7 +22,6 @@ class CatalogProperty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final propertyKey = property.key ?? '';
-    final label = property.label ?? '';
 
     final Widget content = property.type == CatalogPropertyType.binding
         ? CatalogBinding(
@@ -37,27 +36,8 @@ class CatalogProperty extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 110,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: content),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: content,
     );
   }
 }

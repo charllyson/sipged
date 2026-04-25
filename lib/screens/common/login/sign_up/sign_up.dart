@@ -1,4 +1,3 @@
-// lib/screens/login/sign_up.dart
 import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
@@ -15,7 +14,8 @@ import 'package:sipged/_blocs/system/user/user_repository.dart';
 
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key, required this.userData});
@@ -273,13 +273,11 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                                     ),
                                     onPressed: loading ? null : _submit,
                                     child: loading
-                                        ? const SizedBox(
-                                      height: 18,
-                                      width: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
+                                        ? const LoadingTreeDotsGrey(
+                                      size: 18,
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                      centered: false,
                                     )
                                         : const Text(
                                       'Cadastrar',
@@ -338,10 +336,11 @@ class _BlockingOverlay extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2.6),
+                  const LoadingTreeDotsGrey(
+                    size: 22,
+                    strokeWidth: 2.6,
+                    color: Colors.white,
+                    centered: false,
                   ),
                   const SizedBox(width: 12),
                   Text(

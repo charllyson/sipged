@@ -5,12 +5,12 @@ import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_state.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/images/logos/sisgeo_logo.dart';
-import 'package:sipged/_widgets/input/icon_button_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
-import 'package:sipged/_widgets/overlays/loading_progress.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/screens/common/login/forgot/forgot_password_page.dart';
 import 'package:sipged/screens/common/login/sign_in/sign_in_button.dart';
 
@@ -43,12 +43,14 @@ class _SignInState extends State<SignIn> {
     _emailController = TextEditingController();
     _passController = TextEditingController();
 
-    _companyController = TextEditingController(text: SetupData.defaultModuleLabel);
+    _companyController =
+        TextEditingController(text: SetupData.defaultModuleLabel);
 
     _emailFocus = FocusNode();
     _passFocus = FocusNode();
 
-    _bgGradient = SetupData.gradientForModule(SetupData.defaultModuleLabel);
+    _bgGradient =
+        SetupData.gradientForModule(SetupData.defaultModuleLabel);
 
     _emailController.addListener(() {
       final has = _emailController.text.trim().isNotEmpty;
@@ -67,10 +69,10 @@ class _SignInState extends State<SignIn> {
       context.read<LoginCubit>().changeSelectedArea(selected);
     });
 
-    // garante que a área default foi registrada no cubit
-    context.read<LoginCubit>().changeSelectedArea(_companyController.text.trim());
+    context
+        .read<LoginCubit>()
+        .changeSelectedArea(_companyController.text.trim());
 
-    // ✅ carrega o último email e preenche o campo
     _loadLastEmailIntoField();
   }
 
@@ -90,8 +92,6 @@ class _SignInState extends State<SignIn> {
       );
 
       setState(() => _hasEmail = true);
-
-      // foco direto na senha
       _passFocus.requestFocus();
     } else {
       _emailFocus.requestFocus();
@@ -144,7 +144,8 @@ class _SignInState extends State<SignIn> {
                               bottom: 18 + MediaQuery.of(context).viewInsets.bottom,
                             ),
                             child: ConstrainedBox(
-                              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                              constraints:
+                              BoxConstraints(minHeight: constraints.maxHeight),
                               child: IntrinsicHeight(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -172,10 +173,10 @@ class _SignInState extends State<SignIn> {
                       child: const Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          LoadingProgress(),
+                          LoadingTreeDotsGrey(),
                           SizedBox(height: 12),
                           Text(
-                            "Entrando...",
+                            'Entrando...',
                             style: TextStyle(color: Colors.white, fontSize: 20),
                           ),
                         ],
@@ -205,48 +206,6 @@ class _SignInState extends State<SignIn> {
               enabled: false,
               items: SetupData.moduleName,
             ),
-            /*BlocBuilder<LoginCubit, LoginState>(
-              buildWhen: (a, b) => a.areaAccessStatus != b.areaAccessStatus || a.data.selectedArea != b.data.selectedArea,
-              builder: (context, st) {
-                final status = st.areaAccessStatus;
-                final selected = (st.data.selectedArea ?? '').trim();
-
-                if (selected.isEmpty || status == AreaAccessStatus.idle) {
-                  return const SizedBox(height: 4);
-                }
-
-                if (status == AreaAccessStatus.needEmail) {
-                  return Row(
-                    children: const [
-                      Icon(Icons.info_outline, size: 16, color: Colors.blue),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text('Informe o e-mail', style: TextStyle(fontSize: 12, color: Colors.blue)),
-                      ),
-                    ],
-                  );
-                }
-
-                final hasAccess = (status == AreaAccessStatus.allowed);
-                return Row(
-                  children: [
-                    Icon(
-                      hasAccess ? Icons.verified_user : Icons.lock_outline,
-                      size: 16,
-                      color: hasAccess ? Colors.green : Colors.red,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        hasAccess ? 'Acesso disponível para $selected' : 'Sem permissão para $selected',
-                        style: TextStyle(fontSize: 12, color: hasAccess ? Colors.green : Colors.red),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-*/
             const SizedBox(height: 24),
             CustomTextField(
               controller: _emailController,
@@ -260,13 +219,21 @@ class _SignInState extends State<SignIn> {
               onChanged: (_) {},
               enabled: true,
               suffix: _hasEmail
-                  ? IconButtonChange(
-                radius: 28,
-                iconData: Icons.clear,
-                onTap: () {
-                  _emailController.clear();
-                  _emailFocus.requestFocus();
-                },
+                  ? Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: SizedBox.square(
+                  dimension: 28,
+                  child: CircleButtonChange(
+                    radius: 14,
+                    iconSize: 18,
+                    icon: Icons.clear,
+                    tooltip: 'Limpar',
+                    onPressed: () {
+                      _emailController.clear();
+                      _emailFocus.requestFocus();
+                    },
+                  ),
+                ),
               )
                   : null,
             ),
@@ -282,35 +249,45 @@ class _SignInState extends State<SignIn> {
               obscure: _inputObscure,
               onChanged: (_) {},
               enabled: true,
-              suffix: IconButton(
-                tooltip: _inputObscure ? 'Mostrar' : 'Ocultar',
-                icon: Icon(
-                  _inputObscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                  color: const Color(0xFF6B7280),
-                  size: 20,
+              suffix: Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: SizedBox.square(
+                  dimension: 28,
+                  child: CircleButtonChange(
+                    radius: 14,
+                    iconSize: 18,
+                    icon: _inputObscure
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    tooltip: _inputObscure ? 'Mostrar' : 'Ocultar',
+                    onPressed: () => setState(() => _inputObscure = !_inputObscure),
+                  ),
                 ),
-                onPressed: () => setState(() => _inputObscure = !_inputObscure),
               ),
             ),
             const SizedBox(height: 10),
-
-            // ✅ agora navega para a tela dedicada
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
+                    MaterialPageRoute(
+                      builder: (_) => const ForgotPasswordPage(),
+                    ),
                   );
                 },
-                child: const Text('Esqueci a senha', style: TextStyle(fontSize: 12)),
+                child: const Text(
+                  'Esqueci a senha',
+                  style: TextStyle(fontSize: 12),
+                ),
               ),
             ),
             const SizedBox(height: 6),
             const SignInButton(),
             const SizedBox(height: 6),
             BlocBuilder<LoginCubit, LoginState>(
-              buildWhen: (a, b) => a.errorMessage != b.errorMessage || a.status != b.status,
+              buildWhen: (a, b) =>
+              a.errorMessage != b.errorMessage || a.status != b.status,
               builder: (_, st) {
                 final err = st.errorMessage;
                 if (err != null && err.isNotEmpty) {

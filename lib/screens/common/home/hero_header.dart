@@ -5,6 +5,7 @@ import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class HeroHeader extends StatelessWidget {
   const HeroHeader({
@@ -23,13 +24,11 @@ class HeroHeader extends StatelessWidget {
       builder: (context, setupState) {
         final company = setupState.companyProfile;
 
-        final razaoSocial =
-        (company?.companyName ?? '').trim().isNotEmpty
+        final razaoSocial = (company?.companyName ?? '').trim().isNotEmpty
             ? company!.companyName!.trim()
             : 'SipGed';
 
-        final nomeFantasia =
-        (company?.fantasyName ?? '').trim().isNotEmpty
+        final nomeFantasia = (company?.fantasyName ?? '').trim().isNotEmpty
             ? company!.fantasyName!.trim()
             : 'Sistema Integrado de Planejamento e Gestão de Dados';
 
@@ -142,15 +141,12 @@ class _CompanyLogo extends StatelessWidget {
             },
             loadingBuilder: (context, child, progress) {
               if (progress == null) return child;
-              return SizedBox(
+              return const SizedBox(
                 width: 88,
                 height: 88,
-                child: Center(
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: const CircularProgressIndicator(strokeWidth: 2),
-                  ),
+                child: LoadingTreeDotsGrey(
+                  size: 22,
+                  strokeWidth: 2,
                 ),
               );
             },

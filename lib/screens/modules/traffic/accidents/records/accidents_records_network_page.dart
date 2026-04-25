@@ -12,10 +12,11 @@ import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/print/label_bitmap.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
 import 'package:sipged/_services/bluetooth/ble_client.dart';
 import 'package:sipged/_services/bluetooth/ble_client_iface.dart';
@@ -88,10 +89,13 @@ class _AccidentsRecordsNetworkPageInnerState
 
   bool _isFormValid(AccidentsData d) {
     if (d.date == null) return false;
+
     final cityDesc = (d.city ?? '').trim();
     final cityAddr = (d.locality ?? '').trim();
+
     if (cityDesc.isEmpty && cityAddr.isEmpty) return false;
     if ((d.typeOfAccident ?? '').trim().isEmpty) return false;
+
     return true;
   }
 
@@ -167,9 +171,8 @@ class _AccidentsRecordsNetworkPageInnerState
         postalCode: suggestion.postalCode.isNotEmpty
             ? suggestion.postalCode
             : _formData.postalCode,
-        country: suggestion.country.isNotEmpty
-            ? suggestion.country
-            : _formData.country,
+        country:
+        suggestion.country.isNotEmpty ? suggestion.country : _formData.country,
         isoCountryCode: suggestion.isoCountryCode.isNotEmpty
             ? suggestion.isoCountryCode
             : _formData.isoCountryCode,
@@ -497,6 +500,7 @@ class _AccidentsRecordsNetworkPageInnerState
 
     final id = (d.id ?? '').trim();
     if (id.isNotEmpty) return 'sipged://accidents/$id';
+
     final ordem = (d.order ?? '').toString();
     return 'sipged://accidents/order/$ordem';
   }
@@ -611,6 +615,7 @@ class _AccidentsRecordsNetworkPageInnerState
                         final y = res.selectedYear;
                         final m = res.selectedMonth;
                         if (y == state.year && m == state.month) return;
+
                         context.read<AccidentsCubit>().changeFilter(
                           year: y,
                           month: m,
@@ -770,7 +775,9 @@ class _AccidentsRecordsNetworkPageInnerState
                       dismissible: false,
                       color: Colors.black.withValues(alpha: 0.25),
                     ),
-                    const Center(child: CircularProgressIndicator()),
+                    const Center(
+                      child: LoadingTreeDotsGrey(size: 120),
+                    ),
                   ],
                 ),
             ],

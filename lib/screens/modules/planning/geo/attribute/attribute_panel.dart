@@ -9,7 +9,7 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_map.dart';
 import 'package:sipged/_blocs/system/map/map_state.dart';
-import 'package:sipged/_widgets/buttons/header_icon_button.dart';
+import 'package:sipged/_widgets/buttons/icon_button_changed.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_import.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_layer.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_property.dart';
@@ -71,9 +71,8 @@ class AttributePanel extends StatelessWidget {
         headerTitle: layer?.title ?? 'Camada',
         headerColor: (layer?.color ?? Colors.blue).withValues(alpha: 0.10),
         headerTrailing: (layer != null && hasData)
-            ? AttributeOpenTable(
-          tooltip: 'Abrir tabela de atributos',
-          icon: Icons.table_view_rounded,
+            ? _buildOpenTableButton(
+          layer: layer,
           onTap: () => onOpenLayerTable(layer),
         )
             : null,
@@ -117,9 +116,8 @@ class AttributePanel extends StatelessWidget {
       return AttributeLayer(
         headerTitle: selectedLayer.title,
         headerColor: selectedLayer.color.withValues(alpha: 0.10),
-        headerTrailing: AttributeOpenTable(
-          tooltip: 'Abrir tabela de atributos',
-          icon: Icons.table_view_rounded,
+        headerTrailing: _buildOpenTableButton(
+          layer: selectedLayer,
           onTap: () => onOpenLayerTable(selectedLayer),
         ),
         emptyText: 'Esta camada ainda não possui campos identificados.',
@@ -142,6 +140,22 @@ class AttributePanel extends StatelessWidget {
         'Selecione uma feição no mapa ou uma camada no painel para visualizar os atributos.',
         textAlign: TextAlign.center,
       ),
+    );
+  }
+
+  Widget _buildOpenTableButton({
+    required LayerData layer,
+    required VoidCallback onTap,
+  }) {
+    return IconButtonChanged(
+      key: ValueKey('attribute_open_table_${layer.id}'),
+      icon: Icons.table_view_rounded,
+      tooltip: 'Abrir tabela de atributos',
+      selected: false,
+      size: 32,
+      iconSize: 18,
+      enabled: true,
+      onTap: onTap,
     );
   }
 

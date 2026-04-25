@@ -6,28 +6,24 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/screens/modules/contracts/measurement/create/launcher_pdf.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
-// Domain / Budget
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
-
 import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
 
-// ✅ NOVO PADRÃO (Budget)
 import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_data.dart';
 
-// MagicTable
-import 'package:sipged/_widgets/table/magic/magic_table_controller.dart'
-as bc;
+import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
 import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
 import 'package:sipged/screens/modules/contracts/measurement/create/measurement_report_header.dart';
 
-import 'package:sipged/_widgets/pdf/pdf_preview_launcher_stub.dart'
+import 'package:sipged/_services/pdf/pdf_preview_launcher_stub.dart'
 if (dart.library.html)
-'package:sipged/_widgets/pdf/pdf_preview_launcher_web.dart';
+'package:sipged/_services/pdf/pdf_preview_launcher_web.dart';
 
 class CreateDetailedReportPage extends StatefulWidget {
   const CreateDetailedReportPage({
@@ -159,8 +155,6 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       ...(_items[budgetItemId] ?? {}),
       ...payload,
     };
-
-    // TODO: integrar com ReportMeasurementCubit/Repo.
   }
 
   Future<void> _saveBreakdownFromController() async {
@@ -169,8 +163,6 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     if (cId == null || mId == null) return;
 
     MagicAdapter.buildDomainFromController(controller: _ctrl);
-
-    // TODO: integrar com ReportMeasurementCubit/Repo.
   }
 
   void _scheduleSaveBreakdown() {
@@ -186,8 +178,6 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     if (cId == null || mId == null) return;
 
     _ctrl.sumByKey(_kValPeriod);
-
-    // TODO: integrar com ReportMeasurementCubit/Repo.
   }
 
   Future<void> _bootstrap() async {
@@ -539,7 +529,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         children: [
           Text('Carregando boletim de medição...'),
           SizedBox(height: 12),
-          CircularProgressIndicator(),
+          LoadingTreeDotsGrey(size: 56, centered: false),
         ],
       ),
     )
@@ -561,7 +551,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       appBar: UpBar(
         leading: const Padding(
           padding: EdgeInsets.only(left: 12),
-          child: BackCircleButton(icon: Icons.close),
+          child: CircleButtonChange(icon: Icons.close),
         ),
         titleWidgets: [Text(widget.titulo)],
         actions: [

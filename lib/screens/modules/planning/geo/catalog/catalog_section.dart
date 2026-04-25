@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
-import 'package:sipged/screens/modules/planning/geo/catalog/catalog_card.dart';
+import 'package:sipged/_widgets/buttons/icon_button_changed.dart';
 
 class CatalogSection extends StatelessWidget {
   final String title;
@@ -51,8 +51,9 @@ class CatalogSection extends StatelessWidget {
             final itemId = item.id;
             final selected = selectedItemId == itemId;
 
-            final card = CatalogCard(
-              item: item,
+            final card = IconButtonChanged(
+              icon: item.icon ?? Icons.widgets_outlined,
+              tooltip: item.title,
               selected: selected,
               onTap: () => onItemTap?.call(item),
             );
@@ -64,8 +65,9 @@ class CatalogSection extends StatelessWidget {
               feedback: Material(
                 color: Colors.transparent,
                 child: IgnorePointer(
-                  child: CatalogCard(
-                    item: item,
+                  child: IconButtonChanged(
+                    icon: item.icon ?? Icons.widgets_outlined,
+                    tooltip: item.title,
                     selected: true,
                     isDragging: true,
                   ),

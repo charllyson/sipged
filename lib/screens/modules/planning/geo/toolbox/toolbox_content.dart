@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
-import 'package:sipged/screens/modules/planning/geo/toolbox/toolbox_action_item.dart';
-import 'package:sipged/screens/modules/planning/geo/toolbox/toolbox_buttons.dart';
+import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_data.dart';
+import 'package:sipged/_widgets/buttons/icon_button_changed.dart';
 
 class ToolboxContent extends StatelessWidget {
   final void Function(String message) onToolSelected;
@@ -58,35 +58,28 @@ class ToolboxContent extends StatelessWidget {
       ToolboxSectionData(
         id: 'navigation',
         actions: [
-          ToolboxActionItem(
-            id: 'tool_measure',
+          ToolboxData(
+            id: 'tool_measure_distance',
             tooltip: 'Medir distância',
             icon: Icons.straighten_outlined,
-            children: [
-              ToolboxActionItem(
-                id: 'tool_measure_distance',
-                tooltip: 'Medir Distância',
-                icon: Icons.straighten_outlined,
-                onTap: () => onToolSelected(
-                  'Ferramenta "Medir distância" selecionada.',
-                ),
-              ),
-              ToolboxActionItem(
-                id: 'tool_measure_area',
-                tooltip: 'Medir Área',
-                icon: Icons.square_foot_outlined,
-                onTap: () => onToolSelected(
-                  'Ferramenta "Medir área" selecionada.',
-                ),
-              ),
-            ],
+            onTap: () => onToolSelected(
+              'Ferramenta "Medir distância" selecionada.',
+            ),
+          ),
+          ToolboxData(
+            id: 'tool_measure_area',
+            tooltip: 'Medir área',
+            icon: Icons.square_foot_outlined,
+            onTap: () => onToolSelected(
+              'Ferramenta "Medir área" selecionada.',
+            ),
           ),
         ],
       ),
       ToolboxSectionData(
         id: 'drawing',
         actions: [
-          ToolboxActionItem(
+          ToolboxData(
             id: 'tool_point',
             tooltip: _showEditBadge(LayerGeometryKind.point)
                 ? 'Editar pontos'
@@ -101,7 +94,7 @@ class ToolboxContent extends StatelessWidget {
                   : 'Ferramenta "Ponto" ativada. Clique no mapa para criar uma nova camada de pontos.',
             ),
           ),
-          ToolboxActionItem(
+          ToolboxData(
             id: 'tool_line',
             tooltip: _showEditBadge(LayerGeometryKind.line)
                 ? 'Editar linhas'
@@ -116,7 +109,7 @@ class ToolboxContent extends StatelessWidget {
                   : 'Ferramenta "Nova linha" selecionada.',
             ),
           ),
-          ToolboxActionItem(
+          ToolboxData(
             id: 'tool_polygon',
             tooltip: _showEditBadge(LayerGeometryKind.polygon)
                 ? 'Editar polígonos'
@@ -138,10 +131,47 @@ class ToolboxContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ToolboxButtons(
-      sections: sections ?? _defaultSections(),
-      selectedToolId: selectedToolId,
-      onSelected: onSelectedTool,
+    final resolvedSections = sections ?? _defaultSections();
+    final allActions = resolvedSections
+        .expand((section) => section.actions)
+        .toList(growable: false);
+
+    if (allActions.isEmpty) {
+      return const Center(
+        child: Text('Nenhuma ferramenta disponível.'),
+      );
+    }
+
+    return RepaintBoundary(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(
+            alignment: WrapAlignment.start,
+            spacing: 0,
+            runSpacing: 6,
+            children: allActions.map((action) {
+              return IconButtonChanged(
+                key: ValueKey(action.id),
+                icon: action.icon,
+                tooltip: action.tooltip,
+                selected: selectedToolId == action.id,
+                enabled: action.enabled,
+                showEditBadge: action.showEditBadge,
+                onTap: action.enabled
+                    ? () {
+                  onSelectedTool?.call(action.id);
+                  if (selectedToolId != action.id) {
+                    action.onTap?.call();
+                  }
+                }
+                    : null,
+              );
+            }).toList(growable: false),
+          ),
+        ),
+      ),
     );
   }
 }

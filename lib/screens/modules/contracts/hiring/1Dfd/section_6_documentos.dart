@@ -11,7 +11,7 @@ import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/input/drop_down_yes_no.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_yes_no.dart';
 
 class SectionDocumentos extends StatefulWidget {
   final bool isEditable;

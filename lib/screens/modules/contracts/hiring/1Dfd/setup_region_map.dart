@@ -10,8 +10,8 @@ import 'package:sipged/_blocs/system/location/ibge_localidade_state.dart';
 import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
 import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/map/tooltip/tooltip_overlay.dart';
 
 /// Abre um dialog com mapa IBGE para selecionar múltiplos municípios.

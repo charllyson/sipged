@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_binding.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
+import 'package:sipged/_widgets/buttons/icon_button_changed.dart';
 import 'package:sipged/screens/modules/planning/geo/catalog/catalog_property.dart';
-import 'package:sipged/screens/modules/planning/geo/catalog/catalog_section.dart';
 
 class CatalogPanel extends StatelessWidget {
   const CatalogPanel({
@@ -40,6 +40,20 @@ class CatalogPanel extends StatelessWidget {
       length: 2,
       child: Column(
         children: [
+          RepaintBoundary(
+            child: KeyedSubtree(
+              key: ValueKey(
+                'catalog_items_fixed_'
+                    '$selectedWorkspaceToken'
+                    '_$workspaceItemsToken',
+              ),
+              child: _FixedCatalogItemsArea(
+                selectedCatalogItemId: _effectiveSelectedCatalogItemId,
+                onCatalogItemTap: onCatalogItemTap,
+              ),
+            ),
+          ),
+          Container(height: 1, color: dividerColor),
           _TabHeader(
             theme: theme,
             dividerColor: dividerColor,
@@ -49,22 +63,14 @@ class CatalogPanel extends StatelessWidget {
             child: TabBarView(
               children: [
                 RepaintBoundary(
-                  child: _PanelBody(
-                    child: _CatalogItemsTab(
-                      selectedCatalogItemId: _effectiveSelectedCatalogItemId,
-                      onCatalogItemTap: onCatalogItemTap,
-                    ),
-                  ),
-                ),
-                RepaintBoundary(
                   child: KeyedSubtree(
                     key: ValueKey(
-                      'visualizations_data_'
+                      'catalog_fields_'
                           '$selectedWorkspaceToken'
                           '_$workspaceItemsToken',
                     ),
                     child: _PanelBody(
-                      child: _CatalogPropertiesTab(
+                      child: _CatalogFieldsTab(
                         item: selectedWorkspaceItem,
                         onPropertyChanged: onPropertyChanged,
                         onBindingDropped: onBindingDropped,
@@ -72,10 +78,35 @@ class CatalogPanel extends StatelessWidget {
                     ),
                   ),
                 ),
+                const RepaintBoundary(
+                  child: _PanelBody(
+                    child: _CatalogStyleTab(),
+                  ),
+                ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FixedCatalogItemsArea extends StatelessWidget {
+  const _FixedCatalogItemsArea({
+    required this.selectedCatalogItemId,
+    required this.onCatalogItemTap,
+  });
+
+  final String? selectedCatalogItemId;
+  final ValueChanged<CatalogData> onCatalogItemTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PanelBody(
+      child: _CatalogItemsGrid(
+        selectedCatalogItemId: selectedCatalogItemId,
+        onCatalogItemTap: onCatalogItemTap,
       ),
     );
   }
@@ -117,8 +148,8 @@ class _TabHeader extends StatelessWidget {
           ),
           labelPadding: const EdgeInsets.symmetric(horizontal: 10),
           tabs: const [
-            Tab(height: 30, text: 'Itens'),
-            Tab(height: 30, text: 'Dados'),
+            Tab(height: 30, text: 'Campos'),
+            Tab(height: 30, text: 'Estilo'),
           ],
         ),
       ),
@@ -126,8 +157,8 @@ class _TabHeader extends StatelessWidget {
   }
 }
 
-class _CatalogItemsTab extends StatelessWidget {
-  const _CatalogItemsTab({
+class _CatalogItemsGrid extends StatelessWidget {
+  const _CatalogItemsGrid({
     required this.selectedCatalogItemId,
     required this.onCatalogItemTap,
   });
@@ -137,25 +168,59 @@ class _CatalogItemsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
-      children: CatalogRegistry.groupedItems.entries.map((entry) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 18),
-          child: CatalogSection(
-            title: entry.key,
-            items: entry.value,
-            selectedItemId: selectedCatalogItemId,
-            onItemTap: onCatalogItemTap,
-          ),
-        );
-      }).toList(growable: false),
+    final items = CatalogRegistry.items;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          alignment: WrapAlignment.start,
+          spacing: 0,
+          runSpacing: 6,
+          children: items.map((item) {
+            final itemId = item.id;
+            final selected = selectedCatalogItemId == itemId;
+
+            final card = IconButtonChanged(
+              icon: item.icon ?? Icons.widgets_outlined,
+              tooltip: item.title,
+              selected: selected,
+              onTap: () => onCatalogItemTap(item),
+            );
+
+            return Draggable<CatalogData>(
+              data: item,
+              maxSimultaneousDrags: 1,
+              rootOverlay: true,
+              feedback: Material(
+                color: Colors.transparent,
+                child: IgnorePointer(
+                  child: IconButtonChanged(
+                    icon: item.icon ?? Icons.widgets_outlined,
+                    tooltip: item.title,
+                    selected: true,
+                    isDragging: true,
+                  ),
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.30,
+                child: IgnorePointer(
+                  child: card,
+                ),
+              ),
+              child: card,
+            );
+          }).toList(growable: false),
+        ),
+      ),
     );
   }
 }
 
-class _CatalogPropertiesTab extends StatelessWidget {
-  const _CatalogPropertiesTab({
+class _CatalogFieldsTab extends StatelessWidget {
+  const _CatalogFieldsTab({
     required this.item,
     required this.onPropertyChanged,
     required this.onBindingDropped,
@@ -175,7 +240,7 @@ class _CatalogPropertiesTab extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Text(
-            'Selecione um widget na área de trabalho para editar seus dados.',
+            'Selecione um widget na área de trabalho para editar seus campos.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.black.withValues(alpha: 0.60),
@@ -213,6 +278,29 @@ class _CatalogPropertiesTab extends StatelessWidget {
   }
 }
 
+class _CatalogStyleTab extends StatelessWidget {
+  const _CatalogStyleTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text(
+          'A aba de estilo será implementada em breve.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: Colors.black.withValues(alpha: 0.60),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PanelBody extends StatelessWidget {
   const _PanelBody({
     required this.child,
@@ -222,8 +310,17 @@ class _PanelBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    return const ColoredBox(
       color: Colors.white,
+      child: SizedBox.expand(),
+    ).copyWithChild(child);
+  }
+}
+
+extension _ColoredBoxCopyWith on ColoredBox {
+  Widget copyWithChild(Widget child) {
+    return ColoredBox(
+      color: color,
       child: child,
     );
   }

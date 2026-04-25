@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 
 class CatalogField extends StatefulWidget {
@@ -65,6 +65,8 @@ class _CatalogFieldState extends State<CatalogField> {
 
   String get _currentSelectValue => widget.property.selectedValue ?? '';
 
+  String? get _labelText => widget.property.label;
+
   @override
   void dispose() {
     _textController.dispose();
@@ -78,6 +80,7 @@ class _CatalogFieldState extends State<CatalogField> {
       case CatalogPropertyType.text:
         return CustomTextField(
           controller: _textController,
+          labelText: _labelText,
           hintText: widget.property.hint,
           onChanged: (value) {
             widget.onPropertyChanged(
@@ -89,6 +92,7 @@ class _CatalogFieldState extends State<CatalogField> {
       case CatalogPropertyType.number:
         return CustomTextField(
           controller: _textController,
+          labelText: _labelText,
           hintText: widget.property.hint,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
@@ -116,6 +120,7 @@ class _CatalogFieldState extends State<CatalogField> {
       case CatalogPropertyType.select:
         return DropDownChange(
           controller: _selectController,
+          labelText: _labelText,
           items: widget.property.options ?? const <String>[],
           tooltipMessage: widget.property.hint,
           onChanged: (value) {

@@ -7,8 +7,8 @@ import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_state.dart';
 import 'package:sipged/screens/modules/planning/geo/toolbox/toolbox_content.dart';
 
-class GeoFerramentasPanel extends StatelessWidget {
-  const GeoFerramentasPanel({
+class ToolboxPanel extends StatelessWidget {
+  const ToolboxPanel({
     super.key,
     required this.mapData,
     required this.editorState,

@@ -3,18 +3,17 @@ import 'package:provider/provider.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import '../../../../_blocs/modules/transit/infractions/infractions_bloc.dart';
 import '../../../../_widgets/draw/background/background_change.dart';
 import '../../../../_blocs/modules/transit/infractions/infractions_controller.dart';
 
-// SEÇÕES
 import 'infractions_form_section.dart';
 import 'infractions_selector_dates_section.dart';
 import 'infractions_table_section.dart';
 
-// MAPA + OVERLAY (mesmo padrão usado em Acidentes)
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
 
 class InfractionsRecordsPage extends StatefulWidget {
@@ -29,7 +28,6 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
     bloc: InfractionsBloc(),
   );
 
-  // Altura medida do formulário (desktop) para igualar o mapa dinamicamente
   double? _formHeight;
   static const double _minDeskHeight = 420;
 
@@ -105,7 +103,8 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                               text: 'Cadastrar infrações de trânsito no sistema',
                             ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 9.0),
+                              padding:
+                              const EdgeInsets.symmetric(horizontal: 9.0),
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
                                   final maxW = constraints.maxWidth;
@@ -116,7 +115,6 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                   isSmall ? maxW : (maxW - 12) / 2;
 
                                   if (isSmall) {
-                                    // ===== MOBILE =====
                                     return Column(
                                       crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
@@ -147,8 +145,6 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                               ctrl.fillFromUserLocation(context),
                                         ),
                                         const SizedBox(height: 12),
-
-                                        // Mapa no mobile (altura fixa confortável)
                                         SizedBox(
                                           width: double.infinity,
                                           height: 380,
@@ -170,14 +166,13 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                     );
                                   }
 
-                                  // ===== DESKTOP =====
-                                  final double mapH = _formHeight ?? _minDeskHeight;
+                                  final double mapH =
+                                      _formHeight ?? _minDeskHeight;
 
                                   return Row(
                                     crossAxisAlignment:
                                     CrossAxisAlignment.start,
                                     children: [
-                                      // COLUNA ESQUERDA: FORM
                                       SizedBox(
                                         width: leftWidth,
                                         child: _SizeReporter(
@@ -225,10 +220,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                           ),
                                         ),
                                       ),
-
                                       const SizedBox(width: 12),
-
-                                      // COLUNA DIREITA: MAPA
                                       SizedBox(
                                         width: rightWidth,
                                         height: mapH < _minDeskHeight
@@ -272,8 +264,6 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                 },
                               ),
                             ),
-
-                            // ======= TABELA =======
                             if (ctrl.pageItems.isEmpty)
                               const Padding(
                                 padding: EdgeInsets.all(16.0),
@@ -305,8 +295,6 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                 const FootBar(),
               ],
             ),
-
-            // Overlay de "salvando..."
             Consumer<InfractionsController>(
               builder: (_, ctrl, _) {
                 if (!ctrl.isSaving) {
@@ -320,7 +308,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                       color: Colors.black.withValues(alpha: 0.4),
                     ),
                     const Center(
-                      child: CircularProgressIndicator(),
+                      child: LoadingTreeDotsGrey(size: 120),
                     ),
                   ],
                 );
@@ -333,7 +321,6 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
   }
 }
 
-/// Widget auxiliar para medir o tamanho do filho após o layout
 class _SizeReporter extends StatefulWidget {
   const _SizeReporter({
     required this.child,

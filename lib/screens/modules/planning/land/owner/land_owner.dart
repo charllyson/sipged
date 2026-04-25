@@ -5,9 +5,10 @@ import 'package:sipged/_blocs/modules/planning/land/owner/land_owner_cubit.dart'
 import 'package:sipged/_blocs/modules/planning/land/owner/land_owner_data.dart';
 import 'package:sipged/_blocs/modules/planning/land/owner/land_owner_state.dart';
 
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class LandOwner extends StatefulWidget {
   final String contractId;
@@ -303,8 +304,9 @@ class _LandOwnerState extends State<LandOwner> {
                                   ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                                child: LoadingTreeDotsGrey(
+                                  size: 16,
+                                  centered: false,
                                 ),
                               )
                                   : const Icon(Icons.save),

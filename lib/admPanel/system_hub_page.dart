@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
@@ -57,7 +57,7 @@ class SystemHubPage extends StatelessWidget {
       appBar: UpBar(
         leading: const Padding(
           padding: EdgeInsets.only(left: 12.0),
-          child: BackCircleButton(),
+          child: CircleButtonChange(),
         ),
       ),
       body: Padding(

@@ -16,6 +16,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sipged/_widgets/images/carousel/photo_editor_page.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class PhotoPreviewPage extends StatefulWidget {
   final Uint8List originalBytes;
@@ -354,8 +355,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
         Positioned.fill(
           child: Center(
             child: Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               decoration: BoxDecoration(
                 color: const Color(0xFF1E1E1E),
                 borderRadius: BorderRadius.circular(10),
@@ -364,10 +364,11 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2.6),
+                  const LoadingTreeDotsGrey(
+                    size: 22,
+                    strokeWidth: 2.6,
+                    color: Colors.white,
+                    centered: false,
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -503,7 +504,10 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
         return null;
       }
 
-      if (latTag != null && lonTag != null && latRef != null && lonRef != null) {
+      if (latTag != null &&
+          lonTag != null &&
+          latRef != null &&
+          lonRef != null) {
         lat = ratiosToDeg(latTag.values);
         lon = ratiosToDeg(lonTag.values);
         if (lat != null && lon != null) {

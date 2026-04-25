@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
 class FirebaseUtils {
   static Future<void> deleteCollectionCompletamente({

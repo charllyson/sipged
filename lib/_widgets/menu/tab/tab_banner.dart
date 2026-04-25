@@ -18,7 +18,7 @@ import 'package:sipged/_blocs/system/permitions/contract_permission.dart'
 as acl;
 
 import 'package:sipged/_widgets/stamp/stamp.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
 class TabBanner extends StatefulWidget {
   const TabBanner({

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class Mapbox3DView extends StatefulWidget {
   final String htmlUrl;
-  final String viewId; // compat
+  final String viewId;
 
   const Mapbox3DView({
     super.key,
@@ -46,7 +47,10 @@ class _Mapbox3DViewState extends State<Mapbox3DView> {
           child: WebViewWidget(controller: _controller),
         ),
         if (_isLoading)
-          const Center(child: CircularProgressIndicator()),
+          const LoadingTreeDotsGrey(
+            size: 34,
+            strokeWidth: 3,
+          ),
       ],
     );
   }

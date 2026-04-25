@@ -7,6 +7,7 @@ import 'package:sipged/_utils/images/image_adapter_loader.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
 import 'package:sipged/_widgets/images/carousel/photo_item.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class PhotoThumb extends StatefulWidget {
   final PhotoItem item;
@@ -135,9 +136,8 @@ class _PhotoThumbState extends State<PhotoThumb> {
       final url = item.url;
 
       if (!kIsWeb) {
-        final looksHeicUrl =
-            url.toLowerCase().endsWith('.heic') ||
-                url.toLowerCase().endsWith('.heif');
+        final looksHeicUrl = url.toLowerCase().endsWith('.heic') ||
+            url.toLowerCase().endsWith('.heif');
 
         if (looksHeicUrl) {
           return _heicPlaceholder(size);
@@ -208,10 +208,9 @@ class _PhotoThumbState extends State<PhotoThumb> {
       height: size,
       color: Colors.grey.shade200,
       alignment: Alignment.center,
-      child: const SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(strokeWidth: 2),
+      child: const LoadingTreeDotsGrey(
+        size: 18,
+        strokeWidth: 2,
       ),
     );
   }

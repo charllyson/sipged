@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_data.dart';
-import 'package:sipged/_widgets/dates/selector/selector_dates.dart';
+import 'package:sipged/_widgets/DataTime/selector/selector_dates.dart';
 
 class InfractionsSelectorDatesSection extends StatelessWidget {
   final List<InfractionsData> allInfractions;

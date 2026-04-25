@@ -8,7 +8,8 @@ import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/_widgets/texts/divider_text.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
@@ -47,7 +48,8 @@ class _RevisionMeasurementView extends StatefulWidget {
   final ProcessData contractData;
 
   @override
-  State<_RevisionMeasurementView> createState() => _RevisionMeasurementViewState();
+  State<_RevisionMeasurementView> createState() =>
+      _RevisionMeasurementViewState();
 }
 
 class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
@@ -57,8 +59,6 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   final dateCtrl = TextEditingController();
 
   bool formValidated = false;
-
-  // ✅ seleção do SideListBox fica local
   int? _selectedSideIndex;
 
   @override
@@ -108,8 +108,6 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
   void _fillFieldsFromSelected(RevisionMeasurementState state) {
     final sel = state.selected;
-
-    // ao trocar seleção, reseta seleção do side
     _selectedSideIndex = null;
 
     if (sel == null) {
@@ -133,7 +131,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     }
   }
 
-  int? _parseInt(String text) => int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), ''));
+  int? _parseInt(String text) =>
+      int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), ''));
 
   double _parseCurrency(String text) {
     final cleaned = text
@@ -154,10 +153,6 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     if (d == null || m == null || y == null) return null;
     return DateTime(y, m, d);
   }
-
-  // =============================================================================
-  // SideListBox helpers
-  // =============================================================================
 
   List<Attachment> _onlyAttachments(List<dynamic> items) {
     return items.whereType<Attachment>().toList();
@@ -192,8 +187,11 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
         _fillFieldsFromSelected(state);
       },
       builder: (context, state) {
-        if (state.status == RevisionMeasurementStatus.loading && state.revisions.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+        if (state.status == RevisionMeasurementStatus.loading &&
+            state.revisions.isEmpty) {
+          return const Center(
+            child: LoadingTreeDotsGrey(size: 110),
+          );
         }
 
         if (state.status == RevisionMeasurementStatus.error) {
@@ -220,13 +218,19 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
         final selectedIndex = state.selectedIndex;
 
         final nextOrder = _computeNextOrder(state);
-        final usedOrders = revisions.map((m) => m.order).whereType<int>().toSet().toList()..sort();
+        final usedOrders = revisions
+            .map((m) => m.order)
+            .whereType<int>()
+            .toSet()
+            .toList()
+          ..sort();
 
         final orderOptions = <String>[
           ...usedOrders.map((o) => o.toString()),
           if (!usedOrders.contains(nextOrder)) nextOrder.toString(),
         ];
-        final Set<String> greyOrderItems = usedOrders.map((o) => o.toString()).toSet();
+        final Set<String> greyOrderItems =
+        usedOrders.map((o) => o.toString()).toSet();
 
         final attachments = state.attachments;
 
@@ -239,7 +243,9 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SectionTitle(text: 'Gráfico das revisões de medição'),
+                        const SectionTitle(
+                          text: 'Gráfico das revisões de medição',
+                        ),
                         RevisionMeasurementGraphSection(
                           labels: labels,
                           values: values,
@@ -248,7 +254,9 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                           selectedIndex: selectedIndex,
                           onSelectIndex: (i) => cubit.selectByIndex(i),
                         ),
-                        const DividerText(text: 'Cadastrar revisões de medição'),
+                        const DividerText(
+                          text: 'Cadastrar revisões de medição',
+                        ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: RevisionMeasurementFormSection(
@@ -270,7 +278,9 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
                               final parsedOrder = _parseInt(orderCtrl.text);
                               final effectiveOrder =
-                              (parsedOrder == null || parsedOrder <= 0) ? _computeNextOrder(state) : parsedOrder;
+                              (parsedOrder == null || parsedOrder <= 0)
+                                  ? _computeNextOrder(state)
+                                  : parsedOrder;
 
                               final value = _parseCurrency(valueCtrl.text);
                               final date = _parseDate(dateCtrl.text);
@@ -279,19 +289,29 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 NotificationCenter.instance.show(
                                   AppNotification(
                                     type: AppNotificationType.error,
-                                    title: const Text('Data da revisão inválida'),
-                                    subtitle: const Text('Use o formato dd/MM/aaaa.'),
+                                    title: const Text(
+                                      'Data da revisão inválida',
+                                    ),
+                                    subtitle: const Text(
+                                      'Use o formato dd/MM/aaaa.',
+                                    ),
                                   ),
                                 );
                                 return;
                               }
 
-                              if (contractId == null || contractId.isEmpty) return;
+                              if (contractId == null || contractId.isEmpty) {
+                                return;
+                              }
 
                               final isNew = state.selected?.id == null;
-                              final base = state.selected ?? RevisionMeasurementData();
+                              final base =
+                                  state.selected ?? RevisionMeasurementData();
 
-                              final id = base.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+                              final id = base.id ??
+                                  DateTime.now()
+                                      .millisecondsSinceEpoch
+                                      .toString();
 
                               final data = base.copyWith(
                                 id: id,
@@ -300,7 +320,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 numberprocess: processCtrl.text.trim(),
                                 value: value,
                                 date: date,
-                                attachments: (state.selected?.attachments),
+                                attachments: state.selected?.attachments,
                                 pdfUrl: state.selected?.pdfUrl,
                               );
 
@@ -314,15 +334,23 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 NotificationCenter.instance.show(
                                   AppNotification(
                                     type: AppNotificationType.success,
-                                    title: Text(isNew ? 'Revisão criada' : 'Revisão atualizada'),
-                                    subtitle: Text('Revisão da medição ${data.order} salva com sucesso.'),
+                                    title: Text(
+                                      isNew
+                                          ? 'Revisão criada'
+                                          : 'Revisão atualizada',
+                                    ),
+                                    subtitle: Text(
+                                      'Revisão da medição ${data.order} salva com sucesso.',
+                                    ),
                                   ),
                                 );
                               } catch (e) {
                                 NotificationCenter.instance.show(
                                   AppNotification(
                                     type: AppNotificationType.error,
-                                    title: const Text('Erro ao salvar revisão'),
+                                    title: const Text(
+                                      'Erro ao salvar revisão',
+                                    ),
                                     subtitle: Text('$e'),
                                   ),
                                 );
@@ -332,10 +360,6 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               cubit.clearSelection();
                               setState(() => _selectedSideIndex = null);
                             },
-
-                            // ==========================
-                            // ✅ SideListBox (multi-anexos)
-                            // ==========================
                             sideItems: attachments,
                             selectedSideIndex: _selectedSideIndex,
                             onAddSideItem: (state.selected != null)
@@ -348,7 +372,9 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 NotificationCenter.instance.show(
                                   AppNotification(
                                     type: AppNotificationType.error,
-                                    title: const Text('Erro ao anexar arquivo'),
+                                    title: const Text(
+                                      'Erro ao anexar arquivo',
+                                    ),
                                     subtitle: Text('$e'),
                                   ),
                                 );
@@ -357,8 +383,6 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 : null,
                             onTapSideItem: (i) {
                               setState(() => _selectedSideIndex = i);
-                              // Se você já tem um padrão para abrir URL/arquivo (web/desktop/mobile),
-                              // plugue aqui. Ex.: abrir o attachments[i].url em um viewer do seu app.
                             },
                             onDeleteSideItem: (i) async {
                               try {
@@ -368,13 +392,14 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 NotificationCenter.instance.show(
                                   AppNotification(
                                     type: AppNotificationType.error,
-                                    title: const Text('Erro ao remover anexo'),
+                                    title: const Text(
+                                      'Erro ao remover anexo',
+                                    ),
                                     subtitle: Text('$e'),
                                   ),
                                 );
                               }
                             },
-
                             onRenamePersist: ({
                               required int index,
                               required Attachment oldItem,
@@ -388,20 +413,19 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 newItem: newItem,
                               );
                             },
-
                             onSideItemsChanged: (newItems) async {
                               final next = _onlyAttachments(newItems);
                               await cubit.updateAttachments(next);
                             },
-
-                            // dropdown
                             orderOptions: orderOptions,
                             greyOrderItems: greyOrderItems,
                             onChangedOrder: (value) {
                               final picked = int.tryParse(value ?? '');
                               if (picked == null || picked <= 0) return;
 
-                              final idx = revisions.indexWhere((m) => (m.order ?? -1) == picked);
+                              final idx = revisions.indexWhere(
+                                    (m) => (m.order ?? -1) == picked,
+                              );
 
                               if (idx >= 0) {
                                 cubit.selectByIndex(idx);
@@ -415,7 +439,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                         const SectionTitle(text: 'Revisões cadastradas no sistema'),
                         RevisionMeasurementTableSection(
                           onTapItem: (RevisionMeasurementData data) {
-                            final idx = revisions.indexWhere((e) => e.id == data.id);
+                            final idx =
+                            revisions.indexWhere((e) => e.id == data.id);
                             if (idx >= 0) cubit.selectByIndex(idx);
                           },
                           onDelete: (id) async {
@@ -424,16 +449,23 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               'Deseja realmente apagar esta medição de revisão?',
                             );
                             if (!ok) return;
-                            if (contractId == null || contractId.isEmpty) return;
+                            if (contractId == null || contractId.isEmpty) {
+                              return;
+                            }
 
                             try {
-                              await cubit.delete(contractId: contractId, revisionId: id);
+                              await cubit.delete(
+                                contractId: contractId,
+                                revisionId: id,
+                              );
 
                               NotificationCenter.instance.show(
                                 AppNotification(
                                   type: AppNotificationType.warning,
                                   title: const Text('Revisão apagada'),
-                                  subtitle: const Text('A revisão foi removida com sucesso.'),
+                                  subtitle: const Text(
+                                    'A revisão foi removida com sucesso.',
+                                  ),
                                 ),
                               );
                             } catch (e) {
@@ -465,8 +497,13 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
             if (state.isSaving)
               Stack(
                 children: [
-                  ModalBarrier(dismissible: false, color: Colors.black.withValues(alpha: 0.4)),
-                  const Center(child: CircularProgressIndicator()),
+                  ModalBarrier(
+                    dismissible: false,
+                    color: Colors.black.withValues(alpha: 0.4),
+                  ),
+                  const Center(
+                    child: LoadingTreeDotsGrey(size: 120),
+                  ),
                 ],
               ),
           ],

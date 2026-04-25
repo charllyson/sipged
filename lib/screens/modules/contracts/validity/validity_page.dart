@@ -1,6 +1,3 @@
-// ==============================
-// lib/screens/contracts/validity/validity_page.dart
-// ==============================
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -13,10 +10,10 @@ import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/timeline/timeline_class.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
-import 'package:sipged/_widgets/pdf/pdf_preview.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_services/pdf/pdf_preview.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
-// ✅ novo: para callback do rename persist
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'validity_form_section.dart';
@@ -58,15 +55,12 @@ class ValidityPage extends StatelessWidget {
           final cubit = context.read<ValidityCubit>();
           final isBusy = state.isLoading || state.isSaving;
 
-          // TODO: integrar permissões reais (UserBloc, roles/perms).
           const bool isEditable = true;
 
           Future<void> handleAddAttachment() async {
             final v = state.selectedValidity;
             if (v == null) return;
 
-            try {
-              // Usamos um repo temporário apenas para pegar os bytes
               final tempRepo = ValidityRepository();
               final (bytes, originalName) = await tempRepo.pickFileBytes();
 
@@ -79,9 +73,7 @@ class ValidityPage extends StatelessWidget {
                 originalName: originalName,
                 customLabel: label,
               );
-            } catch (e) {
-              // Aqui você pode exibir uma notificação de erro se quiser
-            }
+
           }
 
           Future<void> handleOpenAttachment(int index) async {
@@ -113,9 +105,6 @@ class ValidityPage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // =========================
-                          // TIMELINE (usa Cubit internamente)
-                          // =========================
                           const SizedBox(height: 12),
                           const TimelineClass(),
                           const SectionTitle(
@@ -145,26 +134,25 @@ class ValidityPage extends StatelessWidget {
                             onAddAttachment: handleAddAttachment,
                             onDeleteAttachment: handleDeleteAttachment,
                             onTapAttachment: handleOpenAttachment,
-
-                            // ✅ NOVO: rename embutido no SideListBox; aqui só persiste
                             onRenamePersistAttachment: ({
                               required int index,
                               required Attachment oldItem,
                               required Attachment newItem,
                             }) async {
                               try {
-                                await cubit.renameAttachment(index, newItem.label);
+                                await cubit.renameAttachment(
+                                  index,
+                                  newItem.label,
+                                );
                                 return true;
                               } catch (_) {
                                 return false;
                               }
                             },
                           ),
-
                           const SectionTitle(
                             text: 'Validades cadastradas no sistema',
                           ),
-
                           ValidityTableSection(
                             validities: state.validities,
                             selectedItem: state.selectedValidity,
@@ -186,10 +174,9 @@ class ValidityPage extends StatelessWidget {
                   const FootBar(),
                 ],
               ),
-
               if (isBusy)
                 const Center(
-                  child: CircularProgressIndicator(),
+                  child: LoadingTreeDotsGrey(size: 110),
                 ),
             ],
           );

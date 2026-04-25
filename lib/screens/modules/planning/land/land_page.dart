@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
@@ -32,7 +32,7 @@ class _LandPageState extends State<LandPage> {
     return Scaffold(
       key: _scaffoldKey,
       appBar: UpBar(
-        leading: BackCircleButton(),
+        leading: CircleButtonChange(),
         actions: [
           IconButton(
             tooltip: 'Mostrar painel',

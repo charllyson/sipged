@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/buttons/toolbar_icon_button.dart';
+import 'package:sipged/_widgets/buttons/icon_button_changed.dart';
 
 class LayerToolbar extends StatelessWidget {
   final String? selectedId;
@@ -23,10 +23,75 @@ class LayerToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedId = this.selectedId;
+    final currentSelectedId = selectedId;
+
+    final actions = <Widget>[
+      IconButtonChanged(
+        icon: Icons.add,
+        tooltip: 'Criar camada',
+        selected: false,
+        size: 34,
+        iconSize: 18,
+        enabled: onCreateLayer != null,
+        onTap: onCreateLayer,
+      ),
+      IconButtonChanged(
+        icon: Icons.remove_circle_outline,
+        tooltip: 'Remover item',
+        selected: false,
+        size: 34,
+        iconSize: 18,
+        enabled: currentSelectedId != null && onRemoveSelected != null,
+        onTap: currentSelectedId == null
+            ? null
+            : () => onRemoveSelected?.call(currentSelectedId),
+      ),
+      IconButtonChanged(
+        icon: Icons.create_new_folder_outlined,
+        tooltip: 'Criar grupo',
+        selected: false,
+        size: 34,
+        iconSize: 18,
+        enabled: onCreateEmptyGroup != null,
+        onTap: onCreateEmptyGroup,
+      ),
+      IconButtonChanged(
+        icon: Icons.settings,
+        tooltip: 'Configurações',
+        selected: false,
+        size: 34,
+        iconSize: 18,
+        enabled: currentSelectedId != null && onRenameSelected != null,
+        onTap: currentSelectedId == null
+            ? null
+            : () => onRenameSelected?.call(currentSelectedId),
+      ),
+      IconButtonChanged(
+        icon: Icons.arrow_downward_outlined,
+        tooltip: 'Mover para baixo',
+        selected: false,
+        size: 34,
+        iconSize: 18,
+        enabled: currentSelectedId != null && onMoveDown != null,
+        onTap: currentSelectedId == null
+            ? null
+            : () => onMoveDown?.call(currentSelectedId),
+      ),
+      IconButtonChanged(
+        icon: Icons.arrow_upward_outlined,
+        tooltip: 'Mover para cima',
+        selected: false,
+        size: 34,
+        iconSize: 18,
+        enabled: currentSelectedId != null && onMoveUp != null,
+        onTap: currentSelectedId == null
+            ? null
+            : () => onMoveUp?.call(currentSelectedId),
+      ),
+    ];
 
     return SizedBox(
-      height: 46,
+      height: 34,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Align(
@@ -35,44 +100,10 @@ class LayerToolbar extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                ToolbarIconButton(
-                  icon: Icons.add,
-                  tooltip: 'Criar camada',
-                  onTap: onCreateLayer,
-                ),
-                ToolbarIconButton(
-                  icon: Icons.remove_circle_outline,
-                  tooltip: 'Remover item',
-                  onTap: selectedId == null
-                      ? null
-                      : () => onRemoveSelected?.call(selectedId),
-                ),
-                ToolbarIconButton(
-                  icon: Icons.create_new_folder_outlined,
-                  tooltip: 'Criar grupo',
-                  onTap: onCreateEmptyGroup,
-                ),
-                ToolbarIconButton(
-                  icon: Icons.settings,
-                  tooltip: 'Configurações',
-                  onTap: selectedId == null
-                      ? null
-                      : () => onRenameSelected?.call(selectedId),
-                ),
-                ToolbarIconButton(
-                  icon: Icons.arrow_downward_outlined,
-                  tooltip: 'Mover para baixo',
-                  onTap: selectedId == null
-                      ? null
-                      : () => onMoveDown?.call(selectedId),
-                ),
-                ToolbarIconButton(
-                  icon: Icons.arrow_upward_outlined,
-                  tooltip: 'Mover para cima',
-                  onTap: selectedId == null
-                      ? null
-                      : () => onMoveUp?.call(selectedId),
-                ),
+                for (int i = 0; i < actions.length; i++) ...[
+                  actions[i],
+                  if (i < actions.length - 1) const SizedBox(width: 6),
+                ],
               ],
             ),
           ),

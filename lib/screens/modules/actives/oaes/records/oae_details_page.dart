@@ -14,10 +14,11 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_widgets/input/date_field_change.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/DataTime/date_field_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import 'oae_map_section.dart';
 
@@ -461,10 +462,11 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                             onPressed: isSaving ? null : () => _handleSave(st),
                             icon: isSaving
                                 ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
+                              width: 18,
+                              height: 18,
+                              child: LoadingTreeDotsGrey(
+                                size: 18,
+                                centered: false,
                               ),
                             )
                                 : const Icon(

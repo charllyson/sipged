@@ -6,12 +6,12 @@ import 'package:sipged/_blocs/modules/planning/land/property/land_property_data.
 import 'package:sipged/_blocs/modules/planning/land/property/land_property_state.dart';
 
 import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LandProperty extends StatefulWidget {

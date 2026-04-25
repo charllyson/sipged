@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/buttons/mini_circle_button.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 
 class MapTopButtons extends StatelessWidget {
   final bool showSearch;
@@ -35,28 +35,34 @@ class MapTopButtons extends StatelessWidget {
 
     if (showMyLocation) {
       if (children.isNotEmpty) children.add(const SizedBox(width: 8));
+
       children.add(
-        Tooltip(
-          message: 'Minha localização',
-          child: InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: onMyLocationTap,
-            child: const MiniCircleButton(icon: Icons.pin_drop),
-          ),
+        CircleButtonChange(
+          icon: Icons.pin_drop,
+          tooltip: 'Minha localização',
+          radius: 21,
+          backgroundColor: Colors.black38,
+          iconColor: Colors.white,
+          onPressed: onMyLocationTap == null
+              ? null
+              : () async {
+            await onMyLocationTap!.call();
+          },
         ),
       );
     }
 
     if (showChangeMapType) {
       if (children.isNotEmpty) children.add(const SizedBox(width: 8));
+
       children.add(
-        Tooltip(
-          message: 'Mapa: $mapName',
-          child: InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: onMapSwitchTap,
-            child: const MiniCircleButton(icon: Icons.map),
-          ),
+        CircleButtonChange(
+          icon: Icons.map,
+          tooltip: 'Mapa: $mapName',
+          radius: 21,
+          backgroundColor: Colors.black38,
+          iconColor: Colors.white,
+          onPressed: onMapSwitchTap,
         ),
       );
     }

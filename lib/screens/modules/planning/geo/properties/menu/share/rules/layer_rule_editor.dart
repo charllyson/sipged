@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/menu/share/rules/layer_rule_core.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/menu/share/rules/layer_rule_data.dart';
 

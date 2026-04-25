@@ -1,22 +1,15 @@
-// lib/_services/map/map_box/mapbox_3d_stub.dart
-//
-// Implementação usada quando NÃO estamos no Web (mobile/desktop).
-// Usa webview_flutter para renderizar o HTML do Mapbox.
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'package:sipged/_services/map/map_box/mapbox_html_builder.dart';
 import 'package:sipged/_services/map/map_box/mapbox_data.dart';
 
-/// Controller usado pelo Flutter para enviar comandos de câmera/estilo
-/// para o WebView (via JavaScript).
 class Mapbox3DController {
   WebViewController? _webViewController;
 
-  /// Chamado pelo widget [Mapbox3DView] quando o WebView é criado.
   void attachWebViewController(WebViewController controller) {
     _webViewController = controller;
   }
@@ -27,8 +20,7 @@ class Mapbox3DController {
     final ctrl = _webViewController;
     if (ctrl == null) return;
 
-    final js =
-        'window.flutterMapboxCameraControl(${jsonEncode(msg)});';
+    final js = 'window.flutterMapboxCameraControl(${jsonEncode(msg)});';
     ctrl.runJavaScript(js);
   }
 
@@ -79,7 +71,6 @@ class Mapbox3DController {
   }
 }
 
-/// View 3D usada no mobile (WebView).
 class Mapbox3DView extends StatefulWidget {
   final MapboxMapConfig config;
   final Mapbox3DController controller;
@@ -133,9 +124,7 @@ class _Mapbox3DViewState extends State<Mapbox3DView> {
                 lat: latNum is num ? latNum.toDouble() : 0.0,
               ),
             );
-          } catch (_) {
-            // ignora erros silenciosamente
-          }
+          } catch (_) {}
         },
       )
       ..setNavigationDelegate(
@@ -161,17 +150,14 @@ class _Mapbox3DViewState extends State<Mapbox3DView> {
   void didUpdateWidget(covariant Mapbox3DView oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final markersJson =
-    widget.config.markers.map((m) => m.toJson()).toList();
+    final markersJson = widget.config.markers.map((m) => m.toJson()).toList();
 
     final msg = {
       'type': 'updateMarkers',
       'markers': markersJson,
     };
 
-    final js =
-        'window.flutterMapboxUpdateMarkers(${jsonEncode(msg)});';
-
+    final js = 'window.flutterMapboxUpdateMarkers(${jsonEncode(msg)});';
     _webViewController.runJavaScript(js);
   }
 
@@ -183,8 +169,9 @@ class _Mapbox3DViewState extends State<Mapbox3DView> {
           child: WebViewWidget(controller: _webViewController),
         ),
         if (_isLoading)
-          const Center(
-            child: CircularProgressIndicator(),
+          const LoadingTreeDotsGrey(
+            size: 34,
+            strokeWidth: 3,
           ),
       ],
     );

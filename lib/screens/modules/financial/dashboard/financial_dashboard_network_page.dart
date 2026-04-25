@@ -4,17 +4,15 @@ import 'package:intl/intl.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
-// Cubits
 import 'package:sipged/_blocs/modules/financial/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_cubit.dart';
 import 'package:sipged/_blocs/modules/financial/dashboard/financial_dashboard_cubit.dart';
 import 'package:sipged/_blocs/modules/financial/dashboard/financial_dashboard_state.dart';
 
-// ✅ DFD cubit (para valorDemanda)
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 
-// UI
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/screens/modules/financial/dashboard/finance_dashboard_page.dart';
 
 class FinancialDashboardNetworkPage extends StatefulWidget {
@@ -47,12 +45,10 @@ class _FinancialDashboardNetworkPageState
         BlocProvider<BudgetCubit>(
           create: (_) => BudgetCubit(),
         ),
-
-        // ✅ DashboardCubit (consome repos e consulta DFD/aditivos/apostilas)
         BlocProvider<FinancialDashboardCubit>(
           create: (ctx) {
             final c = FinancialDashboardCubit(
-              dfdCubit: ctx.read<DfdCubit>(), // usa o DfdCubit já injetado no app
+              dfdCubit: ctx.read<DfdCubit>(),
             );
 
             final contractId = widget.contractData?.id?.trim() ?? '';
@@ -70,11 +66,12 @@ class _FinancialDashboardNetworkPageState
           builder: (context, st) {
             final cubit = context.read<FinancialDashboardCubit>();
 
-            // loading "duro" só quando não tem nada ainda
             if (st.status == FinancialDashboardStatus.loading &&
                 st.budgets.isEmpty &&
                 st.empenhos.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                child: LoadingTreeDotsGrey(size: 110),
+              );
             }
 
             if (st.status == FinancialDashboardStatus.failure &&
@@ -104,8 +101,8 @@ class _FinancialDashboardNetworkPageState
                     onSelectEmpenho: cubit.selectEmpenho,
                     totalOrcamento: totals.orcamento,
                     totalEmpenhado: totals.empenhado,
-                    totalMedido: totals.medido, // 0 por enquanto
-                    totalPago: totals.pago, // 0 por enquanto
+                    totalMedido: totals.medido,
+                    totalPago: totals.pago,
                     totalSaldo: totals.saldo,
                   ),
                 ),

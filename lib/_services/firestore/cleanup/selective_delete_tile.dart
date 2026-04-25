@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/tiles/tile_widget.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'selective_delete_util.dart';
 
 import 'package:sipged/_widgets/notification/app_notification.dart';
@@ -32,7 +33,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             showDialog(
               context: context,
               barrierDismissible: false,
-              builder: (_) => const Center(child: CircularProgressIndicator()),
+              builder: (_) => const LoadingTreeDotsGrey(),
             );
 
             int dry = 0;
@@ -70,7 +71,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             showDialog(
               context: context,
               barrierDismissible: false,
-              builder: (_) => const Center(child: CircularProgressIndicator()),
+              builder: (_) => const LoadingTreeDotsGrey(),
             );
 
             int real = 0;
@@ -116,14 +117,13 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             showDialog(
               context: context,
               barrierDismissible: false,
-              builder: (_) => const Center(child: CircularProgressIndicator()),
+              builder: (_) => const LoadingTreeDotsGrey(),
             );
 
             int dry = 0;
             try {
               final deleter = SubcollectionSelectiveDeleter();
-              dry =
-              p.useParents
+              dry = p.useParents
                   ? await deleter.deleteWhereUnderEachParent(
                 parentCollectionPath: p.parent,
                 subcollection: p.sub,
@@ -161,14 +161,13 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             showDialog(
               context: context,
               barrierDismissible: false,
-              builder: (_) => const Center(child: CircularProgressIndicator()),
+              builder: (_) => const LoadingTreeDotsGrey(),
             );
 
             int real = 0;
             try {
               final deleter = SubcollectionSelectiveDeleter();
-              real =
-              p.useParents
+              real = p.useParents
                   ? await deleter.deleteWhereUnderEachParent(
                 parentCollectionPath: p.parent,
                 subcollection: p.sub,
@@ -308,8 +307,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
                           return;
                         }
 
-                        final ids =
-                        idsCtrl.text
+                        final ids = idsCtrl.text
                             .split(RegExp(r'[,\n]'))
                             .map((e) => e.trim())
                             .where((e) => e.isNotEmpty)
@@ -431,8 +429,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
                           return;
                         }
 
-                        final dynamic parsed =
-                        (op == WhereOp.whereIn)
+                        final dynamic parsed = (op == WhereOp.whereIn)
                             ? FieldValueParser.parse(
                           valueCtrl.text,
                           tryList: true,

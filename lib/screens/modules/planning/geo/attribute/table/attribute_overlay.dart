@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_state.dart';
-import 'package:sipged/_widgets/overlays/progress_card.dart';
+import 'package:sipged/_widgets/cards/progress_card.dart';
 
 class AttributeOverlay extends StatelessWidget {
   const AttributeOverlay({

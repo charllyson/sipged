@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 import 'package:sipged/_utils/formats/sipged_format_dates.dart';
 import 'package:sipged/_utils/formats/sipged_format_money.dart';
-import 'package:sipged/_widgets/overlays/loading_progress.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/table/paged/paged_colum.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 
@@ -58,7 +58,7 @@ class ApostilleTableSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading && apostilles.isEmpty) {
-      return const LoadingProgress();
+      return const LoadingTreeDotsGrey();
     }
 
     if (!isLoading && apostilles.isEmpty) {
@@ -123,7 +123,7 @@ class ApostilleTableSection extends StatelessWidget {
             child: Container(
               color: Colors.white.withValues(alpha: 0.65),
               alignment: Alignment.center,
-              child: const LoadingProgress(),
+              child: const LoadingTreeDotsGrey(),
             ),
           ),
       ],

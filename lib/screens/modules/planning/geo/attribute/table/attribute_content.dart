@@ -8,7 +8,7 @@ import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/table/paged/paged_colum.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_metrics.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/table/attribute_page.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/table/attribute_row.dart';
 
