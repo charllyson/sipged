@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_map.dart';
 import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_panel.dart';
@@ -20,6 +22,7 @@ class LayerDrawer extends StatelessWidget {
     required this.onRemoveSelected,
     required this.onConnectLayer,
     required this.onOpenTable,
+    this.currentUserId,
     this.title = 'Camadas',
   });
 
@@ -27,34 +30,169 @@ class LayerDrawer extends StatelessWidget {
   final MapState editorState;
   final String title;
 
+  final String? currentUserId;
+
   final ValueChanged<String> onSelectedChanged;
   final void Function(String id, bool active) onToggleLayer;
   final ValueChanged<String> onMoveUp;
   final ValueChanged<String> onMoveDown;
+
   final Future<void> Function(String? parentId, int? targetIndex)
   onCreateEmptyGroup;
-  final Future<void> Function(String? parentId, int? targetIndex)
-  onCreateLayer;
+
+  final Future<void> Function(String? parentId, int? targetIndex) onCreateLayer;
+
   final void Function(String draggedId, String? targetParentId, int targetIndex)
   onDropItem;
+
   final ValueChanged<String> onRenameSelected;
   final ValueChanged<String> onRemoveSelected;
   final ValueChanged<String> onConnectLayer;
   final ValueChanged<String> onOpenTable;
 
+  List<LayerData> _filterTreeForUser({
+    required List<LayerData> tree,
+    required String currentUserId,
+  }) {
+    final uid = currentUserId.trim();
+
+    if (uid.isEmpty) {
+      return const [];
+    }
+
+    List<LayerData> walk(List<LayerData> nodes) {
+      final result = <LayerData>[];
+
+      for (final node in nodes) {
+        if (node.isGroup) {
+          final visibleChildren = walk(node.children);
+
+          if (visibleChildren.isNotEmpty) {
+            result.add(
+              node.copyWith(
+                children: visibleChildren,
+              ),
+            );
+          }
+
+          continue;
+        }
+
+        if (_canUserSeeLayer(node, uid)) {
+          result.add(node);
+        }
+      }
+
+      return result;
+    }
+
+    return walk(tree);
+  }
+
+  bool _canUserSeeLayer(LayerData layer, String currentUserId) {
+    final uid = currentUserId.trim();
+    if (uid.isEmpty) return false;
+
+    if (layer.isOwner(uid)) {
+      return true;
+    }
+
+    final permission = layer.permissionFor(uid);
+
+    return permission == LayerSharePermission.readOnly ||
+        permission == LayerSharePermission.edit;
+  }
+
+  Set<String> _collectTreeIds(List<LayerData> tree) {
+    final ids = <String>{};
+
+    void walk(List<LayerData> nodes) {
+      for (final node in nodes) {
+        ids.add(node.id);
+
+        if (node.children.isNotEmpty) {
+          walk(node.children);
+        }
+      }
+    }
+
+    walk(tree);
+    return ids;
+  }
+
+  Set<String> _filterActiveLayerIds({
+    required Set<String> source,
+    required Set<String> visibleIds,
+  }) {
+    return source.where(visibleIds.contains).toSet();
+  }
+
+  Map<String, bool> _filterHasDataByVisibleLayers({
+    required Map<String, bool> source,
+    required Set<String> visibleIds,
+  }) {
+    return {
+      for (final entry in source.entries)
+        if (visibleIds.contains(entry.key)) entry.key: entry.value,
+    };
+  }
+
+  String? _normalizeSelectedId({
+    required String? selectedId,
+    required Set<String> visibleIds,
+  }) {
+    final id = (selectedId ?? '').trim();
+
+    if (id.isEmpty) {
+      return null;
+    }
+
+    if (!visibleIds.contains(id)) {
+      return null;
+    }
+
+    return id;
+  }
+
   @override
   Widget build(BuildContext context) {
     const headerHeight = 60.0;
 
+    final resolvedCurrentUserId =
+    (currentUserId ?? FirebaseAuth.instance.currentUser?.uid ?? '').trim();
+
+    final visibleTree = _filterTreeForUser(
+      tree: mapData.currentTree,
+      currentUserId: resolvedCurrentUserId,
+    );
+
+    final visibleIds = _collectTreeIds(visibleTree);
+
+    final visibleActiveLayerIds = _filterActiveLayerIds(
+      source: mapData.activeLayerIds,
+      visibleIds: visibleIds,
+    );
+
+    final visibleHasDataByLayer = _filterHasDataByVisibleLayers(
+      source: mapData.hasDataByLayer,
+      visibleIds: visibleIds,
+    );
+
+    final selectedId = _normalizeSelectedId(
+      selectedId: editorState.selectedLayerPanelItemId,
+      visibleIds: visibleIds,
+    );
+
     final panelKey = ValueKey(
       'layers_panel_drawer_'
-          '${mapData.currentTree.length}_'
-          '${mapData.activeLayerIds.length}_'
-          '${editorState.selectedLayerPanelItemId ?? 'none'}_'
+          '${visibleTree.length}_'
+          '${visibleActiveLayerIds.length}_'
+          '${selectedId ?? 'none'}_'
           '${editorState.activeEditingPointLayerId ?? 'none'}_'
           '${editorState.activeEditingLineLayerId ?? 'none'}_'
           '${editorState.activeEditingPolygonLayerId ?? 'none'}_'
-          '${mapData.hasDataSignature}',
+          '${mapData.hasDataSignature}_'
+          '$resolvedCurrentUserId',
     );
 
     return SafeArea(
@@ -142,12 +280,16 @@ class LayerDrawer extends StatelessWidget {
                     child: RepaintBoundary(
                       child: LayerPanel(
                         key: panelKey,
-                        layers: mapData.currentTree,
-                        activeLayerIds: mapData.activeLayerIds,
-                        selectedId: editorState.selectedLayerPanelItemId,
+                        layers: visibleTree,
+                        activeLayerIds: visibleActiveLayerIds,
+                        selectedId: selectedId,
+                        currentUserId: resolvedCurrentUserId,
                         onSelectedChanged: onSelectedChanged,
+                        onClearSelection: () {
+                          onSelectedChanged('');
+                        },
                         onToggleLayer: onToggleLayer,
-                        hasDataByLayer: mapData.hasDataByLayer,
+                        hasDataByLayer: visibleHasDataByLayer,
                         supportsConnect: (layer) =>
                         layer.supportsConnect && !layer.isGroup,
                         onMoveUp: onMoveUp,

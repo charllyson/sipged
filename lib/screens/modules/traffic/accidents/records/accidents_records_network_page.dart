@@ -776,7 +776,7 @@ class _AccidentsRecordsNetworkPageInnerState
                       color: Colors.black.withValues(alpha: 0.25),
                     ),
                     const Center(
-                      child: LoadingTreeDotsGrey(size: 120),
+                      child: LoadingTreeDots(size: 120),
                     ),
                   ],
                 ),

@@ -244,7 +244,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
                       if (st.loadingLanes)
                         const Padding(
                           padding: EdgeInsets.only(left: 4),
-                          child: LoadingTreeDotsGrey(
+                          child: LoadingTreeDots(
                             size: 18,
                             centered: false,
                           ),

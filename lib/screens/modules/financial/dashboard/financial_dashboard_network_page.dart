@@ -70,7 +70,7 @@ class _FinancialDashboardNetworkPageState
                 st.budgets.isEmpty &&
                 st.empenhos.isEmpty) {
               return const Center(
-                child: LoadingTreeDotsGrey(size: 110),
+                child: LoadingTreeDots(size: 110),
               );
             }
 

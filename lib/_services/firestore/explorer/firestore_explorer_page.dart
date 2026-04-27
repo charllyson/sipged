@@ -297,7 +297,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                   ),
                   const SizedBox(height: 16),
                   if (isLoading)
-                    const LoadingTreeDotsGrey(
+                    const LoadingTreeDots(
                       size: 32,
                       strokeWidth: 3,
                     )
@@ -315,7 +315,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
         if (isLoading)
           Container(
             color: Colors.black.withValues(alpha: 0.5),
-            child: const LoadingTreeDotsGrey(
+            child: const LoadingTreeDots(
               size: 36,
               strokeWidth: 3,
               color: Colors.white,

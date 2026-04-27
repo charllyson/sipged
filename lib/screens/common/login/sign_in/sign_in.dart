@@ -173,7 +173,7 @@ class _SignInState extends State<SignIn> {
                       child: const Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          LoadingTreeDotsGrey(),
+                          LoadingTreeDots(),
                           SizedBox(height: 12),
                           Text(
                             'Entrando...',

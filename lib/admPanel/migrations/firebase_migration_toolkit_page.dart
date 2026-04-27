@@ -414,7 +414,7 @@ class _FirebaseMigrationToolkitPageState
                               ? const SizedBox(
                             height: 22,
                             width: 22,
-                            child: LoadingTreeDotsGrey(
+                            child: LoadingTreeDots(
                               size: 22,
                               centered: false,
                             ),
@@ -448,7 +448,7 @@ class _FirebaseMigrationToolkitPageState
                     const Padding(
                       padding: EdgeInsets.only(top: 16),
                       child: Center(
-                        child: LoadingTreeDotsGrey(size: 90),
+                        child: LoadingTreeDots(size: 90),
                       ),
                     )
                   else if (_hasLoaded && _docIds.isEmpty)
@@ -654,7 +654,7 @@ class _FirebaseMigrationToolkitPageState
                               ? const SizedBox(
                             height: 22,
                             width: 22,
-                            child: LoadingTreeDotsGrey(
+                            child: LoadingTreeDots(
                               size: 22,
                               centered: false,
                             ),

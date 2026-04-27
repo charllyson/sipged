@@ -58,7 +58,7 @@ class _ActiveRailwaysRecordsPageState
         if (currentUser == null) {
           return const Scaffold(
             body: Center(
-              child: LoadingTreeDotsGrey(size: 110),
+              child: LoadingTreeDots(size: 110),
             ),
           );
         }
@@ -76,7 +76,7 @@ class _ActiveRailwaysRecordsPageState
                 st.loadStatus == ActiveRailwaysLoadStatus.loading) {
               return const Scaffold(
                 body: Center(
-                  child: LoadingTreeDotsGrey(size: 110),
+                  child: LoadingTreeDots(size: 110),
                 ),
               );
             }
@@ -160,7 +160,7 @@ class _ActiveRailwaysRecordsPageState
                         color: Colors.black.withValues(alpha: 0.35),
                       ),
                       const Center(
-                        child: LoadingTreeDotsGrey(size: 120),
+                        child: LoadingTreeDots(size: 120),
                       ),
                     ],
                   ),

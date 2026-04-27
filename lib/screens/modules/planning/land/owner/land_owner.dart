@@ -220,7 +220,7 @@ class _LandOwnerState extends State<LandOwner> {
                               labelText: 'CPF / CNPJ',
                               inputFormatters: [
                                 FilteringTextInputFormatter.allow(
-                                  RegExp(r'[\d\.\-\/]'),
+                                  RegExp(r'[0-9./-]'),
                                 ),
                               ],
                             ),
@@ -230,7 +230,7 @@ class _LandOwnerState extends State<LandOwner> {
                               labelText: 'Telefone',
                               inputFormatters: [
                                 FilteringTextInputFormatter.allow(
-                                  RegExp(r'[\d\(\)\s\-\+]'),
+                                  RegExp(r'[0-9./-]'),
                                 ),
                               ],
                             ),
@@ -304,7 +304,7 @@ class _LandOwnerState extends State<LandOwner> {
                                   ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: LoadingTreeDotsGrey(
+                                child: LoadingTreeDots(
                                   size: 16,
                                   centered: false,
                                 ),

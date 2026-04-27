@@ -47,7 +47,7 @@ class _Mapbox3DViewState extends State<Mapbox3DView> {
           child: WebViewWidget(controller: _controller),
         ),
         if (_isLoading)
-          const LoadingTreeDotsGrey(
+          const LoadingTreeDots(
             size: 34,
             strokeWidth: 3,
           ),

@@ -9,6 +9,7 @@ class LayerRow extends StatelessWidget {
   final bool isActive;
   final bool isSelected;
   final bool hasData;
+  final String? currentUserId;
   final VoidCallback onTap;
   final ValueChanged<bool> onToggleLayer;
 
@@ -20,6 +21,7 @@ class LayerRow extends StatelessWidget {
     required this.isActive,
     required this.isSelected,
     required this.hasData,
+    this.currentUserId,
     required this.onTap,
     required this.onToggleLayer,
   });
@@ -68,6 +70,7 @@ class LayerRow extends StatelessWidget {
                     isSelected: isSelected,
                     isActive: isActive,
                     hasData: hasData,
+                    currentUserId: currentUserId,
                   ),
                 ),
                 const SizedBox(width: 8),

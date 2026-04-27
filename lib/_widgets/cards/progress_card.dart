@@ -43,7 +43,7 @@ class ProgressCard extends StatelessWidget {
     final normalizedProgress = progress?.clamp(0.0, 1.0);
 
     final Widget indicator = normalizedProgress == null
-        ? const LoadingTreeDotsGrey(
+        ? const LoadingTreeDots(
       size: 22,
       strokeWidth: 2.5,
       centered: false,

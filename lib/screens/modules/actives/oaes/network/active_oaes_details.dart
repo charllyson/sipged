@@ -464,7 +464,7 @@ class _PositionedFillBusy extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: const [
                   SizedBox(width: 4),
-                  LoadingTreeDotsGrey(size: 36, centered: false),
+                  LoadingTreeDots(size: 36, centered: false),
                   SizedBox(width: 12),
                   Text(
                     'Processando...',

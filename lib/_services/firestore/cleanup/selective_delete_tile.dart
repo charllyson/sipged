@@ -33,7 +33,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             showDialog(
               context: context,
               barrierDismissible: false,
-              builder: (_) => const LoadingTreeDotsGrey(),
+              builder: (_) => const LoadingTreeDots(),
             );
 
             int dry = 0;
@@ -71,7 +71,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             showDialog(
               context: context,
               barrierDismissible: false,
-              builder: (_) => const LoadingTreeDotsGrey(),
+              builder: (_) => const LoadingTreeDots(),
             );
 
             int real = 0;
@@ -117,7 +117,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             showDialog(
               context: context,
               barrierDismissible: false,
-              builder: (_) => const LoadingTreeDotsGrey(),
+              builder: (_) => const LoadingTreeDots(),
             );
 
             int dry = 0;
@@ -161,7 +161,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             showDialog(
               context: context,
               barrierDismissible: false,
-              builder: (_) => const LoadingTreeDotsGrey(),
+              builder: (_) => const LoadingTreeDots(),
             );
 
             int real = 0;

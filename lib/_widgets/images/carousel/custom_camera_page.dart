@@ -186,12 +186,12 @@ class _CustomCameraPageState extends State<CustomCameraPage>
   Widget _buildPreview() {
     final c = _controller;
     if (c == null || !c.value.isInitialized) {
-      return const LoadingTreeDotsGrey();
+      return const LoadingTreeDots();
     }
 
     final previewSize = c.value.previewSize;
     if (previewSize == null) {
-      return const LoadingTreeDotsGrey();
+      return const LoadingTreeDots();
     }
 
     return Positioned.fill(

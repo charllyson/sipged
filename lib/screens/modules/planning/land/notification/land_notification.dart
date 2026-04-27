@@ -415,7 +415,7 @@ class _LandNotificationState extends State<LandNotification> {
                                   ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: LoadingTreeDotsGrey(
+                                child: LoadingTreeDots(
                                   size: 16,
                                   centered: false,
                                 ),

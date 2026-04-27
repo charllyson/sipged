@@ -45,7 +45,7 @@ class ScheduleSubHeader extends StatelessWidget {
           ? const SizedBox(
         height: 24,
         width: 24,
-        child: LoadingTreeDotsGrey(
+        child: LoadingTreeDots(
           strokeWidth: 2.4,
           centered: false,
         ),

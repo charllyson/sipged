@@ -1,32 +1,57 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_labels.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_simple.dart';
+
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+
 import 'package:sipged/screens/modules/planning/geo/properties/dialog/layer_placeholder_menu.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/dialog/layer_properties_menu.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/dialog/layer_properties_types.dart';
+
 import 'package:sipged/screens/modules/planning/geo/properties/menu/general/menu_general.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/menu/labels/labels_menu.dart';
+import 'package:sipged/screens/modules/planning/geo/properties/menu/sharing/sharing_menu.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/menu/symbology/symbology_menu.dart';
 
 class LayerPropertiesDialog extends StatefulWidget {
   final LayerData current;
   final List<String> availableRuleFields;
 
+  /// Opcional.
+  ///
+  /// Se não for informado, o dialog tenta carregar os usuários diretamente
+  /// do UserCubit disponível no contexto.
+  final List<LayerShareUserOption> availableShareUsers;
+
+  /// Opcional.
+  ///
+  /// Caso você queira abrir a tela já com usuários selecionados por fora.
+  /// Se vier vazio, usa `current.sharedUserIds`.
+  final List<String> selectedShareUserIds;
+
   const LayerPropertiesDialog({
     super.key,
     required this.current,
     this.availableRuleFields = const [],
+    this.availableShareUsers = const [],
+    this.selectedShareUserIds = const [],
   });
 
   static Future<LayerData?> show(
       BuildContext context, {
         required LayerData current,
         List<String> availableRuleFields = const [],
+        List<LayerShareUserOption> availableShareUsers = const [],
+        List<String> selectedShareUserIds = const [],
       }) {
     final media = MediaQuery.of(context).size;
     final isMobile = media.width < 700;
@@ -51,6 +76,8 @@ class LayerPropertiesDialog extends StatefulWidget {
         child: LayerPropertiesDialog(
           current: current,
           availableRuleFields: availableRuleFields,
+          availableShareUsers: availableShareUsers,
+          selectedShareUserIds: selectedShareUserIds,
         ),
       ),
     );
@@ -81,10 +108,10 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
       subtitle: 'Texto e regras',
     ),
     LayerPropertiesMenuItemData(
-      tab: LayerPropertiesTab.source,
-      icon: Icons.source_outlined,
-      title: 'Fonte',
-      subtitle: 'Em breve',
+      tab: LayerPropertiesTab.sharing,
+      icon: Icons.ios_share_rounded,
+      title: 'Compartilhamento',
+      subtitle: 'Usuários e acessos',
     ),
     LayerPropertiesMenuItemData(
       tab: LayerPropertiesTab.metadata,
@@ -104,13 +131,44 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
   late List<LayerDataLabel> _labelLayers;
   late List<GeoLabelRuleData> _ruleBasedLabels;
 
+  late List<String> _selectedShareUserIds;
+  late Map<String, LayerSharePermission> _sharedPermissionsByUserId;
+
+  List<LayerShareUserOption> _availableShareUsers = const [];
+
+  bool _isLoadingUsers = false;
+  String? _loadUsersError;
+  bool _didTryLoadUsers = false;
+
   LayerPropertiesTab _selectedTab = LayerPropertiesTab.general;
 
   @override
   void initState() {
     super.initState();
+
     _nameController = TextEditingController(text: widget.current.title);
+
+    _selectedShareUserIds = _initialSelectedShareUserIds();
+    _sharedPermissionsByUserId = Map<String, LayerSharePermission>.from(
+      widget.current.sharedPermissionsByUserId,
+    );
+
+    _availableShareUsers = List<LayerShareUserOption>.from(
+      widget.availableShareUsers,
+    );
+
     _syncFromCurrent(widget.current);
+    _sanitizeSharingState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (!_didTryLoadUsers && _availableShareUsers.isEmpty) {
+      _didTryLoadUsers = true;
+      _loadUsersFromCubit();
+    }
   }
 
   @override
@@ -120,8 +178,136 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
     if (oldWidget.current != widget.current) {
       _nameController.text = widget.current.title;
       _syncFromCurrent(widget.current);
+
+      _selectedShareUserIds = _initialSelectedShareUserIds();
+      _sharedPermissionsByUserId = Map<String, LayerSharePermission>.from(
+        widget.current.sharedPermissionsByUserId,
+      );
+
+      _sanitizeSharingState();
+
       _selectedTab = LayerPropertiesTab.general;
     }
+
+    if (oldWidget.selectedShareUserIds != widget.selectedShareUserIds &&
+        widget.selectedShareUserIds.isNotEmpty) {
+      _selectedShareUserIds = List<String>.from(widget.selectedShareUserIds);
+      _sanitizeSharingState();
+    }
+
+    if (oldWidget.availableShareUsers != widget.availableShareUsers &&
+        widget.availableShareUsers.isNotEmpty) {
+      _availableShareUsers = List<LayerShareUserOption>.from(
+        widget.availableShareUsers,
+      );
+    }
+  }
+
+  List<String> _initialSelectedShareUserIds() {
+    final externalIds = widget.selectedShareUserIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+
+    if (externalIds.isNotEmpty) return externalIds;
+
+    return widget.current.sharedUserIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  String? _currentUserIdOrNull() {
+    try {
+      return context.read<UserCubit>().state.current?.uid;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _resolvedOwnerId() {
+    final currentOwner = (widget.current.ownerId ?? '').trim();
+    if (currentOwner.isNotEmpty) return currentOwner;
+
+    final currentUserId = (_currentUserIdOrNull() ?? '').trim();
+    if (currentUserId.isNotEmpty) return currentUserId;
+
+    return null;
+  }
+
+  void _sanitizeSharingState() {
+    final ownerId = (_resolvedOwnerId() ?? '').trim();
+
+    final ids = _selectedShareUserIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .where((e) => ownerId.isEmpty || e != ownerId)
+        .toSet()
+        .toList(growable: false);
+
+    final permissions = <String, LayerSharePermission>{};
+
+    for (final uid in ids) {
+      permissions[uid] =
+          _sharedPermissionsByUserId[uid] ?? LayerSharePermission.readOnly;
+    }
+
+    _selectedShareUserIds = ids;
+    _sharedPermissionsByUserId = permissions;
+  }
+
+  Future<void> _loadUsersFromCubit() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingUsers = true;
+      _loadUsersError = null;
+    });
+
+    try {
+      final userCubit = context.read<UserCubit>();
+
+      await userCubit.ensureLoaded();
+
+      if (!mounted) return;
+
+      final users = userCubit.state.all
+          .where((user) => (user.uid ?? '').trim().isNotEmpty)
+          .map(_mapUserToShareOption)
+          .toList(growable: false);
+
+      setState(() {
+        _availableShareUsers = users;
+        _isLoadingUsers = false;
+        _loadUsersError = null;
+      });
+    } catch (err) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingUsers = false;
+        _loadUsersError = '$err';
+      });
+    }
+  }
+
+  LayerShareUserOption _mapUserToShareOption(UserData user) {
+    final uid = (user.uid ?? '').trim();
+    final fullName = user.fullName.trim();
+    final email = (user.email ?? '').trim();
+
+    final displayName = fullName.isNotEmpty
+        ? fullName
+        : email.isNotEmpty
+        ? email
+        : uid;
+
+    return LayerShareUserOption(
+      id: uid,
+      name: displayName,
+      email: email.isEmpty ? null : email,
+      photoUrl: user.urlPhoto,
+    );
   }
 
   void _syncFromCurrent(LayerData current) {
@@ -166,6 +352,22 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
 
     final firstSymbol = baseSymbols.isNotEmpty ? baseSymbols.first : null;
 
+    final ownerId = _resolvedOwnerId();
+
+    final sanitizedSharedUserIds = _selectedShareUserIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .where((e) => ownerId == null || e != ownerId)
+        .toSet()
+        .toList(growable: false);
+
+    final sanitizedPermissions = <String, LayerSharePermission>{};
+
+    for (final uid in sanitizedSharedUserIds) {
+      sanitizedPermissions[uid] =
+          _sharedPermissionsByUserId[uid] ?? LayerSharePermission.readOnly;
+    }
+
     final updated = widget.current.copyWith(
       title: trimmed,
       rendererType: _rendererType,
@@ -176,6 +378,9 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
       ruleBasedLabels: _ruleBasedLabels,
       iconKey: firstSymbol?.iconKey ?? widget.current.iconKey,
       colorValue: _resolveColorValue(firstSymbol),
+      ownerId: ownerId,
+      sharedUserIds: sanitizedSharedUserIds,
+      sharedPermissionsByUserId: sanitizedPermissions,
     );
 
     Navigator.of(context).pop(updated);
@@ -234,13 +439,23 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
           },
         );
 
-      case LayerPropertiesTab.source:
-        return const LayerPlaceholderMenu(
-          key: ValueKey('source'),
-          title: 'Fonte',
-          subtitle:
-          'Esta aba será usada para configurar a fonte/origem dos dados da camada.',
-          icon: Icons.source_outlined,
+      case LayerPropertiesTab.sharing:
+        return SharingMenu(
+          key: const ValueKey('sharing'),
+          allUsers: _availableShareUsers,
+          ownerId: _resolvedOwnerId(),
+          currentUserId: _currentUserIdOrNull(),
+          selectedUserIds: _selectedShareUserIds,
+          permissionsByUserId: _sharedPermissionsByUserId,
+          isLoadingUsers: _isLoadingUsers,
+          loadUsersError: _loadUsersError,
+          onChanged: (userIds, permissions) {
+            setState(() {
+              _selectedShareUserIds = userIds;
+              _sharedPermissionsByUserId = permissions;
+              _sanitizeSharingState();
+            });
+          },
         );
 
       case LayerPropertiesTab.metadata:

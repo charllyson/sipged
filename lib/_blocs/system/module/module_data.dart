@@ -164,34 +164,6 @@ class ModuleData {
   ];
 
   // ===========================================================================
-  // PAINÉIS
-  // ===========================================================================
-  static List<MenuDrawerItemModule> panelDashboard = [
-    MenuDrawerItemModule(
-      label: 'PAINÉIS',
-      icon: Icons.area_chart,
-      subItems: [
-        MenuDrawerSubItem(
-          label: 'GERAL',
-          menuItem: ModuleItem.overviewDashboard,
-          permissionModule: modOverviewDashboard,
-          homeIcon: Icons.insights,
-          homeSubtitle: 'Indicadores e resumos',
-          homeColor: Color(0xFF2563EB),
-        ),
-        MenuDrawerSubItem(
-          label: 'ESPECÍFICO',
-          menuItem: ModuleItem.specificDashboard,
-          permissionModule: modSpecificDashboard,
-          homeIcon: Icons.analytics,
-          homeSubtitle: 'KPIs e análises por contrato',
-          homeColor: Color(0xFF1D4ED8),
-        ),
-      ],
-    ),
-  ];
-
-  // ===========================================================================
   // CONTRATOS
   // ===========================================================================
   static List<MenuDrawerItemModule> drawerDocuments = [
@@ -200,11 +172,24 @@ class ModuleData {
       icon: Icons.document_scanner,
       subItems: [
         MenuDrawerSubItem(
+          label: 'PAINEL GERAL',
+          menuItem: ModuleItem.overviewDashboard,
+          permissionModule: modOverviewDashboard,
+          homeIcon: Icons.insights,
+          homeColor: Color(0xFF0EA5E9),
+        ),
+        MenuDrawerSubItem(
+          label: 'PAINEL ESPECÍFICO',
+          menuItem: ModuleItem.specificDashboard,
+          permissionModule: modSpecificDashboard,
+          homeIcon: Icons.analytics,
+          homeColor: Color(0xFF0EA5E9),
+        ),
+        MenuDrawerSubItem(
           label: 'CONTRATOS',
           menuItem: ModuleItem.processHiringRecords,
           permissionModule: modHiringRecords,
           homeIcon: Icons.gavel,
-          homeSubtitle: 'Fluxos e registros de processo',
           homeColor: Color(0xFF0EA5E9),
         ),
         MenuDrawerSubItem(
@@ -212,7 +197,6 @@ class ModuleData {
           menuItem: ModuleItem.processAdditiveRecords,
           permissionModule: modAdditiveRecords,
           homeIcon: Icons.edit_note,
-          homeSubtitle: 'Fluxos e registros de processo',
           homeColor: Color(0xFF0EA5E9),
         ),
         MenuDrawerSubItem(
@@ -220,7 +204,6 @@ class ModuleData {
           menuItem: ModuleItem.processApostillesRecords,
           permissionModule: modApostillesRecords,
           homeIcon: Icons.bookmark_added,
-          homeSubtitle: 'Fluxos e registros de processo',
           homeColor: Color(0xFF0EA5E9),
         ),
         MenuDrawerSubItem(
@@ -228,7 +211,6 @@ class ModuleData {
           menuItem: ModuleItem.processMeasurementsRecords,
           permissionModule: modMeasurementsRecords,
           homeIcon: Icons.receipt_long,
-          homeSubtitle: 'Fluxos e registros de processo',
           homeColor: Color(0xFF0EA5E9),
         ),
         MenuDrawerSubItem(
@@ -236,7 +218,6 @@ class ModuleData {
           menuItem: ModuleItem.processValidityRecords,
           permissionModule: modValidityRecords,
           homeIcon: Icons.task_alt,
-          homeSubtitle: 'Fluxos e registros de processo',
           homeColor: Color(0xFF0EA5E9),
         ),
         MenuDrawerSubItem(
@@ -244,8 +225,7 @@ class ModuleData {
           menuItem: ModuleItem.processHiringBudget,
           permissionModule: modHiringBudget,
           homeIcon: Icons.attach_money,
-          homeSubtitle: 'Orçamento e insumos',
-          homeColor: Color(0xFF0D9488),
+          homeColor: Color(0xFF0EA5E9),
         ),
       ],
     ),
@@ -264,7 +244,6 @@ class ModuleData {
           menuItem: ModuleItem.operationMonitoringWork,
           permissionModule: modWorkTimeline,
           homeIcon: Icons.timeline,
-          homeSubtitle: 'Execução e acompanhamento',
           homeColor: Color(0xFF059669),
         ),
         MenuDrawerSubItem(
@@ -272,7 +251,6 @@ class ModuleData {
           menuItem: ModuleItem.processHiringSchedule,
           permissionModule: modHiringSchedule,
           homeIcon: Icons.calendar_month,
-          homeSubtitle: 'Execução e acompanhamento',
           homeColor: Color(0xFF059669),
         ),
       ],
@@ -286,7 +264,6 @@ class ModuleData {
           menuItem: ModuleItem.planningProjectRegistration,
           permissionModule: modPlanningSigmineRecords,
           homeIcon: Icons.architecture,
-          homeSubtitle: 'Planejamento e cadastros',
           homeColor: Color(0xFF1E40AF),
         ),
         MenuDrawerSubItem(
@@ -294,7 +271,6 @@ class ModuleData {
           menuItem: ModuleItem.planningRightOfWayRecords,
           permissionModule: modPlanningRightWayRecords,
           homeIcon: Icons.signpost_outlined,
-          homeSubtitle: 'Planejamento e cadastros',
           homeColor: Color(0xFF1E40AF),
         ),
         MenuDrawerSubItem(
@@ -302,7 +278,6 @@ class ModuleData {
           menuItem: ModuleItem.planningEnvironmentRecords,
           permissionModule: modPlanningEnvironmentRecords,
           homeIcon: Icons.local_florist_outlined,
-          homeSubtitle: 'Planejamento e cadastros',
           homeColor: Color(0xFF1E40AF),
         ),
       ],
@@ -316,15 +291,13 @@ class ModuleData {
           menuItem: ModuleItem.trafficAccidentsDashboard,
           permissionModule: modTrafficAccidentsDashboard,
           homeIcon: Icons.query_stats,
-          homeSubtitle: 'Sinistros e infrações',
           homeColor: Color(0xFFEA580C),
         ),
         MenuDrawerSubItem(
-          label: 'BOLETIM DE SINISTRO',
+          label: 'REGISTROS DE SINISTRO',
           menuItem: ModuleItem.trafficAccidentsRecords,
           permissionModule: modTrafficAccidentsRecords,
-          homeIcon: Icons.report,
-          homeSubtitle: 'Sinistros e infrações',
+          homeIcon: Icons.assignment_outlined,
           homeColor: Color(0xFFEA580C),
         ),
         MenuDrawerSubItem(
@@ -332,15 +305,13 @@ class ModuleData {
           menuItem: ModuleItem.trafficInfractionsDashboard,
           permissionModule: modTrafficInfractionsDashboard,
           homeIcon: Icons.rule_folder,
-          homeSubtitle: 'Sinistros e infrações',
           homeColor: Color(0xFFEA580C),
         ),
         MenuDrawerSubItem(
-          label: 'BOLETIM DE INFRAÇÃO',
+          label: 'REGISTROS DE INFRAÇÃO',
           menuItem: ModuleItem.trafficInfractionsRecords,
           permissionModule: modTrafficInfractionsRecords,
-          homeIcon: Icons.rule,
-          homeSubtitle: 'Sinistros e infrações',
+          homeIcon: Icons.assignment_outlined,
           homeColor: Color(0xFFEA580C),
         ),
       ],
@@ -350,19 +321,17 @@ class ModuleData {
       icon: Icons.attach_money,
       subItems: [
         MenuDrawerSubItem(
-          label: 'PAINEL',
+          label: 'PAINEL FINANCEIRO',
           menuItem: ModuleItem.financialDashboard,
           permissionModule: modFinancialPaymentsDashboard,
           homeIcon: Icons.stacked_line_chart,
-          homeSubtitle: 'Pagamentos e empreendimentos',
           homeColor: Color(0xFF0D9488),
         ),
         MenuDrawerSubItem(
-          label: 'ORÇAMENTO DO ÓRGÃO',
+          label: 'ORÇAMENTO',
           menuItem: ModuleItem.financialBudget,
           permissionModule: modFinancialPaymentsRecords,
           homeIcon: Icons.payments,
-          homeSubtitle: 'Pagamentos e empreendimentos',
           homeColor: Color(0xFF0D9488),
         ),
         MenuDrawerSubItem(
@@ -370,7 +339,6 @@ class ModuleData {
           menuItem: ModuleItem.financialEmpenhos,
           permissionModule: modFinancialCommitmentDashboard,
           homeIcon: Icons.auto_graph,
-          homeSubtitle: 'Pagamentos e empreendimentos',
           homeColor: Color(0xFF0D9488),
         ),
         MenuDrawerSubItem(
@@ -378,7 +346,6 @@ class ModuleData {
           menuItem: ModuleItem.financialCommitmentRecords,
           permissionModule: modFinancialCommitmentRecords,
           homeIcon: Icons.receipt_long_outlined,
-          homeSubtitle: 'Pagamentos e empreendimentos',
           homeColor: Color(0xFF0D9488),
         ),
       ],
@@ -398,15 +365,13 @@ class ModuleData {
           menuItem: ModuleItem.activeRoadNetwork,
           permissionModule: modActiveRoadNetwork,
           homeIcon: Icons.alt_route,
-          homeSubtitle: 'Malha e levantamentos',
           homeColor: Color(0xFF334155),
         ),
         MenuDrawerSubItem(
-          label: 'SISTEMA RODOVIÁRIO',
+          label: 'REGISTROS DAS RODOVIAS',
           menuItem: ModuleItem.activeRoadRegistration,
           permissionModule: modActiveRoadRecords,
-          homeIcon: Icons.map_outlined,
-          homeSubtitle: 'Malha e levantamentos',
+          homeIcon: Icons.assignment_outlined,
           homeColor: Color(0xFF334155),
         ),
       ],
@@ -420,15 +385,13 @@ class ModuleData {
           menuItem: ModuleItem.activesOAEsNetwork,
           permissionModule: modActiveOAEsNetwork,
           homeIcon: Icons.construction,
-          homeSubtitle: 'Malha e levantamentos',
           homeColor: Color(0xFF334155),
         ),
         MenuDrawerSubItem(
-          label: 'REGISTROS',
+          label: 'REGISTROS DAS OAE\'s',
           menuItem: ModuleItem.activeOAEsRegistration,
           permissionModule: modActiveOAEsRecords,
           homeIcon: Icons.assignment_outlined,
-          homeSubtitle: 'Malha e levantamentos',
           homeColor: Color(0xFF334155),
         ),
       ],
@@ -442,15 +405,13 @@ class ModuleData {
           menuItem: ModuleItem.activeAirportsNetwork,
           permissionModule: modActiveAirportsNetwork,
           homeIcon: Icons.flight_takeoff,
-          homeSubtitle: 'Malha e levantamentos',
           homeColor: Color(0xFF334155),
         ),
         MenuDrawerSubItem(
-          label: 'REGISTROS',
+          label: 'REGISTROS DOS AEROPORTOS',
           menuItem: ModuleItem.activeAirportsRegistration,
           permissionModule: modActiveAirportsRecords,
-          homeIcon: Icons.assignment_turned_in_outlined,
-          homeSubtitle: 'Malha e levantamentos',
+          homeIcon: Icons.assignment_outlined,
           homeColor: Color(0xFF334155),
         ),
       ],
@@ -464,15 +425,13 @@ class ModuleData {
           menuItem: ModuleItem.activeRailwaysNetwork,
           permissionModule: modActiveRailwaysNetwork,
           homeIcon: Icons.train_outlined,
-          homeSubtitle: 'Malha e levantamentos',
           homeColor: Color(0xFF334155),
         ),
         MenuDrawerSubItem(
-          label: 'REGISTROS',
+          label: 'REGISTROS DAS FERROVIAS',
           menuItem: ModuleItem.activeRailwaysRegistration,
           permissionModule: modActiveRailwaysRecords,
-          homeIcon: Icons.fact_check_outlined,
-          homeSubtitle: 'Malha e levantamentos',
+          homeIcon: Icons.assignment_outlined,
           homeColor: Color(0xFF334155),
         ),
       ],
@@ -486,15 +445,13 @@ class ModuleData {
           menuItem: ModuleItem.activePortsNetwork,
           permissionModule: modActivePortsNetwork,
           homeIcon: Icons.sailing_outlined,
-          homeSubtitle: 'Malha e levantamentos',
           homeColor: Color(0xFF334155),
         ),
         MenuDrawerSubItem(
-          label: 'REGISTROS',
+          label: 'REGISTROS DOS PORTOS',
           menuItem: ModuleItem.activeRegistrationPorts,
           permissionModule: modActivePortsRecords,
-          homeIcon: Icons.checklist_outlined,
-          homeSubtitle: 'Malha e levantamentos',
+          homeIcon: Icons.assignment_outlined,
           homeColor: Color(0xFF334155),
         ),
       ],
@@ -508,7 +465,6 @@ class ModuleData {
     ModuleSectionConfig(
       title: 'MÓDULOS',
       groups: [
-        ...panelDashboard,
         ...drawerDocuments,
         ...drawerDepartments,
       ],
@@ -520,7 +476,6 @@ class ModuleData {
   ];
 
   static List<MenuDrawerItemModule> homeGroups = [
-    ...panelDashboard,
     ...drawerDocuments,
     ...drawerDepartments,
     ...drawerActives,

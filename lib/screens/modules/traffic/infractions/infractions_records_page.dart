@@ -308,7 +308,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                       color: Colors.black.withValues(alpha: 0.4),
                     ),
                     const Center(
-                      child: LoadingTreeDotsGrey(size: 120),
+                      child: LoadingTreeDots(size: 120),
                     ),
                   ],
                 );

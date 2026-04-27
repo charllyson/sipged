@@ -164,7 +164,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
         if (state.status == AdjustmentMeasurementStatus.loading &&
             state.adjustments.isEmpty) {
           return const Center(
-            child: LoadingTreeDotsGrey(size: 110),
+            child: LoadingTreeDots(size: 110),
           );
         }
 
@@ -486,7 +486,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                     color: Colors.black.withValues(alpha: 0.4),
                   ),
                   const Center(
-                    child: LoadingTreeDotsGrey(size: 120),
+                    child: LoadingTreeDots(size: 120),
                   ),
                 ],
               ),

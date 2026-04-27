@@ -190,7 +190,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
         if (state.status == RevisionMeasurementStatus.loading &&
             state.revisions.isEmpty) {
           return const Center(
-            child: LoadingTreeDotsGrey(size: 110),
+            child: LoadingTreeDots(size: 110),
           );
         }
 
@@ -502,7 +502,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                     color: Colors.black.withValues(alpha: 0.4),
                   ),
                   const Center(
-                    child: LoadingTreeDotsGrey(size: 120),
+                    child: LoadingTreeDots(size: 120),
                   ),
                 ],
               ),

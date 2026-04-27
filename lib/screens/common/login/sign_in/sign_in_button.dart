@@ -47,7 +47,7 @@ class SignInButton extends StatelessWidget {
                     ? Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
-                    LoadingTreeDotsGrey(
+                    LoadingTreeDots(
                       size: 18,
                       strokeWidth: 2,
                       color: Colors.white,

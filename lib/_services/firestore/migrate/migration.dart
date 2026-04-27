@@ -18,7 +18,7 @@ class MigrationCollections extends StatelessWidget {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) => const LoadingTreeDotsGrey(),
+          builder: (_) => const LoadingTreeDots(),
         );
         try {
           await migrarMeasurementsParaColecoesNovas();

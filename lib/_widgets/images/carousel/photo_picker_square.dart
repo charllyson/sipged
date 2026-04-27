@@ -89,7 +89,7 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const LoadingTreeDotsGrey(
+                const LoadingTreeDots(
                   size: 22,
                   strokeWidth: 2.6,
                   color: Colors.white,

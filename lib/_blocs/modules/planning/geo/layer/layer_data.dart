@@ -53,6 +53,38 @@ enum LayerStrokeCapType {
   round,
 }
 
+enum LayerSharePermission {
+  edit,
+  readOnly,
+}
+
+extension LayerSharePermissionX on LayerSharePermission {
+  String get label {
+    switch (this) {
+      case LayerSharePermission.edit:
+        return 'Editor';
+      case LayerSharePermission.readOnly:
+        return 'Somente leitura';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case LayerSharePermission.edit:
+        return Icons.edit_outlined;
+      case LayerSharePermission.readOnly:
+        return Icons.visibility_outlined;
+    }
+  }
+
+  static LayerSharePermission fromName(String? value) {
+    return LayerSharePermission.values.firstWhere(
+          (e) => e.name == value,
+      orElse: () => LayerSharePermission.readOnly,
+    );
+  }
+}
+
 extension LayerGeometryKindX on LayerGeometryKind {
   bool get isPointFamily => this == LayerGeometryKind.point;
   bool get isLineFamily => this == LayerGeometryKind.line;
@@ -96,6 +128,21 @@ class LayerData {
   final List<LayerDataLabel> labelLayers;
   final List<GeoLabelRuleData> ruleBasedLabels;
 
+  /// Usuário proprietário da camada/grupo.
+  ///
+  /// Para layers antigos, o repository preenche automaticamente com o usuário
+  /// autenticado atual quando carregar/salvar.
+  final String? ownerId;
+
+  /// Lista de usuários com quem esta camada/grupo foi compartilhada.
+  final List<String> sharedUserIds;
+
+  /// Permissão por usuário compartilhado.
+  ///
+  /// Chave: uid do usuário.
+  /// Valor: editor/readOnly.
+  final Map<String, LayerSharePermission> sharedPermissionsByUserId;
+
   const LayerData({
     required this.id,
     required this.title,
@@ -115,9 +162,42 @@ class LayerData {
     this.labelRendererType = LabelRendererType.singleLabel,
     this.labelLayers = const [],
     this.ruleBasedLabels = const [],
+    this.ownerId,
+    this.sharedUserIds = const [],
+    this.sharedPermissionsByUserId = const {},
   });
 
   Color get color => Color(colorValue);
+
+  bool get isShared => sharedUserIds.isNotEmpty;
+
+  bool isOwner(String? uid) {
+    final value = (uid ?? '').trim();
+    if (value.isEmpty) return false;
+    return ownerId == value;
+  }
+
+  bool isSharedWith(String? uid) {
+    final value = (uid ?? '').trim();
+    if (value.isEmpty) return false;
+    return sharedUserIds.contains(value);
+  }
+
+  LayerSharePermission? permissionFor(String? uid) {
+    final value = (uid ?? '').trim();
+    if (value.isEmpty) return null;
+    return sharedPermissionsByUserId[value];
+  }
+
+  bool canEdit(String? uid) {
+    if (isOwner(uid)) return true;
+    return permissionFor(uid) == LayerSharePermission.edit;
+  }
+
+  bool canRead(String? uid) {
+    if (isOwner(uid)) return true;
+    return isSharedWith(uid);
+  }
 
   String? get effectiveCollectionPath {
     final raw = collectionPath?.trim() ?? '';
@@ -214,6 +294,10 @@ class LayerData {
     LabelRendererType? labelRendererType,
     List<LayerDataLabel>? labelLayers,
     List<GeoLabelRuleData>? ruleBasedLabels,
+    String? ownerId,
+    bool clearOwnerId = false,
+    List<String>? sharedUserIds,
+    Map<String, LayerSharePermission>? sharedPermissionsByUserId,
   }) {
     return LayerData(
       id: id ?? this.id,
@@ -235,6 +319,10 @@ class LayerData {
       labelRendererType: labelRendererType ?? this.labelRendererType,
       labelLayers: labelLayers ?? this.labelLayers,
       ruleBasedLabels: ruleBasedLabels ?? this.ruleBasedLabels,
+      ownerId: clearOwnerId ? null : (ownerId ?? this.ownerId),
+      sharedUserIds: sharedUserIds ?? this.sharedUserIds,
+      sharedPermissionsByUserId:
+      sharedPermissionsByUserId ?? this.sharedPermissionsByUserId,
     );
   }
 
@@ -260,6 +348,11 @@ class LayerData {
       'labelLayers': labelLayers.map((e) => e.toMap()).toList(growable: false),
       'ruleBasedLabels':
       ruleBasedLabels.map((e) => e.toMap()).toList(growable: false),
+      'ownerId': ownerId,
+      'sharedUserIds': sharedUserIds,
+      'sharedPermissionsByUserId': sharedPermissionsByUserId.map(
+            (key, value) => MapEntry(key, value.name),
+      ),
     };
   }
 
@@ -269,6 +362,34 @@ class LayerData {
     final rawRuleBasedSymbols = (map['ruleBasedSymbols'] as List?) ?? const [];
     final rawLabelLayers = (map['labelLayers'] as List?) ?? const [];
     final rawRuleBasedLabels = (map['ruleBasedLabels'] as List?) ?? const [];
+
+    final rawSharedUserIds = (map['sharedUserIds'] as List?) ?? const [];
+
+    final rawPermissions = map['sharedPermissionsByUserId'];
+    final permissions = <String, LayerSharePermission>{};
+
+    if (rawPermissions is Map) {
+      for (final entry in rawPermissions.entries) {
+        final uid = entry.key.toString().trim();
+        if (uid.isEmpty) continue;
+
+        permissions[uid] = LayerSharePermissionX.fromName(
+          entry.value?.toString(),
+        );
+      }
+    }
+
+    final sharedUserIds = rawSharedUserIds
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+
+    for (final uid in permissions.keys) {
+      if (!sharedUserIds.contains(uid)) {
+        sharedUserIds.add(uid);
+      }
+    }
 
     return LayerData(
       id: (map['id'] ?? '').toString(),
@@ -313,6 +434,11 @@ class LayerData {
           .whereType<Map>()
           .map((e) => GeoLabelRuleData.fromMap(Map<String, dynamic>.from(e)))
           .toList(growable: false),
+      ownerId: (map['ownerId'] ?? '').toString().trim().isEmpty
+          ? null
+          : (map['ownerId'] ?? '').toString().trim(),
+      sharedUserIds: sharedUserIds,
+      sharedPermissionsByUserId: permissions,
     );
   }
 
@@ -334,6 +460,7 @@ class LayerData {
   static LayerData temporaryLayer({
     required String id,
     required int sequence,
+    String? ownerId,
   }) {
     return LayerData(
       id: id,
@@ -348,6 +475,7 @@ class LayerData {
       supportsConnect: true,
       isTemporary: true,
       isSystem: false,
+      ownerId: ownerId,
       rendererType: LayerRendererType.singleSymbol,
       symbolLayers: [
         LayerDataSimple.defaultForGeometryKind(
@@ -361,6 +489,8 @@ class LayerData {
       labelRendererType: LabelRendererType.singleLabel,
       labelLayers: const [],
       ruleBasedLabels: const [],
+      sharedUserIds: const [],
+      sharedPermissionsByUserId: const {},
     );
   }
 
@@ -368,6 +498,7 @@ class LayerData {
     required String id,
     required int sequence,
     int colorValue = 0xFF2563EB,
+    String? ownerId,
   }) {
     return LayerData(
       id: id,
@@ -382,6 +513,7 @@ class LayerData {
       supportsConnect: false,
       isTemporary: true,
       isSystem: false,
+      ownerId: ownerId,
       rendererType: LayerRendererType.singleSymbol,
       symbolLayers: [
         LayerDataSimple.defaultForGeometryKind(
@@ -395,6 +527,8 @@ class LayerData {
       labelRendererType: LabelRendererType.singleLabel,
       labelLayers: const [],
       ruleBasedLabels: const [],
+      sharedUserIds: const [],
+      sharedPermissionsByUserId: const {},
     );
   }
 
@@ -402,6 +536,7 @@ class LayerData {
     required String id,
     required int sequence,
     int colorValue = 0xFF2563EB,
+    String? ownerId,
   }) {
     return LayerData(
       id: id,
@@ -416,6 +551,7 @@ class LayerData {
       supportsConnect: false,
       isTemporary: true,
       isSystem: false,
+      ownerId: ownerId,
       rendererType: LayerRendererType.singleSymbol,
       symbolLayers: [
         LayerDataSimple.defaultForGeometryKind(
@@ -429,6 +565,8 @@ class LayerData {
       labelRendererType: LabelRendererType.singleLabel,
       labelLayers: const [],
       ruleBasedLabels: const [],
+      sharedUserIds: const [],
+      sharedPermissionsByUserId: const {},
     );
   }
 
@@ -436,6 +574,7 @@ class LayerData {
     required String id,
     required int sequence,
     int colorValue = 0xFF2563EB,
+    String? ownerId,
   }) {
     return LayerData(
       id: id,
@@ -450,6 +589,7 @@ class LayerData {
       supportsConnect: false,
       isTemporary: true,
       isSystem: false,
+      ownerId: ownerId,
       rendererType: LayerRendererType.singleSymbol,
       symbolLayers: [
         LayerDataSimple.defaultForGeometryKind(
@@ -463,6 +603,8 @@ class LayerData {
       labelRendererType: LabelRendererType.singleLabel,
       labelLayers: const [],
       ruleBasedLabels: const [],
+      sharedUserIds: const [],
+      sharedPermissionsByUserId: const {},
     );
   }
 
@@ -470,6 +612,7 @@ class LayerData {
     required String id,
     required int sequence,
     List<LayerData> children = const [],
+    String? ownerId,
   }) {
     return LayerData(
       id: id,
@@ -484,12 +627,15 @@ class LayerData {
       supportsConnect: false,
       isTemporary: false,
       isSystem: false,
+      ownerId: ownerId,
       rendererType: LayerRendererType.singleSymbol,
       symbolLayers: const [],
       ruleBasedSymbols: const [],
       labelRendererType: LabelRendererType.singleLabel,
       labelLayers: const [],
       ruleBasedLabels: const [],
+      sharedUserIds: const [],
+      sharedPermissionsByUserId: const {},
     );
   }
 
@@ -517,11 +663,17 @@ class LayerData {
         listEquals(other.ruleBasedSymbols, ruleBasedSymbols) &&
         other.labelRendererType == labelRendererType &&
         listEquals(other.labelLayers, labelLayers) &&
-        listEquals(other.ruleBasedLabels, ruleBasedLabels);
+        listEquals(other.ruleBasedLabels, ruleBasedLabels) &&
+        other.ownerId == ownerId &&
+        listEquals(other.sharedUserIds, sharedUserIds) &&
+        mapEquals(
+          other.sharedPermissionsByUserId,
+          sharedPermissionsByUserId,
+        );
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     title,
     iconKey,
@@ -540,5 +692,12 @@ class LayerData {
     labelRendererType,
     Object.hashAll(labelLayers),
     Object.hashAll(ruleBasedLabels),
-  );
+    ownerId,
+    Object.hashAll(sharedUserIds),
+    Object.hashAll(
+      sharedPermissionsByUserId.entries.map(
+            (e) => Object.hash(e.key, e.value),
+      ),
+    ),
+  ]);
 }

@@ -78,7 +78,7 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) => const LoadingTreeDotsGrey(),
+          builder: (_) => const LoadingTreeDots(),
         );
 
         Map<String, Map<String, int>> dry = const {};
@@ -115,7 +115,7 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) => const LoadingTreeDotsGrey(),
+          builder: (_) => const LoadingTreeDots(),
         );
 
         Map<String, Map<String, int>> res = const {};

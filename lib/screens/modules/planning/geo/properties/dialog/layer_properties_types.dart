@@ -4,7 +4,7 @@ enum LayerPropertiesTab {
   general,
   symbology,
   labels,
-  source,
+  sharing,
   metadata,
 }
 

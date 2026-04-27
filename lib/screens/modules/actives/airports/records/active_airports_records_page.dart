@@ -54,7 +54,7 @@ class _ActiveAirportRecordsPageState extends State<ActiveAirportRecordsPage> {
         if (currentUser == null) {
           return const Scaffold(
             body: Center(
-              child: LoadingTreeDotsGrey(size: 110),
+              child: LoadingTreeDots(size: 110),
             ),
           );
         }
@@ -72,7 +72,7 @@ class _ActiveAirportRecordsPageState extends State<ActiveAirportRecordsPage> {
                 st.loadStatus == ActiveOaesLoadStatus.loading) {
               return const Scaffold(
                 body: Center(
-                  child: LoadingTreeDotsGrey(size: 110),
+                  child: LoadingTreeDots(size: 110),
                 ),
               );
             }
@@ -148,7 +148,7 @@ class _ActiveAirportRecordsPageState extends State<ActiveAirportRecordsPage> {
                         color: Colors.black.withValues(alpha: 0.4),
                       ),
                       const Center(
-                        child: LoadingTreeDotsGrey(size: 120),
+                        child: LoadingTreeDots(size: 120),
                       ),
                     ],
                   ),

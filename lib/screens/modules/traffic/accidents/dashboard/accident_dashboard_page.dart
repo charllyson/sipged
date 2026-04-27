@@ -237,7 +237,7 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
                 ),
                 if (geoState.isLoading) ...[
                   const SizedBox(width: 10),
-                  const LoadingTreeDotsGrey(
+                  const LoadingTreeDots(
                     size: 20,
                     centered: false,
                   ),

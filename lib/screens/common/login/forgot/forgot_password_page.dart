@@ -209,7 +209,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      LoadingTreeDotsGrey(
+                      LoadingTreeDots(
                         size: 22,
                         strokeWidth: 2.6,
                         color: Colors.white,

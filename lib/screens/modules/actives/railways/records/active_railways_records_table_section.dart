@@ -22,7 +22,7 @@ class ActiveRailwaysRecordsTableSection extends StatelessWidget {
       future: futureRailways,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const LoadingTreeDotsGrey();
+          return const LoadingTreeDots();
         }
 
         if (snapshot.hasError) {

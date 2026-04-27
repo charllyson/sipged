@@ -5,16 +5,22 @@ class LayerDraggable extends StatelessWidget {
   final LayerData entry;
   final Widget row;
   final VoidCallback onDragStarted;
+  final bool enabled;
 
   const LayerDraggable({
     super.key,
     required this.entry,
     required this.row,
     required this.onDragStarted,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (!enabled) {
+      return row;
+    }
+
     return LongPressDraggable<String>(
       data: entry.id,
       onDragStarted: onDragStarted,

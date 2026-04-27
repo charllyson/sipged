@@ -529,7 +529,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         children: [
           Text('Carregando boletim de medição...'),
           SizedBox(height: 12),
-          LoadingTreeDotsGrey(size: 56, centered: false),
+          LoadingTreeDots(size: 56, centered: false),
         ],
       ),
     )

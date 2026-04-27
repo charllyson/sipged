@@ -23,7 +23,7 @@ class ActiveOaesMapMapbox extends StatelessWidget {
     if (state.loadStatus == ActiveOaesLoadStatus.loading &&
         !state.initialized) {
       return const Center(
-        child: LoadingTreeDotsGrey(size: 110),
+        child: LoadingTreeDots(size: 110),
       );
     }
 

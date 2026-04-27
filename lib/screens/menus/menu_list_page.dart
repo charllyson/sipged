@@ -530,7 +530,7 @@ class _MenuListPageState extends State<MenuListPage> {
         if (currentUser == null) {
           return const Scaffold(
             backgroundColor: Colors.white,
-            body: LoadingTreeDotsGrey(
+            body: LoadingTreeDots(
               message: Text('Carregando usuário...'),
             ),
           );

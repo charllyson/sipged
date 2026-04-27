@@ -28,7 +28,7 @@ class PopUpPhotoMenu extends StatelessWidget {
       return const SizedBox(
         width: 20,
         height: 20,
-        child: LoadingTreeDotsGrey(
+        child: LoadingTreeDots(
           size: 20,
           strokeWidth: 2,
           centered: false,

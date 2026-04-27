@@ -272,7 +272,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                   _header(user),
                   Expanded(
                     child: user == null
-                        ? const LoadingTreeDotsGrey(size: 110)
+                        ? const LoadingTreeDots(size: 110)
                         : LayoutBuilder(
                       builder: (context, c) {
                         final isWide = c.maxWidth >= 860;
@@ -380,7 +380,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                   ? const SizedBox(
                                 width: 22,
                                 height: 22,
-                                child: LoadingTreeDotsGrey(
+                                child: LoadingTreeDots(
                                   size: 22,
                                   centered: false,
                                 ),

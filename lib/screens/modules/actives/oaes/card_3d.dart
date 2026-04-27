@@ -151,7 +151,7 @@ class _OaeModel3DCardState extends State<OaeModel3DCard> {
               ),
               child: _busy
                   ? const Center(
-                child: LoadingTreeDotsGrey(
+                child: LoadingTreeDots(
                   size: 28,
                   centered: false,
                 ),

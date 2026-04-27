@@ -832,7 +832,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const LoadingTreeDotsGrey(
+                  const LoadingTreeDots(
                     size: 22,
                     strokeWidth: 2.6,
                     color: Colors.white,

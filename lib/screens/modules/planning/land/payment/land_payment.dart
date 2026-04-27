@@ -376,7 +376,7 @@ class _LandPaymentState extends State<LandPayment> {
                               ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: LoadingTreeDotsGrey(
+                            child: LoadingTreeDots(
                               size: 18,
                               centered: false,
                             ),

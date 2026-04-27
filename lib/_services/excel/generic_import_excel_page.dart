@@ -571,7 +571,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
             if (_loading || _carregandoCampos)
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: LoadingTreeDotsGrey(centered: false),
+                child: LoadingTreeDots(centered: false),
               ),
           ],
         ),

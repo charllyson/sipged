@@ -58,7 +58,7 @@ class ApostilleTableSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading && apostilles.isEmpty) {
-      return const LoadingTreeDotsGrey();
+      return const LoadingTreeDots();
     }
 
     if (!isLoading && apostilles.isEmpty) {
@@ -123,7 +123,7 @@ class ApostilleTableSection extends StatelessWidget {
             child: Container(
               color: Colors.white.withValues(alpha: 0.65),
               alignment: Alignment.center,
-              child: const LoadingTreeDotsGrey(),
+              child: const LoadingTreeDots(),
             ),
           ),
       ],

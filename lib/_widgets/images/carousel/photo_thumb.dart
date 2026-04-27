@@ -208,7 +208,7 @@ class _PhotoThumbState extends State<PhotoThumb> {
       height: size,
       color: Colors.grey.shade200,
       alignment: Alignment.center,
-      child: const LoadingTreeDotsGrey(
+      child: const LoadingTreeDots(
         size: 18,
         strokeWidth: 2,
       ),

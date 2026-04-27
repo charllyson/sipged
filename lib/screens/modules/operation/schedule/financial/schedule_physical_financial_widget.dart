@@ -355,7 +355,7 @@ class _SchedulePhysicalFinancialWidgetState
 
               if (waitingStore) {
                 return const Center(
-                  child: LoadingTreeDotsGrey(size: 110),
+                  child: LoadingTreeDots(size: 110),
                 );
               }
 

@@ -26,7 +26,7 @@ class ActiveOaesMapMapbox extends StatelessWidget {
       return Stack(
         children: [
           BackgroundChange(),
-          const LoadingTreeDotsGrey(
+          const LoadingTreeDots(
             size: 32,
             strokeWidth: 3,
           ),

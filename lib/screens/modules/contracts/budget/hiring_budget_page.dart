@@ -194,7 +194,7 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const LoadingTreeDotsGrey(
+                        const LoadingTreeDots(
                           size: 28,
                           centered: false,
                         ),

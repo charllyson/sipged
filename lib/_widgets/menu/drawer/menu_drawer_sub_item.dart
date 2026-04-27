@@ -9,9 +9,6 @@ class MenuDrawerSubItem {
   /// Ícone exclusivo do card da Home (se null, herda do grupo no ThemedActionsGrid)
   final IconData? homeIcon;
 
-  /// Subtítulo do card da Home (se null, usa fallback no ThemedActionsGrid)
-  final String? homeSubtitle;
-
   /// Cor do card da Home (se null, usa fallback no ThemedActionsGrid)
   final Color? homeColor;
 
@@ -20,7 +17,6 @@ class MenuDrawerSubItem {
     required this.menuItem,
     required this.permissionModule,
     this.homeIcon,
-    this.homeSubtitle,
     this.homeColor,
   });
 }

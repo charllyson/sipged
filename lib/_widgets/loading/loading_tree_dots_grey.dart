@@ -6,7 +6,7 @@ enum LoadingTreeDotsVariant {
   white,
 }
 
-class LoadingTreeDotsGrey extends StatelessWidget {
+class LoadingTreeDots extends StatelessWidget {
   final double? size;
   final double strokeWidth;
   final Color? color;
@@ -27,7 +27,7 @@ class LoadingTreeDotsGrey extends StatelessWidget {
   /// )
   final Widget? message;
 
-  const LoadingTreeDotsGrey({
+  const LoadingTreeDots({
     super.key,
     this.size,
     this.strokeWidth = 4,

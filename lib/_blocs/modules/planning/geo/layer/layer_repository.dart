@@ -20,12 +20,13 @@ class LayerRepository {
   DocumentReference<Map<String, dynamic>> get _docRef =>
       _firestore.doc(_docPath);
 
-  // manter o restante igual
+  String get _currentUid => _auth.currentUser?.uid ?? '';
+
   Future<List<LayerData>> loadTree() async {
     final snap = await _docRef.get();
 
     if (!snap.exists) {
-      final initial = LayerData.bootstrapTree();
+      final initial = _ensureOwnerForTree(LayerData.bootstrapTree());
       await saveTree(initial);
       return initial;
     }
@@ -34,7 +35,7 @@ class LayerRepository {
     final rawItems = (data['items'] as List?) ?? const [];
 
     if (rawItems.isEmpty) {
-      final initial = LayerData.bootstrapTree();
+      final initial = _ensureOwnerForTree(LayerData.bootstrapTree());
       await saveTree(initial);
       return initial;
     }
@@ -44,21 +45,23 @@ class LayerRepository {
         .map((e) => LayerData.fromMap(Map<String, dynamic>.from(e)))
         .toList(growable: false);
 
-    final sanitized = _sanitizeTree(parsed);
+    final sanitizedWithoutLegacy = _sanitizeTree(parsed);
+    final sanitized = _ensureOwnerForTree(sanitizedWithoutLegacy);
 
     if (!_isSameTree(parsed, sanitized)) {
       await saveTree(sanitized);
     }
 
-    return identical(parsed, sanitized) ? parsed : sanitized;
+    return sanitized;
   }
 
   Future<void> saveTree(List<LayerData> tree) async {
-    final uid = _auth.currentUser?.uid ?? '';
+    final uid = _currentUid;
+    final normalizedTree = _ensureOwnerForTree(tree);
 
     await _docRef.set(
       {
-        'items': tree.map((e) => e.toMap()).toList(),
+        'items': normalizedTree.map((e) => e.toMap()).toList(),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': uid,
       },
@@ -128,6 +131,64 @@ class LayerRepository {
     }
   }
 
+  List<LayerData> _ensureOwnerForTree(List<LayerData> tree) {
+    final uid = _currentUid.trim();
+
+    return tree.map((node) {
+      final nextChildren = node.children.isEmpty
+          ? node.children
+          : _ensureOwnerForTree(node.children);
+
+      final currentOwner = (node.ownerId ?? '').trim();
+
+      return node.copyWith(
+        ownerId: currentOwner.isNotEmpty
+            ? currentOwner
+            : (uid.isNotEmpty ? uid : node.ownerId),
+        children: nextChildren,
+        sharedUserIds: _sanitizeSharedUserIds(
+          node.sharedUserIds,
+          ownerId: currentOwner.isNotEmpty ? currentOwner : uid,
+        ),
+        sharedPermissionsByUserId: _sanitizePermissions(
+          node.sharedPermissionsByUserId,
+          ownerId: currentOwner.isNotEmpty ? currentOwner : uid,
+        ),
+      );
+    }).toList(growable: false);
+  }
+
+  List<String> _sanitizeSharedUserIds(
+      List<String> ids, {
+        required String ownerId,
+      }) {
+    final owner = ownerId.trim();
+
+    return ids
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .where((e) => owner.isEmpty || e != owner)
+        .toSet()
+        .toList(growable: false);
+  }
+
+  Map<String, LayerSharePermission> _sanitizePermissions(
+      Map<String, LayerSharePermission> map, {
+        required String ownerId,
+      }) {
+    final owner = ownerId.trim();
+    final out = <String, LayerSharePermission>{};
+
+    for (final entry in map.entries) {
+      final uid = entry.key.trim();
+      if (uid.isEmpty) continue;
+      if (owner.isNotEmpty && uid == owner) continue;
+      out[uid] = entry.value;
+    }
+
+    return Map<String, LayerSharePermission>.unmodifiable(out);
+  }
+
   List<LayerData> _sanitizeTree(List<LayerData> nodes) {
     return nodes
         .where((node) => !_isLegacyBaseLayer(node))
@@ -169,12 +230,23 @@ class LayerRepository {
         a.isSystem != b.isSystem ||
         a.rendererType != b.rendererType ||
         a.labelRendererType != b.labelRendererType ||
+        a.ownerId != b.ownerId ||
         a.children.length != b.children.length ||
         a.symbolLayers.length != b.symbolLayers.length ||
         a.ruleBasedSymbols.length != b.ruleBasedSymbols.length ||
         a.labelLayers.length != b.labelLayers.length ||
-        a.ruleBasedLabels.length != b.ruleBasedLabels.length) {
+        a.ruleBasedLabels.length != b.ruleBasedLabels.length ||
+        a.sharedUserIds.length != b.sharedUserIds.length ||
+        a.sharedPermissionsByUserId.length != b.sharedPermissionsByUserId.length) {
       return false;
+    }
+
+    for (int i = 0; i < a.sharedUserIds.length; i++) {
+      if (a.sharedUserIds[i] != b.sharedUserIds[i]) return false;
+    }
+
+    for (final entry in a.sharedPermissionsByUserId.entries) {
+      if (b.sharedPermissionsByUserId[entry.key] != entry.value) return false;
     }
 
     for (int i = 0; i < a.symbolLayers.length; i++) {

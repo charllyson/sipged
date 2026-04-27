@@ -245,7 +245,7 @@ void _loading(BuildContext context) {
     builder: (_) => const Material(
       color: Colors.black26,
       child: Center(
-        child: LoadingTreeDotsGrey(size: 110),
+        child: LoadingTreeDots(size: 110),
       ),
     ),
   );

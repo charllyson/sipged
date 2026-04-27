@@ -378,7 +378,7 @@ class _LandAssessmentState extends State<LandAssessment> {
                           ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: LoadingTreeDotsGrey(
+                        child: LoadingTreeDots(
                           size: 16,
                           centered: false,
                         ),

@@ -64,7 +64,7 @@ class _ExportPdfButtonState extends State<ExportPdfButton> {
       child: IconButton(
         onPressed: _busy ? null : _export,
         icon: _busy
-            ? const LoadingTreeDotsGrey(
+            ? const LoadingTreeDots(
           size: 20,
           strokeWidth: 2,
           centered: false,

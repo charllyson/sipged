@@ -414,7 +414,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
     if (currentUser == null) {
       return const Scaffold(
         backgroundColor: Colors.white,
-        body: LoadingTreeDotsGrey(),
+        body: LoadingTreeDots(),
       );
     }
 
@@ -460,7 +460,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
                     ),
                     Expanded(
                       child: _loading && _cachedByStatus.isEmpty
-                          ? const LoadingTreeDotsGrey()
+                          ? const LoadingTreeDots()
                           : LayoutBuilder(
                         builder: (context, constraints) {
                           return ListView(

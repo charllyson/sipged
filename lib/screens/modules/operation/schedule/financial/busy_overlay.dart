@@ -40,7 +40,7 @@ class PhysFinBusyOverlay extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const LoadingTreeDotsGrey(
+                const LoadingTreeDots(
                   size: 42,
                   centered: false,
                 ),

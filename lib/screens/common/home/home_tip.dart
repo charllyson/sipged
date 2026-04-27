@@ -181,8 +181,8 @@ class _HomeTipCard extends StatelessWidget {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.blue.shade700,
-                          Colors.cyan.shade500,
+                          Colors.yellow,
+                          Colors.orange.shade500,
                         ],
                       ),
                     ),
@@ -302,19 +302,15 @@ class _TipIcon extends StatelessWidget {
       height: 52,
       width: 52,
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.10)
-            : Colors.blue.shade50,
+        color: Colors.yellow.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.10)
-              : Colors.blue.shade100,
+          color: Colors.yellow
         ),
       ),
       child: Icon(
         Icons.tips_and_updates_rounded,
-        color: isDark ? Colors.cyan.shade200 : Colors.blue.shade800,
+        color: Colors.yellow.shade800,
         size: 28,
       ),
     );

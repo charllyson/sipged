@@ -176,7 +176,7 @@ class ValidityPage extends StatelessWidget {
               ),
               if (isBusy)
                 const Center(
-                  child: LoadingTreeDotsGrey(size: 110),
+                  child: LoadingTreeDots(size: 110),
                 ),
             ],
           );

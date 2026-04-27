@@ -88,7 +88,7 @@ class _ManagerPermissionsUsersPageState
           return const Scaffold(
             backgroundColor: Colors.white,
             body: Center(
-              child: LoadingTreeDotsGrey(size: 110),
+              child: LoadingTreeDots(size: 110),
             ),
           );
         }

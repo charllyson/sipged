@@ -104,7 +104,7 @@ class _PhotoGalleryDialogState extends State<_PhotoGalleryDialog> {
         future: _loadWebUrl(item.url),
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
-            return const LoadingTreeDotsGrey(
+            return const LoadingTreeDots(
               size: 24,
               strokeWidth: 2,
             );

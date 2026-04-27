@@ -30,7 +30,7 @@ class CompanyLogo extends StatelessWidget {
               return const SizedBox(
                 width: 88,
                 height: 88,
-                child: LoadingTreeDotsGrey(
+                child: LoadingTreeDots(
                   message: Text('Carregando logo'),
                 ),
               );

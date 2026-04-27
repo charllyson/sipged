@@ -364,7 +364,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const LoadingTreeDotsGrey(
+                  const LoadingTreeDots(
                     size: 22,
                     strokeWidth: 2.6,
                     color: Colors.white,

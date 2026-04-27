@@ -433,7 +433,7 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
               ),
             ),
             if (_importando)
-              const LoadingTreeDotsGrey(
+              const LoadingTreeDots(
                 size: 40,
                 strokeWidth: 2,
                 color: Colors.blue,

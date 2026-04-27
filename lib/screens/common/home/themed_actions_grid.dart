@@ -79,7 +79,6 @@ class ThemedActionsGrid extends StatelessWidget {
         ModuleDataItem<ModuleItem>(
           icon: sub.homeIcon ?? group.icon,
           title: _normalizeTitle(sub.label),
-          subtitle: sub.homeSubtitle ?? 'Módulo disponível',
           color: sub.homeColor ?? _fallbackColor(sub.permissionModule),
           value: sub.menuItem,
         ),

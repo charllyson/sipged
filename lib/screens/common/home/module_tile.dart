@@ -32,13 +32,8 @@ class _ModuleTileState<T> extends State<ModuleTile<T>> {
     final innerIconSize = widget.compact ? 30.0 : 34.0;
 
     final labelFontSize = widget.compact ? 12.5 : null;
-    final subtitleFontSize = widget.compact ? 10.5 : 11.0;
 
     final labelColor = widget.isDark ? Colors.white : Colors.blueGrey.shade900;
-
-    final subtitleColor = widget.isDark
-        ? Colors.white.withValues(alpha: 0.62)
-        : Colors.blueGrey.shade600;
 
     final borderColor = _hovering
         ? item.color.withValues(alpha: 0.45)
@@ -112,18 +107,6 @@ class _ModuleTileState<T> extends State<ModuleTile<T>> {
                   fontWeight: FontWeight.w800,
                   height: 1.05,
                   color: labelColor,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                item.subtitle,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontSize: subtitleFontSize,
-                  fontWeight: FontWeight.w500,
-                  color: subtitleColor,
                 ),
               ),
             ],

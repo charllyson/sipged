@@ -273,7 +273,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                                     ),
                                     onPressed: loading ? null : _submit,
                                     child: loading
-                                        ? const LoadingTreeDotsGrey(
+                                        ? const LoadingTreeDots(
                                       size: 18,
                                       strokeWidth: 2,
                                       color: Colors.white,
@@ -336,7 +336,7 @@ class _BlockingOverlay extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const LoadingTreeDotsGrey(
+                  const LoadingTreeDots(
                     size: 22,
                     strokeWidth: 2.6,
                     color: Colors.white,

@@ -81,7 +81,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
     }
 
     if (userData == null || state.isLoadingUsers) {
-      return const LoadingTreeDotsGrey(
+      return const LoadingTreeDots(
         message: Text('Carregando módulos', style: TextStyle(color: Colors.white)),
         variant: LoadingTreeDotsVariant.white,
       );
@@ -108,7 +108,6 @@ class _DrawerMenuState extends State<DrawerMenu> {
           colorTitle: palette.sectionTitle,
           colorSubTitle: palette.sectionSubtitle,
           items: [
-            ...ModuleData.panelDashboard,
             ...ModuleData.drawerDocuments,
             ...ModuleData.drawerDepartments,
           ],

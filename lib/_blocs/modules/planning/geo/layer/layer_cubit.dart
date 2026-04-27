@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_repository.dart';
@@ -6,16 +7,21 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/layer_state.dart';
 class LayerCubit extends Cubit<LayerState> {
   LayerCubit({
     LayerRepository? repository,
+    FirebaseAuth? auth,
   })  : _repository = repository ?? LayerRepository(),
+        _auth = auth ?? FirebaseAuth.instance,
         super(const LayerState());
 
   final LayerRepository _repository;
+  final FirebaseAuth _auth;
 
   final Map<String, bool> _hasDataCacheByPath = {};
   final Map<String, Future<bool>> _inFlightByPath = {};
 
   int _groupSequence = 1;
   int _layerSequence = 1;
+
+  String get _currentUid => _auth.currentUser?.uid ?? '';
 
   void _emitIfChanged(LayerState next) {
     if (next != state) emit(next);
@@ -593,6 +599,7 @@ class LayerCubit extends Cubit<LayerState> {
     final layer = LayerData.temporaryLayer(
       id: id,
       sequence: _layerSequence++,
+      ownerId: _currentUid,
     );
 
     if (parentId == null) {
@@ -621,6 +628,7 @@ class LayerCubit extends Cubit<LayerState> {
     final newGroup = LayerData.temporaryGroup(
       id: 'group_${DateTime.now().microsecondsSinceEpoch}',
       sequence: _groupSequence++,
+      ownerId: _currentUid,
     );
 
     if (parentId == null) {

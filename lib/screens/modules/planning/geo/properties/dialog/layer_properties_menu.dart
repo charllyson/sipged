@@ -121,9 +121,8 @@ class LayerPropertiesMenuItem extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: selected
-                              ? Colors.white70
-                              : Colors.white54,
+                          color:
+                          selected ? Colors.white70 : Colors.white54,
                           fontSize: 11.5,
                           height: 1.2,
                         ),

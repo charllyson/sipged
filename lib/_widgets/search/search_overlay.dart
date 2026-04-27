@@ -328,7 +328,7 @@ class _OverlayLoading extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          LoadingTreeDotsGrey(
+          LoadingTreeDots(
             size: 28,
             centered: false,
           ),
