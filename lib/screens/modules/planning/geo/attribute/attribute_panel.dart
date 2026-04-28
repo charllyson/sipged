@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -7,7 +9,7 @@ import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_map.dart';
+import 'package:sipged/_blocs/system/map/map_data.dart';
 import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/_widgets/buttons/icon_button_changed.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_import.dart';
@@ -28,7 +30,11 @@ class AttributePanel extends StatelessWidget {
   final LayerDataMap mapData;
   final MapState editorState;
   final FeatureState genericState;
-  final Future<void> Function(LayerData layer) onOpenLayerTable;
+  final FutureOr<void> Function(LayerData layer) onOpenLayerTable;
+
+  void _runVoid(FutureOr<void> Function() action) {
+    unawaited(Future<void>.sync(action));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,8 +46,19 @@ class AttributePanel extends StatelessWidget {
             'attributes_panel_'
                 '${genericState.selected?.feature.selectionKey ?? 'none'}_'
                 '${editorState.selectedLayerPanelItemId ?? 'none'}_'
-                '${Object.hashAll(genericState.availableFieldsByLayer.entries.map((e) => Object.hash(e.key, Object.hashAll(e.value))))}_'
-                '${Object.hashAll(mapData.hasDataByLayer.entries.map((e) => Object.hash(e.key, e.value)))}',
+                '${Object.hashAll(
+              genericState.availableFieldsByLayer.entries.map(
+                    (e) => Object.hash(
+                  e.key,
+                  Object.hashAll(e.value),
+                ),
+              ),
+            )}_'
+                '${Object.hashAll(
+              mapData.hasDataByLayer.entries.map(
+                    (e) => Object.hash(e.key, e.value),
+              ),
+            )}',
           ),
           child: _buildContent(context),
         ),
@@ -52,8 +69,10 @@ class AttributePanel extends StatelessWidget {
   Widget _buildContent(BuildContext context) {
     final featureSelection = genericState.selected;
     final selectedLayerId = editorState.selectedLayerPanelItemId;
-    final selectedLayer =
-    selectedLayerId == null ? null : mapData.layersById[selectedLayerId];
+
+    final selectedLayer = selectedLayerId == null
+        ? null
+        : mapData.layersById[selectedLayerId];
 
     if (featureSelection != null) {
       final layer = mapData.layersById[featureSelection.layerId];
@@ -70,10 +89,12 @@ class AttributePanel extends StatelessWidget {
       return AttributeLayer(
         headerTitle: layer?.title ?? 'Camada',
         headerColor: (layer?.color ?? Colors.blue).withValues(alpha: 0.10),
-        headerTrailing: (layer != null && hasData)
+        headerTrailing: layer != null && hasData
             ? _buildOpenTableButton(
           layer: layer,
-          onTap: () => onOpenLayerTable(layer),
+          onTap: () {
+            _runVoid(() => onOpenLayerTable(layer));
+          },
         )
             : null,
         emptyText: 'Esta feição não possui atributos.',
@@ -118,7 +139,9 @@ class AttributePanel extends StatelessWidget {
         headerColor: selectedLayer.color.withValues(alpha: 0.10),
         headerTrailing: _buildOpenTableButton(
           layer: selectedLayer,
-          onTap: () => onOpenLayerTable(selectedLayer),
+          onTap: () {
+            _runVoid(() => onOpenLayerTable(selectedLayer));
+          },
         ),
         emptyText: 'Esta camada ainda não possui campos identificados.',
         children: [
@@ -241,12 +264,15 @@ class AttributePanel extends StatelessWidget {
     }
   }
 
-  bool _hasData(String layerId) => mapData.hasDataByLayer[layerId] == true;
+  bool _hasData(String layerId) {
+    return mapData.hasDataByLayer[layerId] == true;
+  }
 
   dynamic _featureValue(FeatureData feature, String field) {
     if (feature.editedProperties.containsKey(field)) {
       return feature.editedProperties[field];
     }
+
     return feature.originalProperties[field];
   }
 }

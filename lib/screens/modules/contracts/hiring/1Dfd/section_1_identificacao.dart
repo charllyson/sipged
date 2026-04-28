@@ -10,7 +10,7 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
-import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 

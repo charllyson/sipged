@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
-import 'package:sipged/screens/modules/operation/schedule/financial/schedule_physical_financial_widget.dart';
+import 'package:sipged/screens/modules/operation/schedule/financial/physfin_widget.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 class HiringSchedulePage extends StatelessWidget {
@@ -18,7 +18,7 @@ class HiringSchedulePage extends StatelessWidget {
           child: const CircleButtonChange(),
         ),
       ),
-      body: SchedulePhysicalFinancialWidget(
+      body: PhysFinWidget(
         contractData: contract,
         chronogramMode: false,
       ),

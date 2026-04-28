@@ -10,7 +10,7 @@ import 'package:sipged/_blocs/system/location/ibge_localidade_state.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_data.dart';
 
 class GeneralDashboardMap extends StatelessWidget {
   /// MUNICÍPIOS selecionados (para destaque mais forte / filtro ativo)
@@ -96,7 +96,7 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
   }
 
   /// Junta todos os pontos dos polígonos para centralizar o mapa.
-  List<LatLng> _geometryPointsFromPolygons(List<PolygonChangedData> polys) {
+  List<LatLng> _geometryPointsFromPolygons(List<PolygonData> polys) {
     if (polys.isEmpty) return const <LatLng>[];
     final pts = <LatLng>[];
     for (final p in polys) {
@@ -132,8 +132,8 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
   /// - selecionado/filtro ativo => vermelho
   /// - com contrato => azul
   /// - sem contrato => cinza claro
-  List<PolygonChangedData> _applyStrengthStyle({
-    required List<PolygonChangedData> polys,
+  List<PolygonData> _applyStrengthStyle({
+    required List<PolygonData> polys,
     required List<String> strongNames,
     required List<String> selectedNames,
   }) {

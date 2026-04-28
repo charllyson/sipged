@@ -1,0 +1,106 @@
+import 'package:flutter/material.dart';
+
+import 'search_overlay.dart';
+import 'search_suggestion.dart';
+
+class SearchWidget extends StatefulWidget {
+  const SearchWidget({
+    super.key,
+    this.onSearch,
+    this.fetchSuggestions,
+    this.onSuggestionTap,
+    this.tooltip = 'Buscar',
+    this.backgroundColor = Colors.transparent,
+    this.iconColor = Colors.white,
+    this.icon = Icons.search,
+    this.maxWidth = 340,
+    this.height = 42,
+    this.hintText = 'Buscar...',
+    this.hintColor,
+    this.expandSide = SearchExpandSide.left,
+  });
+
+  final void Function(String)? onSearch;
+  final Future<List<SearchSuggestion<dynamic>>> Function(String)?
+  fetchSuggestions;
+  final void Function(SearchSuggestion<dynamic>)? onSuggestionTap;
+
+  final String tooltip;
+  final Color backgroundColor;
+  final Color iconColor;
+  final IconData icon;
+
+  final double maxWidth;
+  final double height;
+  final String hintText;
+  final Color? hintColor;
+
+  final SearchExpandSide expandSide;
+
+  @override
+  State<SearchWidget> createState() => _SearchWidgetState();
+}
+
+class _SearchWidgetState extends State<SearchWidget> {
+  final GlobalKey _btnKey = GlobalKey();
+
+  late final TextEditingController _controller;
+  late SearchOverlay _overlay;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = TextEditingController();
+
+    _overlay = SearchOverlay(
+      context,
+      _controller,
+      widget.onSearch,
+      buttonKey: _btnKey,
+      maxWidth: widget.maxWidth,
+      height: widget.height,
+      hintText: widget.hintText,
+      hintColor: widget.hintColor,
+      expandSide: widget.expandSide,
+      fetchSuggestions: widget.fetchSuggestions,
+      onSuggestionTap: widget.onSuggestionTap,
+    );
+  }
+
+  @override
+  void dispose() {
+    _overlay.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(90);
+
+    return Tooltip(
+      message: widget.tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: _btnKey,
+          onTap: _overlay.toggleOverlay,
+          customBorder: RoundedRectangleBorder(borderRadius: radius),
+          child: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: widget.backgroundColor,
+              borderRadius: radius,
+            ),
+            child: Icon(
+              widget.icon,
+              color: widget.iconColor,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

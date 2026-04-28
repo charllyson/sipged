@@ -3,6 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/tiles/tile_widget.dart';
 import 'package:sipged/admPanel/system/manager_permissions_users_page.dart';
@@ -13,6 +18,17 @@ import '../../_widgets/menu/upBar/up_bar.dart';
 
 class SettingsSystemPage extends StatelessWidget {
   const SettingsSystemPage({super.key});
+
+  void _notifyWarning(BuildContext context, String message) {
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Atenção',
+        subtitle: message,
+        type: NotificationType.warning,
+        leadingLabel: 'Sistema',
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +55,11 @@ class SettingsSystemPage extends StatelessWidget {
       body: LayoutBuilder(
         builder: (context, constraints) {
           double maxW = constraints.maxWidth;
-          if (constraints.maxWidth >= 1600) maxW = 1100;
+
+          if (constraints.maxWidth >= 1600) {
+            maxW = 1100;
+          }
+
           if (constraints.maxWidth >= 1200 && constraints.maxWidth < 1600) {
             maxW = 1000;
           }
@@ -71,12 +91,9 @@ class SettingsSystemPage extends StatelessWidget {
                     leading: Icons.settings_suggest_outlined,
                     onTap: () {
                       if (user == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Usuário não carregado. Tente novamente.',
-                            ),
-                          ),
+                        _notifyWarning(
+                          context,
+                          'Usuário não carregado. Tente novamente.',
                         );
                         return;
                       }

@@ -4,13 +4,15 @@ import 'package:exif/exif.dart' as exif;
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_editor/image_editor.dart' as ien;
 import 'package:native_exif/native_exif.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 class PhotoEditorPage extends StatefulWidget {
   final Uint8List originalBytes;
@@ -57,14 +59,39 @@ class PhotoEditorPage extends StatefulWidget {
 class _PhotoEditorPageState extends State<PhotoEditorPage> {
   final GlobalKey<ExtendedImageEditorState> _editorKey =
   GlobalKey<ExtendedImageEditorState>();
+
   final ImageEditorController _controller = ImageEditorController();
 
   double? _currentAspect;
   bool _saving = false;
   _OrigExif? _origExif;
 
+  void _notify(
+      String title, {
+        NotificationType type = NotificationType.info,
+        String? subtitle,
+        Duration duration = const Duration(seconds: 5),
+      }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Editor',
+        type: type,
+        duration: duration,
+        extra: const <String, dynamic>{
+          'module': 'photo_editor',
+        },
+      ),
+      saveInFirebase: false,
+    );
+  }
+
   List<_Aspect> get _ratios {
     final custom = widget.aspectRatios;
+
     if (custom != null && custom.isNotEmpty) {
       return [
         const _Aspect('Livre', null),
@@ -85,22 +112,27 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     if ((r - 4 / 3).abs() < 1e-6) return '4:3';
     if ((r - 3 / 2).abs() < 1e-6) return '3:2';
     if ((r - 16 / 9).abs() < 1e-6) return '16:9';
+
     return r.toStringAsFixed(2);
   }
 
   String get _currentAspectLabel {
     final list = _ratios;
     final idx = _currentAspectIndexIn(list);
+
     return list[idx].label;
   }
 
   int _currentAspectIndexIn(List<_Aspect> list) {
     final val = _currentAspect;
+
     final i = list.indexWhere((a) {
       if (a.value == null && val == null) return true;
       if (a.value == null || val == null) return false;
+
       return (a.value! - val).abs() < 1e-6;
     });
+
     return i < 0 ? 0 : i;
   }
 
@@ -122,6 +154,7 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
   @override
   void initState() {
     super.initState();
+
     _readOriginalExif(widget.originalBytes).then((value) {
       _origExif = value;
     });
@@ -176,7 +209,9 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       ),
       body: Column(
         children: [
-          Expanded(child: Center(child: editor)),
+          Expanded(
+            child: Center(child: editor),
+          ),
           _toolbar(),
         ],
       ),
@@ -230,6 +265,7 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
 
   Future<void> _export() async {
     if (_saving) return;
+
     setState(() => _saving = true);
 
     try {
@@ -238,30 +274,27 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
 
       final withExif = await _applyExifIfSupported(edited);
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Foto exportada'),
-          subtitle: const Text('Edição aplicada com sucesso'),
-          type: AppNotificationType.success,
-          leadingLabel: const Text('Editor'),
-          duration: const Duration(seconds: 3),
-        ),
+      _notify(
+        'Foto exportada',
+        subtitle: 'Edição aplicada com sucesso',
+        type: NotificationType.success,
+        duration: const Duration(seconds: 3),
       );
 
       if (!mounted) return;
+
       Navigator.of(context).pop<Uint8List>(withExif);
     } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Falha ao exportar'),
-          subtitle: Text('$e'),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Editor'),
-          duration: const Duration(seconds: 6),
-        ),
+      _notify(
+        'Falha ao exportar',
+        subtitle: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
       );
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
@@ -300,6 +333,7 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     );
 
     if (out == null) throw 'Edição nativa retornou null';
+
     return out;
   }
 
@@ -320,9 +354,11 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     if (deg.abs() > 0.01) {
       out = img.copyRotate(out, angle: deg);
     }
+
     if (flipH) {
       out = img.flipHorizontal(out);
     }
+
     if (crop != null && crop.width > 0 && crop.height > 0) {
       out = img.copyCrop(
         out,
@@ -342,14 +378,17 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       if (tags.isEmpty) return null;
 
       DateTime? dt;
+
       for (final key in const [
         'Image DateTime',
         'EXIF DateTimeOriginal',
         'EXIF DateTimeDigitized',
       ]) {
         final v = tags[key]?.printable;
+
         if (v != null) {
           final parsed = _tryParseExifDate(v);
+
           if (parsed != null) {
             dt = parsed;
             break;
@@ -370,21 +409,31 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
           final d = v.ratios[0].toDouble();
           final m = v.ratios[1].toDouble();
           final s = v.ratios[2].toDouble();
+
           return d + (m / 60.0) + (s / 3600.0);
         }
+
         return null;
       }
 
-      if (latTag != null && lonTag != null && latRef != null && lonRef != null) {
+      if (latTag != null &&
+          lonTag != null &&
+          latRef != null &&
+          lonRef != null) {
         lat = ratiosToDeg(latTag.values);
         lon = ratiosToDeg(lonTag.values);
+
         if (lat != null && lon != null) {
           if (latRef.toUpperCase().startsWith('S')) lat = -lat;
           if (lonRef.toUpperCase().startsWith('W')) lon = -lon;
         }
       }
 
-      return _OrigExif(dateTime: dt, latitude: lat, longitude: lon);
+      return _OrigExif(
+        dateTime: dt,
+        latitude: lat,
+        longitude: lon,
+      );
     } catch (_) {
       return null;
     }
@@ -392,15 +441,18 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
 
   Future<Uint8List> _applyExifIfSupported(Uint8List editedJpeg) async {
     if (!widget.writeExif) return editedJpeg;
+
     if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
       return editedJpeg;
     }
 
     try {
       final tempDir = await getTemporaryDirectory();
+
       final f = File(
         '${tempDir.path}/edited_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
+
       await f.writeAsBytes(editedJpeg, flush: true);
 
       final ex = await Exif.fromPath(f.path);
@@ -431,6 +483,7 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       if (finalLat != null && finalLon != null) {
         final latRef = finalLat >= 0 ? 'N' : 'S';
         final lonRef = finalLon >= 0 ? 'E' : 'W';
+
         await ex.writeAttributes({
           'GPSLatitude': finalLat.toString(),
           'GPSLatitudeRef': latRef,
@@ -440,6 +493,7 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       }
 
       await ex.close();
+
       return await f.readAsBytes();
     } catch (_) {
       return editedJpeg;
@@ -448,27 +502,32 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
 
   static img.Image _decodeImage(Uint8List data) {
     final i = img.decodeImage(data);
+
     if (i == null) throw 'Imagem inválida';
+
     return i;
   }
 
   static Uint8List _encodeJpg(_JpgArgs a) {
     final encoder = img.JpegEncoder(quality: a.quality);
     final bytes = encoder.encode(a.image);
+
     return Uint8List.fromList(bytes);
   }
 
   static String _formatExifDate(DateTime dt) {
     String two(int v) => v.toString().padLeft(2, '0');
-    return '${dt.year}:${two(dt.month)}:${two(dt.day)} ${two(dt.hour)}:${two(dt.minute)}:${two(dt.second)}';
+
+    return '${dt.year}:${two(dt.month)}:${two(dt.day)} '
+        '${two(dt.hour)}:${two(dt.minute)}:${two(dt.second)}';
   }
 
   static DateTime? _tryParseExifDate(String s) {
     try {
       final dateTime = s.trim();
-      final date = dateTime.split(' ').first;
-      final time =
-      dateTime.split(' ').length > 1 ? dateTime.split(' ')[1] : '00:00:00';
+      final parts = dateTime.split(' ');
+      final date = parts.first;
+      final time = parts.length > 1 ? parts[1] : '00:00:00';
 
       final partsD = date.split(':');
       final partsT = time.split(':');
@@ -480,9 +539,11 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
         final hh = int.parse(partsT[0]);
         final mm = int.parse(partsT[1]);
         final ss = partsT.length > 2 ? int.parse(partsT[2]) : 0;
+
         return DateTime(y, m, d, hh, mm, ss);
       }
     } catch (_) {}
+
     return null;
   }
 }

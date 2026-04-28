@@ -4,6 +4,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
+
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/grid/schedule_grid.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_status.dart';
@@ -11,14 +18,7 @@ import 'package:sipged/screens/modules/operation/schedule/physical/share/schedul
 import 'package:sipged/screens/modules/operation/schedule/physical/share/type.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_modal_square.dart';
 
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
-
-import 'package:sipged/_blocs/system/user/user_cubit.dart';
-
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ScheduleRoadBoard extends StatefulWidget {
   final ProcessData? contractData;
@@ -37,6 +37,7 @@ class ScheduleRoadBoard extends StatefulWidget {
 class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     with AutomaticKeepAliveClientMixin {
   Map<int, Set<int>> _selectedByEstaca = <int, Set<int>>{};
+
   bool _isDragging = false;
   int? _anchorEstaca;
   int? _anchorFaixa;
@@ -49,6 +50,20 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
 
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    try {
+      context.read<ScheduleRoadCubit>();
+    } catch (_) {
+      throw FlutterError(
+        'ScheduleRoadCubit não encontrado no contexto. '
+            'Envolva ScheduleRoadBoard com BlocProvider(create: (_) => ScheduleRoadCubit()).',
+      );
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -64,8 +79,10 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
 
     if (!userState.initialized && userState.all.isEmpty) {
       _requestedUsersLoad = true;
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+
         userCubit.warmup(
           listenRealtime: true,
           bindCurrentUser: true,
@@ -74,16 +91,124 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     }
   }
 
+  void _toast(
+      String msg, {
+        NotificationType type = NotificationType.info,
+        Duration duration = const Duration(seconds: 8),
+      }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: msg,
+        leadingLabel: 'Cronograma',
+        type: type,
+        duration: duration,
+      ),
+    );
+  }
+
+  String _actorName() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    final displayName = user?.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+
+    final email = user?.email?.trim() ?? '';
+    if (email.isNotEmpty) return email;
+
+    return 'Usuário';
+  }
+
+  String _contractId() {
+    final contract = widget.contractData;
+    if (contract == null) return '';
+
+    try {
+      final value = (contract as dynamic).id;
+      return value?.toString().trim() ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String _contractSummary() {
+    final contract = widget.contractData;
+    if (contract == null) return 'Contrato sem identificação';
+
+    try {
+      final value = (contract as dynamic).summarySubjectContract;
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty) return text;
+    } catch (_) {}
+
+    try {
+      final value = (contract as dynamic).summary;
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty) return text;
+    } catch (_) {}
+
+    try {
+      final value = (contract as dynamic).object;
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty) return text;
+    } catch (_) {}
+
+    final id = _contractId();
+    if (id.isNotEmpty) return 'Contrato $id';
+
+    return 'Contrato sem identificação';
+  }
+
+  Future<void> _notifyBell({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    if (!mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    final contractId = _contractId();
+
+    await context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        details: details ?? _contractSummary(),
+        leadingLabel: 'Cronograma',
+        type: type,
+        duration: duration,
+        persistInFirebase: true,
+        createdBy: user?.uid,
+        extra: <String, dynamic>{
+          'module': 'operation_schedule_road',
+          'contractId': contractId,
+          'contractSummary': _contractSummary(),
+          'contractTitle': _contractSummary(),
+          'actorId': user?.uid,
+          'actorName': _actorName(),
+          ...extra,
+        },
+      ),
+      saveInFirebase: true,
+    );
+  }
+
   String _extractSide(String raw) {
     final m = RegExp(
       r'\b(LE|CE|LD)\b',
       caseSensitive: false,
     ).firstMatch(raw.toUpperCase());
+
     return (m?.group(1) ?? '').toUpperCase();
   }
 
   String _cleanLaneName(String raw) {
     final up = raw.toUpperCase();
+
     if (up.contains('DUPLICA')) return 'DUPLICAÇÃO';
     if (up.contains('PISTA ATUAL')) return 'PISTA ATUAL';
     if (up.contains('CANTEIRO')) return 'CANTEIRO';
@@ -92,8 +217,10 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       RegExp(r'\b(LE|CE|LD)\b', caseSensitive: false),
       '',
     );
+
     cleaned = cleaned.replaceAll(RegExp(r'\s*-\s*'), ' ');
     cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+
     return cleaned.toUpperCase();
   }
 
@@ -103,7 +230,10 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
   }) {
     final side = _extractSide(laneLabel);
     final name = _cleanLaneName(laneLabel);
-    return side.isNotEmpty ? '$name - $side - E: $estaca' : '$name - E: $estaca';
+
+    return side.isNotEmpty
+        ? '$name - $side - E: $estaca'
+        : '$name - E: $estaca';
   }
 
   String _formatRoadNameForMany({
@@ -114,31 +244,38 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     final name = _cleanLaneName(laneLabel);
     final seq = (estacas.toList()..sort()).join(', ');
     final base = side.isNotEmpty ? '$name - $side' : name;
+
     return '$base - E(s): $seq';
   }
 
   Map<int, Set<int>> _groupSelection(Set<String> keys) {
     final out = <int, Set<int>>{};
+
     for (final key in keys) {
       final parts = key.split('_');
+
       if (parts.length != 2) continue;
 
       final estaca = int.tryParse(parts[0]);
       final faixa = int.tryParse(parts[1]);
+
       if (estaca == null || faixa == null) continue;
 
       out.putIfAbsent(estaca, () => <int>{}).add(faixa);
     }
+
     return out;
   }
 
   Set<String> _flattenSelection(Map<int, Set<int>> grouped) {
     final out = <String>{};
+
     grouped.forEach((estaca, faixas) {
       for (final faixa in faixas) {
         out.add('${estaca}_$faixa');
       }
     });
+
     return out;
   }
 
@@ -150,6 +287,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
 
     for (final entry in a.entries) {
       final other = b[entry.key];
+
       if (other == null) return false;
       if (entry.value.length != other.length) return false;
 
@@ -170,20 +308,6 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
   int get _selectedCount => _flattenSelection(_selectedByEstaca).length;
 
   @override
-  void initState() {
-    super.initState();
-
-    try {
-      context.read<ScheduleRoadCubit>();
-    } catch (_) {
-      throw FlutterError(
-        'ScheduleRoadCubit não encontrado no contexto. '
-            'Envolva ScheduleRoadBoard com BlocProvider(create: (_) => ScheduleRoadCubit()).',
-      );
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     super.build(context);
 
@@ -200,17 +324,10 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       listenWhen: (p, c) => p.error != c.error,
       listener: (ctx, state) {
         if (state.error != null) {
-          NotificationCenter.instance.show(
-            AppNotification(
-              type: AppNotificationType.error,
-              title: Text('Erro: ${state.error}'),
-              leadingIcon: const Icon(
-                Icons.error_outline,
-                color: Color(0xFFD32F2F),
-              ),
-              leadingLabel: const Text('Cronograma'),
-              duration: const Duration(seconds: 5),
-            ),
+          _toast(
+            'Erro: ${state.error}',
+            type: NotificationType.error,
+            duration: const Duration(seconds: 5),
           );
         }
       },
@@ -272,16 +389,22 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     final state = scheduleCubit.state;
 
     final cellKey = '${e.numero}_${e.faixaIndex}';
+
+    final existedBefore =
+        state.execIndex[e.numero]?[e.faixaIndex] != null;
+
     setState(() {
       _selectedByEstaca = _groupSelection({cellKey});
     });
 
     try {
       _modalOpen = true;
+
       final metaByUrl = <String, pm.CarouselMetadata>{};
 
       for (final m in e.fotosMeta) {
         final url = m['url']?.toString() ?? '';
+
         if (url.isEmpty) continue;
 
         metaByUrl[url] = pm.CarouselMetadata(
@@ -290,11 +413,11 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
               ? DateTime.fromMillisecondsSinceEpoch(
             (m['takenAtMs'] as num).toInt(),
           )
-              : ((m['takenAt'] is num)
+              : (m['takenAt'] is num)
               ? DateTime.fromMillisecondsSinceEpoch(
             (m['takenAt'] as num).toInt(),
           )
-              : null),
+              : null,
           lat: (m['lat'] as num?)?.toDouble(),
           lng: (m['lng'] as num?)?.toDouble(),
           make: m['make']?.toString(),
@@ -308,6 +431,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
 
       final initialStatus = _statusFromString(e.status);
       final laneLabel = state.lanes[e.faixaIndex].label;
+
       final initialNameForRoad = _formatRoadName(
         laneLabel: laneLabel,
         estaca: e.numero,
@@ -319,6 +443,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
         backgroundColor: Colors.transparent,
         builder: (sheetCtx) {
           final bottomInset = MediaQuery.viewInsetsOf(sheetCtx).bottom;
+
           return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
             child: BlocProvider.value(
@@ -346,17 +471,44 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       );
 
       await scheduleCubit.reloadExecucoes();
-      _toast(
-        'Célula atualizada com sucesso!',
-        type: AppNotificationType.success,
+
+      if (!mounted) return;
+
+      final afterState = scheduleCubit.state;
+      final existsAfter =
+          afterState.execIndex[e.numero]?[e.faixaIndex] != null;
+
+      final wasDeleted = existedBefore && !existsAfter;
+
+      await _notifyBell(
+        title: wasDeleted
+            ? 'Registro do cronograma excluído'
+            : 'Cronograma físico atualizado',
+        subtitle: wasDeleted
+            ? 'Célula removida por ${_actorName()}.'
+            : 'Célula atualizada por ${_actorName()}.',
+        details: initialNameForRoad,
+        type: NotificationType.success,
+        extra: <String, dynamic>{
+          'action': wasDeleted
+              ? 'schedule_cell_deleted'
+              : 'schedule_cell_saved',
+          'contractId': _contractId(),
+          'serviceKey': state.currentServiceKey,
+          'serviceLabel': state.titleForHeader,
+          'estaca': e.numero,
+          'faixaIndex': e.faixaIndex,
+          'cellName': initialNameForRoad,
+        },
       );
     } catch (err) {
       _toast(
         'Falha ao salvar a célula: $err',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
       );
     } finally {
       _modalOpen = false;
+
       if (mounted) {
         setState(_clearSelection);
       }
@@ -365,10 +517,13 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
 
   ScheduleStatus _statusFromString(String? s) {
     final t = (s ?? '').toLowerCase();
+
     if (t.contains('conclu')) return ScheduleStatus.concluido;
+
     if (t.contains('andament') || t.contains('progress')) {
       return ScheduleStatus.emAndamento;
     }
+
     return ScheduleStatus.aIniciar;
   }
 
@@ -393,7 +548,9 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       int faixa,
       _BoardGridVm vm,
       ) {
-    if (!_isDragging || _anchorEstaca == null || _anchorFaixa == null) return;
+    if (!_isDragging || _anchorEstaca == null || _anchorFaixa == null) {
+      return;
+    }
 
     if (_lastDragEstaca == estaca && _lastDragFaixa == faixa) {
       return;
@@ -410,6 +567,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     );
 
     final grouped = _groupSelection(sel);
+
     if (_sameGroupedSelection(_selectedByEstaca, grouped)) return;
 
     setState(() {
@@ -421,6 +579,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     if (!_isDragging) return;
 
     _isDragging = false;
+
     if (_selectedCount > 1) {
       _openBulkWithUnifiedModal();
     } else {
@@ -444,16 +603,24 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
 
     final List<ScheduleApplyTarget> targets = [];
     final estacasSelecionadas = <int>[];
+    final existingBefore = <String>{};
 
     for (final key in selectedKeys) {
       final parts = key.split('_');
+
       if (parts.length != 2) continue;
 
       final estaca = int.tryParse(parts[0]);
       final faixa = int.tryParse(parts[1]);
+
       if (estaca == null || faixa == null) continue;
 
       estacasSelecionadas.add(estaca);
+
+      if (state.execIndex[estaca]?[faixa] != null) {
+        existingBefore.add('${estaca}_$faixa');
+      }
+
       final fotosAtuais = state.fotosAtuaisFor(estaca, faixa);
 
       targets.add(
@@ -472,12 +639,14 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     }
 
     final laneLabel = state.lanes[_anchorFaixa ?? 0].label;
+
     final initialNameMany = _formatRoadNameForMany(
       laneLabel: laneLabel,
       estacas: estacasSelecionadas,
     );
 
     _modalOpen = true;
+
     try {
       await showModalBottomSheet<void>(
         context: scaffoldContext,
@@ -485,6 +654,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
         backgroundColor: Colors.transparent,
         builder: (sheetCtx) {
           final bottomInset = MediaQuery.viewInsetsOf(sheetCtx).bottom;
+
           return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
             child: BlocProvider.value(
@@ -502,32 +672,59 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       );
 
       await scheduleCubit.reloadExecucoes();
-      _toast(
-        'Aplicado em lote: ${targets.length} célula(s).',
-        type: AppNotificationType.success,
+
+      if (!mounted) return;
+
+      final afterState = scheduleCubit.state;
+
+      int deletedCount = 0;
+      for (final key in existingBefore) {
+        final parts = key.split('_');
+        final estaca = int.tryParse(parts[0]);
+        final faixa = int.tryParse(parts[1]);
+
+        if (estaca == null || faixa == null) continue;
+
+        if (afterState.execIndex[estaca]?[faixa] == null) {
+          deletedCount++;
+        }
+      }
+
+      final hasDeleted = deletedCount > 0;
+
+      await _notifyBell(
+        title: hasDeleted
+            ? 'Cronograma físico atualizado em lote'
+            : 'Cronograma físico atualizado em lote',
+        subtitle: hasDeleted
+            ? 'Aplicado em ${targets.length} célula(s), com $deletedCount remoção(ões), por ${_actorName()}.'
+            : 'Aplicado em ${targets.length} célula(s) por ${_actorName()}.',
+        details: initialNameMany,
+        type: NotificationType.success,
+        extra: <String, dynamic>{
+          'action': hasDeleted
+              ? 'schedule_bulk_saved_with_deletions'
+              : 'schedule_bulk_saved',
+          'contractId': _contractId(),
+          'serviceKey': state.currentServiceKey,
+          'serviceLabel': state.titleForHeader,
+          'targetsCount': targets.length,
+          'deletedCount': deletedCount,
+          'cellName': initialNameMany,
+        },
       );
     } catch (e) {
-      _toast('Falha no lote: $e', type: AppNotificationType.error);
+      _toast(
+        'Falha no lote: $e',
+        type: NotificationType.error,
+      );
     } finally {
       _modalOpen = false;
+
       if (mounted) {
         setState(_clearSelection);
       }
     }
-  }
-
-  void _toast(
-      String msg, {
-        AppNotificationType type = AppNotificationType.info,
-      }) {
-    NotificationCenter.instance.show(
-      AppNotification(
-        type: type,
-        title: Text(msg),
-        leadingLabel: const Text('Aviso'),
-        duration: const Duration(seconds: 10),
-      ),
-    );
   }
 }
 

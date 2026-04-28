@@ -1,20 +1,29 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/contract_bell_notifier.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_1_metadados.dart';
 import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_2_objeto_itens.dart';
@@ -25,11 +34,6 @@ import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_6_conso
 import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_7_anexos.dart';
 
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-import 'package:sipged/_widgets/overlays/screen_lock.dart';
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
-import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
 class CotacaoPage extends StatefulWidget {
   final String contractId;
@@ -53,17 +57,41 @@ class _CotacaoPageState extends State<CotacaoPage>
   late final ProgressCubit _progressBloc;
 
   CotacaoData _formData = const CotacaoData.empty();
+  ProcessData _contract = ProcessData.empty();
+
   bool _hydrated = false;
+  bool _loadingContract = false;
+
   String? _currentCotacaoId;
 
-  final _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController();
+
   int _fornCount = 1;
+
+  bool get _isEditable => !widget.readOnly;
+
+  String get _contractId => widget.contractId.trim();
+
+  ProcessData get _effectiveContract {
+    if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
+    if (_contractId.isNotEmpty) return _contract.copyWith(id: _contractId);
+    return _contract;
+  }
 
   @override
   void initState() {
     super.initState();
+
     _progressBloc = ProgressCubit(repo: ProgressRepository());
-    context.read<CotacaoCubit>().load(widget.contractId);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      if (_contractId.isNotEmpty) {
+        context.read<CotacaoCubit>().load(_contractId);
+        unawaited(_loadContract(_contractId));
+      }
+    });
   }
 
   @override
@@ -73,64 +101,304 @@ class _CotacaoPageState extends State<CotacaoPage>
     super.dispose();
   }
 
-  void _inferFornCountFromData(CotacaoData d) {
+  Future<void> _loadContract(String contractId) async {
+    final cid = contractId.trim();
+    if (cid.isEmpty) return;
+
+    if (mounted) {
+      setState(() => _loadingContract = true);
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(cid)
+          .get();
+
+      if (!mounted) return;
+
+      setState(() {
+        _contract = snapshot.exists
+            ? ProcessData.fromDocument(snapshot: snapshot)
+            : ProcessData.empty().copyWith(id: cid);
+
+        _loadingContract = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _contract = ProcessData.empty().copyWith(id: cid);
+        _loadingContract = false;
+      });
+    }
+  }
+
+  String _currentActorName() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    final displayName = user?.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+
+    final email = user?.email?.trim() ?? '';
+    if (email.isNotEmpty) return email;
+
+    return 'Usuário';
+  }
+
+  Future<void> _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    if (!mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    await ContractBellNotifier.show(
+      context: context,
+      contract: _effectiveContract,
+      title: title,
+      subtitle: subtitle,
+      details: details,
+      leadingLabel: 'Cotação',
+      module: 'contracts_hiring_cotacao',
+      type: type,
+      duration: duration,
+      saveInBell: saveInBell,
+      actorId: user?.uid,
+      actorName: _currentActorName(),
+      extra: extra,
+    );
+  }
+
+  void _inferFornCountFromData(CotacaoData data) {
     int count = 1;
-    if ((d.f2Nome ?? '').isNotEmpty || (d.f2Valor ?? '').isNotEmpty) count = 2;
-    if ((d.f3Nome ?? '').isNotEmpty || (d.f3Valor ?? '').isNotEmpty) count = 3;
+
+    if ((data.f2Nome ?? '').trim().isNotEmpty ||
+        (data.f2Valor ?? '').trim().isNotEmpty) {
+      count = 2;
+    }
+
+    if ((data.f3Nome ?? '').trim().isNotEmpty ||
+        (data.f3Valor ?? '').trim().isNotEmpty) {
+      count = 3;
+    }
+
     _fornCount = count.clamp(1, 3);
   }
 
   void _removeFornecedor() {
     if (_fornCount <= 1) return;
-    setState(() => _fornCount = (_fornCount - 1).clamp(1, 3));
+
+    setState(() {
+      _fornCount = (_fornCount - 1).clamp(1, 3);
+    });
   }
 
   void _addFornecedor() {
-    setState(() => _fornCount = (_fornCount + 1).clamp(1, 3));
+    setState(() {
+      _fornCount = (_fornCount + 1).clamp(1, 3);
+    });
   }
 
-  Future<void> _saveOnly() async {
+  Future<bool> _saveOnly() async {
+    if (widget.readOnly) {
+      await _notify(
+        title: 'Cotação',
+        subtitle: 'Esta etapa está em modo somente leitura.',
+        type: NotificationType.info,
+      );
+      return false;
+    }
+
     final cubit = context.read<CotacaoCubit>();
 
-    final completer = Completer<void>();
-    late final StreamSubscription sub;
+    try {
+      await cubit.saveAll(
+        contractId: _contractId,
+        sectionsData: _formData.toSectionsMap(),
+      );
 
-    sub = cubit.stream.listen((s) {
-      if (!s.saving) {
-        if (!completer.isCompleted) completer.complete();
-        sub.cancel();
+      if (!mounted) return false;
+
+      if (!cubit.state.saveSuccess) {
+        final err = cubit.state.error ?? 'Falha ao salvar';
+
+        await _notify(
+          title: 'Cotação',
+          subtitle: 'Erro ao salvar.',
+          details: err,
+          type: NotificationType.error,
+          duration: const Duration(seconds: 6),
+        );
+
+        return false;
       }
-    });
 
-    await cubit.saveAll(
-      contractId: widget.contractId,
-      sectionsData: _formData.toSectionsMap(),
-    );
+      await _loadContract(_contractId);
 
-    await completer.future;
+      if (!mounted) return false;
 
-    if (!mounted) return;
+      await _notify(
+        title: 'Cotação atualizada',
+        subtitle: 'Alterações salvas por ${_currentActorName()}.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'cotacao_saved',
+          'cotacaoId': cubit.state.cotacaoId,
+        },
+      );
 
-    if (!cubit.state.saveSuccess) {
-      final err = cubit.state.error ?? 'Falha ao salvar';
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Cotação'),
-          subtitle: const Text('Erro ao salvar.'),
-          details: Text(err),
-          type: AppNotificationType.error,
-        ),
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+
+      await _notify(
+        title: 'Cotação',
+        subtitle: 'Erro ao salvar.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+
+      return false;
+    }
+  }
+
+  Future<void> _saveApproveAndNext() async {
+    final cotacaoCubit = context.read<CotacaoCubit>();
+    final pipeline = context.read<PipelineProgressCubit>();
+    final controller = DefaultTabController.of(context);
+    final repo = _progressBloc.repo;
+
+    final saved = await _saveOnly();
+
+    if (!mounted || !saved) return;
+
+    final cotacaoId = cotacaoCubit.state.cotacaoId;
+
+    if (cotacaoId == null || cotacaoId.isEmpty) {
+      await _notify(
+        title: 'Cotação',
+        subtitle: 'Documento não encontrado para aprovar.',
+        type: NotificationType.error,
       );
       return;
     }
 
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: const Text('Cotação'),
-        subtitle: const Text('Alterações salvas com sucesso.'),
-        type: AppNotificationType.success,
-      ),
-    );
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid ?? '';
+    final actorName = _currentActorName();
+
+    try {
+      await repo.approveStage(
+        contractId: _contractId,
+        collectionName: 'cotacao',
+        approverUid: uid,
+        approverName: actorName,
+      );
+
+      await repo.setCompleted(
+        contractId: _contractId,
+        collectionName: 'cotacao',
+        completed: true,
+      );
+
+      if (!mounted) return;
+
+      pipeline.setStageEnabled(HiringStageKey.edital, true);
+      unawaited(pipeline.refresh());
+
+      controller.animateTo(
+        (controller.index + 1).clamp(0, controller.length - 1),
+      );
+
+      await _notify(
+        title: 'Cotação aprovada',
+        subtitle: 'Etapa concluída por $actorName.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'cotacao_approved',
+          'cotacaoId': cotacaoId,
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      await _notify(
+        title: 'Cotação',
+        subtitle: 'Erro ao aprovar.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+    }
+  }
+
+  Future<void> _updateApproved() async {
+    final cotacaoCubit = context.read<CotacaoCubit>();
+    final repo = _progressBloc.repo;
+
+    final saved = await _saveOnly();
+
+    if (!mounted || !saved) return;
+
+    final cotacaoId = cotacaoCubit.state.cotacaoId;
+
+    if (cotacaoId == null || cotacaoId.isEmpty) {
+      await _notify(
+        title: 'Cotação',
+        subtitle: 'Documento não encontrado para atualizar.',
+        type: NotificationType.error,
+      );
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid ?? '';
+    final actorName = _currentActorName();
+
+    try {
+      await repo.touchApproval(
+        contractId: _contractId,
+        collectionName: 'cotacao',
+        updatedByUid: uid,
+        updatedByName: actorName,
+      );
+
+      if (!mounted) return;
+
+      await _notify(
+        title: 'Aprovação da Cotação atualizada',
+        subtitle: 'Atualizada por $actorName.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'cotacao_approval_updated',
+          'cotacaoId': cotacaoId,
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      await _notify(
+        title: 'Cotação',
+        subtitle: 'Erro ao atualizar aprovação.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+    }
   }
 
   @override
@@ -140,11 +408,12 @@ class _CotacaoPageState extends State<CotacaoPage>
     return BlocProvider.value(
       value: _progressBloc,
       child: BlocListener<CotacaoCubit, CotacaoState>(
-        listenWhen: (prev, curr) =>
-        (prev.loading && !curr.loading) || (prev.cotacaoId != curr.cotacaoId),
+        listenWhen: (prev, curr) {
+          return (prev.loading && !curr.loading) ||
+              prev.cotacaoId != curr.cotacaoId;
+        },
         listener: (context, state) {
-          if (!mounted) return;
-          if (state.loading || !state.hasValidPath) return;
+          if (!mounted || state.loading || !state.hasValidPath) return;
 
           final incomingId = state.cotacaoId;
           final needsHydrate = !_hydrated || _currentCotacaoId != incomingId;
@@ -155,16 +424,19 @@ class _CotacaoPageState extends State<CotacaoPage>
             setState(() {
               _formData = data;
               _inferFornCountFromData(data);
+              _hydrated = true;
+              _currentCotacaoId = incomingId;
             });
+          }
 
-            _hydrated = true;
-            _currentCotacaoId = incomingId;
+          if ((incomingId ?? '').isNotEmpty) {
+            _progressBloc.bindToStage(
+              contractId: _contractId,
+              collectionName: 'cotacao',
+            );
 
-            if (incomingId != null && incomingId.isNotEmpty) {
-              _progressBloc.bindToStage(
-                contractId: widget.contractId,
-                collectionName: 'cotacao',
-              );
+            if ((_contract.id ?? '') != _contractId) {
+              unawaited(_loadContract(_contractId));
             }
           }
         },
@@ -172,13 +444,17 @@ class _CotacaoPageState extends State<CotacaoPage>
           builder: (context, state) {
             final pstate = context.watch<ProgressCubit>().state;
 
-            final locked = state.loading || state.saving || pstate.loading;
+            final locked =
+                state.loading || state.saving || pstate.loading || _loadingContract;
+
             final msg = state.loading
                 ? 'Sincronizando os dados...'
                 : state.saving
                 ? 'Salvando os dados...'
                 : pstate.loading
                 ? 'Atualizando aprovação...'
+                : _loadingContract
+                ? 'Carregando dados do contrato...'
                 : null;
 
             return ScreenLock(
@@ -201,47 +477,65 @@ class _CotacaoPageState extends State<CotacaoPage>
                           children: [
                             SectionMetadados(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionObjetoItens(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionConviteDivulgacao(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionRespostasFornecedores(
                               data: _formData,
-                              isEditable: !widget.readOnly,
+                              isEditable: _isEditable,
                               fornCount: _fornCount,
-                              onChanged: (updated) => setState(() => _formData = updated),
-                              onAdd: (!widget.readOnly && _fornCount < 3) ? _addFornecedor : null,
-                              onRemoveOne: (!widget.readOnly && _fornCount > 1) ? _removeFornecedor : null,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                              onAdd: _isEditable && _fornCount < 3
+                                  ? _addFornecedor
+                                  : null,
+                              onRemoveOne: _isEditable && _fornCount > 1
+                                  ? _removeFornecedor
+                                  : null,
                             ),
                             const SizedBox(height: 12),
                             SectionVencedora(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionConsolidacaoResultado(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionAnexos(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 8),
                           ],
@@ -256,78 +550,11 @@ class _CotacaoPageState extends State<CotacaoPage>
                         icon: Icons.request_quote_outlined,
                         busy: state.saving,
                         approved: pstate.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: () async {
-                          final cotacaoCubit = context.read<CotacaoCubit>();
-                          final pipeline = context.read<PipelineProgressCubit>();
-                          final controller = DefaultTabController.of(context);
-                          final repo = _progressBloc.repo;
-
+                        onSave: () async {
                           await _saveOnly();
-
-                          if (!mounted) return;
-
-                          final cotId = cotacaoCubit.state.cotacaoId;
-                          if (cotId == null || cotId.isEmpty) {
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Cotação'),
-                                subtitle: const Text('Documento não encontrado para aprovar.'),
-                                type: AppNotificationType.error,
-                              ),
-                            );
-                            return;
-                          }
-
-                          final user = FirebaseAuth.instance.currentUser;
-                          final uid = user?.uid ?? '';
-                          final nameOrEmail =
-                          (user?.displayName?.trim().isNotEmpty ?? false)
-                              ? user!.displayName!
-                              : (user?.email ?? uid);
-
-                          try {
-                            await repo.approveStage(
-                              contractId: widget.contractId,
-                              collectionName: 'cotacao',
-                              approverUid: uid,
-                              approverName: nameOrEmail,
-                            );
-
-                            await repo.setCompleted(
-                              contractId: widget.contractId,
-                              collectionName: 'cotacao',
-                              completed: true,
-                            );
-
-                            if (!mounted) return;
-
-                            pipeline.setStageEnabled(HiringStageKey.edital, true);
-                            unawaited(pipeline.refresh());
-
-                            controller.animateTo(
-                              (controller.index + 1).clamp(0, controller.length - 1),
-                            );
-
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Cotação'),
-                                subtitle: const Text('Aprovado e etapa concluída.'),
-                                type: AppNotificationType.success,
-                              ),
-                            );
-                          } catch (e) {
-                            if (!mounted) return;
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Cotação'),
-                                subtitle: const Text('Erro ao aprovar.'),
-                                details: Text('$e'),
-                                type: AppNotificationType.error,
-                              ),
-                            );
-                          }
                         },
+                        onSaveAndNext: _saveApproveAndNext,
+                        onUpdateApproved: _updateApproved,
                       );
                     },
                   ),

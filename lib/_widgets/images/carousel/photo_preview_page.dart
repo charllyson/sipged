@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:exif/exif.dart' as exif;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:geolocator/geolocator.dart';
 import 'package:image/image.dart' as im;
@@ -13,9 +14,11 @@ import 'package:latlong2/latlong.dart' as ll;
 import 'package:native_exif/native_exif.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_widgets/images/carousel/photo_editor_page.dart';
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class PhotoPreviewPage extends StatefulWidget {
@@ -83,6 +86,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
   @override
   void didUpdateWidget(covariant PhotoPreviewPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (!listEquals(oldWidget.originalBytes, widget.originalBytes)) {
       _bytes = widget.originalBytes;
       _preparePreview();
@@ -126,21 +130,26 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
 
   void _notify(
       String title, {
-        AppNotificationType type = AppNotificationType.info,
+        NotificationType type = NotificationType.info,
         String? subtitle,
         String? id,
+        Duration duration = const Duration(seconds: 5),
       }) {
-    if (id != null) {
-      NotificationCenter.instance.dismissById(id);
-    }
-    NotificationCenter.instance.show(
-      AppNotification(
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
         id: id,
-        title: Text(title),
-        subtitle:
-        (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Fotos',
         type: type,
+        duration: duration,
+        extra: const <String, dynamic>{
+          'module': 'photo_preview',
+        },
       ),
+      saveInFirebase: false,
     );
   }
 
@@ -154,29 +163,48 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       });
     }
 
-    final bakeF = compute(_bakeOrientationBytesTopLevel, _bytes);
-    final exifF = _readOriginalExif(_bytes);
+    try {
+      final bakeF = compute(_bakeOrientationBytesTopLevel, _bytes);
+      final exifF = _readOriginalExif(_bytes);
 
-    final baked = await bakeF;
-    final orig = await exifF;
+      final baked = await bakeF;
+      final orig = await exifF;
 
-    if (!mounted || token != _prepareToken) return;
+      if (!mounted || token != _prepareToken) return;
 
-    if (widget.debugLog) {
-      final o = await _probe(_bytes);
-      final b = await _probe(baked);
-      debugPrint(
-        'ORIG: ${o.width}x${o.height} | BAKED: ${b.width}x${b.height} bytes=${_bytes.length}→${baked.length}',
+      if (widget.debugLog) {
+        final o = await _probe(_bytes);
+        final b = await _probe(baked);
+
+        debugPrint(
+          'ORIG: ${o.width}x${o.height} | '
+              'BAKED: ${b.width}x${b.height} '
+              'bytes=${_bytes.length}→${baked.length}',
+        );
+      }
+
+      setState(() {
+        _previewBytes = baked;
+        _orig = orig;
+        _preparing = false;
+      });
+
+      unawaited(_resolveAddressAndCoords(token));
+    } catch (e) {
+      if (!mounted || token != _prepareToken) return;
+
+      setState(() {
+        _previewBytes = null;
+        _preparing = false;
+      });
+
+      _notify(
+        'Falha ao preparar pré-visualização',
+        type: NotificationType.error,
+        subtitle: '$e',
+        duration: const Duration(seconds: 6),
       );
     }
-
-    setState(() {
-      _previewBytes = baked;
-      _orig = orig;
-      _preparing = false;
-    });
-
-    unawaited(_resolveAddressAndCoords(token));
   }
 
   Future<void> _resolveAddressAndCoords(int token) async {
@@ -186,16 +214,20 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
 
       if ((lat == null || lon == null) && !kIsWeb) {
         final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
         if (!serviceEnabled) {
           if (!mounted || token != _prepareToken) return;
+
           setState(() {
             _latUsed = null;
             _lonUsed = null;
           });
+
           return;
         }
 
         var permission = await Geolocator.checkPermission();
+
         if (permission == LocationPermission.denied) {
           permission = await Geolocator.requestPermission();
         }
@@ -207,6 +239,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
               accuracy: LocationAccuracy.high,
             ),
           );
+
           lat = pos.latitude;
           lon = pos.longitude;
         }
@@ -215,18 +248,28 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       if (!mounted || token != _prepareToken) return;
 
       if (lat != null && lon != null) {
-        final placemarks =
-        await geocoding.placemarkFromCoordinates(lat, lon);
+        final placemarks = await geocoding.placemarkFromCoordinates(
+          lat,
+          lon,
+        );
 
         if (!mounted || token != _prepareToken) return;
 
         if (placemarks.isNotEmpty) {
           final p = placemarks.first;
-          final street =
-          _joinNotEmpty([p.thoroughfare, p.subThoroughfare], ', ');
+
+          final street = _joinNotEmpty(
+            [
+              p.thoroughfare,
+              p.subThoroughfare,
+            ],
+            ', ',
+          );
+
           final city = (p.locality?.isNotEmpty ?? false)
               ? p.locality
               : p.subAdministrativeArea;
+
           final ufRaw = p.administrativeArea;
 
           setState(() {
@@ -235,10 +278,12 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
             _street = street?.isNotEmpty == true
                 ? street
                 : widget.overlayLogradouro;
-            _city =
-            city?.isNotEmpty == true ? city : widget.overlayMunicipio;
+            _city = city?.isNotEmpty == true
+                ? city
+                : widget.overlayMunicipio;
             _state = ufRaw?.isNotEmpty == true ? ufRaw : widget.overlayUF;
           });
+
           return;
         }
       }
@@ -250,7 +295,15 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
         _city = widget.overlayMunicipio;
         _state = widget.overlayUF;
       });
-    } catch (_) {}
+    } catch (_) {
+      if (!mounted || token != _prepareToken) return;
+
+      setState(() {
+        _street = widget.overlayLogradouro;
+        _city = widget.overlayMunicipio;
+        _state = widget.overlayUF;
+      });
+    }
   }
 
   @override
@@ -268,9 +321,13 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
             tooltip: _fit == BoxFit.contain
                 ? 'Preencher (pode cortar)'
                 : 'Encaixar (sem corte)',
-            onPressed: () {
+            onPressed: _busy
+                ? null
+                : () {
               setState(() {
-                _fit = _fit == BoxFit.contain ? BoxFit.cover : BoxFit.contain;
+                _fit = _fit == BoxFit.contain
+                    ? BoxFit.cover
+                    : BoxFit.contain;
               });
             },
             icon: Icon(
@@ -278,7 +335,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
             ),
           ),
           TextButton.icon(
-            onPressed: _busy ? null : _confirm,
+            onPressed: _busy || _preparing ? null : _confirm,
             icon: const Icon(Icons.check),
             label: const Text('Usar'),
             style: TextButton.styleFrom(foregroundColor: Colors.white),
@@ -314,10 +371,14 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
               shape: const CircleBorder(),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                onTap: _busy ? null : _openCrop,
+                onTap: _busy || _preparing ? null : _openCrop,
                 child: const Padding(
                   padding: EdgeInsets.all(14),
-                  child: Icon(Icons.crop, color: Colors.white, size: 22),
+                  child: Icon(
+                    Icons.crop,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
               ),
             ),
@@ -355,11 +416,16 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
         Positioned.fill(
           child: Center(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 14,
+              ),
               decoration: BoxDecoration(
                 color: const Color(0xFF1E1E1E),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF6E6E6E)),
+                border: Border.all(
+                  color: const Color(0xFF6E6E6E),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -417,28 +483,42 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
 
   Future<void> _confirm() async {
     if (_busy) return;
+
     setState(() => _busy = true);
 
     try {
-      final stamped = await _burnStampOnImage(_bytes, _buildOverlayLines());
+      final stamped = await _burnStampOnImage(
+        _bytes,
+        _buildOverlayLines(),
+      );
+
       final withExif = await _applyExifIfSupported(stamped);
 
       if (!mounted) return;
+
       Navigator.of(context).pop<Uint8List>(withExif);
     } catch (e) {
       _notify(
         'Falha ao finalizar',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
         subtitle: '$e',
+        duration: const Duration(seconds: 6),
       );
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
   List<String> _buildOverlayLines() {
     final dt = widget.exifDateTime ?? _orig?.dateTime ?? DateTime.now();
-    final df = DateFormat("d 'de' MMM. 'de' y HH:mm:ss", 'pt_BR');
+
+    final df = DateFormat(
+      "d 'de' MMM. 'de' y HH:mm:ss",
+      'pt_BR',
+    );
+
     final dateLine = df.format(dt);
 
     final lat = _latUsed ?? widget.exifLatitude ?? _orig?.latitude;
@@ -460,7 +540,10 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
 
     final ufRaw = _state ?? widget.overlayUF;
     final ufFull = _fullStateNameBR(ufRaw);
-    lines.add((ufFull ?? '').isNotEmpty ? ufFull! : 'Estado não disponível');
+
+    lines.add(
+      (ufFull ?? '').isNotEmpty ? ufFull! : 'Estado não disponível',
+    );
 
     return lines;
   }
@@ -468,17 +551,21 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
   Future<_OrigExif?> _readOriginalExif(Uint8List data) async {
     try {
       final tags = await exif.readExifFromBytes(data);
+
       if (tags.isEmpty) return null;
 
       DateTime? dt;
+
       for (final key in const [
         'Image DateTime',
         'EXIF DateTimeOriginal',
         'EXIF DateTimeDigitized',
       ]) {
         final v = tags[key]?.printable;
+
         if (v != null) {
           final parsed = _tryParseExifDate(v);
+
           if (parsed != null) {
             dt = parsed;
             break;
@@ -499,8 +586,10 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
           final d = v.ratios[0].toDouble();
           final m = v.ratios[1].toDouble();
           final s = v.ratios[2].toDouble();
+
           return d + (m / 60.0) + (s / 3600.0);
         }
+
         return null;
       }
 
@@ -510,13 +599,23 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
           lonRef != null) {
         lat = ratiosToDeg(latTag.values);
         lon = ratiosToDeg(lonTag.values);
+
         if (lat != null && lon != null) {
-          if (latRef.toUpperCase().startsWith('S')) lat = -lat;
-          if (lonRef.toUpperCase().startsWith('W')) lon = -lon;
+          if (latRef.toUpperCase().startsWith('S')) {
+            lat = -lat;
+          }
+
+          if (lonRef.toUpperCase().startsWith('W')) {
+            lon = -lon;
+          }
         }
       }
 
-      return _OrigExif(dateTime: dt, latitude: lat, longitude: lon);
+      return _OrigExif(
+        dateTime: dt,
+        latitude: lat,
+        longitude: lon,
+      );
     } catch (_) {
       return null;
     }
@@ -528,21 +627,26 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
 
     try {
       final temp = await getTemporaryDirectory();
+
       final f = File(
         '${temp.path}/preview_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
+
       await f.writeAsBytes(jpeg, flush: true);
 
       final ex = await Exif.fromPath(f.path);
 
       final now = DateTime.now();
+
       final dt = widget.exifDateTime ?? _orig?.dateTime ?? now;
       final lat = _latUsed ?? widget.exifLatitude ?? _orig?.latitude;
       final lon = _lonUsed ?? widget.exifLongitude ?? _orig?.longitude;
 
       String two(int v) => v.toString().padLeft(2, '0');
+
       final dateStr =
-          '${dt.year}:${two(dt.month)}:${two(dt.day)} ${two(dt.hour)}:${two(dt.minute)}:${two(dt.second)}';
+          '${dt.year}:${two(dt.month)}:${two(dt.day)} '
+          '${two(dt.hour)}:${two(dt.minute)}:${two(dt.second)}';
 
       await ex.writeAttributes({
         'DateTime': dateStr,
@@ -553,6 +657,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       if (lat != null && lon != null) {
         final latRef = lat >= 0 ? 'N' : 'S';
         final lonRef = lon >= 0 ? 'E' : 'W';
+
         await ex.writeAttributes({
           'GPSLatitude': lat.toString(),
           'GPSLatitudeRef': latRef,
@@ -562,6 +667,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       }
 
       await ex.close();
+
       return await f.readAsBytes();
     } catch (_) {
       return jpeg;
@@ -574,7 +680,11 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       ) async {
     if (lines.isEmpty) return jpgBytes;
 
-    final baked = await compute(_bakeOrientationBytesTopLevel, jpgBytes);
+    final baked = await compute(
+      _bakeOrientationBytesTopLevel,
+      jpgBytes,
+    );
+
     final uiImage = await _decodeUiImage(baked);
 
     final width = uiImage.width;
@@ -587,6 +697,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
     canvas.drawImage(uiImage, Offset.zero, Paint());
 
     final font = (width / 22).clamp(24, 64).toDouble();
+
     final textSpan = TextSpan(
       text: lines.join('\n'),
       style: TextStyle(
@@ -616,6 +727,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
 
     final dx = size.width - tp.width - 24;
     final dy = size.height - tp.height - 24;
+
     tp.paint(canvas, Offset(dx, dy));
 
     final picture = recorder.endRecording();
@@ -624,24 +736,45 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
     final byteData = await stamped.toByteData(
       format: ui.ImageByteFormat.png,
     );
-    final pngBytes = byteData!.buffer.asUint8List();
 
-    final raster = im.decodeImage(pngBytes)!;
+    if (byteData == null) {
+      throw 'Falha ao rasterizar imagem final.';
+    }
+
+    final pngBytes = byteData.buffer.asUint8List();
+    final raster = im.decodeImage(pngBytes);
+
+    if (raster == null) {
+      throw 'Falha ao decodificar imagem final.';
+    }
+
     return Uint8List.fromList(
-      im.JpegEncoder(quality: widget.outputJpegQuality).encode(raster),
+      im.JpegEncoder(
+        quality: widget.outputJpegQuality.clamp(1, 100),
+      ).encode(raster),
     );
   }
 
   static Future<ui.Image> _decodeUiImage(Uint8List bytes) {
-    final c = Completer<ui.Image>();
-    ui.decodeImageFromList(bytes, (img) => c.complete(img));
-    return c.future;
+    final completer = Completer<ui.Image>();
+
+    ui.decodeImageFromList(
+      bytes,
+          (img) => completer.complete(img),
+    );
+
+    return completer.future;
   }
 
   static Future<ui.Image> _probe(Uint8List bytes) {
-    final c = Completer<ui.Image>();
-    ui.decodeImageFromList(bytes, (img) => c.complete(img));
-    return c.future;
+    final completer = Completer<ui.Image>();
+
+    ui.decodeImageFromList(
+      bytes,
+          (img) => completer.complete(img),
+    );
+
+    return completer.future;
   }
 
   static DateTime? _tryParseExifDate(String s) {
@@ -649,6 +782,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       final parts = s.trim().split(' ');
       final d = parts[0].split(':');
       final t = (parts.length > 1 ? parts[1] : '00:00:00').split(':');
+
       if (d.length == 3 && t.length >= 2) {
         return DateTime(
           int.parse(d[0]),
@@ -660,6 +794,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
         );
       }
     } catch (_) {}
+
     return null;
   }
 
@@ -668,7 +803,9 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
         .where((e) => e != null && e.trim().isNotEmpty)
         .map((e) => e!.trim())
         .toList(growable: false);
+
     if (nonEmpty.isEmpty) return null;
+
     return nonEmpty.join(sep);
   }
 
@@ -681,37 +818,53 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       final m = mFloat.floor();
       final s = (mFloat - m) * 60.0;
 
-      final dPad =
-      isLat ? d.toString().padLeft(2, '0') : d.toString().padLeft(3, '0');
+      final dPad = isLat
+          ? d.toString().padLeft(2, '0')
+          : d.toString().padLeft(3, '0');
+
       final mPad = m.toString().padLeft(2, '0');
       final sPad = s.toStringAsFixed(1).padLeft(4, '0');
 
       return '$hemi $dPad° $mPad\' $sPad"';
     }
 
-    return '${fmt(p.latitude, isLat: true)}   ${fmt(p.longitude, isLat: false)}';
+    return '${fmt(p.latitude, isLat: true)}   '
+        '${fmt(p.longitude, isLat: false)}';
   }
 
   String? _fullStateNameBR(String? input) {
     if (input == null) return null;
+
     var s = input.trim();
+
     if (s.isEmpty) return null;
 
-    final re = RegExp(r'^\s*Estado\s+de\s+', caseSensitive: false);
+    final re = RegExp(
+      r'^\s*Estado\s+de\s+',
+      caseSensitive: false,
+    );
+
     s = s.replaceFirst(re, '');
 
     final uf = s.toUpperCase();
-    if (_ufToNomeBR.containsKey(uf)) return _ufToNomeBR[uf];
+
+    if (_ufToNomeBR.containsKey(uf)) {
+      return _ufToNomeBR[uf];
+    }
+
     return s;
   }
 }
 
 Uint8List _bakeOrientationBytesTopLevel(Uint8List data) {
   final decoded = im.decodeImage(data);
+
   if (decoded == null) {
     throw 'Imagem inválida';
   }
+
   final baked = im.bakeOrientation(decoded);
+
   return Uint8List.fromList(
     im.JpegEncoder(quality: 100).encode(baked),
   );

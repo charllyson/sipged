@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';

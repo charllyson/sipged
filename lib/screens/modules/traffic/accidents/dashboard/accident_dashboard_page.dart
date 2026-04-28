@@ -16,7 +16,7 @@ import 'package:sipged/_blocs/system/location/ibge_localidade_cubit.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_state.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_repository.dart';
 
-import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_data.dart';
 import 'package:sipged/screens/modules/traffic/accidents/dashboard/accident_dashboard_map.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
@@ -156,7 +156,7 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
     required ThemeData theme,
     required AccidentsState accState,
     required IBGELocationState geoState,
-    required List<PolygonChangedData> polygons,
+    required List<PolygonData> polygons,
     required bool isMobile,
   }) {
     final accidentsCubit = context.read<AccidentsCubit>();

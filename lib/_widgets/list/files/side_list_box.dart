@@ -1,61 +1,58 @@
 // lib/_widgets/list/files/side_list_box.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/auto_icon.dart';
 import 'package:sipged/_services/pdf/pdf_preview.dart';
 
-// ✅ dialog mac
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
-
-// ✅ input usado no rename
 import 'package:sipged/_widgets/input/text_field_change.dart';
 
 class SideListBox extends StatefulWidget {
   final String title;
 
-  /// Compat: aceita `String` (antigo) ou `Attachment` (novo)
+  /// Compat: aceita `String` antigo ou `Attachment` novo.
   final List<dynamic> items;
 
   final int? selectedIndex;
   final VoidCallback? onAddPressed;
 
-  /// callback do pai (seleção)
+  /// Callback do pai para seleção.
   final void Function(int index)? onTap;
 
-  /// delete no backend (pai)
+  /// Delete no backend.
   final void Function(int index)? onDelete;
 
-  /// ✅ controla se ao tocar abre o preview interno (showWindowDialogMac / launchUrl)
-  /// - true: abre preview interno
-  /// - false: NÃO abre preview interno (pai faz)
+  /// true: abre preview interno.
+  /// false: pai controla abertura.
   final bool openOnTap;
 
-  /// ✅ em páginas com Mapbox/JS (Flutter Web), o JS costuma “roubar” o scroll/click.
-  /// Este flag envolve o preview com PointerInterceptor para garantir interação.
+  /// Em páginas com Mapbox/JS no Web, evita o fundo roubar scroll/click.
   final bool usePointerInterceptor;
 
-  /// ✅ opcional: persistir rename (ex: salvar em Firestore/Storage)
-  /// Retorne `true` se persistiu ok; `false` se falhou (widget reverte).
+  /// Persistência opcional de rename.
   final Future<bool> Function({
   required int index,
   required Attachment oldItem,
   required Attachment newItem,
   })? onRenamePersist;
 
-  /// ✅ opcional: notifica pai com a lista atual (já renomeada / deletada etc.)
+  /// Notifica pai com lista atual.
   final void Function(List<dynamic> newItems)? onItemsChanged;
 
   final double width;
 
-  // overlay
   final bool loading;
   final double? uploadProgress;
 
-  /// ✅ controla se mostra o botão editar rótulo
   final bool enableRename;
 
   const SideListBox({
@@ -73,8 +70,6 @@ class SideListBox extends StatefulWidget {
     this.uploadProgress,
     this.enableRename = true,
     this.openOnTap = true,
-
-    // ✅ por padrão ligado: evita o “mapbox roubar toque/scroll”
     this.usePointerInterceptor = true,
   });
 
@@ -100,46 +95,75 @@ class _SideListBoxState extends State<SideListBox> {
       final y = b[i];
 
       if (x is Attachment && y is Attachment) {
-        if (x.id != y.id || x.label != y.label || x.url != y.url) return false;
+        if (x.id != y.id || x.label != y.label || x.url != y.url) {
+          return false;
+        }
       } else {
         if (x.toString() != y.toString()) return false;
       }
     }
+
     return true;
   }
 
   @override
   void didUpdateWidget(covariant SideListBox oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (!_sameListShallow(oldWidget.items, widget.items)) {
       _items = List<dynamic>.from(widget.items);
     }
   }
 
+  void _notifyError(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Erro',
+        subtitle: message,
+        type: NotificationType.error,
+        leadingLabel: 'Anexos',
+      ),
+    );
+  }
+
   void _emitItemsChanged() {
     final cb = widget.onItemsChanged;
-    if (cb != null) cb(List<dynamic>.from(_items));
+
+    if (cb != null) {
+      cb(List<dynamic>.from(_items));
+    }
   }
 
   String _normExt(String? e) {
     final s = (e ?? '').trim();
+
     if (s.isEmpty) return '';
+
     return (s.startsWith('.') ? s.substring(1) : s).toLowerCase();
   }
 
   bool _isPdfAttachment(Attachment a) {
     final ext = _normExt(a.ext);
+
     if (ext == 'pdf') return true;
+
     final url = a.url.toLowerCase();
+
     return url.endsWith('.pdf') || url.contains('.pdf?');
   }
 
   Future<void> _openUrlExternal(String url) async {
     final uri = Uri.tryParse(url);
+
     if (uri == null) return;
+
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+    } catch (_) {
+      _notifyError('Não foi possível abrir o arquivo.');
+    }
   }
 
   Future<void> _openPdfInMacDialog(BuildContext context, Attachment a) async {
@@ -148,7 +172,6 @@ class _SideListBoxState extends State<SideListBox> {
       child: PdfPreview(pdfUrl: a.url),
     );
 
-    // ✅ CRÍTICO: intercepta ponteiros para não “vazar” pro Mapbox/JS no fundo
     final safeContent = widget.usePointerInterceptor
         ? PointerInterceptor(child: content)
         : content;
@@ -180,7 +203,9 @@ class _SideListBoxState extends State<SideListBox> {
                 CustomTextField(
                   controller: ctrl,
                   labelText: 'Novo rótulo',
-                  onSubmitted: (_) => Navigator.of(dialogCtx).pop(ctrl.text.trim()),
+                  onSubmitted: (_) {
+                    Navigator.of(dialogCtx).pop(ctrl.text.trim());
+                  },
                 ),
                 const SizedBox(height: 18),
                 Row(
@@ -192,7 +217,9 @@ class _SideListBoxState extends State<SideListBox> {
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
-                      onPressed: () => Navigator.of(dialogCtx).pop(ctrl.text.trim()),
+                      onPressed: () {
+                        Navigator.of(dialogCtx).pop(ctrl.text.trim());
+                      },
                       child: const Text('Salvar'),
                     ),
                   ],
@@ -205,7 +232,9 @@ class _SideListBoxState extends State<SideListBox> {
     );
 
     final v = newLabel?.trim();
+
     if (v == null || v.isEmpty) return null;
+
     return v;
   }
 
@@ -214,12 +243,14 @@ class _SideListBoxState extends State<SideListBox> {
     if (index < 0 || index >= _items.length) return;
 
     final raw = _items[index];
+
     if (raw is! Attachment) return;
 
     final oldItem = raw;
     final current = oldItem.label;
 
     final newLabel = await _askNewLabel(context, current);
+
     if (newLabel == null) return;
     if (newLabel == current) return;
 
@@ -232,11 +263,18 @@ class _SideListBoxState extends State<SideListBox> {
         ..._items.sublist(index + 1),
       ];
     });
+
     _emitItemsChanged();
 
     final persist = widget.onRenamePersist;
+
     if (persist != null) {
-      final ok = await persist(index: index, oldItem: oldItem, newItem: updated);
+      final ok = await persist(
+        index: index,
+        oldItem: oldItem,
+        newItem: updated,
+      );
+
       if (!mounted) return;
 
       if (!ok) {
@@ -247,32 +285,35 @@ class _SideListBoxState extends State<SideListBox> {
             ..._items.sublist(index + 1),
           ];
         });
+
         _emitItemsChanged();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Não foi possível renomear o anexo.')),
-        );
+        _notifyError('Não foi possível renomear o anexo.');
       }
     }
   }
 
   void _removeAtLocal(int index) {
     if (index < 0 || index >= _items.length) return;
+
     setState(() {
       _items = [
         ..._items.sublist(0, index),
         ..._items.sublist(index + 1),
       ];
     });
+
     _emitItemsChanged();
   }
 
   Widget _progressOverlay(BuildContext context) {
     final divider = Theme.of(context).dividerColor;
     final show = widget.loading || widget.uploadProgress != null;
+
     if (!show) return const SizedBox.shrink();
 
     final value = widget.uploadProgress;
+
     return Positioned(
       top: 0,
       left: 0,
@@ -298,7 +339,10 @@ class _SideListBoxState extends State<SideListBox> {
                 width: 130,
                 child: Text(
                   value == null ? 'Carregando...' : 'Enviando...',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -321,7 +365,10 @@ class _SideListBoxState extends State<SideListBox> {
                   child: Text(
                     '${(value * 100).clamp(0, 100).toStringAsFixed(0)}%',
                     textAlign: TextAlign.right,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 )
               else
@@ -351,12 +398,13 @@ class _SideListBoxState extends State<SideListBox> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: SipGedTheme.primaryColor,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(12),
+                ),
               ),
               child: Row(
                 children: [
@@ -365,7 +413,10 @@ class _SideListBoxState extends State<SideListBox> {
                   Expanded(
                     child: Text(
                       widget.title,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -378,8 +429,6 @@ class _SideListBoxState extends State<SideListBox> {
                 ],
               ),
             ),
-
-            // Body com overlay
             Stack(
               children: [
                 if (_items.isEmpty)
@@ -400,35 +449,40 @@ class _SideListBoxState extends State<SideListBox> {
                             ? const AlwaysScrollableScrollPhysics()
                             : const NeverScrollableScrollPhysics(),
                         itemCount: _items.length,
-                        separatorBuilder: (_, _) =>
-                            Divider(height: 1, thickness: 1, color: divider),
+                        separatorBuilder: (_, _) {
+                          return Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: divider,
+                          );
+                        },
                         itemBuilder: (context, i) {
-                          final selected =
-                              widget.selectedIndex != null && widget.selectedIndex == i;
+                          final selected = widget.selectedIndex != null &&
+                              widget.selectedIndex == i;
 
                           final raw = _items[i];
                           final bool isAttachment = raw is Attachment;
 
-                          final String label = isAttachment ? raw.label : raw.toString();
+                          final String label =
+                          isAttachment ? raw.label : raw.toString();
 
                           final String iconKey = isAttachment
-                              ? (_normExt(raw.ext).isNotEmpty ? _normExt(raw.ext) : raw.url)
+                              ? (_normExt(raw.ext).isNotEmpty
+                              ? _normExt(raw.ext)
+                              : raw.url)
                               : label;
 
                           final String subtitle =
                           isAttachment ? _normExt(raw.ext).toUpperCase() : '';
 
                           Future<void> handleTap() async {
-                            // 1) sempre deixa o pai saber (selecionar índice etc.)
                             if (widget.onTap != null) {
                               widget.onTap!(i);
                             }
 
-                            // 2) se NÃO quer abrir preview interno, para aqui
                             if (!widget.openOnTap) return;
-
-                            // 3) abre preview interno
                             if (!isAttachment) return;
+
                             final a = raw;
 
                             if (_isPdfAttachment(a)) {
@@ -444,14 +498,23 @@ class _SideListBoxState extends State<SideListBox> {
                                 : Colors.transparent,
                             child: ListTile(
                               dense: true,
-                              visualDensity: const VisualDensity(vertical: -2),
+                              visualDensity:
+                              const VisualDensity(vertical: -2),
                               minVerticalPadding: 0,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                              contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 10),
                               leading: AutoIcon(nameOrUrl: iconKey),
-                              title: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                              title: Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                               subtitle: subtitle.isEmpty
                                   ? null
-                                  : Text(subtitle, style: const TextStyle(fontSize: 11)),
+                                  : Text(
+                                subtitle,
+                                style: const TextStyle(fontSize: 11),
+                              ),
                               onTap: handleTap,
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -465,7 +528,10 @@ class _SideListBoxState extends State<SideListBox> {
                                   if (widget.onDelete != null)
                                     IconButton(
                                       tooltip: 'Remover',
-                                      icon: const Icon(Icons.delete, color: Colors.red),
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                      ),
                                       onPressed: () {
                                         widget.onDelete!(i);
                                         _removeAtLocal(i);
@@ -479,10 +545,14 @@ class _SideListBoxState extends State<SideListBox> {
                       );
 
                       final content = needsScroll
-                          ? SizedBox(height: maxHeight, child: Scrollbar(child: list))
+                          ? SizedBox(
+                        height: maxHeight,
+                        child: Scrollbar(child: list),
+                      )
                           : list;
 
-                      final overlayActive = widget.loading || widget.uploadProgress != null;
+                      final overlayActive =
+                          widget.loading || widget.uploadProgress != null;
 
                       return Padding(
                         padding: EdgeInsets.only(top: overlayActive ? 44 : 0),
@@ -490,7 +560,6 @@ class _SideListBoxState extends State<SideListBox> {
                       );
                     },
                   ),
-
                 _progressOverlay(context),
               ],
             ),

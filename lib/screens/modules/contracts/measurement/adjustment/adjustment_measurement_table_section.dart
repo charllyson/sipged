@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
-import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/_widgets/table/paged/paged_colum.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 

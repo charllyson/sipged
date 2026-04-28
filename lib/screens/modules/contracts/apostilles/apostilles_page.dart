@@ -6,8 +6,8 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_state.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
-import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
@@ -66,7 +66,9 @@ class _ApostillesPageState extends State<ApostillesPage> {
     _dateCtrl.addListener(recomputeValidity);
     _valueCtrl.addListener(recomputeValidity);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => recomputeValidity());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      recomputeValidity();
+    });
   }
 
   @override
@@ -76,6 +78,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
     _dateCtrl.dispose();
     _valueCtrl.dispose();
     _cubit.close();
+
     super.dispose();
   }
 
@@ -87,8 +90,12 @@ class _ApostillesPageState extends State<ApostillesPage> {
     _dateCtrl.text = a.apostilleData != null
         ? SipGedFormatDates.dateToDdMMyyyy(a.apostilleData!)
         : '';
+
+    // IMPORTANTE:
+    // O campo agora recebe apenas "1.234,56".
+    // O "R$" é exibido pelo prefixText no CustomTextField.
     _valueCtrl.text = a.apostilleValue != null
-        ? SipGedFormatMoney.doubleToText(a.apostilleValue)
+        ? SipGedFormatMoney.brlNoSymbol(a.apostilleValue)
         : '';
 
     _cubit.updateFormValidity(
@@ -102,7 +109,9 @@ class _ApostillesPageState extends State<ApostillesPage> {
   void _clearForm({bool keepOrder = false}) {
     _lastFilledId = null;
 
-    if (!keepOrder) _orderCtrl.clear();
+    if (!keepOrder) {
+      _orderCtrl.clear();
+    }
 
     _processCtrl.clear();
     _dateCtrl.clear();
@@ -157,9 +166,23 @@ class _ApostillesPageState extends State<ApostillesPage> {
         index: index,
         newLabel: newItem.label,
       );
+
       return true;
     } catch (_) {
       return false;
+    }
+  }
+
+  void _ensureSelectedAttachmentIndexValid(int len) {
+    if (_selectedAttachmentIndex == null) return;
+
+    if (len <= 0) {
+      setState(() => _selectedAttachmentIndex = null);
+      return;
+    }
+
+    if (_selectedAttachmentIndex! >= len) {
+      setState(() => _selectedAttachmentIndex = len - 1);
     }
   }
 
@@ -199,16 +222,20 @@ class _ApostillesPageState extends State<ApostillesPage> {
                       builder: (context, constraints) {
                         return SingleChildScrollView(
                           child: ConstrainedBox(
-                            constraints:
-                            BoxConstraints(minHeight: constraints.maxHeight),
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SectionTitle(
-                                  text: 'Cadastrar apostilamentos no sistema',
+                                  text:
+                                  'Cadastrar apostilamentos no sistema',
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
                                   child: ApostilleFormSection(
                                     isEditable: state.isEditable,
                                     editingMode: state.editingMode,
@@ -242,7 +269,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
                                       _orderCtrl.text = v;
 
-                                      final ord = int.tryParse(v.trim()) ?? 0;
+                                      final ord =
+                                          int.tryParse(v.trim()) ?? 0;
 
                                       _cubit.selectApostilleByOrder(ord);
                                       _cubit.reloadAttachments();
@@ -262,29 +290,38 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       );
                                     },
                                     sideItems: state.sideAttachments,
-                                    selectedSideIndex: _selectedAttachmentIndex,
+                                    selectedSideIndex:
+                                    _selectedAttachmentIndex,
                                     onAddSideItem: state.canAddFile
-                                        ? () => _cubit.addAttachmentWithPicker(context)
+                                        ? () => _cubit
+                                        .addAttachmentWithPicker(context)
                                         : null,
                                     onTapSideItem: (i) {
-                                      setState(() => _selectedAttachmentIndex = i);
+                                      setState(() {
+                                        _selectedAttachmentIndex = i;
+                                      });
                                     },
                                     onDeleteSideItem: (i) async {
                                       await _cubit.deleteAttachment(i);
+
                                       if (!mounted) return;
-                                      setState(() => _selectedAttachmentIndex = null);
+
+                                      setState(() {
+                                        _selectedAttachmentIndex = null;
+                                      });
                                     },
-                                    onRenamePersist: _persistRenameAttachment,
+                                    onRenamePersist:
+                                    _persistRenameAttachment,
                                     onItemsChanged: (newItems) {
-                                      final len = newItems.length;
-                                      if (_selectedAttachmentIndex != null &&
-                                          (_selectedAttachmentIndex! >= len)) {
-                                        setState(() => _selectedAttachmentIndex = null);
-                                      }
+                                      _ensureSelectedAttachmentIndexValid(
+                                        newItems.length,
+                                      );
                                     },
                                   ),
                                 ),
-                                const SectionTitle(text: 'Gráfico dos apostilamentos'),
+                                const SectionTitle(
+                                  text: 'Gráfico dos apostilamentos',
+                                ),
                                 if (!isLoading && state.apostilles.isEmpty)
                                   const Padding(
                                     padding: EdgeInsets.all(24),
@@ -301,8 +338,11 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       if (index < 0) {
                                         _cubit.createNewApostille();
                                         _clearForm();
-                                        _orderCtrl.text =
-                                            state.nextAvailableOrder.toString();
+
+                                        _orderCtrl.text = state
+                                            .nextAvailableOrder
+                                            .toString();
+
                                         return;
                                       }
 
@@ -317,10 +357,13 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                     },
                                   ),
                                 const SectionTitle(
-                                  text: 'Apostilamentos cadastrados no sistema',
+                                  text:
+                                  'Apostilamentos cadastrados no sistema',
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
                                   child: ApostilleTableSection(
                                     apostilles: state.apostilles,
                                     isLoading: isLoading,
@@ -336,7 +379,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                     },
                                     onDelete: (a) async {
                                       _cubit.selectApostille(a);
-                                      await _cubit.deleteSelectedApostille();
+                                      await _cubit
+                                          .deleteSelectedApostille();
                                     },
                                   ),
                                 ),

@@ -1,15 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/tiles/tile_widget.dart';
-import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
-import 'cleanup_subcollections_util.dart';
 
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'cleanup_subcollections_util.dart';
 
 class CleanUpSubcollectionsTile extends StatelessWidget {
   const CleanUpSubcollectionsTile({super.key});
+
+  void _notify(
+      BuildContext context,
+      String title, {
+        NotificationType type = NotificationType.info,
+        String? subtitle,
+        Duration duration = const Duration(seconds: 5),
+      }) {
+    if (!context.mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Limpeza',
+        type: type,
+        duration: duration,
+        extra: const <String, dynamic>{
+          'module': 'firestore_cleanup',
+        },
+      ),
+      saveInFirebase: false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,9 +109,11 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
           builder: (_) => const LoadingTreeDots(),
         );
 
-        Map<String, Map<String, int>> dry = const {};
+        Map<String, Map<String, int>> dry = const <String, Map<String, int>>{};
+
         try {
           final cleaner = SubcollectionCleaner();
+
           dry = await cleaner.deleteForCollectionPath(
             collectionPath,
             subs,
@@ -91,14 +121,14 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
           );
         } catch (e) {
           if (nav.canPop()) nav.pop();
-          NotificationCenter.instance.show(
-            AppNotification(
-              title: const Text('Falha no dry-run'),
-              subtitle: Text('$e'),
-              type: AppNotificationType.error,
-              leadingLabel: const Text('Limpeza'),
-              duration: const Duration(seconds: 6),
-            ),
+
+          if (!context.mounted) return;
+          _notify(
+            context,
+            'Falha no dry-run',
+            subtitle: '$e',
+            type: NotificationType.error,
+            duration: const Duration(seconds: 6),
           );
           return;
         } finally {
@@ -106,10 +136,20 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
         }
 
         if (!context.mounted) return;
-        await _showPreviewDialog(context, dry, title: 'Prévia (dry-run)');
+
+        await _showPreviewDialog(
+          context,
+          dry,
+          title: 'Prévia (dry-run)',
+        );
 
         if (!context.mounted) return;
-        final ok2 = await confirmDialog(context, 'Apagar de verdade?');
+
+        final ok2 = await confirmDialog(
+          context,
+          'Apagar de verdade?',
+        );
+
         if (!context.mounted || ok2 != true) return;
 
         showDialog(
@@ -118,9 +158,11 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
           builder: (_) => const LoadingTreeDots(),
         );
 
-        Map<String, Map<String, int>> res = const {};
+        Map<String, Map<String, int>> res = const <String, Map<String, int>>{};
+
         try {
           final cleaner = SubcollectionCleaner();
+
           res = await cleaner.deleteForCollectionPath(
             collectionPath,
             subs,
@@ -128,14 +170,14 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
           );
         } catch (e) {
           if (nav.canPop()) nav.pop();
-          NotificationCenter.instance.show(
-            AppNotification(
-              title: const Text('Erro ao apagar subcoleções'),
-              subtitle: Text('$e'),
-              type: AppNotificationType.error,
-              leadingLabel: const Text('Limpeza'),
-              duration: const Duration(seconds: 6),
-            ),
+
+          if (!context.mounted) return;
+          _notify(
+            context,
+            'Erro ao apagar subcoleções',
+            subtitle: '$e',
+            type: NotificationType.error,
+            duration: const Duration(seconds: 6),
           );
           return;
         } finally {
@@ -144,16 +186,18 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
 
         if (!context.mounted) return;
 
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('Subcoleções apagadas com sucesso!'),
-            type: AppNotificationType.success,
-            leadingLabel: const Text('Limpeza'),
-            duration: const Duration(seconds: 4),
-          ),
+        _notify(
+          context,
+          'Subcoleções apagadas com sucesso!',
+          type: NotificationType.success,
+          duration: const Duration(seconds: 4),
         );
 
-        await _showPreviewDialog(context, res, title: 'Resumo da limpeza');
+        await _showPreviewDialog(
+          context,
+          res,
+          title: 'Resumo da limpeza',
+        );
       },
     );
   }
@@ -198,6 +242,7 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
                             subCtrl.text.trim().isEmpty) {
                           return;
                         }
+
                         Navigator.of(dialogCtx).pop(true);
                       },
                       child: const Text('Continuar'),
@@ -231,8 +276,10 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
     final text = data.entries.map((docEntry) {
       final path = docEntry.key;
       final subs = docEntry.value;
-      final subsStr =
-      subs.entries.map((e) => '  ${e.key}: ${e.value}').join('\n');
+      final subsStr = subs.entries
+          .map((e) => '  ${e.key}: ${e.value}')
+          .join('\n');
+
       return '$path\n$subsStr';
     }).join('\n\n');
 

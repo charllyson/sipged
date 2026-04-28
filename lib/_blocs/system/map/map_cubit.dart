@@ -4,8 +4,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
-import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/map_layer_tree_helper.dart';
+import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 
 class MapCubit extends Cubit<MapState> {
@@ -28,11 +29,10 @@ class MapCubit extends Cubit<MapState> {
     if (next != state) emit(next);
   }
 
-  Map<String, List<LatLng>> _freezeDrafts(Map<String, List<LatLng>> drafts) {
-    return Map<String, List<LatLng>>.unmodifiable({
-      for (final entry in drafts.entries)
-        entry.key: List<LatLng>.unmodifiable(entry.value),
-    });
+  Map<String, List<LatLng>> _freezeDrafts(
+      Map<String, List<LatLng>> drafts,
+      ) {
+    return MapState.freezeDrafts(drafts);
   }
 
   Set<String> _freezeSet(Set<String> values) {
@@ -120,8 +120,12 @@ class MapCubit extends Cubit<MapState> {
         if (state.selectedToolId == 'tool_measure_distance') {
           _toolboxCubit.clear();
         }
-        _emitIfChanged(state.copyWith(clearSelectedTool: true));
+
+        _emitIfChanged(
+          state.copyWith(clearSelectedTool: true),
+        );
       }
+
       return null;
     }
 
@@ -222,7 +226,10 @@ class MapCubit extends Cubit<MapState> {
       LayerGeometryKind kind,
       ) {
     final all = _layersCubit.flattenAllNodes(tree: tree);
-    final count = all.where((e) => !e.isGroup && e.geometryKind == kind).length;
+    final count = all.where((e) {
+      return !e.isGroup && e.geometryKind == kind;
+    }).length;
+
     return count + 1;
   }
 
@@ -244,101 +251,20 @@ class MapCubit extends Cubit<MapState> {
       List<LayerData> tree,
       LayerData newLayer,
       ) {
-    final selectedId = state.selectedLayerPanelItemId;
-    if (selectedId == null) return [...tree, newLayer];
-
-    final selectedNode = selectedTreeNode(tree);
-    if (selectedNode == null) return [...tree, newLayer];
-
-    if (selectedNode.isGroup) {
-      final updated = _insertIntoGroup(tree, selectedNode.id, newLayer);
-      return updated ?? [...tree, newLayer];
-    }
-
-    final updated = _insertAfterSelected(tree, selectedNode.id, newLayer);
-    return updated ?? [...tree, newLayer];
-  }
-
-  List<LayerData>? _insertIntoGroup(
-      List<LayerData> source,
-      String groupId,
-      LayerData newLayer,
-      ) {
-    for (int i = 0; i < source.length; i++) {
-      final item = source[i];
-
-      if (item.id == groupId && item.isGroup) {
-        final next = List<LayerData>.from(source);
-        next[i] = item.copyWith(children: [...item.children, newLayer]);
-        return next;
-      }
-
-      if (item.isGroup && item.children.isNotEmpty) {
-        final updatedChildren = _insertIntoGroup(item.children, groupId, newLayer);
-        if (updatedChildren != null) {
-          final next = List<LayerData>.from(source);
-          next[i] = item.copyWith(children: updatedChildren);
-          return next;
-        }
-      }
-    }
-    return null;
-  }
-
-  List<LayerData>? _insertAfterSelected(
-      List<LayerData> source,
-      String selectedId,
-      LayerData newLayer,
-      ) {
-    for (int i = 0; i < source.length; i++) {
-      final item = source[i];
-
-      if (item.id == selectedId && !item.isGroup) {
-        final next = List<LayerData>.from(source);
-        next.insert(i + 1, newLayer);
-        return next;
-      }
-
-      if (item.isGroup && item.children.isNotEmpty) {
-        final updatedChildren =
-        _insertAfterSelected(item.children, selectedId, newLayer);
-        if (updatedChildren != null) {
-          final next = List<LayerData>.from(source);
-          next[i] = item.copyWith(children: updatedChildren);
-          return next;
-        }
-      }
-    }
-
-    return null;
+    return MapLayerTreeHelper.insertNewLayerRespectingSelection(
+      tree: tree,
+      newLayer: newLayer,
+      selectedId: state.selectedLayerPanelItemId,
+      selectedNode: selectedTreeNode(tree),
+    );
   }
 
   String? _activeEditingLayerIdFor(LayerGeometryKind kind) {
-    switch (kind) {
-      case LayerGeometryKind.point:
-        return state.activeEditingPointLayerId;
-      case LayerGeometryKind.line:
-        return state.activeEditingLineLayerId;
-      case LayerGeometryKind.polygon:
-        return state.activeEditingPolygonLayerId;
-      case LayerGeometryKind.mixed:
-      case LayerGeometryKind.unknown:
-        return null;
-    }
+    return state.activeEditingLayerIdFor(kind);
   }
 
   Map<String, List<LatLng>> _draftsFor(LayerGeometryKind kind) {
-    switch (kind) {
-      case LayerGeometryKind.point:
-        return state.draftPointLayers;
-      case LayerGeometryKind.line:
-        return state.draftLineLayers;
-      case LayerGeometryKind.polygon:
-        return state.draftPolygonLayers;
-      case LayerGeometryKind.mixed:
-      case LayerGeometryKind.unknown:
-        return const <String, List<LatLng>>{};
-    }
+    return state.draftsFor(kind);
   }
 
   MapState _copyWithDraftsFor(
@@ -391,12 +317,20 @@ class MapCubit extends Cubit<MapState> {
       List<LayerData> currentTree,
       ) async {
     final activeId = _activeEditingLayerIdFor(kind);
+
     if (activeId != null) {
-      final existing = _layersCubit.findNodeById(activeId, tree: currentTree);
+      final existing = _layersCubit.findNodeById(
+        activeId,
+        tree: currentTree,
+      );
+
       if (existing != null && !existing.isGroup) {
         if (state.selectedLayerPanelItemId != existing.id) {
-          _emitIfChanged(state.copyWith(selectedLayerPanelItemId: existing.id));
+          _emitIfChanged(
+            state.copyWith(selectedLayerPanelItemId: existing.id),
+          );
         }
+
         return existing;
       }
     }
@@ -420,13 +354,19 @@ class MapCubit extends Cubit<MapState> {
 
       switch (kind) {
         case LayerGeometryKind.point:
-          nextState = nextState.copyWith(activeEditingPointLayerId: selected.id);
+          nextState = nextState.copyWith(
+            activeEditingPointLayerId: selected.id,
+          );
           break;
         case LayerGeometryKind.line:
-          nextState = nextState.copyWith(activeEditingLineLayerId: selected.id);
+          nextState = nextState.copyWith(
+            activeEditingLineLayerId: selected.id,
+          );
           break;
         case LayerGeometryKind.polygon:
-          nextState = nextState.copyWith(activeEditingPolygonLayerId: selected.id);
+          nextState = nextState.copyWith(
+            activeEditingPolygonLayerId: selected.id,
+          );
           break;
         case LayerGeometryKind.mixed:
         case LayerGeometryKind.unknown:
@@ -439,7 +379,11 @@ class MapCubit extends Cubit<MapState> {
 
     final newLayer = _createTemporaryLayer(kind, currentTree);
 
-    final nextTree = insertNewLayerRespectingSelection(currentTree, newLayer);
+    final nextTree = insertNewLayerRespectingSelection(
+      currentTree,
+      newLayer,
+    );
+
     await persistTree(nextTree);
 
     final nextDrafts = Map<String, List<LatLng>>.from(_draftsFor(kind))
@@ -460,13 +404,19 @@ class MapCubit extends Cubit<MapState> {
 
     switch (kind) {
       case LayerGeometryKind.point:
-        nextState = nextState.copyWith(activeEditingPointLayerId: newLayer.id);
+        nextState = nextState.copyWith(
+          activeEditingPointLayerId: newLayer.id,
+        );
         break;
       case LayerGeometryKind.line:
-        nextState = nextState.copyWith(activeEditingLineLayerId: newLayer.id);
+        nextState = nextState.copyWith(
+          activeEditingLineLayerId: newLayer.id,
+        );
         break;
       case LayerGeometryKind.polygon:
-        nextState = nextState.copyWith(activeEditingPolygonLayerId: newLayer.id);
+        nextState = nextState.copyWith(
+          activeEditingPolygonLayerId: newLayer.id,
+        );
         break;
       case LayerGeometryKind.mixed:
       case LayerGeometryKind.unknown:
@@ -483,28 +433,31 @@ class MapCubit extends Cubit<MapState> {
       LatLng latLng,
       ) {
     final nextDrafts = Map<String, List<LatLng>>.from(_draftsFor(kind));
-    final list = List<LatLng>.from(nextDrafts[layer.id] ?? const []);
+    final list = List<LatLng>.from(nextDrafts[layer.id] ?? const <LatLng>[]);
+
     list.add(latLng);
+
     nextDrafts[layer.id] = List<LatLng>.unmodifiable(list);
 
-    final nextState = _copyWithDraftsFor(kind, nextDrafts).copyWith(
+    final nextState = _copyWithDraftsFor(
+      kind,
+      nextDrafts,
+    ).copyWith(
       selectedLayerPanelItemId: layer.id,
     );
 
     _emitIfChanged(nextState);
   }
 
-  Future<LayerData> ensureEditablePointLayer(List<LayerData> currentTree) async {
+  Future<LayerData> ensureEditablePointLayer(List<LayerData> currentTree) {
     return _ensureEditableLayer(LayerGeometryKind.point, currentTree);
   }
 
-  Future<LayerData> ensureEditableLineLayer(List<LayerData> currentTree) async {
+  Future<LayerData> ensureEditableLineLayer(List<LayerData> currentTree) {
     return _ensureEditableLayer(LayerGeometryKind.line, currentTree);
   }
 
-  Future<LayerData> ensureEditablePolygonLayer(
-      List<LayerData> currentTree,
-      ) async {
+  Future<LayerData> ensureEditablePolygonLayer(List<LayerData> currentTree) {
     return _ensureEditableLayer(LayerGeometryKind.polygon, currentTree);
   }
 
@@ -530,7 +483,13 @@ class MapCubit extends Cubit<MapState> {
         LayerGeometryKind.point,
         currentTree,
       );
-      _appendDraftVertex(LayerGeometryKind.point, editableLayer, latLng);
+
+      _appendDraftVertex(
+        LayerGeometryKind.point,
+        editableLayer,
+        latLng,
+      );
+
       return null;
     }
 
@@ -543,7 +502,13 @@ class MapCubit extends Cubit<MapState> {
         LayerGeometryKind.line,
         currentTree,
       );
-      _appendDraftVertex(LayerGeometryKind.line, editableLayer, latLng);
+
+      _appendDraftVertex(
+        LayerGeometryKind.line,
+        editableLayer,
+        latLng,
+      );
+
       return null;
     }
 
@@ -556,7 +521,13 @@ class MapCubit extends Cubit<MapState> {
         LayerGeometryKind.polygon,
         currentTree,
       );
-      _appendDraftVertex(LayerGeometryKind.polygon, editableLayer, latLng);
+
+      _appendDraftVertex(
+        LayerGeometryKind.polygon,
+        editableLayer,
+        latLng,
+      );
+
       return null;
     }
 
@@ -568,7 +539,7 @@ class MapCubit extends Cubit<MapState> {
     if (draftId == null) return true;
 
     final drafts = _draftsFor(kind);
-    final vertices = List<LatLng>.from(drafts[draftId] ?? const []);
+    final vertices = List<LatLng>.from(drafts[draftId] ?? const <LatLng>[]);
 
     final minimumVertices = switch (kind) {
       LayerGeometryKind.point => 1,
@@ -581,6 +552,7 @@ class MapCubit extends Cubit<MapState> {
 
     final currentTree = _layersCubit.state.tree;
     final layer = _layersCubit.findNodeById(draftId, tree: currentTree);
+
     if (layer == null || layer.isGroup) return false;
 
     switch (kind) {
@@ -613,7 +585,10 @@ class MapCubit extends Cubit<MapState> {
     if (state.draftOwnedTemporaryLayerIds.contains(layer.id)) {
       await _layersCubit.updateNodeById(
         layer.id,
-            (old) => old.copyWith(isTemporary: false, supportsConnect: true),
+            (old) => old.copyWith(
+          isTemporary: false,
+          supportsConnect: true,
+        ),
       );
 
       await _layersCubit.refreshAllLayerData(
@@ -622,11 +597,14 @@ class MapCubit extends Cubit<MapState> {
       );
     }
 
-    final nextDrafts = Map<String, List<LatLng>>.from(drafts)..remove(draftId);
+    final nextDrafts = Map<String, List<LatLng>>.from(drafts)
+      ..remove(draftId);
+
     final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
       ..remove(layer.id);
 
     MapState nextState;
+
     switch (kind) {
       case LayerGeometryKind.point:
         nextState = state.copyWith(
@@ -661,15 +639,15 @@ class MapCubit extends Cubit<MapState> {
     return true;
   }
 
-  Future<bool> finalizeCurrentPointEditing() async {
+  Future<bool> finalizeCurrentPointEditing() {
     return _finalizeCurrentEditing(LayerGeometryKind.point);
   }
 
-  Future<bool> finalizeCurrentLineEditing() async {
+  Future<bool> finalizeCurrentLineEditing() {
     return _finalizeCurrentEditing(LayerGeometryKind.line);
   }
 
-  Future<bool> finalizeCurrentPolygonEditing() async {
+  Future<bool> finalizeCurrentPolygonEditing() {
     return _finalizeCurrentEditing(LayerGeometryKind.polygon);
   }
 
@@ -691,6 +669,7 @@ class MapCubit extends Cubit<MapState> {
       ..remove(draftId);
 
     MapState nextState;
+
     switch (kind) {
       case LayerGeometryKind.point:
         nextState = state.copyWith(
@@ -727,16 +706,16 @@ class MapCubit extends Cubit<MapState> {
     _emitIfChanged(nextState);
   }
 
-  Future<void> cancelCurrentPointEditing() async {
-    await _cancelCurrentEditing(LayerGeometryKind.point);
+  Future<void> cancelCurrentPointEditing() {
+    return _cancelCurrentEditing(LayerGeometryKind.point);
   }
 
-  Future<void> cancelCurrentLineEditing() async {
-    await _cancelCurrentEditing(LayerGeometryKind.line);
+  Future<void> cancelCurrentLineEditing() {
+    return _cancelCurrentEditing(LayerGeometryKind.line);
   }
 
-  Future<void> cancelCurrentPolygonEditing() async {
-    await _cancelCurrentEditing(LayerGeometryKind.polygon);
+  Future<void> cancelCurrentPolygonEditing() {
+    return _cancelCurrentEditing(LayerGeometryKind.polygon);
   }
 
   Future<void> createLayer(List<LayerData> currentTree) async {
@@ -777,12 +756,17 @@ class MapCubit extends Cubit<MapState> {
 
     await _layersCubit.removeNode(id);
 
-    final nextPointDrafts = Map<String, List<LatLng>>.from(state.draftPointLayers)
-      ..remove(id);
-    final nextLineDrafts = Map<String, List<LatLng>>.from(state.draftLineLayers)
-      ..remove(id);
-    final nextPolygonDrafts =
-    Map<String, List<LatLng>>.from(state.draftPolygonLayers)..remove(id);
+    final nextPointDrafts = Map<String, List<LatLng>>.from(
+      state.draftPointLayers,
+    )..remove(id);
+
+    final nextLineDrafts = Map<String, List<LatLng>>.from(
+      state.draftLineLayers,
+    )..remove(id);
+
+    final nextPolygonDrafts = Map<String, List<LatLng>>.from(
+      state.draftPolygonLayers,
+    )..remove(id);
 
     final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
       ..remove(id);
@@ -810,15 +794,17 @@ class MapCubit extends Cubit<MapState> {
     final allNodeIds = allNodes.map((e) => e.id).toSet();
     final leafIds = allNodes.where((e) => !e.isGroup).map((e) => e.id).toSet();
 
-    final nextPointDrafts = Map<String, List<LatLng>>.from(state.draftPointLayers)
-      ..removeWhere((key, _) => !leafIds.contains(key));
+    final nextPointDrafts = Map<String, List<LatLng>>.from(
+      state.draftPointLayers,
+    )..removeWhere((key, _) => !leafIds.contains(key));
 
-    final nextLineDrafts = Map<String, List<LatLng>>.from(state.draftLineLayers)
-      ..removeWhere((key, _) => !leafIds.contains(key));
+    final nextLineDrafts = Map<String, List<LatLng>>.from(
+      state.draftLineLayers,
+    )..removeWhere((key, _) => !leafIds.contains(key));
 
-    final nextPolygonDrafts =
-    Map<String, List<LatLng>>.from(state.draftPolygonLayers)
-      ..removeWhere((key, _) => !leafIds.contains(key));
+    final nextPolygonDrafts = Map<String, List<LatLng>>.from(
+      state.draftPolygonLayers,
+    )..removeWhere((key, _) => !leafIds.contains(key));
 
     final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
       ..removeWhere((id) => !leafIds.contains(id));
@@ -844,17 +830,30 @@ class MapCubit extends Cubit<MapState> {
     _emitIfChanged(nextState);
   }
 
-  Map<String, List<LatLng>> buildVisiblePointDrafts(Set<String> activeLayerIds) {
-    return state.buildVisibleDrafts(LayerGeometryKind.point, activeLayerIds);
+  Map<String, List<LatLng>> buildVisiblePointDrafts(
+      Set<String> activeLayerIds,
+      ) {
+    return state.buildVisibleDrafts(
+      LayerGeometryKind.point,
+      activeLayerIds,
+    );
   }
 
-  Map<String, List<LatLng>> buildVisibleLineDrafts(Set<String> activeLayerIds) {
-    return state.buildVisibleDrafts(LayerGeometryKind.line, activeLayerIds);
+  Map<String, List<LatLng>> buildVisibleLineDrafts(
+      Set<String> activeLayerIds,
+      ) {
+    return state.buildVisibleDrafts(
+      LayerGeometryKind.line,
+      activeLayerIds,
+    );
   }
 
   Map<String, List<LatLng>> buildVisiblePolygonDrafts(
       Set<String> activeLayerIds,
       ) {
-    return state.buildVisibleDrafts(LayerGeometryKind.polygon, activeLayerIds);
+    return state.buildVisibleDrafts(
+      LayerGeometryKind.polygon,
+      activeLayerIds,
+    );
   }
 }

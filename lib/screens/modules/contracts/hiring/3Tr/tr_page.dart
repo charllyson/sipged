@@ -1,16 +1,18 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
@@ -22,6 +24,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/contract_bell_notifier.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_1_objeto_fundamentacao.dart';
 import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_2_escopo_requisitos.dart';
@@ -57,64 +60,316 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
   late final ProgressCubit _progressBloc;
 
   TrData _formData = const TrData.empty();
+  ProcessData _contract = ProcessData.empty();
+
   bool _hydrated = false;
+  bool _loadingContract = false;
+
   String? _currentTrId;
+
+  final ScrollController _scrollController = ScrollController();
+
+  bool get _isEditable => !widget.readOnly;
+
+  String get _contractId => widget.contractId.trim();
+
+  ProcessData get _effectiveContract {
+    if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
+    if (_contractId.isNotEmpty) return _contract.copyWith(id: _contractId);
+    return _contract;
+  }
 
   @override
   void initState() {
     super.initState();
+
     _progressBloc = ProgressCubit(repo: ProgressRepository());
-    context.read<TrCubit>().load(widget.contractId);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      if (_contractId.isNotEmpty) {
+        context.read<TrCubit>().load(_contractId);
+        unawaited(_loadContract(_contractId));
+      }
+    });
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _progressBloc.close();
     super.dispose();
   }
 
-  Future<void> _saveOnly() async {
-    final cubit = context.read<TrCubit>();
+  Future<void> _loadContract(String contractId) async {
+    final cid = contractId.trim();
+    if (cid.isEmpty) return;
 
-    final completer = Completer<void>();
-    late final StreamSubscription sub;
+    if (mounted) {
+      setState(() => _loadingContract = true);
+    }
 
-    sub = cubit.stream.listen((s) {
-      if (!s.saving) {
-        if (!completer.isCompleted) completer.complete();
-        sub.cancel();
-      }
-    });
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(cid)
+          .get();
 
-    await cubit.saveAll(
-      contractId: widget.contractId,
-      sectionsData: _formData.toSectionsMap(),
-    );
+      if (!mounted) return;
 
-    await completer.future;
+      setState(() {
+        _contract = snapshot.exists
+            ? ProcessData.fromDocument(snapshot: snapshot)
+            : ProcessData.empty().copyWith(id: cid);
 
+        _loadingContract = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _contract = ProcessData.empty().copyWith(id: cid);
+        _loadingContract = false;
+      });
+    }
+  }
+
+  String _currentActorName() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    final displayName = user?.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+
+    final email = user?.email?.trim() ?? '';
+    if (email.isNotEmpty) return email;
+
+    return 'Usuário';
+  }
+
+  Future<void> _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
     if (!mounted) return;
 
-    if (!cubit.state.saveSuccess) {
-      final err = cubit.state.error ?? 'Falha ao salvar';
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('TR'),
-          subtitle: const Text('Erro ao salvar.'),
-          details: Text(err),
-          type: AppNotificationType.error,
-        ),
+    final user = FirebaseAuth.instance.currentUser;
+
+    await ContractBellNotifier.show(
+      context: context,
+      contract: _effectiveContract,
+      title: title,
+      subtitle: subtitle,
+      details: details,
+      leadingLabel: 'TR',
+      module: 'contracts_hiring_tr',
+      type: type,
+      duration: duration,
+      saveInBell: saveInBell,
+      actorId: user?.uid,
+      actorName: _currentActorName(),
+      extra: extra,
+    );
+  }
+
+  Future<bool> _saveOnly() async {
+    if (widget.readOnly) {
+      await _notify(
+        title: 'TR',
+        subtitle: 'Esta etapa está em modo somente leitura.',
+        type: NotificationType.info,
+      );
+      return false;
+    }
+
+    final cubit = context.read<TrCubit>();
+
+    try {
+      await cubit.saveAll(
+        contractId: _contractId,
+        sectionsData: _formData.toSectionsMap(),
+      );
+
+      if (!mounted) return false;
+
+      if (!cubit.state.saveSuccess) {
+        final err = cubit.state.error ?? 'Falha ao salvar';
+
+        await _notify(
+          title: 'TR',
+          subtitle: 'Erro ao salvar.',
+          details: err,
+          type: NotificationType.error,
+          duration: const Duration(seconds: 6),
+        );
+
+        return false;
+      }
+
+      await _loadContract(_contractId);
+
+      if (!mounted) return false;
+
+      await _notify(
+        title: 'TR atualizado',
+        subtitle: 'Alterações salvas por ${_currentActorName()}.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'tr_saved',
+          'trId': cubit.state.trId,
+        },
+      );
+
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+
+      await _notify(
+        title: 'TR',
+        subtitle: 'Erro ao salvar.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+
+      return false;
+    }
+  }
+
+  Future<void> _saveApproveAndNext() async {
+    final trCubit = context.read<TrCubit>();
+    final pipeline = context.read<PipelineProgressCubit>();
+    final tab = DefaultTabController.of(context);
+    final repo = _progressBloc.repo;
+
+    final saved = await _saveOnly();
+
+    if (!mounted || !saved) return;
+
+    final trId = trCubit.state.trId;
+
+    if (trId == null || trId.isEmpty) {
+      await _notify(
+        title: 'TR',
+        subtitle: 'Documento não encontrado para aprovar.',
+        type: NotificationType.error,
       );
       return;
     }
 
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: const Text('TR'),
-        subtitle: const Text('Alterações salvas com sucesso.'),
-        type: AppNotificationType.success,
-      ),
-    );
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid ?? '';
+    final actorName = _currentActorName();
+
+    try {
+      await repo.approveStage(
+        contractId: _contractId,
+        collectionName: 'tr',
+        approverUid: uid,
+        approverName: actorName,
+      );
+
+      await repo.setCompleted(
+        contractId: _contractId,
+        collectionName: 'tr',
+        completed: true,
+      );
+
+      if (!mounted) return;
+
+      pipeline.setStageEnabled(HiringStageKey.cotacao, true);
+      unawaited(pipeline.refresh());
+
+      tab.animateTo(
+        (tab.index + 1).clamp(0, tab.length - 1),
+      );
+
+      await _notify(
+        title: 'TR aprovado',
+        subtitle: 'Etapa concluída por $actorName.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'tr_approved',
+          'trId': trId,
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      await _notify(
+        title: 'TR',
+        subtitle: 'Erro ao aprovar.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+    }
+  }
+
+  Future<void> _updateApproved() async {
+    final trCubit = context.read<TrCubit>();
+    final repo = _progressBloc.repo;
+
+    final saved = await _saveOnly();
+
+    if (!mounted || !saved) return;
+
+    final trId = trCubit.state.trId;
+
+    if (trId == null || trId.isEmpty) {
+      await _notify(
+        title: 'TR',
+        subtitle: 'Documento não encontrado para atualizar.',
+        type: NotificationType.error,
+      );
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid ?? '';
+    final actorName = _currentActorName();
+
+    try {
+      await repo.touchApproval(
+        contractId: _contractId,
+        collectionName: 'tr',
+        updatedByUid: uid,
+        updatedByName: actorName,
+      );
+
+      if (!mounted) return;
+
+      await _notify(
+        title: 'Aprovação do TR atualizada',
+        subtitle: 'Atualizada por $actorName.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'tr_approval_updated',
+          'trId': trId,
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      await _notify(
+        title: 'TR',
+        subtitle: 'Erro ao atualizar aprovação.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+    }
   }
 
   @override
@@ -124,8 +379,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
     return BlocProvider.value(
       value: _progressBloc,
       child: BlocListener<TrCubit, TrState>(
-        listenWhen: (prev, curr) =>
-        (prev.loading && !curr.loading) || (prev.trId != curr.trId),
+        listenWhen: (prev, curr) {
+          return (prev.loading && !curr.loading) || prev.trId != curr.trId;
+        },
         listener: (context, state) {
           if (!mounted || state.loading || !state.hasValidPath) return;
 
@@ -134,16 +390,22 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
 
           if (needsHydrate) {
             final data = TrData.fromSectionsMap(state.sectionsData);
-            setState(() => _formData = data);
 
-            _hydrated = true;
-            _currentTrId = incomingId;
+            setState(() {
+              _formData = data;
+              _hydrated = true;
+              _currentTrId = incomingId;
+            });
+          }
 
-            if (incomingId != null && incomingId.isNotEmpty) {
-              _progressBloc.bindToStage(
-                contractId: widget.contractId,
-                collectionName: 'tr',
-              );
+          if ((incomingId ?? '').isNotEmpty) {
+            _progressBloc.bindToStage(
+              contractId: _contractId,
+              collectionName: 'tr',
+            );
+
+            if ((_contract.id ?? '') != _contractId) {
+              unawaited(_loadContract(_contractId));
             }
           }
         },
@@ -151,13 +413,17 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
           builder: (context, state) {
             final pstate = context.watch<ProgressCubit>().state;
 
-            final locked = state.loading || state.saving || pstate.loading;
+            final locked =
+                state.loading || state.saving || pstate.loading || _loadingContract;
+
             final msg = state.loading
                 ? 'Sincronizando os dados...'
                 : state.saving
                 ? 'Salvando os dados...'
                 : pstate.loading
                 ? 'Atualizando aprovação...'
+                : _loadingContract
+                ? 'Carregando dados do contrato...'
                 : null;
 
             return ScreenLock(
@@ -172,62 +438,82 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
                     children: [
                       const BackgroundChange(),
                       SingleChildScrollView(
+                        key: const PageStorageKey('tr-scroll'),
+                        controller: _scrollController,
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             SectionObjetoFundamentacao(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionEscopoRequisitos(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionLocalPrazosCronograma(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionMedicaoAceiteIndicadores(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionObrigacoesEquipeGestao(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionLicenciamentoSegurancaSustentabilidade(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionPrecosPagamentoReajuste(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionRiscosPenalidadesCondicoes(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionDocumentosReferencias(
                               data: _formData,
-                              isEditable: !widget.readOnly,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 8),
                           ],
@@ -242,76 +528,11 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
                         icon: Icons.rule_folder_outlined,
                         busy: state.saving,
                         approved: pstate.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: () async {
-                          final trCubit = context.read<TrCubit>();
-                          final pipeline = context.read<PipelineProgressCubit>();
-                          final tab = DefaultTabController.of(context);
-                          final repo = _progressBloc.repo;
-
+                        onSave: () async {
                           await _saveOnly();
-
-                          if (!mounted) return;
-
-                          final trId = trCubit.state.trId;
-                          if (trId == null || trId.isEmpty) {
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('TR'),
-                                subtitle: const Text('Documento não encontrado para aprovar.'),
-                                type: AppNotificationType.error,
-                              ),
-                            );
-                            return;
-                          }
-
-                          final user = FirebaseAuth.instance.currentUser;
-                          final uid = user?.uid ?? '';
-                          final nameOrEmail =
-                          (user?.displayName?.trim().isNotEmpty ?? false)
-                              ? user!.displayName!
-                              : (user?.email ?? uid);
-
-                          try {
-                            await repo.approveStage(
-                              contractId: widget.contractId,
-                              collectionName: 'tr',
-                              approverUid: uid,
-                              approverName: nameOrEmail,
-                            );
-
-                            await repo.setCompleted(
-                              contractId: widget.contractId,
-                              collectionName: 'tr',
-                              completed: true,
-                            );
-
-                            if (!mounted) return;
-
-                            pipeline.setStageEnabled(HiringStageKey.cotacao, true);
-                            unawaited(pipeline.refresh());
-
-                            tab.animateTo((tab.index + 1).clamp(0, tab.length - 1));
-
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('TR'),
-                                subtitle: const Text('Aprovado e etapa concluída.'),
-                                type: AppNotificationType.success,
-                              ),
-                            );
-                          } catch (e) {
-                            if (!mounted) return;
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('TR'),
-                                subtitle: const Text('Erro ao aprovar.'),
-                                details: Text('$e'),
-                                type: AppNotificationType.error,
-                              ),
-                            );
-                          }
                         },
+                        onSaveAndNext: _saveApproveAndNext,
+                        onUpdateApproved: _updateApproved,
                       );
                     },
                   ),

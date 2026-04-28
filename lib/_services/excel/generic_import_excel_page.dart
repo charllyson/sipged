@@ -1,22 +1,26 @@
 import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:sipged/_widgets/input/text_field_change.dart';
 
-// 🔔 Notificações
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
-// 🪟 Janela estilo macOS
-
 class GenericImportExcelPage extends StatefulWidget {
+  const GenericImportExcelPage({
+    super.key,
+    this.path,
+  });
+
   final String? path;
-  const GenericImportExcelPage({super.key, this.path});
 
   @override
   State<GenericImportExcelPage> createState() => _GenericImportExcelPageState();
@@ -24,12 +28,15 @@ class GenericImportExcelPage extends StatefulWidget {
 
 class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
   final TextEditingController _pathController = TextEditingController();
-  List<Map<String, dynamic>> _jsonData = [];
-  List<String> _camposDoExcel = [];
-  List<String> _camposExistentesNoBanco = [];
-  List<String> _camposSelecionados = [];
-  final Map<String, String> _tiposPorCampo = {};
-  final List<String> tiposPossiveis = [
+
+  List<Map<String, dynamic>> _jsonData = <Map<String, dynamic>>[];
+  List<String> _camposDoExcel = <String>[];
+  List<String> _camposExistentesNoBanco = <String>[];
+  List<String> _camposSelecionados = <String>[];
+
+  final Map<String, String> _tiposPorCampo = <String, String>{};
+
+  final List<String> tiposPossiveis = const <String>[
     'String',
     'int',
     'double',
@@ -41,63 +48,88 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
   bool _loading = false;
   bool? _colecaoExiste;
   bool _carregandoCampos = false;
+
   int _atualizados = 0;
   int _totalParaAtualizar = 0;
   bool _atualizando = false;
 
-  void _notify(
-      String title, {
-        AppNotificationType type = AppNotificationType.info,
-        String? subtitle,
-      }) {
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: Text(title),
-        subtitle: subtitle != null ? Text(subtitle) : null,
-        type: type,
-      ),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
+
     if (widget.path != null) {
       _pathController.text = widget.path!;
     }
   }
 
+  @override
+  void dispose() {
+    _pathController.dispose();
+    super.dispose();
+  }
+
+  void _notify(
+      String title, {
+        NotificationType type = NotificationType.info,
+        String? subtitle,
+      }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Importação',
+        type: type,
+        extra: {
+          'module': 'generic_excel_import',
+          'path': _pathController.text.trim(),
+        },
+      ),
+      saveInFirebase: false,
+    );
+  }
+
   Future<void> _verificarColecao() async {
     final path = _pathController.text.trim();
+
     if (path.isEmpty) {
       _notify(
         'Informe o caminho da coleção.',
-        type: AppNotificationType.warning,
+        type: NotificationType.warning,
       );
       return;
     }
+
     setState(() => _loading = true);
+
     try {
       final collection = FirebaseFirestore.instance.collection(path);
       final snapshot = await collection.limit(1).get();
+
       setState(() {
         _colecaoExiste = snapshot.docs.isNotEmpty;
         _loading = false;
       });
+
       _notify(
         _colecaoExiste == true
             ? 'Coleção encontrada'
-            : 'Coleção vazia (será criada ao importar)',
-        type: AppNotificationType.info,
+            : 'Coleção vazia ou inexistente',
+        type: NotificationType.info,
+        subtitle: _colecaoExiste == true
+            ? null
+            : 'Ela será criada automaticamente ao importar.',
       );
     } catch (e) {
       setState(() {
         _colecaoExiste = false;
         _loading = false;
       });
+
       _notify(
-        'Erro: Caminho inválido.',
-        type: AppNotificationType.error,
+        'Erro: caminho inválido.',
+        type: NotificationType.error,
         subtitle: '$e',
       );
     }
@@ -106,66 +138,92 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
   Future<void> _pickAndPreviewExcel() async {
     setState(() {
       _loading = true;
-      _jsonData = [];
+      _jsonData = <Map<String, dynamic>>[];
     });
 
     try {
       final result = await FilePicker.platform.pickFiles();
+
       if (result == null) {
-        _notify('Importação cancelada', type: AppNotificationType.warning);
+        _notify(
+          'Importação cancelada',
+          type: NotificationType.warning,
+        );
         return;
       }
 
       final file = result.files.first;
       final bytes = file.bytes ?? File(file.path!).readAsBytesSync();
+
       final excel = Excel.decodeBytes(bytes);
-      final sheet = excel.tables[excel.tables.keys.first];
 
-      if (sheet != null) {
-        final headers =
-        sheet.rows.first.map((c) => c?.value.toString().trim()).toList();
-
-        _jsonData = sheet.rows.skip(1).map((row) {
-          final Map<String, dynamic> json = {};
-          for (int i = 0; i < headers.length; i++) {
-            final key = headers[i];
-            final cell = row[i];
-            if (key != null) {
-              json[key] = _converterValor(cell?.value);
-            }
-          }
-          return json;
-        }).toList();
-
-        if (_jsonData.isNotEmpty) {
-          await _listarCamposExistentes();
-          _notify(
-            'Planilha carregada',
-            type: AppNotificationType.success,
-            subtitle: '${_jsonData.length} registros prontos',
-          );
-        } else {
-          _notify('Planilha vazia', type: AppNotificationType.warning);
-        }
-      } else {
+      if (excel.tables.isEmpty) {
         _notify(
           'Aba da planilha não encontrada',
-          type: AppNotificationType.error,
+          type: NotificationType.error,
+        );
+        return;
+      }
+
+      final sheet = excel.tables[excel.tables.keys.first];
+
+      if (sheet == null || sheet.rows.isEmpty) {
+        _notify(
+          'Planilha vazia',
+          type: NotificationType.warning,
+        );
+        return;
+      }
+
+      final headers = sheet.rows.first
+          .map((c) => c?.value.toString().trim())
+          .toList();
+
+      _jsonData = sheet.rows.skip(1).map((row) {
+        final Map<String, dynamic> json = <String, dynamic>{};
+
+        for (int i = 0; i < headers.length; i++) {
+          final key = headers[i];
+
+          if (key == null || key.trim().isEmpty) continue;
+
+          final cell = row.length > i ? row[i] : null;
+          json[key] = _converterValor(cell?.value);
+        }
+
+        return json;
+      }).toList();
+
+      if (_jsonData.isNotEmpty) {
+        await _listarCamposExistentes();
+
+        _notify(
+          'Planilha carregada',
+          type: NotificationType.success,
+          subtitle: '${_jsonData.length} registros prontos',
+        );
+      } else {
+        _notify(
+          'Planilha vazia',
+          type: NotificationType.warning,
         );
       }
     } catch (e) {
       _notify(
         'Erro ao ler planilha',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
         subtitle: '$e',
       );
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   dynamic _converterValor(dynamic valor) {
     if (valor == null) return null;
+
     if (valor is String) {
       final str = valor.trim();
 
@@ -181,39 +239,52 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
 
       return str;
     }
+
     return valor;
   }
 
   Future<void> _listarCamposExistentes() async {
     final path = _pathController.text.trim();
+
     if (path.isEmpty) {
       _notify(
         'Informe o caminho da coleção.',
-        type: AppNotificationType.warning,
+        type: NotificationType.warning,
       );
       return;
     }
+
     setState(() {
       _carregandoCampos = true;
-      _camposSelecionados = [];
+      _camposSelecionados = <String>[];
     });
+
     try {
-      final snapshot =
-      await FirebaseFirestore.instance.collection(path).limit(1).get();
+      final snapshot = await FirebaseFirestore.instance
+          .collection(path)
+          .limit(1)
+          .get();
+
       if (snapshot.docs.isNotEmpty) {
         _camposExistentesNoBanco = snapshot.docs.first.data().keys.toList();
+      } else {
+        _camposExistentesNoBanco = <String>[];
       }
+
       if (_jsonData.isNotEmpty) {
         _camposDoExcel = _jsonData.first.keys.toList();
-        _camposSelecionados = List.from(_camposDoExcel);
+        _camposSelecionados = List<String>.from(_camposDoExcel);
       }
+
       setState(() => _carregandoCampos = false);
+
       _mostrarSelecaoDeCampos();
     } catch (e) {
       setState(() => _carregandoCampos = false);
+
       _notify(
         'Erro ao listar campos',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
         subtitle: '$e',
       );
     }
@@ -226,109 +297,119 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
       width: 720,
       child: Builder(
         builder: (dialogCtx) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 420),
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: _camposDoExcel.map((campo) {
-                      final existe = _camposExistentesNoBanco.contains(campo);
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: CheckboxListTile(
-                              controlAffinity:
-                              ListTileControlAffinity.leading,
-                              title: Text(
-                                campo,
-                                style: TextStyle(
-                                  color: existe
-                                      ? Colors.black
-                                      : Colors.red.shade700,
+          return StatefulBuilder(
+            builder: (context, setStateDialog) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 420),
+                      child: ListView(
+                        shrinkWrap: true,
+                        children: _camposDoExcel.map((campo) {
+                          final existe = _camposExistentesNoBanco.contains(campo);
+
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: CheckboxListTile(
+                                  controlAffinity:
+                                  ListTileControlAffinity.leading,
+                                  title: Text(
+                                    campo,
+                                    style: TextStyle(
+                                      color: existe
+                                          ? Colors.black
+                                          : Colors.red.shade700,
+                                    ),
+                                  ),
+                                  subtitle: existe
+                                      ? null
+                                      : const Text(
+                                    'Campo novo',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  value: _camposSelecionados.contains(campo),
+                                  onChanged: (val) {
+                                    setStateDialog(() {
+                                      setState(() {
+                                        if (val == true) {
+                                          if (!_camposSelecionados.contains(campo)) {
+                                            _camposSelecionados.add(campo);
+                                          }
+                                        } else {
+                                          _camposSelecionados.remove(campo);
+                                        }
+                                      });
+                                    });
+                                  },
                                 ),
                               ),
-                              subtitle: existe
-                                  ? null
-                                  : const Text(
-                                'Campo novo',
-                                style: TextStyle(fontSize: 12),
+                              const SizedBox(width: 8),
+                              DropdownButton<String>(
+                                value: _tiposPorCampo[campo] ?? 'String',
+                                items: tiposPossiveis.map((tipo) {
+                                  return DropdownMenuItem<String>(
+                                    value: tipo,
+                                    child: Text(tipo),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val == null) return;
+
+                                  setStateDialog(() {
+                                    setState(() {
+                                      _tiposPorCampo[campo] = val;
+
+                                      if (val == 'Ignorar') {
+                                        _camposSelecionados.remove(campo);
+                                      } else {
+                                        if (!_camposSelecionados.contains(campo)) {
+                                          _camposSelecionados.add(campo);
+                                        }
+                                      }
+                                    });
+                                  });
+                                },
                               ),
-                              value: _camposSelecionados.contains(campo),
-                              onChanged: (val) {
-                                setState(() {
-                                  if (val == true) {
-                                    if (!_camposSelecionados.contains(campo)) {
-                                      _camposSelecionados.add(campo);
-                                    }
-                                  } else {
-                                    _camposSelecionados.remove(campo);
-                                  }
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          DropdownButton<String>(
-                            value: _tiposPorCampo[campo] ?? 'String',
-                            items: tiposPossiveis
-                                .map(
-                                  (tipo) => DropdownMenuItem(
-                                value: tipo,
-                                child: Text(tipo),
-                              ),
-                            )
-                                .toList(),
-                            onChanged: (val) {
-                              if (val == null) return;
-                              setState(() {
-                                _tiposPorCampo[campo] = val;
-                                if (val == 'Ignorar') {
-                                  _camposSelecionados.remove(campo);
-                                } else {
-                                  if (!_camposSelecionados.contains(campo)) {
-                                    _camposSelecionados.add(campo);
-                                  }
-                                }
-                              });
-                            },
-                          ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(dialogCtx).pop(),
-                      child: const Text('Cancelar'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: () {
-                        if (_camposSelecionados.isEmpty) {
-                          _notify(
-                            'Selecione ao menos um campo',
-                            type: AppNotificationType.warning,
+                            ],
                           );
-                          return;
-                        }
-                        Navigator.of(dialogCtx).pop();
-                        _mostrarPreview();
-                      },
-                      child: const Text('Confirmar'),
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                          child: const Text('Cancelar'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: () {
+                            if (_camposSelecionados.isEmpty) {
+                              _notify(
+                                'Selecione ao menos um campo',
+                                type: NotificationType.warning,
+                              );
+                              return;
+                            }
+
+                            Navigator.of(dialogCtx).pop();
+                            _mostrarPreview();
+                          },
+                          child: const Text('Confirmar'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              );
+            },
           );
         },
       ),
@@ -339,13 +420,14 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
     if (_jsonData.isEmpty) {
       _notify(
         'Nenhum dado carregado',
-        type: AppNotificationType.warning,
+        type: NotificationType.warning,
       );
       return;
     }
 
     final preview = _jsonData.first;
-    final previewFiltrado = Map.fromEntries(
+
+    final previewFiltrado = Map<String, dynamic>.fromEntries(
       preview.entries.where(
             (e) => _camposSelecionados.contains(e.key),
       ),
@@ -358,9 +440,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
       child: Builder(
         builder: (dialogCtx) {
           final texto = previewFiltrado.entries
-              .map(
-                (e) => '${e.key}: ${e.value} (${e.value.runtimeType})',
-          )
+              .map((e) => '${e.key}: ${e.value} (${e.value.runtimeType})')
               .join('\n');
 
           return Padding(
@@ -408,17 +488,19 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
 
   Future<void> _salvarAtualizacoes() async {
     final path = _pathController.text.trim();
+
     if (path.isEmpty) {
       _notify(
         'Informe o caminho da coleção.',
-        type: AppNotificationType.warning,
+        type: NotificationType.warning,
       );
       return;
     }
+
     if (_jsonData.isEmpty) {
       _notify(
         'Nenhum dado para atualizar',
-        type: AppNotificationType.warning,
+        type: NotificationType.warning,
       );
       return;
     }
@@ -440,10 +522,12 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
 
         for (final entry in row.entries) {
           final key = entry.key;
+
           if (!_camposSelecionados.contains(key)) continue;
 
           final tipo = _tiposPorCampo[key] ?? 'String';
           final valorOriginal = entry.value;
+
           dynamic valor;
 
           try {
@@ -451,18 +535,27 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
               case 'int':
                 valor = int.tryParse(valorOriginal.toString());
                 break;
+
               case 'double':
-                valor = double.tryParse(valorOriginal.toString());
+                valor = double.tryParse(
+                  valorOriginal.toString().replaceAll(',', '.'),
+                );
                 break;
+
               case 'bool':
-                valor = valorOriginal.toString().toLowerCase().contains('true') ||
-                    valorOriginal.toString() == '1';
+                final v = valorOriginal.toString().toLowerCase().trim();
+                valor = v == 'true' || v == '1' || v == 'sim';
                 break;
+
               case 'DateTime':
                 valor = valorOriginal is DateTime
                     ? valorOriginal
                     : DateTime.tryParse(valorOriginal.toString());
                 break;
+
+              case 'Ignorar':
+                continue;
+
               case 'String':
               default:
                 valor = valorOriginal?.toString();
@@ -483,8 +576,11 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
         if (order == null) {
           await collection.add(dadosFiltrados);
         } else {
-          final snapshot =
-          await collection.where('order', isEqualTo: order).limit(1).get();
+          final snapshot = await collection
+              .where('order', isEqualTo: order)
+              .limit(1)
+              .get();
+
           if (snapshot.docs.isNotEmpty) {
             await collection.doc(snapshot.docs.first.id).update(dadosFiltrados);
           } else {
@@ -492,25 +588,29 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
           }
         }
 
-        setState(() => _atualizados++);
+        if (mounted) {
+          setState(() => _atualizados++);
+        }
       }
 
       _notify(
         'Importação concluída',
-        type: AppNotificationType.success,
+        type: NotificationType.success,
         subtitle: '$_atualizados de $_totalParaAtualizar atualizados',
       );
     } catch (e) {
       _notify(
         'Falha durante a importação',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
         subtitle: '$e',
       );
     } finally {
-      setState(() {
-        _loading = false;
-        _atualizando = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _atualizando = false;
+        });
+      }
     }
   }
 
@@ -521,8 +621,9 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
 
   @override
   Widget build(BuildContext context) {
-    final pathText =
-    _pathController.text.isEmpty ? '(nenhum)' : _pathController.text;
+    final pathText = _pathController.text.isEmpty
+        ? '(nenhum)'
+        : _pathController.text;
 
     return Scaffold(
       appBar: AppBar(
@@ -552,19 +653,23 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
             ],
             const SizedBox(height: 8),
             ElevatedButton.icon(
-              onPressed: _verificarColecao,
+              onPressed: _loading ? null : _verificarColecao,
               icon: const Icon(Icons.search),
               label: const Text('Verificar coleção'),
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
-              onPressed: _colecaoExiste != false ? _pickAndPreviewExcel : null,
+              onPressed: _loading || _colecaoExiste == false
+                  ? null
+                  : _pickAndPreviewExcel,
               icon: const Icon(Icons.upload_file),
               label: const Text('Importar Excel'),
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
-              onPressed: _jsonData.isNotEmpty ? _listarCamposExistentes : null,
+              onPressed: _jsonData.isNotEmpty && !_loading
+                  ? _listarCamposExistentes
+                  : null,
               icon: const Icon(Icons.list),
               label: const Text('Selecionar campos'),
             ),

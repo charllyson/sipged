@@ -2,8 +2,14 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/screens/modules/actives/oaes/active_oaes_ifc_viewer_page.dart';
@@ -28,10 +34,56 @@ class _OaeModel3DCardState extends State<OaeModel3DCard> {
   Uint8List? _ifcBytes;
   String? _ifcFileName;
 
+  bool get _hasModel => _ifcBytes != null && _ifcFileName != null;
+
+  bool get _canEdit => widget.isEditable && !_busy;
+
+  void _notifySuccess(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Sucesso',
+        subtitle: message,
+        type: NotificationType.success,
+        leadingLabel: 'IFC',
+      ),
+    );
+  }
+
+  void _notifyWarning(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Atenção',
+        subtitle: message,
+        type: NotificationType.warning,
+        leadingLabel: 'IFC',
+      ),
+    );
+  }
+
+  void _notifyError(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Erro',
+        subtitle: message,
+        type: NotificationType.error,
+        leadingLabel: 'IFC',
+      ),
+    );
+  }
+
   Future<void> _withBusy(Future<void> Function() task) async {
     if (mounted) setState(() => _busy = true);
+
     try {
       await task();
+    } catch (_) {
+      _notifyError('Falha ao processar o modelo IFC.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -48,35 +100,31 @@ class _OaeModel3DCardState extends State<OaeModel3DCard> {
       );
 
       if (result == null || result.files.isEmpty) return;
+
       final file = result.files.first;
       final bytes = file.bytes;
+
       if (bytes == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Não foi possível ler o arquivo IFC.')),
-        );
+        _notifyError('Não foi possível ler o arquivo IFC.');
         return;
       }
 
       _ifcBytes = bytes;
       _ifcFileName = file.name;
 
-      setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
 
       if (!mounted) return;
+
       await _openViewerWithCurrentModel();
     });
   }
 
-  bool get _hasModel => _ifcBytes != null && _ifcFileName != null;
-  bool get _canEdit => widget.isEditable && !_busy;
-
   Future<void> _openViewerWithCurrentModel() async {
     if (!_hasModel) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nenhum modelo IFC importado ainda.')),
-      );
+      _notifyWarning('Nenhum modelo IFC importado ainda.');
       return;
     }
 
@@ -96,6 +144,7 @@ class _OaeModel3DCardState extends State<OaeModel3DCard> {
 
   Future<void> _handleOpenViewer() async {
     if (_busy) return;
+
     await _openViewerWithCurrentModel();
   }
 
@@ -104,16 +153,15 @@ class _OaeModel3DCardState extends State<OaeModel3DCard> {
 
     await _withBusy(() async {
       final removed = _ifcFileName;
+
       _ifcBytes = null;
       _ifcFileName = null;
-      setState(() {});
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Modelo IFC "$removed" removido desta sessão.'),
-        ),
-      );
+      if (mounted) {
+        setState(() {});
+      }
+
+      _notifySuccess('Modelo IFC "$removed" removido desta sessão.');
     });
   }
 

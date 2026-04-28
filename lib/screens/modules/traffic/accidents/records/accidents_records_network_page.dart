@@ -8,27 +8,28 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/print/label_bitmap.dart';
-import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
 
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_services/bluetooth/ble_client.dart';
 import 'package:sipged/_services/bluetooth/ble_client_iface.dart';
 
-import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
-import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
-import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/print/label_bitmap.dart';
 
 import 'accidents_form_section.dart';
+import 'accidents_map_section.dart';
 import 'accidents_selector_dates_section.dart';
 import 'accidents_table_section.dart';
-import 'accidents_map_section.dart';
 
 class AccidentsRecordsNetworkPage extends StatelessWidget {
   const AccidentsRecordsNetworkPage({super.key});
@@ -82,9 +83,49 @@ class _AccidentsRecordsNetworkPageInnerState
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _inited) return;
+
       context.read<AccidentsCubit>().warmup();
       _inited = true;
     });
+  }
+
+  void _notify({
+    required String title,
+    String? subtitle,
+    NotificationType type = NotificationType.info,
+    String leadingLabel = 'Acidentes',
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        type: type,
+        leadingLabel: leadingLabel,
+        duration: duration,
+      ),
+    );
+  }
+
+  void _notifyFromContext(
+      BuildContext context, {
+        required String title,
+        String? subtitle,
+        NotificationType type = NotificationType.info,
+        String leadingLabel = 'Acidentes',
+        Duration duration = const Duration(seconds: 4),
+      }) {
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        type: type,
+        leadingLabel: leadingLabel,
+        duration: duration,
+      ),
+    );
   }
 
   bool _isFormValid(AccidentsData d) {
@@ -107,6 +148,7 @@ class _AccidentsRecordsNetworkPageInnerState
     final nextOrder = maxOrder + 1;
 
     if (!mounted) return;
+
     setState(() {
       _selectedAccident = null;
       _formData = AccidentsData(
@@ -121,6 +163,7 @@ class _AccidentsRecordsNetworkPageInnerState
     final dataToSave = _formData.copyWith(
       id: _selectedAccident?.id ?? _formData.id,
     );
+
     await context.read<AccidentsCubit>().saveAccident(dataToSave);
   }
 
@@ -158,21 +201,24 @@ class _AccidentsRecordsNetworkPageInnerState
     setState(() {
       _formData = _formData.copyWith(
         latLng: latLng ?? _formData.latLng,
-        street:
-        suggestion.street.isNotEmpty ? suggestion.street : _formData.street,
+        street: suggestion.street.isNotEmpty
+            ? suggestion.street
+            : _formData.street,
         subLocality: suggestion.subLocality.isNotEmpty
             ? suggestion.subLocality
             : _formData.subLocality,
-        locality:
-        suggestion.city.isNotEmpty ? suggestion.city : _formData.locality,
+        locality: suggestion.city.isNotEmpty
+            ? suggestion.city
+            : _formData.locality,
         administrativeArea: suggestion.administrativeArea.isNotEmpty
             ? suggestion.administrativeArea
             : _formData.administrativeArea,
         postalCode: suggestion.postalCode.isNotEmpty
             ? suggestion.postalCode
             : _formData.postalCode,
-        country:
-        suggestion.country.isNotEmpty ? suggestion.country : _formData.country,
+        country: suggestion.country.isNotEmpty
+            ? suggestion.country
+            : _formData.country,
         isoCountryCode: suggestion.isoCountryCode.isNotEmpty
             ? suggestion.isoCountryCode
             : _formData.isoCountryCode,
@@ -230,16 +276,16 @@ class _AccidentsRecordsNetworkPageInnerState
                           label: const Text('Copiar link'),
                           onPressed: () async {
                             await Clipboard.setData(ClipboardData(text: url));
+
                             if (!btnContext.mounted) return;
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Copiado'),
-                                subtitle:
-                                const Text('Link do boletim copiado.'),
-                                type: AppNotificationType.success,
-                                leadingLabel: const Text('QR'),
-                                duration: const Duration(seconds: 3),
-                              ),
+
+                            _notifyFromContext(
+                              btnContext,
+                              title: 'Copiado',
+                              subtitle: 'Link do boletim copiado.',
+                              type: NotificationType.success,
+                              leadingLabel: 'QR',
+                              duration: const Duration(seconds: 3),
                             );
                           },
                         );
@@ -258,6 +304,7 @@ class _AccidentsRecordsNetworkPageInnerState
                               btnContext,
                               'Deseja revogar o link público deste boletim?',
                             );
+
                             if (!btnContext.mounted) return;
                             if (!ok) return;
 
@@ -266,6 +313,7 @@ class _AccidentsRecordsNetworkPageInnerState
                                 .revokePublicReportLink(item);
 
                             if (!btnContext.mounted) return;
+
                             Navigator.of(btnContext).pop();
                           },
                         );
@@ -292,14 +340,13 @@ class _AccidentsRecordsNetworkPageInnerState
       );
     } catch (e) {
       if (!mounted) return;
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Falha ao gerar link'),
-          subtitle: Text('$e'),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('QR'),
-          duration: const Duration(seconds: 7),
-        ),
+
+      _notify(
+        title: 'Falha ao gerar link',
+        subtitle: '$e',
+        type: NotificationType.error,
+        leadingLabel: 'QR',
+        duration: const Duration(seconds: 7),
       );
     }
   }
@@ -318,7 +365,10 @@ class _AccidentsRecordsNetworkPageInnerState
     if (!mounted) return;
 
     final texto = _buildLabelText(item);
-    final qrData = _buildLabelQrData(item, publicUrlOverride: publicUrl);
+    final qrData = _buildLabelQrData(
+      item,
+      publicUrlOverride: publicUrl,
+    );
 
     final confirm = await showWindowDialog<bool>(
       context: context,
@@ -371,28 +421,24 @@ class _AccidentsRecordsNetworkPageInnerState
       );
 
       if (!mounted) return;
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Etiqueta enviada'),
-          subtitle: Text(
-            'TSPL BITMAP enviado via BLE. '
-                'useGap=$_useGap gap=$_gapMm invert=$_invertBitmap density=$_density',
-          ),
-          type: AppNotificationType.success,
-          leadingLabel: const Text('Impressão'),
-          duration: const Duration(seconds: 4),
-        ),
+
+      _notify(
+        title: 'Etiqueta enviada',
+        subtitle:
+        'TSPL BITMAP enviado via BLE. useGap=$_useGap gap=$_gapMm invert=$_invertBitmap density=$_density',
+        type: NotificationType.success,
+        leadingLabel: 'Impressão',
+        duration: const Duration(seconds: 4),
       );
     } catch (e) {
       if (!mounted) return;
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Falha ao imprimir'),
-          subtitle: Text('$e'),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Impressão'),
-          duration: const Duration(seconds: 7),
-        ),
+
+      _notify(
+        title: 'Falha ao imprimir',
+        subtitle: '$e',
+        type: NotificationType.error,
+        leadingLabel: 'Impressão',
+        duration: const Duration(seconds: 7),
       );
     }
   }
@@ -472,7 +518,7 @@ class _AccidentsRecordsNetworkPageInnerState
         ? Uint8List.fromList(bmp.bytes.map((b) => (~b) & 0xFF).toList())
         : bmp.bytes;
 
-    final header = (setupLines.join('\r\n')).codeUnits;
+    final header = setupLines.join('\r\n').codeUnits;
     final tail = '\r\nPRINT 1,1\r\n'.codeUnits;
 
     final payload = BytesBuilder()
@@ -488,6 +534,7 @@ class _AccidentsRecordsNetworkPageInnerState
     final cidade = (d.city ?? d.locality ?? '-').trim();
     final tipo = (d.typeOfAccident ?? '-').trim();
     final data = d.date?.toString().split(' ').first ?? '-';
+
     return 'ACIDENTE #$ordem • $data\n$cidade\n$tipo';
   }
 
@@ -522,11 +569,18 @@ class _AccidentsRecordsNetworkPageInnerState
           orElse: () => AccidentsData(id: id),
         );
 
-        final ok = await confirmDialog(context, 'Deseja apagar este acidente?');
+        final ok = await confirmDialog(
+          context,
+          'Deseja apagar este acidente?',
+        );
+
         if (!context.mounted) return;
         if (!ok) return;
 
-        await _delete(id, yearHint: toDelete.date?.year);
+        await _delete(
+          id,
+          yearHint: toDelete.date?.year,
+        );
       },
     );
   }
@@ -545,7 +599,11 @@ class _AccidentsRecordsNetworkPageInnerState
     return Theme(
       data: zeroTableGapsTheme,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.only(left: 12.0, bottom: 12.0, right: 8.0),
+        padding: const EdgeInsets.only(
+          left: 12,
+          bottom: 12,
+          right: 8,
+        ),
         child: LayoutBuilder(
           builder: (context, c) {
             final bool narrow = c.maxWidth < 700;
@@ -557,7 +615,10 @@ class _AccidentsRecordsNetworkPageInnerState
                 if (_showForm) ...[
                   const Text(
                     'Cadastrar acidentes',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   AccidentsFormSection(
@@ -577,6 +638,7 @@ class _AccidentsRecordsNetworkPageInnerState
                         context,
                         'Deseja salvar este acidente?',
                       );
+
                       if (!context.mounted) return;
                       if (!ok) return;
 
@@ -588,6 +650,7 @@ class _AccidentsRecordsNetworkPageInnerState
                     },
                     onUpdateMapFromLatLng: (lat, lon) {
                       final latLng = LatLng(lat, lon);
+
                       _mapController?.move(latLng, 18);
                       _setActivePoint?.call(latLng);
 
@@ -603,7 +666,10 @@ class _AccidentsRecordsNetworkPageInnerState
                 if (_showTable) ...[
                   const Text(
                     'Filtrar por datas',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -614,6 +680,7 @@ class _AccidentsRecordsNetworkPageInnerState
                       onSelectionChanged: (res) async {
                         final y = res.selectedYear;
                         final m = res.selectedMonth;
+
                         if (y == state.year && m == state.month) return;
 
                         context.read<AccidentsCubit>().changeFilter(
@@ -626,11 +693,14 @@ class _AccidentsRecordsNetworkPageInnerState
                   const SizedBox(height: 8),
                   const Text(
                     'Acidentes cadastrados no sistema',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   if (items.isEmpty)
                     const Padding(
-                      padding: EdgeInsets.all(12.0),
+                      padding: EdgeInsets.all(12),
                       child: Text('Nenhum acidente encontrado'),
                     )
                   else
@@ -642,7 +712,7 @@ class _AccidentsRecordsNetworkPageInnerState
                 ],
                 if (!_showForm && !_showTable)
                   const Padding(
-                    padding: EdgeInsets.all(24.0),
+                    padding: EdgeInsets.all(24),
                     child: Text(
                       'Nenhum painel selecionado. Ative Formulário e/ou Tabela.',
                     ),
@@ -678,42 +748,37 @@ class _AccidentsRecordsNetworkPageInnerState
           prev.locationSuggestion != curr.locationSuggestion,
       listener: (context, state) async {
         if (state.error != null && state.error!.trim().isNotEmpty) {
-          NotificationCenter.instance.show(
-            AppNotification(
-              title: const Text('Falha na operação'),
-              subtitle: Text(state.error!),
-              type: AppNotificationType.error,
-              leadingLabel: const Text('Acidentes'),
-              duration: const Duration(seconds: 6),
-            ),
+          _notify(
+            title: 'Falha na operação',
+            subtitle: state.error!,
+            type: NotificationType.error,
+            leadingLabel: 'Acidentes',
+            duration: const Duration(seconds: 6),
           );
         }
 
         if (state.success != null && state.success!.trim().isNotEmpty) {
-          NotificationCenter.instance.show(
-            AppNotification(
-              title: const Text('Operação concluída'),
-              subtitle: Text(state.success!),
-              type: AppNotificationType.success,
-              leadingLabel: const Text('Acidentes'),
-              duration: const Duration(seconds: 4),
-            ),
+          _notify(
+            title: 'Operação concluída',
+            subtitle: state.success!,
+            type: NotificationType.success,
+            leadingLabel: 'Acidentes',
+            duration: const Duration(seconds: 4),
           );
 
           await _createNew(state);
+
           if (!context.mounted) return;
         }
 
         if (state.locationError != null &&
             state.locationError!.trim().isNotEmpty) {
-          NotificationCenter.instance.show(
-            AppNotification(
-              title: const Text('Falha ao obter endereço'),
-              subtitle: Text(state.locationError!),
-              type: AppNotificationType.error,
-              leadingLabel: const Text('Localização'),
-              duration: const Duration(seconds: 6),
-            ),
+          _notify(
+            title: 'Falha ao obter endereço',
+            subtitle: state.locationError!,
+            type: NotificationType.error,
+            leadingLabel: 'Localização',
+            duration: const Duration(seconds: 6),
           );
         }
 

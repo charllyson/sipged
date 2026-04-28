@@ -11,24 +11,23 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/screens/modules/operation/schedule/physical/share/schedule_road_debug.dart';
-import 'package:sipged/screens/modules/operation/schedule/physical/share/type.dart';
-import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_modal_square.dart';
-import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
-
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
-
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/line_segmentation.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/draw/shimmer/map_shimmer.dart';
+
+import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_modal_square.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_status.dart';
-import 'package:sipged/_blocs/modules/operation/operation/road/line_segmentation.dart';
-
-import 'package:sipged/_widgets/map/shimmer/map_shimmer.dart';
-
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/share/schedule_road_debug.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/share/type.dart';
 
 const double kLaneStrokeWidth = 6.0;
 const double kLaneStrokeWidthSelected = 9.0;
@@ -83,6 +82,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       _panelListener = () {
         if (mounted) setState(() {});
       };
+
       widget.externalPanelController!.addListener(_panelListener!);
     }
   }
@@ -92,7 +92,108 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     if (_panelListener != null && widget.externalPanelController != null) {
       widget.externalPanelController!.removeListener(_panelListener!);
     }
+
     super.dispose();
+  }
+
+  void _toast(
+      String msg, {
+        NotificationType type = NotificationType.info,
+        Duration duration = const Duration(seconds: 8),
+      }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: msg,
+        leadingLabel: 'Mapa',
+        type: type,
+        duration: duration,
+      ),
+    );
+  }
+
+  String _actorName() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    final displayName = user?.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+
+    final email = user?.email?.trim() ?? '';
+    if (email.isNotEmpty) return email;
+
+    return 'Usuário';
+  }
+
+  String _contractId() {
+    try {
+      final value = (widget.contractData as dynamic).id;
+      return value?.toString().trim() ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String _contractSummary() {
+    try {
+      final value = (widget.contractData as dynamic).summarySubjectContract;
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty) return text;
+    } catch (_) {}
+
+    try {
+      final value = (widget.contractData as dynamic).summary;
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty) return text;
+    } catch (_) {}
+
+    try {
+      final value = (widget.contractData as dynamic).object;
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty) return text;
+    } catch (_) {}
+
+    final id = _contractId();
+    if (id.isNotEmpty) return 'Contrato $id';
+
+    return 'Contrato sem identificação';
+  }
+
+  Future<void> _notifyBell({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    if (!mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    final contractId = _contractId();
+
+    await context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        details: details ?? _contractSummary(),
+        leadingLabel: 'Cronograma',
+        type: type,
+        duration: duration,
+        persistInFirebase: true,
+        createdBy: user?.uid,
+        extra: <String, dynamic>{
+          'module': 'operation_schedule_road',
+          'contractId': contractId,
+          'contractSummary': _contractSummary(),
+          'contractTitle': _contractSummary(),
+          'actorId': user?.uid,
+          'actorName': _actorName(),
+          ...extra,
+        },
+      ),
+      saveInFirebase: true,
+    );
   }
 
   Future<void> _importGeometryFromMap() async {
@@ -105,7 +206,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     if (contractId.isEmpty) {
       _toast(
         'Contrato inválido para importar geometria.',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
       );
       return;
     }
@@ -145,15 +246,24 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
       _invalidateAllCaches();
 
-      _toast(
-        'Geometria importada com sucesso.',
-        type: AppNotificationType.success,
+      await _notifyBell(
+        title: 'Geometria do cronograma importada',
+        subtitle: 'Geometria atualizada por ${_actorName()}.',
+        details: _contractSummary(),
+        type: NotificationType.success,
+        extra: <String, dynamic>{
+          'action': 'schedule_geometry_imported',
+          'contractId': contractId,
+          'serviceKey': st.currentServiceKey,
+          'serviceLabel': st.titleForHeader,
+        },
       );
     } catch (e) {
       if (!mounted) return;
+
       _toast(
         'Erro ao importar geometria: $e',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
       );
     } finally {
       if (mounted) setState(() => _importingGeometry = false);
@@ -204,6 +314,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           stepMeters: stepMeters,
         ),
       );
+
       _segKey = key;
       _laneGeometryKey = null;
       _polylineKey = null;
@@ -290,6 +401,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           final label = rawLabel.toUpperCase();
 
           String side;
+
           if (label.contains('LE')) {
             side = 'LE';
           } else if (label.contains('LD')) {
@@ -319,6 +431,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           for (var segIdx = 0; segIdx < segmented.segmentCount; segIdx++) {
             if (buildRight) {
               final pts = segmented.offsetSegmentRight(segIdx, offset);
+
               if (pts.length >= 2) {
                 out.add(
                   _LaneGeometry(
@@ -333,6 +446,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
             if (buildLeft) {
               final pts = segmented.offsetSegmentLeft(segIdx, offset);
+
               if (pts.length >= 2) {
                 out.add(
                   _LaneGeometry(
@@ -388,6 +502,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           );
 
           final color = selected ? const Color(0xFFEC407A) : baseColor;
+
           final strokeWidth =
           selected ? kLaneStrokeWidthSelected : kLaneStrokeWidth;
 
@@ -427,6 +542,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     if (zoom >= 16) return 10;
     if (zoom >= 14) return 40;
     if (zoom >= 12) return 80;
+
     return 160;
   }
 
@@ -435,10 +551,13 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     required double zoom,
   }) {
     final positions = segmented.stakePositions;
+
     if (positions.isEmpty) return const <Marker>[];
 
     final step = _markerStepForZoom(zoom);
-    final key = '${_segKey ?? "no_seg"}|zoomStep=$step|count=${positions.length}';
+
+    final key =
+        '${_segKey ?? "no_seg"}|zoomStep=$step|count=${positions.length}';
 
     if (_markerKey == key) return _cachedMarkers;
 
@@ -446,6 +565,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
     for (int i = 0; i < positions.length; i++) {
       final estaca = i;
+
       if (estaca == 0 || estaca % step != 0) continue;
 
       markers.add(
@@ -580,6 +700,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
     for (final seg in segments) {
       final d = _distanceToPolylineMeters(tap, seg.points);
+
       if (d < bestDistance) {
         bestDistance = d;
         best = seg;
@@ -587,6 +708,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     }
 
     if (best == null || bestDistance > kTapToleranceMeters) return null;
+
     return best;
   }
 
@@ -613,7 +735,9 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           180.0 *
           earth *
           math.cos(lat0);
+
       final y = (v.latitude - p.latitude) * math.pi / 180.0 * earth;
+
       return Offset(x, y);
     }
 
@@ -625,6 +749,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     final ap = pp - aa;
 
     final ab2 = ab.dx * ab.dx + ab.dy * ab.dy;
+
     if (ab2 <= 0) return (pp - aa).distance;
 
     final t = ((ap.dx * ab.dx + ap.dy * ab.dy) / ab2).clamp(0.0, 1.0);
@@ -662,6 +787,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           _selectedTags.add(tag);
         }
       });
+
       return;
     }
 
@@ -692,6 +818,8 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       return;
     }
 
+    final cubit = context.read<ScheduleRoadCubit>();
+
     final estaca = _segToEstaca(segIdx);
     final laneLabel = _resolveLaneLabel(st.lanes[faixaIndex]);
 
@@ -699,6 +827,8 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       laneLabel: laneLabel,
       estaca: estaca,
     );
+
+    final existedBefore = st.execIndex[estaca]?[faixaIndex] != null;
 
     final fotosAtuais = st.fotosAtuaisFor(estaca, faixaIndex);
     final metaByUrl = <String, pm.CarouselMetadata>{};
@@ -708,6 +838,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
     for (final m in metas) {
       final url = m['url']?.toString() ?? '';
+
       if (url.isEmpty) continue;
 
       metaByUrl[url] = pm.CarouselMetadata(
@@ -716,11 +847,11 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
             ? DateTime.fromMillisecondsSinceEpoch(
           (m['takenAtMs'] as num).toInt(),
         )
-            : ((m['takenAt'] is num)
+            : (m['takenAt'] is num)
             ? DateTime.fromMillisecondsSinceEpoch(
           (m['takenAt'] as num).toInt(),
         )
-            : null),
+            : null,
         lat: (m['lat'] as num?)?.toDouble(),
         lng: (m['lng'] as num?)?.toDouble(),
         make: m['make']?.toString(),
@@ -736,6 +867,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       final t = (data?.status ?? '').toLowerCase();
 
       if (t.contains('conclu')) return ScheduleStatus.concluido;
+
       if (t.contains('andament') || t.contains('progress')) {
         return ScheduleStatus.emAndamento;
       }
@@ -756,7 +888,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
             child: BlocProvider.value(
-              value: context.read<ScheduleRoadCubit>(),
+              value: cubit,
               child: ScheduleModalSquare(
                 currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
                 tipoLabel: st.titleForHeader,
@@ -781,20 +913,42 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
       if (!mounted) return;
 
-      await context.read<ScheduleRoadCubit>().reloadExecucoes();
+      await cubit.reloadExecucoes();
 
       if (!mounted) return;
 
-      _toast(
-        'Célula atualizada com sucesso!',
-        type: AppNotificationType.success,
+      final afterState = cubit.state;
+      final existsAfter = afterState.execIndex[estaca]?[faixaIndex] != null;
+      final wasDeleted = existedBefore && !existsAfter;
+
+      await _notifyBell(
+        title: wasDeleted
+            ? 'Registro do cronograma excluído'
+            : 'Cronograma físico atualizado',
+        subtitle: wasDeleted
+            ? 'Segmento removido por ${_actorName()}.'
+            : 'Segmento atualizado por ${_actorName()}.',
+        details: initialName,
+        type: NotificationType.success,
+        extra: <String, dynamic>{
+          'action': wasDeleted
+              ? 'schedule_segment_deleted'
+              : 'schedule_segment_saved',
+          'contractId': _contractId(),
+          'serviceKey': st.currentServiceKey,
+          'serviceLabel': st.titleForHeader,
+          'estaca': estaca,
+          'faixaIndex': faixaIndex,
+          'segIdx': segIdx,
+          'segmentName': initialName,
+        },
       );
     } catch (e) {
       if (!mounted) return;
 
       _toast(
         'Falha ao salvar a célula: $e',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
       );
     } finally {
       _modalOpen = false;
@@ -806,7 +960,8 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   }
 
   Future<void> _openBulkModalFromSelected() async {
-    final st = context.read<ScheduleRoadCubit>().state;
+    final cubit = context.read<ScheduleRoadCubit>();
+    final st = cubit.state;
 
     if (!st.canBulkApply) {
       _toast('Selecione um serviço específico para editar em lote.');
@@ -817,16 +972,23 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
     final targets = <ScheduleApplyTarget>[];
     final estacasSelecionadas = <int>[];
+    final existingBefore = <String>{};
 
     int? firstFaixa;
 
     for (final tag in _selectedTags) {
       final parsed = _parseLaneSegFromTag(tag);
+
       if (parsed == null) continue;
 
       final estaca = _segToEstaca(parsed.segIdx);
+
       firstFaixa ??= parsed.faixaIndex;
       estacasSelecionadas.add(estaca);
+
+      if (st.execIndex[estaca]?[parsed.faixaIndex] != null) {
+        existingBefore.add('${estaca}_${parsed.faixaIndex}');
+      }
 
       targets.add(
         ScheduleApplyTarget(
@@ -860,7 +1022,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
             child: BlocProvider.value(
-              value: context.read<ScheduleRoadCubit>(),
+              value: cubit,
               child: ScheduleModalSquare(
                 currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
                 tipoLabel: st.titleForHeader,
@@ -875,20 +1037,54 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
       if (!mounted) return;
 
-      await context.read<ScheduleRoadCubit>().reloadExecucoes();
+      await cubit.reloadExecucoes();
 
       if (!mounted) return;
 
-      _toast(
-        'Aplicado em lote: ${targets.length} segmento(s).',
-        type: AppNotificationType.success,
+      final afterState = cubit.state;
+
+      int deletedCount = 0;
+
+      for (final key in existingBefore) {
+        final parts = key.split('_');
+
+        if (parts.length != 2) continue;
+
+        final estaca = int.tryParse(parts[0]);
+        final faixa = int.tryParse(parts[1]);
+
+        if (estaca == null || faixa == null) continue;
+
+        if (afterState.execIndex[estaca]?[faixa] == null) {
+          deletedCount++;
+        }
+      }
+
+      await _notifyBell(
+        title: 'Cronograma físico atualizado em lote',
+        subtitle: deletedCount > 0
+            ? 'Aplicado em ${targets.length} segmento(s), com $deletedCount remoção(ões), por ${_actorName()}.'
+            : 'Aplicado em ${targets.length} segmento(s) por ${_actorName()}.',
+        details: initialNameMany,
+        type: NotificationType.success,
+        extra: <String, dynamic>{
+          'action': deletedCount > 0
+              ? 'schedule_bulk_segments_saved_with_deletions'
+              : 'schedule_bulk_segments_saved',
+          'contractId': _contractId(),
+          'serviceKey': st.currentServiceKey,
+          'serviceLabel': st.titleForHeader,
+          'targetsCount': targets.length,
+          'deletedCount': deletedCount,
+          'segmentName': initialNameMany,
+        },
       );
     } catch (e) {
       if (!mounted) return;
 
       _toast(
         'Falha no lote: $e',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
       );
     } finally {
       _modalOpen = false;
@@ -905,7 +1101,8 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   ({int faixaIndex, int segIdx})? _parseLaneSegFromTag(String? tag) {
     if (tag == null || tag.isEmpty) return null;
 
-    final m = RegExp(r'lane(\d+)#seg(\d+)#(?:R|L)').firstMatch(tag);
+    final m = RegExp(r'lane(\d+)#seg(\d+)#[RL]').firstMatch(tag);
+
     if (m == null) return null;
 
     final fi = int.tryParse(m.group(1)!);
@@ -914,20 +1111,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     if (fi == null || si == null) return null;
 
     return (faixaIndex: fi, segIdx: si);
-  }
-
-  void _toast(
-      String msg, {
-        AppNotificationType type = AppNotificationType.info,
-      }) {
-    NotificationCenter.instance.show(
-      AppNotification(
-        type: type,
-        title: Text(msg),
-        leadingLabel: const Text('Aviso'),
-        duration: const Duration(seconds: 8),
-      ),
-    );
   }
 
   bool _shouldRebuildMap(ScheduleRoadState prev, ScheduleRoadState curr) {
@@ -974,7 +1157,10 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
               const Center(
                 child: Text(
                   'Geometria da obra ainda não carregada.',
-                  style: TextStyle(fontSize: 14, color: Colors.black54),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
                 ),
               ),
               _ImportGeoJsonButton(
@@ -990,7 +1176,10 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           return const Center(
             child: Text(
               'Nenhuma faixa configurada para exibir no mapa.',
-              style: TextStyle(fontSize: 14, color: Colors.black54),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.black54,
+              ),
             ),
           );
         }
@@ -1036,8 +1225,9 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                     flags: InteractiveFlag.all,
                   ),
                   onPositionChanged: (position, hasGesture) {
-                    final rounded =
-                    double.parse(position.zoom.toStringAsFixed(2));
+                    final rounded = double.parse(
+                      position.zoom.toStringAsFixed(2),
+                    );
 
                     if ((rounded - _currentZoom).abs() >= 0.5) {
                       setState(() => _currentZoom = rounded);
@@ -1077,7 +1267,10 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                         );
                       } catch (_) {}
                     },
-                    icon: const Icon(Icons.center_focus_strong, size: 18),
+                    icon: const Icon(
+                      Icons.center_focus_strong,
+                      size: 18,
+                    ),
                     label: const Text(
                       'Centralizar',
                       style: TextStyle(
@@ -1124,7 +1317,10 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                           onPressed: () {
                             setState(() {
                               _multiSelectMode = !_multiSelectMode;
-                              if (!_multiSelectMode) _selectedTags.clear();
+
+                              if (!_multiSelectMode) {
+                                _selectedTags.clear();
+                              }
                             });
 
                             _toast(
@@ -1172,7 +1368,10 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                             onPressed: _selectedTags.length >= 2
                                 ? _openBulkModalFromSelected
                                 : null,
-                            icon: const Icon(Icons.done_all, size: 18),
+                            icon: const Icon(
+                              Icons.done_all,
+                              size: 18,
+                            ),
                             label: const Text(
                               'Aplicar em lote',
                               style: TextStyle(

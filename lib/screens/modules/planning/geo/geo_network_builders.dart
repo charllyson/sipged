@@ -13,9 +13,15 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
   }
 
   void _showSnack(BuildContext context, String message) {
-    if (message.trim().isEmpty) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+    final text = message.trim();
+    if (text.isEmpty) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Aviso',
+        subtitle: text,
+        type: NotificationType.info,
+      ),
     );
   }
 

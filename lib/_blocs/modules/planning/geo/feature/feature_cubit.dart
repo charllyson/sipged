@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/feature_enums.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_import.dart';
 
 import '../layer/layer_data.dart';

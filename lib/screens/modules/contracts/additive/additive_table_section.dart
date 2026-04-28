@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
-import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/table/paged/paged_colum.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';

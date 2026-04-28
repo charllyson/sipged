@@ -8,16 +8,17 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
+import 'package:sipged/_blocs/system/module/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/user/user_permission.dart' as roles;
 
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
-import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
+import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
 
 import 'apostilles_state.dart';
 
@@ -25,18 +26,20 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   ApostillesCubit({
     required this.contract,
     required this.repository,
+    this.notificationCubit,
     UserData? initialUser,
   })  : _currentUser = initialUser,
         super(ApostillesState.initial()) {
     _init();
+
     if (initialUser != null) {
       updateUser(initialUser);
     }
   }
 
-
   final ProcessData contract;
   final ApostillesRepository repository;
+  final NotificationCubit? notificationCubit;
 
   UserData? _currentUser;
 
@@ -46,6 +49,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
   Future<void> _init() async {
     final cId = contract.id?.trim();
+
     if (cId == null || cId.isEmpty) {
       emit(
         state.copyWith(
@@ -63,6 +67,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       );
       return;
     }
+
     await loadApostilles();
   }
 
@@ -71,9 +76,48 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     return (u?.name ?? u?.email ?? 'Usuário').trim();
   }
 
+  String? _userId() {
+    final uid = (_currentUser?.uid ?? '').trim();
+    return uid.isNotEmpty ? uid : null;
+  }
+
   String _stamp([DateTime? dt]) {
     final d = dt ?? DateTime.now();
     return DateFormat('dd/MM/yyyy HH:mm').format(d);
+  }
+
+  Future<void> _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    String? leadingLabel,
+    NotificationType type = NotificationType.info,
+    bool saveInFirebase = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    final cubit = notificationCubit;
+    if (cubit == null) return;
+
+    final userId = _userId();
+
+    await cubit.show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        details: details ?? '${_userName()} • ${_stamp()}',
+        leadingLabel: leadingLabel ?? 'Apostilamento',
+        type: type,
+        createdBy: userId,
+        persistInFirebase: saveInFirebase,
+        extra: {
+          'module': 'apostilles',
+          'contractId': contract.id,
+          ...extra,
+        },
+      ),
+      userId: userId,
+      saveInFirebase: saveInFirebase,
+    );
   }
 
   // =========================
@@ -83,6 +127,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   void updateUser(UserData? user) {
     _currentUser = user;
     final editable = _canEditUser(user);
+
     if (editable != state.isEditable) {
       emit(state.copyWith(isEditable: editable));
     }
@@ -100,6 +145,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       module: 'apostilles',
       action: 'edit',
     );
+
     final canCreate = perms.userCanModule(
       user: user,
       module: 'apostilles',
@@ -115,6 +161,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
   Future<void> loadApostilles() async {
     final cId = contract.id?.trim();
+
     if (cId == null || cId.isEmpty) {
       emit(
         state.copyWith(
@@ -147,7 +194,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           apostilles: list,
           existingOrders: orders,
           nextAvailableOrder: next,
-          // SideListBox permanece como está; reloadAttachments controla o resto
           sideAttachments: state.sideAttachments,
         ),
       );
@@ -162,7 +208,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   }
 
   // =========================
-  // Seleção (toggle)
+  // Seleção
   // =========================
 
   void selectApostilleByIndex(int index) {
@@ -182,6 +228,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
   void selectApostille(ApostillesData data) {
     final index = state.apostilles.indexWhere((e) => e.id == data.id);
+
     if (index == -1) {
       _clearSelection();
       return;
@@ -201,7 +248,9 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       return;
     }
 
-    final index = state.apostilles.indexWhere((e) => (e.apostilleOrder ?? 0) == order);
+    final index = state.apostilles.indexWhere(
+          (e) => (e.apostilleOrder ?? 0) == order,
+    );
 
     if (index == -1) {
       emit(
@@ -225,7 +274,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         state.copyWith(
           selectedIndex: index,
           editingMode: true,
-          sideAttachments: (data.attachments ?? const <Attachment>[]),
+          sideAttachments: data.attachments ?? const <Attachment>[],
           sideLoading: false,
           clearUploadProgress: true,
         ),
@@ -242,7 +291,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         selected: data,
         selectedIndex: index,
         editingMode: true,
-        sideAttachments: (data.attachments ?? const <Attachment>[]),
+        sideAttachments: data.attachments ?? const <Attachment>[],
         clearSelected: false,
         sideLoading: false,
         clearUploadProgress: true,
@@ -265,6 +314,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
   void createNewApostille({int? keepOrder}) {
     final next = keepOrder ?? _computeNextOrder(state.existingOrders);
+
     emit(
       state.copyWith(
         editingMode: false,
@@ -281,7 +331,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   }
 
   // =========================
-  // Form validation
+  // Validação
   // =========================
 
   void updateFormValidity({
@@ -303,13 +353,16 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   }
 
   // =========================
-  // Save/Update/Delete
+  // Save / Update / Delete
   // =========================
 
   ApostillesData? _findByOrder(int order) {
     if (order <= 0) return null;
+
     try {
-      return state.apostilles.firstWhere((e) => (e.apostilleOrder ?? 0) == order);
+      return state.apostilles.firstWhere(
+            (e) => (e.apostilleOrder ?? 0) == order,
+      );
     } catch (_) {
       return null;
     }
@@ -343,16 +396,26 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         attachments: state.selected?.attachments ?? byOrder?.attachments,
       );
 
-      await repository.saveOrUpdateApostille(contractId: cId, data: apostille);
+      await repository.saveOrUpdateApostille(
+        contractId: cId,
+        data: apostille,
+      );
 
       final bool didUpdate = resolvedId != null;
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text(didUpdate ? 'Apostilamento atualizado' : 'Apostilamento salvo'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title:
+        didUpdate ? 'Apostilamento atualizado' : 'Apostilamento salvo',
+        subtitle: processText.trim().isNotEmpty
+            ? 'Processo: ${processText.trim()}'
+            : null,
+        type: NotificationType.success,
+        saveInFirebase: true,
+        extra: {
+          'action': didUpdate ? 'update' : 'create',
+          'apostilleOrder': ord,
+          'apostilleProcess': processText.trim(),
+        },
       );
 
       await loadApostilles();
@@ -363,14 +426,23 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         createNewApostille();
       }
     } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Erro ao salvar: $e'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+      await _notify(
+        title: 'Erro ao salvar apostilamento',
+        subtitle: e.toString(),
+        type: NotificationType.error,
+        saveInFirebase: false,
+        extra: {
+          'action': 'save_error',
+          'error': e.toString(),
+        },
+      );
+
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: 'Erro ao salvar: $e',
         ),
       );
-      emit(state.copyWith(isSaving: false, errorMessage: 'Erro ao salvar: $e'));
       return;
     } finally {
       emit(state.copyWith(isSaving: false));
@@ -380,32 +452,52 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   Future<void> deleteSelectedApostille() async {
     final cId = contract.id?.trim();
     final selected = state.selected;
+
     if (cId == null || cId.isEmpty || selected?.id == null) return;
 
     emit(state.copyWith(isSaving: true, clearError: true));
 
     try {
-      await repository.deleteApostille(contractId: cId, apostilleId: selected!.id!);
+      await repository.deleteApostille(
+        contractId: cId,
+        apostilleId: selected!.id!,
+      );
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Apostilamento deletado'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Apostilamento deletado',
+        subtitle: selected.apostilleNumberProcess?.trim().isNotEmpty == true
+            ? 'Processo: ${selected.apostilleNumberProcess!.trim()}'
+            : null,
+        type: NotificationType.success,
+        saveInFirebase: true,
+        extra: {
+          'action': 'delete',
+          'apostilleId': selected.id,
+          'apostilleOrder': selected.apostilleOrder,
+          'apostilleProcess': selected.apostilleNumberProcess,
+        },
       );
 
       await loadApostilles();
       createNewApostille();
     } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Erro ao deletar: $e'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+      await _notify(
+        title: 'Erro ao deletar apostilamento',
+        subtitle: e.toString(),
+        type: NotificationType.error,
+        saveInFirebase: false,
+        extra: {
+          'action': 'delete_error',
+          'error': e.toString(),
+        },
+      );
+
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: 'Erro ao deletar: $e',
         ),
       );
-      emit(state.copyWith(isSaving: false, errorMessage: 'Erro ao deletar: $e'));
       return;
     } finally {
       emit(state.copyWith(isSaving: false));
@@ -413,7 +505,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   }
 
   // =========================
-  // Attachments (SideList) - PADRÃO ADITIVOS
+  // Attachments
   // =========================
 
   Future<void> reloadAttachments() async {
@@ -431,10 +523,15 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       return;
     }
 
-    emit(state.copyWith(sideLoading: true, clearUploadProgress: true, clearError: true));
+    emit(
+      state.copyWith(
+        sideLoading: true,
+        clearUploadProgress: true,
+        clearError: true,
+      ),
+    );
 
     try {
-      // 1) se já tem attachments no doc, usa isso
       if ((selected.attachments ?? const <Attachment>[]).isNotEmpty) {
         emit(
           state.copyWith(
@@ -446,7 +543,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         return;
       }
 
-      // 2) se tem pdfUrl legado, não lista anexos
       if ((selected.pdfUrl ?? '').isNotEmpty) {
         emit(
           state.copyWith(
@@ -458,7 +554,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         return;
       }
 
-      // 3) lista storage e grava attachments no doc
       final files = await repository.listarArquivosDaApostila(
         contractId: cId,
         apostilleId: selected.id!,
@@ -498,7 +593,10 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         attachments: list,
       );
 
-      final updatedSelected = selected.copyWith(pdfUrl: null, attachments: list);
+      final updatedSelected = selected.copyWith(
+        pdfUrl: null,
+        attachments: list,
+      );
 
       emit(
         state.copyWith(
@@ -515,8 +613,13 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   }
 
   String _suggestLabelFromName(ApostillesData apostille, String original) {
-    final base = original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+    final base = original
+        .split('/')
+        .last
+        .replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+
     final ord = apostille.apostilleOrder ?? 0;
+
     return 'Apostilamento $ord - $base';
   }
 
@@ -536,7 +639,8 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     );
 
     try {
-      final (Uint8List bytes, String originalName) = await repository.pickFileBytes();
+      final (Uint8List bytes, String originalName) =
+      await repository.pickFileBytes();
 
       final label = _suggestLabelFromName(a, originalName);
 
@@ -552,9 +656,15 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         },
       );
 
-      final current = List<Attachment>.from(a.attachments ?? const <Attachment>[])..add(att);
+      final current = List<Attachment>.from(
+        a.attachments ?? const <Attachment>[],
+      )..add(att);
 
-      await repository.setAttachments(contractId: cId, apostilleId: a.id!, attachments: current);
+      await repository.setAttachments(
+        contractId: cId,
+        apostilleId: a.id!,
+        attachments: current,
+      );
 
       final updatedSelected = a.copyWith(attachments: current);
 
@@ -567,21 +677,28 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         ),
       );
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Anexo adicionado'),
-          subtitle: Text(att.label),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Anexo adicionado',
+        subtitle: att.label,
+        type: NotificationType.success,
+        saveInFirebase: true,
+        extra: {
+          'action': 'attachment_create',
+          'apostilleId': a.id,
+          'attachmentId': att.id,
+          'attachmentLabel': att.label,
+        },
       );
     } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Erro ao anexar'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Erro ao anexar',
+        subtitle: e.toString(),
+        type: NotificationType.error,
+        saveInFirebase: false,
+        extra: {
+          'action': 'attachment_create_error',
+          'error': e.toString(),
+        },
       );
 
       emit(
@@ -601,11 +718,20 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     final cId = contract.id?.trim();
     final a = state.selected;
 
-    if (cId == null || cId.isEmpty || a == null || a.attachments == null) return;
+    if (cId == null || cId.isEmpty || a == null || a.attachments == null) {
+      return;
+    }
+
     if (a.id == null) return;
     if (index < 0 || index >= a.attachments!.length) return;
 
-    emit(state.copyWith(sideLoading: true, clearUploadProgress: true, clearError: true));
+    emit(
+      state.copyWith(
+        sideLoading: true,
+        clearUploadProgress: true,
+        clearError: true,
+      ),
+    );
 
     try {
       final att = a.attachments![index];
@@ -625,7 +751,11 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
       final list = List<Attachment>.from(a.attachments!)..[index] = updated;
 
-      await repository.setAttachments(contractId: cId, apostilleId: a.id!, attachments: list);
+      await repository.setAttachments(
+        contractId: cId,
+        apostilleId: a.id!,
+        attachments: list,
+      );
 
       emit(
         state.copyWith(
@@ -636,20 +766,28 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         ),
       );
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Nome do anexo atualizado'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Nome do anexo atualizado',
+        subtitle: updated.label,
+        type: NotificationType.success,
+        saveInFirebase: true,
+        extra: {
+          'action': 'attachment_rename',
+          'apostilleId': a.id,
+          'attachmentId': updated.id,
+          'attachmentLabel': updated.label,
+        },
       );
     } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Erro ao renomear'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Erro ao renomear',
+        subtitle: e.toString(),
+        type: NotificationType.error,
+        saveInFirebase: false,
+        extra: {
+          'action': 'attachment_rename_error',
+          'error': e.toString(),
+        },
       );
 
       emit(
@@ -668,17 +806,33 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
     if (cId == null || cId.isEmpty || a == null || a.id == null) return;
 
-    emit(state.copyWith(sideLoading: true, clearUploadProgress: true, clearError: true));
+    emit(
+      state.copyWith(
+        sideLoading: true,
+        clearUploadProgress: true,
+        clearError: true,
+      ),
+    );
 
     try {
-      final atts = List<Attachment>.from(a.attachments ?? const <Attachment>[]);
+      final atts = List<Attachment>.from(
+        a.attachments ?? const <Attachment>[],
+      );
+
+      Attachment? removed;
 
       if (index >= 0 && index < atts.length) {
-        final removed = atts.removeAt(index);
+        removed = atts.removeAt(index);
+
         if (removed.path.isNotEmpty) {
           await repository.deleteStorageByPath(removed.path);
         }
-        await repository.setAttachments(contractId: cId, apostilleId: a.id!, attachments: atts);
+
+        await repository.setAttachments(
+          contractId: cId,
+          apostilleId: a.id!,
+          attachments: atts,
+        );
       }
 
       emit(
@@ -690,20 +844,28 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         ),
       );
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Anexo removido'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Anexo removido',
+        subtitle: removed?.label,
+        type: NotificationType.success,
+        saveInFirebase: true,
+        extra: {
+          'action': 'attachment_delete',
+          'apostilleId': a.id,
+          'attachmentId': removed?.id,
+          'attachmentLabel': removed?.label,
+        },
       );
     } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Erro ao remover'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Erro ao remover',
+        subtitle: e.toString(),
+        type: NotificationType.error,
+        saveInFirebase: false,
+        extra: {
+          'action': 'attachment_delete_error',
+          'error': e.toString(),
+        },
       );
 
       emit(
@@ -721,14 +883,19 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   // =========================
 
   Set<int> _extractExistingOrders(List<ApostillesData> list) {
-    return list.map((e) => e.apostilleOrder ?? 0).where((e) => e > 0).toSet();
+    return list
+        .map((e) => e.apostilleOrder ?? 0)
+        .where((e) => e > 0)
+        .toSet();
   }
 
   int _computeNextOrder(Set<int> existing) {
     if (existing.isEmpty) return 1;
+
     for (int i = 1; i <= existing.length + 1; i++) {
       if (!existing.contains(i)) return i;
     }
+
     final max = existing.reduce((a, b) => a > b ? a : b);
     return max + 1;
   }

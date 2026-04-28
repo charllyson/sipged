@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
+import 'package:sipged/_widgets/map/markers/marker_data.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_data.dart';
 
 final Distance _distTool = const Distance();
 const double _earthRadius = 6378137.0; // WebMercator
@@ -114,7 +114,7 @@ List<_Sample> _sampleAlong(List<LatLng> axis, double stepMeters) {
 }
 
 /// ===== Estacas (upright) com anti-colisão =====
-List<MarkerChangedData<Map<String, dynamic>>> buildStakeMarkersUprightWithTickRight({
+List<MarkerData<Map<String, dynamic>>> buildStakeMarkersUprightWithTickRight({
   required List<LatLng> axis,
   double stepMeters = 20.0,
   double offsetRightMeters = 6.0,
@@ -126,7 +126,7 @@ List<MarkerChangedData<Map<String, dynamic>>> buildStakeMarkersUprightWithTickRi
   final samples = _sampleAlong(axis, stepMeters);
   if (samples.isEmpty) return const [];
 
-  final out = <MarkerChangedData<Map<String, dynamic>>>[];
+  final out = <MarkerData<Map<String, dynamic>>>[];
 
   Offset? lastPx;
   for (var i = 0; i < samples.length; i++) {
@@ -145,7 +145,7 @@ List<MarkerChangedData<Map<String, dynamic>>> buildStakeMarkersUprightWithTickRi
     }
 
     out.add(
-      MarkerChangedData<Map<String, dynamic>>(
+      MarkerData<Map<String, dynamic>>(
         point: anchor,
         properties: {
           'idx': i,
@@ -261,12 +261,12 @@ SegmentedAxis splitAxisByFixedStep({
 }
 
 /// Central (20 m)
-List<PolylineChangedData> buildSegmentPolylines({
+List<PolylineData> buildSegmentPolylines({
   required SegmentedAxis segmented,
   Color Function(int idx)? colorForIndex,
   double strokeWidth = 5.0,
 }) {
-  final out = <PolylineChangedData>[];
+  final out = <PolylineData>[];
   final segs = segmented.segments;
 
   Color defaultColor(int i) =>
@@ -279,7 +279,7 @@ List<PolylineChangedData> buildSegmentPolylines({
     final baseColor = (colorForIndex ?? defaultColor).call(i);
 
     out.add(
-      PolylineChangedData(
+      PolylineData(
         points: seg,
         tag: 'segC:$i',
         color: baseColor,
@@ -327,7 +327,7 @@ List<LatLng> _offsetPolylineByNormal(
 }
 
 /// Paralelas segmentadas, alinhadas índice-a-índice à central.
-List<PolylineChangedData> buildParallelSegmentPolylines({
+List<PolylineData> buildParallelSegmentPolylines({
   required SegmentedAxis segmented,
   double offsetMeters = 3.5,
   bool buildRight = true,
@@ -338,7 +338,7 @@ List<PolylineChangedData> buildParallelSegmentPolylines({
   String sidePrefixRight = 'segR',
   String sidePrefixLeft = 'segL',
 }) {
-  final out = <PolylineChangedData>[];
+  final out = <PolylineData>[];
   final segs = segmented.segments;
 
   Color defaultColor(int i) =>
@@ -353,7 +353,7 @@ List<PolylineChangedData> buildParallelSegmentPolylines({
       final rPts = _offsetPolylineByNormal(seg, offsetMeters, right: true);
       if (rPts.length >= 2) {
         out.add(
-          PolylineChangedData(
+          PolylineData(
             points: rPts,
             tag: '$sidePrefixRight:$i',
             color: baseColor,
@@ -370,7 +370,7 @@ List<PolylineChangedData> buildParallelSegmentPolylines({
       final lPts = _offsetPolylineByNormal(seg, offsetMeters, right: false);
       if (lPts.length >= 2) {
         out.add(
-          PolylineChangedData(
+          PolylineData(
             points: lPts,
             tag: '$sidePrefixLeft:$i',
             color: baseColor,

@@ -1,22 +1,30 @@
 // lib/screens/map/setup_region_map.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+
 import 'package:sipged/_blocs/system/location/ibge_localidade_cubit.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_data.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_repository.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_state.dart';
+
 import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
-import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
+
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
-import 'package:sipged/_widgets/map/tooltip/tooltip_overlay.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_data.dart';
+
+import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
+import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
+import 'package:sipged/_widgets/overlays/balloon/balloon_tip.dart';
 
 /// Abre um dialog com mapa IBGE para selecionar múltiplos municípios.
+///
 /// [initialSelected] = municípios já vinculados a ESTA região.
-/// [lockedMunicipios] = municípios já usados em OUTRAS regiões (não podem ser selecionados aqui).
+/// [lockedMunicipios] = municípios já usados em OUTRAS regiões, não podem ser selecionados aqui.
 Future<List<String>?> setupRegionMap(
     BuildContext context, {
       String title = 'Selecionar municípios da região',
@@ -45,37 +53,39 @@ Future<List<String>?> setupRegionMap(
       ),
     ),
   );
-
 }
 
 class _RegionMunicipiosSelectorBody extends StatefulWidget {
-  final String title;
-  final List<String> initialSelected;
-  final List<String> lockedMunicipios;
-
   const _RegionMunicipiosSelectorBody({
     required this.title,
     required this.initialSelected,
     required this.lockedMunicipios,
   });
 
+  final String title;
+  final List<String> initialSelected;
+  final List<String> lockedMunicipios;
+
   @override
-  State<_RegionMunicipiosSelectorBody> createState() =>
-      _RegionMunicipiosSelectorBodyState();
+  State<_RegionMunicipiosSelectorBody> createState() {
+    return _RegionMunicipiosSelectorBodyState();
+  }
 }
 
 class _RegionMunicipiosSelectorBodyState
     extends State<_RegionMunicipiosSelectorBody> {
   MapController? _mapController;
 
-  /// Conjunto de municípios selecionados (por nome) nesta região
+  /// Balão exibido ao tocar em município bloqueado.
+  OverlayEntry? _lockedBalloonEntry;
+
+  /// Conjunto de municípios selecionados por nome nesta região.
   late Set<String> _selectedCities;
 
-  /// Municípios bloqueados (já vinculados a outras regiões)
+  /// Municípios bloqueados, já vinculados a outras regiões.
   late Set<String> _lockedCities;
 
-
-  /// Controller para UF (usado pelo DropDownButtonChange)
+  /// Controller para UF usado pelo DropDownChange.
   late final TextEditingController _ufCtrl;
 
   @override
@@ -97,18 +107,27 @@ class _RegionMunicipiosSelectorBodyState
 
   @override
   void dispose() {
+    _hideLockedBalloon();
     _ufCtrl.dispose();
     super.dispose();
   }
 
-  // Helpers para comparar nomes ignorando maiúsc./minúsc. e espaços
+  void _hideLockedBalloon() {
+    _lockedBalloonEntry?.remove();
+    _lockedBalloonEntry = null;
+  }
+
   bool _nameInSet(Set<String> set, String name) {
     final lower = name.trim().toLowerCase();
-    return set.any((e) => e.trim().toLowerCase() == lower);
+
+    return set.any(
+          (e) => e.trim().toLowerCase() == lower,
+    );
   }
 
   String? _findInSet(Set<String> set, String name) {
     final lower = name.trim().toLowerCase();
+
     try {
       return set.firstWhere(
             (e) => e.trim().toLowerCase() == lower,
@@ -118,91 +137,139 @@ class _RegionMunicipiosSelectorBodyState
     }
   }
 
-  /// Garante que a seleção atual (_selectedCities) só contenha municípios
-  /// que existem nos polígonos carregados do estado atual.
+  /// Garante que a seleção atual contenha apenas municípios existentes
+  /// nos polígonos carregados do estado atual.
   void _syncSelectionWithPolygons(IBGELocationState state) {
     if (state.cityPolygons.isEmpty) return;
 
     final availableNames = state.cityPolygons
-        .map((p) => (p.title).trim())
+        .map((p) => p.title.trim())
         .where((name) => name.isNotEmpty)
         .toList();
 
-    setState(() {
-      _selectedCities = _selectedCities
-          .where(
-            (name) => availableNames.any(
+    final nextSelectedCities = _selectedCities.where(
+          (name) {
+        return availableNames.any(
               (n) => n.toLowerCase() == name.trim().toLowerCase(),
-        ),
-      )
-          .toSet();
+        );
+      },
+    ).toSet();
+
+    if (nextSelectedCities.length == _selectedCities.length) {
+      return;
+    }
+
+    setState(() {
+      _selectedCities = nextSelectedCities;
     });
   }
 
-  /// Centro geométrico simples de um polígono (média dos pontos)
-  LatLng? _computePolygonCenter(PolygonChangedData poly) {
+  /// Centro geométrico simples de um polígono usando média dos pontos.
+  LatLng? _computePolygonCenter(PolygonData poly) {
     final pts = poly.polygon.points;
+
     if (pts.isEmpty) return null;
 
-    final lat =
-        pts.map((p) => p.latitude).reduce((a, b) => a + b) / pts.length;
+    final lat = pts.map((p) => p.latitude).reduce((a, b) => a + b) / pts.length;
     final lon =
         pts.map((p) => p.longitude).reduce((a, b) => a + b) / pts.length;
 
     return LatLng(lat, lon);
   }
 
-  LatLng? _computeCenter(List<PolygonChangedData> polys) {
+  LatLng? _computeCenter(List<PolygonData> polys) {
     final pts = <LatLng>[];
+
     for (final p in polys) {
       pts.addAll(p.polygon.points);
     }
+
     if (pts.isEmpty) return null;
 
-    final lat =
-        pts.map((p) => p.latitude).reduce((a, b) => a + b) / pts.length;
+    final lat = pts.map((p) => p.latitude).reduce((a, b) => a + b) / pts.length;
     final lon =
         pts.map((p) => p.longitude).reduce((a, b) => a + b) / pts.length;
 
     return LatLng(lat, lon);
   }
 
-  /// Mostra tooltip flutuante ancorado no centro do polígono bloqueado
-  void _showLockedTooltipAtPolygon(String regionName, IBGELocationState state) {
-    final overlay = Overlay.of(context);
+  /// Mostra o BalloonChange ancorado no centro do polígono bloqueado.
+  void _showLockedBalloonAtPolygon(
+      String regionName,
+      IBGELocationState state,
+      ) {
+    final overlayState = Overlay.of(context);
     final map = _mapController;
-    if (map == null) return;
 
+    if (map == null) return;
     if (state.cityPolygons.isEmpty) return;
 
-    // Encontra o polígono pelo nome (title)
     final poly = state.cityPolygons.firstWhere(
-          (p) => (p.title).trim().toLowerCase() ==
-          regionName.trim().toLowerCase(),
+          (p) {
+        return p.title.trim().toLowerCase() ==
+            regionName.trim().toLowerCase();
+      },
       orElse: () => state.cityPolygons.first,
     );
 
     final center = _computePolygonCenter(poly);
     if (center == null) return;
 
-    // Usa o mesmo helper que você já usa em PlanningRightWay: MapMath.latLngToScreen
     final cam = map.camera;
-    final Offset localPos = SipGedGeoMath.latLngToScreen(cam, center);
+    final Offset localMapPosition = SipGedGeoMath.latLngToScreen(
+      cam,
+      center,
+    );
 
-    // Converte para coordenada GLOBAL
     final renderObj = context.findRenderObject();
     if (renderObj is! RenderBox) return;
-    final Offset global = renderObj.localToGlobal(localPos);
 
-    TooltipOverlay.hide();
-    TooltipOverlay.show(
-      overlayState: overlay,
-      position: global,
-      title: 'Município bloqueado',
-      subtitle: '$regionName já está vinculado a outra região.',
-      maxWidth: 280,
-      forceDownArrow: true,
+    final Offset globalPosition = renderObj.localToGlobal(localMapPosition);
+
+    final overlayObject = overlayState.context.findRenderObject();
+    if (overlayObject is! RenderBox) return;
+
+    _hideLockedBalloon();
+
+    _lockedBalloonEntry = OverlayEntry(
+      builder: (_) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _hideLockedBalloon,
+                child: const SizedBox.expand(),
+              ),
+            ),
+            BalloonChange(
+              overlayBox: overlayObject,
+              globalAnchor: globalPosition,
+              width: 280,
+              maxHeight: 180,
+              topGap: 8,
+              screenMargin: 12,
+              tipSide: BalloonTipSide.bottom,
+              title: 'Município bloqueado',
+              headerIcon: Icons.lock_outline_rounded,
+              emptyMessage: 'Nenhuma informação encontrada.',
+              items: [
+                BalloonTileData(
+                  id: 'locked_$regionName',
+                  title: regionName,
+                  subtitle: 'Este município já está vinculado a outra região.',
+                  details: 'Remova o vínculo anterior para selecionar aqui.',
+                  icon: Icons.lock_outline_rounded,
+                  accentColor: Colors.orange.shade800,
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
+
+    overlayState.insert(_lockedBalloonEntry!);
   }
 
   @override
@@ -211,36 +278,36 @@ class _RegionMunicipiosSelectorBodyState
 
     return BlocConsumer<IBGELocationCubit, IBGELocationState>(
       listener: (context, state) {
-        // Centraliza o mapa quando carrega o estado
         if (_mapController != null &&
             state.selectedState != null &&
             state.cityPolygons.isNotEmpty) {
           final center = _computeCenter(state.cityPolygons);
+
           if (center != null) {
             _mapController!.move(center, 7.8);
           }
         }
 
-        // Atualiza o texto do dropdown de UF quando o estado selecionado mudar
         if (state.selectedState != null) {
           final st = state.selectedState!;
           final label = '${st.sigla} - ${st.nome}';
+
           if (_ufCtrl.text != label) {
             _ufCtrl.text = label;
           }
         }
 
-        // Ajusta a seleção para o UF atual (evita falhas ao trocar de estado)
         _syncSelectionWithPolygons(state);
       },
       builder: (context, state) {
         final ufItems = state.states
-            .map((IBGELocationStateData st) => '${st.sigla} - ${st.nome}')
+            .map(
+              (IBGELocationStateData st) => '${st.sigla} - ${st.nome}',
+        )
             .toList();
 
         return Column(
           children: [
-            // ====== Mapa (ocupa largura toda do WindowDialog) ======
             Expanded(
               child: Stack(
                 children: [
@@ -253,36 +320,33 @@ class _RegionMunicipiosSelectorBodyState
                     polygonsChanged: state.cityPolygons
                         .map((p) => _colorizePolygon(p))
                         .toList(),
-
-                    // 👇 grupo selecionado desta região
                     selectedRegionNames: _selectedCities.toList(),
-
                     allowMultiSelect: true,
                     showSearch: true,
                     onControllerReady: (ctrl) {
                       _mapController = ctrl;
                     },
                     onRegionTap: (region) {
+                      _hideLockedBalloon();
+
                       if (region == null) {
-                        setState(() {
-                        });
+                        setState(() {});
                         return;
                       }
 
-                      // 🔒 Bloqueado? (pertence a outra região e não a esta)
                       final bool isLocked =
                           _nameInSet(_lockedCities, region) &&
                               !_nameInSet(_selectedCities, region);
 
                       if (isLocked) {
-                        // Mostra tooltip flutuante ancorado no centro do polígono
-                        _showLockedTooltipAtPolygon(region, state);
+                        _showLockedBalloonAtPolygon(region, state);
                         return;
                       }
 
-                      // Toggle normal (seleção/deseleção)
-                      final String? selectedMatch =
-                      _findInSet(_selectedCities, region);
+                      final String? selectedMatch = _findInSet(
+                        _selectedCities,
+                        region,
+                      );
 
                       if (selectedMatch != null) {
                         setState(() {
@@ -291,13 +355,7 @@ class _RegionMunicipiosSelectorBodyState
                         return;
                       }
 
-                      state.cityPolygons.firstWhere(
-                            (p) => p.title == region,
-                        orElse: () => state.cityPolygons.first,
-                      );
-
                       setState(() {
-
                         _selectedCities.add(region);
                       });
                     },
@@ -325,11 +383,9 @@ class _RegionMunicipiosSelectorBodyState
                               .read<IBGELocationCubit>()
                               .changeSelectedState(st.id);
 
-                          setState(() {
-                          });
+                          _hideLockedBalloon();
 
-                          // Ao trocar estado, esconde tooltip, se existir
-                          TooltipOverlay.hide();
+                          setState(() {});
                         },
                       ),
                     ),
@@ -337,12 +393,12 @@ class _RegionMunicipiosSelectorBodyState
                 ],
               ),
             ),
-
-            // ====== Lista de selecionados + ações ======
             Container(
               width: double.infinity,
-              padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -366,19 +422,21 @@ class _RegionMunicipiosSelectorBodyState
                         style: theme.textTheme.bodySmall,
                       ),
                     ]
-                        : _selectedCities
-                        .map(
-                          (name) => Chip(
-                        backgroundColor: const Color(0xFFE1F5FE),
-                        label: Text(name),
-                        onDeleted: () {
-                          setState(() {
-                            _selectedCities.remove(name);
-                          });
-                        },
-                      ),
-                    )
-                        .toList(),
+                        : _selectedCities.map(
+                          (name) {
+                        return Chip(
+                          backgroundColor: const Color(0xFFE1F5FE),
+                          label: Text(name),
+                          onDeleted: () {
+                            _hideLockedBalloon();
+
+                            setState(() {
+                              _selectedCities.remove(name);
+                            });
+                          },
+                        );
+                      },
+                    ).toList(),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -390,19 +448,22 @@ class _RegionMunicipiosSelectorBodyState
                       const Spacer(),
                       TextButton(
                         onPressed: () {
+                          _hideLockedBalloon();
+
                           setState(() {
                             _selectedCities.clear();
                           });
-                          TooltipOverlay.hide();
                         },
                         child: const Text('Limpar'),
                       ),
                       const SizedBox(width: 8),
                       FilledButton.icon(
                         onPressed: () {
-                          TooltipOverlay.hide();
-                          Navigator.of(context)
-                              .pop(_selectedCities.toList());
+                          _hideLockedBalloon();
+
+                          Navigator.of(context).pop(
+                            _selectedCities.toList(),
+                          );
                         },
                         icon: const Icon(Icons.check),
                         label: const Text('Salvar seleção'),
@@ -419,43 +480,39 @@ class _RegionMunicipiosSelectorBodyState
   }
 
   /// Interpola cor dos polígonos marcando:
-  /// - selecionados nesta região (destaque),
-  /// - já usados em outras regiões (cinza),
-  /// - disponíveis (cinza clarinho).
-  PolygonChangedData _colorizePolygon(PolygonChangedData p) {
+  /// - selecionados nesta região;
+  /// - já usados em outras regiões;
+  /// - disponíveis.
+  PolygonData _colorizePolygon(PolygonData p) {
     final String name = p.title;
 
     final bool isSelected = _nameInSet(_selectedCities, name);
-    final bool isLocked =
-        _nameInSet(_lockedCities, name) && !isSelected; // outra região
+    final bool isLocked = _nameInSet(_lockedCities, name) && !isSelected;
 
     Color fill;
     Color border;
     double stroke;
 
     if (isSelected) {
-      // ✅ Selecionado nesta região -> destaque (roxo)
       fill = const Color(0xFF5E35B1).withValues(alpha: 0.40);
       border = const Color(0xFF311B92);
       stroke = 2.2;
     } else if (isLocked) {
-      // 🔒 Bloqueado (pertence a OUTRA região) -> CINZA bem visível
       fill = Colors.grey.withValues(alpha: 0.55);
       border = Colors.grey.shade900;
       stroke = 2.0;
     } else {
-      // 🌐 Disponível -> cinza clarinho
       fill = Colors.grey.withValues(alpha: 0.18);
       border = Colors.grey.shade400;
       stroke = 1.0;
     }
 
-    // Tooltip configurado via editor (se o MapInteractivePage usar)
-    final String tooltipText =
-    isLocked ? '$name (já vinculado a outra região)' : name;
+    final String tooltipText = isLocked
+        ? '$name (já vinculado a outra região)'
+        : name;
 
     final List<Map<String, dynamic>> props =
-        (p.properties?.map((e) => Map<String, dynamic>.from(e)).toList()) ??
+        p.properties?.map((e) => Map<String, dynamic>.from(e)).toList() ??
             <Map<String, dynamic>>[];
 
     if (props.isEmpty) {
@@ -464,7 +521,7 @@ class _RegionMunicipiosSelectorBodyState
       props[0]['tooltip'] = tooltipText;
     }
 
-    return PolygonChangedData(
+    return PolygonData(
       polygon: Polygon(
         points: p.polygon.points,
         borderColor: border,

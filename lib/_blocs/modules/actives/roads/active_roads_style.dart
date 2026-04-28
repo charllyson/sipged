@@ -5,7 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_data.dart';
 
 class ActiveRoadsStyle {
   const ActiveRoadsStyle._();
@@ -325,7 +325,7 @@ class ActiveRoadsStyle {
     return c == 'EOD';
   }
 
-  static List<PolylineChangedData> buildRoadPolylines({
+  static List<PolylineData> buildRoadPolylines({
     required String id,
     required String code,
     required List<List<LatLng>> segments,
@@ -361,7 +361,7 @@ class ActiveRoadsStyle {
     final degPerPx = degreesPerPixel(centerLatitude, zoom);
     final carriagewayOffsetDeg = carriagewayOffsetPx * degPerPx;
 
-    final out = <PolylineChangedData>[];
+    final out = <PolylineData>[];
 
     void addTrack({
       required List<LatLng> centerTrack,
@@ -376,7 +376,7 @@ class ActiveRoadsStyle {
 
       if (isSelected && !detailsMode) {
         out.add(
-          PolylineChangedData(
+          PolylineData(
             points: centerTrack,
             tag: interactive ? id : '${id}_color_$suffix',
             color: visibleColor,
@@ -393,7 +393,7 @@ class ActiveRoadsStyle {
       }
 
       out.add(
-        PolylineChangedData(
+        PolylineData(
           points: centerTrack,
           tag: '${id}_casing_$suffix',
           color: Colors.white,
@@ -405,7 +405,7 @@ class ActiveRoadsStyle {
       );
 
       out.add(
-        PolylineChangedData(
+        PolylineData(
           points: centerTrack,
           tag: interactive ? id : '${id}_color_$suffix',
           color: visibleColor,
@@ -422,7 +422,7 @@ class ActiveRoadsStyle {
 
       if (isDualRoad) {
         out.add(
-          PolylineChangedData(
+          PolylineData(
             points: seg,
             tag: '${id}_median_white',
             color: Colors.white,
@@ -473,13 +473,13 @@ class ActiveRoadsStyle {
     return out;
   }
 
-  static List<PolylineChangedData> styleLane(String? status, double zoom) {
+  static List<PolylineData> styleLane(String? status, double zoom) {
     final code = normalizeSurfaceCode(status);
     final color = colorForSurface(code);
 
     if (isDualRoadSurface(code)) {
       return [
-        PolylineChangedData(
+        PolylineData(
           points: const [],
           tag: null,
           color: Colors.white,
@@ -488,7 +488,7 @@ class ActiveRoadsStyle {
           isDotted: false,
           hitTestable: false,
         ),
-        PolylineChangedData(
+        PolylineData(
           points: const [],
           tag: null,
           color: Colors.white,
@@ -497,7 +497,7 @@ class ActiveRoadsStyle {
           isDotted: false,
           hitTestable: false,
         ),
-        PolylineChangedData(
+        PolylineData(
           points: const [],
           tag: null,
           color: color,
@@ -506,7 +506,7 @@ class ActiveRoadsStyle {
           isDotted: false,
           hitTestable: false,
         ),
-        PolylineChangedData(
+        PolylineData(
           points: const [],
           tag: null,
           color: Colors.white,
@@ -515,7 +515,7 @@ class ActiveRoadsStyle {
           isDotted: false,
           hitTestable: false,
         ),
-        PolylineChangedData(
+        PolylineData(
           points: const [],
           tag: null,
           color: color,
@@ -528,7 +528,7 @@ class ActiveRoadsStyle {
     }
 
     return [
-      PolylineChangedData(
+      PolylineData(
         points: const [],
         tag: null,
         color: Colors.white,
@@ -537,7 +537,7 @@ class ActiveRoadsStyle {
         isDotted: false,
         hitTestable: false,
       ),
-      PolylineChangedData(
+      PolylineData(
         points: const [],
         tag: null,
         color: color,

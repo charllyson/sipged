@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
@@ -18,13 +18,9 @@ class ValidityFormSection extends StatefulWidget {
   final ProcessData contractData;
   final ValidityState state;
 
-  /// Se o usuário pode editar (permissão)
   final bool isEditable;
-
-  /// Se está salvando no momento (para desabilitar botões)
   final bool isSaving;
 
-  // ====== Callbacks de campos ======
   final void Function(String?) onChangedOrderNumber;
   final void Function(String?) onChangedOrderType;
   final void Function(String?) onChangedOrderDate;
@@ -32,16 +28,12 @@ class ValidityFormSection extends StatefulWidget {
   final VoidCallback onClear;
   final Future<void> Function() onSaveOrUpdate;
 
-  // ====== Callbacks de anexos ======
   final Future<void> Function()? onAddAttachment;
   final Future<void> Function(int index)? onDeleteAttachment;
   final Future<void> Function(int index)? onTapAttachment;
 
-  /// ✅ NOVO: se quiser manter pai sincronizado / reagir a mudanças
   final void Function(List<dynamic> newItems)? onAttachmentsChanged;
 
-  /// ✅ NOVO: persistência do rename (se quiser)
-  /// Retorne true se persistiu; false para o SideListBox reverter o rótulo.
   final Future<bool> Function({
   required int index,
   required Attachment oldItem,
@@ -80,10 +72,12 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
   @override
   void initState() {
     super.initState();
+
     _orderCtrl = TextEditingController();
     _orderTypeCtrl = TextEditingController();
     _orderDateCtrl = TextEditingController();
-    _applyFromState(force: true);
+
+    _applyFromState();
   }
 
   @override
@@ -93,33 +87,42 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
     final oldSel = oldWidget.state.selectedValidity;
     final newSel = widget.state.selectedValidity;
 
-    if (!identical(oldSel, newSel)) {
-      _applyFromState(force: true);
+    final oldNext = oldWidget.state.nextOrderNumber;
+    final newNext = widget.state.nextOrderNumber;
+
+    if (!identical(oldSel, newSel) || oldNext != newNext) {
+      _applyFromState(resetSelectedAttachment: true);
     }
   }
 
-  void _applyFromState({bool force = false}) {
+  void _applyFromState({bool resetSelectedAttachment = false}) {
     final ValidityData? v = widget.state.selectedValidity;
 
     if (v == null) {
       _orderCtrl.text = widget.state.nextOrderNumber.toString();
-      _orderTypeCtrl.text = '';
-      _orderDateCtrl.text = '';
+      _orderTypeCtrl.clear();
+      _orderDateCtrl.clear();
     } else {
       _orderCtrl.text = v.orderNumber?.toString() ?? '';
       _orderTypeCtrl.text = v.ordertype ?? '';
-      _orderDateCtrl.text =
-      v.orderdate != null ? SipGedFormatDates.dateToDdMMyyyy(v.orderdate!) : '';
+      _orderDateCtrl.text = v.orderdate != null
+          ? SipGedFormatDates.dateToDdMMyyyy(v.orderdate!)
+          : '';
     }
 
-    setState(() {
+    if (resetSelectedAttachment && mounted) {
+      setState(() {
+        _selectedSideIndex = null;
+      });
+    } else {
       _selectedSideIndex = null;
-    });
+    }
   }
 
   bool get _isFormValid {
     final hasType = _orderTypeCtrl.text.trim().isNotEmpty;
     final dt = SipGedFormatDates.ddMMyyyyToDate(_orderDateCtrl.text);
+
     return hasType && dt != null;
   }
 
@@ -128,15 +131,18 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
     _orderCtrl.dispose();
     _orderTypeCtrl.dispose();
     _orderDateCtrl.dispose();
+
     super.dispose();
   }
 
   void _ensureSelectedIndexValid(int len) {
     if (_selectedSideIndex == null) return;
+
     if (len <= 0) {
       setState(() => _selectedSideIndex = null);
       return;
     }
+
     if (_selectedSideIndex! >= len) {
       setState(() => _selectedSideIndex = len - 1);
     }
@@ -155,7 +161,7 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
         final inputWidth = responsiveInputWidth(
           context: context,
           itemsPerLine: 3,
-          reservedWidth: isSmall ? 0.0 : (sideWidth + 12.0),
+          reservedWidth: isSmall ? 0.0 : sideWidth + 12.0,
           spacing: 12.0,
           margin: 12.0,
           extraPadding: 24.0,
@@ -172,20 +178,21 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
               items: state.orderNumberOptions,
               greyItems: state.greyOrderItems,
               controller: _orderCtrl,
-              enabled: widget.isEditable,
-              onChanged: (value) {
-                widget.onChangedOrderNumber(value);
-              },
+              enabled: widget.isEditable && !widget.isSaving,
+              onChanged: widget.onChangedOrderNumber,
             ),
             DropDownChange(
               width: inputWidth,
               labelText: 'Tipo da ordem',
               items: state.availableOrderTypes,
               controller: _orderTypeCtrl,
-              enabled: state.availableOrderTypes.isNotEmpty && widget.isEditable,
+              enabled: state.availableOrderTypes.isNotEmpty &&
+                  widget.isEditable &&
+                  !widget.isSaving,
               onChanged: (value) {
                 _orderTypeCtrl.text = value ?? '';
                 widget.onChangedOrderType(value);
+                setState(() {});
               },
             ),
             DateFieldChange(
@@ -193,16 +200,19 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
               controller: _orderDateCtrl,
               initialValue: selectedValidity?.orderdate,
               labelText: 'Data da ordem',
-              enabled: widget.isEditable,
+              enabled: widget.isEditable && !widget.isSaving,
               validator: (_) {
                 final d = SipGedFormatDates.ddMMyyyyToDate(_orderDateCtrl.text);
                 return d == null ? 'Data inválida' : null;
               },
               onChanged: (date) {
-                final text =
-                date != null ? SipGedFormatDates.dateToDdMMyyyy(date) : '';
+                final text = date != null
+                    ? SipGedFormatDates.dateToDdMMyyyy(date)
+                    : '';
+
                 _orderDateCtrl.text = text;
                 widget.onChangedOrderDate(text);
+                setState(() {});
               },
             ),
           ],
@@ -215,7 +225,9 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
               TextButton.icon(
                 icon: const Icon(Icons.restore),
                 label: const Text('Limpar'),
-                onPressed: widget.isEditable && !widget.isSaving ? widget.onClear : null,
+                onPressed: widget.isEditable && !widget.isSaving
+                    ? widget.onClear
+                    : null,
               ),
             const SizedBox(width: 12),
             TextButton.icon(
@@ -225,7 +237,9 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
               }
                   : null,
               icon: const Icon(Icons.save),
-              label: Text(selectedValidity?.id != null ? 'Atualizar' : 'Salvar'),
+              label: Text(
+                selectedValidity?.id != null ? 'Atualizar' : 'Salvar',
+              ),
             ),
           ],
         );
@@ -243,9 +257,10 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
           title: 'Arquivos da ordem',
           items: state.attachments,
           selectedIndex: _selectedSideIndex,
-          onAddPressed: (selectedValidity != null &&
+          onAddPressed: selectedValidity != null &&
               widget.isEditable &&
-              widget.onAddAttachment != null)
+              !widget.isSaving &&
+              widget.onAddAttachment != null
               ? () async {
             await widget.onAddAttachment!.call();
           }
@@ -254,23 +269,26 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
             setState(() {
               _selectedSideIndex = index;
             });
+
             if (widget.onTapAttachment != null) {
               await widget.onTapAttachment!(index);
             }
           },
-          onDelete: (widget.isEditable && widget.onDeleteAttachment != null)
+          onDelete: widget.isEditable &&
+              !widget.isSaving &&
+              widget.onDeleteAttachment != null
               ? (index) async {
             await widget.onDeleteAttachment!(index);
+
             if (!mounted) return;
+
             setState(() {
               _selectedSideIndex = null;
             });
           }
               : null,
           width: sideWidth,
-
-          // ✅ rename embutido
-          enableRename: widget.isEditable,
+          enableRename: widget.isEditable && !widget.isSaving,
           onItemsChanged: (newItems) {
             _ensureSelectedIndexValid(newItems.length);
             widget.onAttachmentsChanged?.call(newItems);

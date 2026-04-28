@@ -1,25 +1,21 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-// seus helpers
-import 'excel_table_widget.dart';
-import 'tipo_dado_enum.dart';
-import 'excel_utils.dart';
-import 'progress_import_dialog.dart';
-
-// ✅ notificações ricas
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
-
-// ✅ janela estilo macOS
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_widgets/dialog/windows/window_dialog.dart';
 
-class ExcelPreviewDialog extends StatefulWidget {
-  final List<Map<String, dynamic>> jsonData;
-  final String path;
-  final void Function()? onFinished;
+import 'excel_table_widget.dart';
+import 'excel_utils.dart';
+import 'progress_import_dialog.dart';
+import 'tipo_dado_enum.dart';
 
+class ExcelPreviewDialog extends StatefulWidget {
   const ExcelPreviewDialog({
     super.key,
     required this.jsonData,
@@ -27,29 +23,29 @@ class ExcelPreviewDialog extends StatefulWidget {
     this.onFinished,
   });
 
+  final List<Map<String, dynamic>> jsonData;
+  final String path;
+  final void Function()? onFinished;
+
   @override
   State<ExcelPreviewDialog> createState() => _ExcelPreviewDialogState();
 }
 
 class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
-  // seleção
   late Map<int, bool> _linhasSelecionadas;
   late Map<String, bool> _colunasSelecionadas;
   late Map<String, TipoDado> _tiposPorCampo;
   late List<String> _colunas;
 
-  // paginação
   int _paginaAtual = 0;
   final int _linhasPorPagina = 100;
 
-  // scrollbars corrigidos
   final ScrollController _vOriginal = ScrollController();
   final ScrollController _hOriginal = ScrollController();
   final ScrollController _vConvertido = ScrollController();
   final ScrollController _hConvertido = ScrollController();
 
-  // estado
-  bool _importDialogLoopStarted = false; // garante único disparo
+  bool _importDialogLoopStarted = false;
 
   @override
   void initState() {
@@ -57,16 +53,16 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
 
     _colunas = widget.jsonData.first.keys.toList();
 
-    _linhasSelecionadas = {
-      for (int i = 0; i < widget.jsonData.length; i++) i: true
+    _linhasSelecionadas = <int, bool>{
+      for (int i = 0; i < widget.jsonData.length; i++) i: true,
     };
 
-    _colunasSelecionadas = {
-      for (var col in _colunas) col: true
+    _colunasSelecionadas = <String, bool>{
+      for (final col in _colunas) col: true,
     };
 
-    _tiposPorCampo = {
-      for (var col in _colunas) col: detectarTipo(widget.jsonData, col),
+    _tiposPorCampo = <String, TipoDado>{
+      for (final col in _colunas) col: detectarTipo(widget.jsonData, col),
     };
   }
 
@@ -77,6 +73,49 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
     _vConvertido.dispose();
     _hConvertido.dispose();
     super.dispose();
+  }
+
+  void _notify(
+      String title, {
+        NotificationType type = NotificationType.info,
+        String? subtitle,
+      }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Importação',
+        type: type,
+        extra: {
+          'module': 'excel_import',
+          'path': widget.path,
+        },
+      ),
+      saveInFirebase: false,
+    );
+  }
+
+  Future<void> _notifyWithCubit(
+      NotificationCubit cubit,
+      String title, {
+        NotificationType type = NotificationType.info,
+        String? subtitle,
+      }) {
+    return cubit.show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Importação',
+        type: type,
+        extra: {
+          'module': 'excel_import',
+          'path': widget.path,
+        },
+      ),
+      saveInFirebase: false,
+    );
   }
 
   @override
@@ -94,7 +133,6 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Área central com Tabs + Tabelas
             SizedBox(
               width: double.infinity,
               height: size.height * 0.70,
@@ -120,7 +158,6 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            // Barra de ações: paginação + cancelar/confirmar
             Row(
               children: [
                 TextButton(
@@ -133,7 +170,8 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
                 Text('Página ${_paginaAtual + 1} de $totalPaginas'),
                 const SizedBox(width: 8),
                 TextButton(
-                  onPressed: (_paginaAtual + 1) * _linhasPorPagina < widget.jsonData.length
+                  onPressed:
+                  (_paginaAtual + 1) * _linhasPorPagina < widget.jsonData.length
                       ? () => setState(() => _paginaAtual++)
                       : null,
                   child: const Text('Próxima'),
@@ -156,11 +194,10 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
     );
   }
 
-  // ---------- Tabelas ----------
-
   Widget _buildTabelaOriginal() {
     final inicio = _paginaAtual * _linhasPorPagina;
     final fim = (_paginaAtual + 1) * _linhasPorPagina;
+
     final previewLinhas = widget.jsonData.sublist(
       inicio,
       fim > widget.jsonData.length ? widget.jsonData.length : fim,
@@ -174,7 +211,7 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
         scrollDirection: Axis.vertical,
         child: Scrollbar(
           controller: _hOriginal,
-          notificationPredicate: (_) => false, // evita 2 barras verticais
+          notificationPredicate: (_) => false,
           thumbVisibility: true,
           child: SingleChildScrollView(
             controller: _hOriginal,
@@ -186,13 +223,19 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
               tiposPorCampo: _tiposPorCampo,
               linhasSelecionadas: _linhasSelecionadas,
               onSelectLinha: (indexGlobal, selected) {
-                setState(() => _linhasSelecionadas[indexGlobal] = selected ?? false);
+                setState(() {
+                  _linhasSelecionadas[indexGlobal] = selected ?? false;
+                });
               },
               onToggleColuna: (coluna, selected) {
-                setState(() => _colunasSelecionadas[coluna] = selected ?? false);
+                setState(() {
+                  _colunasSelecionadas[coluna] = selected ?? false;
+                });
               },
               onChangeTipo: (coluna, tipo) {
-                setState(() => _tiposPorCampo[coluna] = tipo);
+                setState(() {
+                  _tiposPorCampo[coluna] = tipo;
+                });
               },
               paginaAtual: _paginaAtual,
               linhasPorPagina: _linhasPorPagina,
@@ -206,13 +249,15 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
   Widget _buildTabelaConvertida() {
     final inicio = _paginaAtual * _linhasPorPagina;
     final fim = (_paginaAtual + 1) * _linhasPorPagina;
+
     final linhasPreview = widget.jsonData.sublist(
       inicio,
       fim > widget.jsonData.length ? widget.jsonData.length : fim,
     );
 
     final linhasConvertidas = linhasPreview.mapIndexed((i, linha) {
-      final Map<String, dynamic> linhaConvertida = {};
+      final Map<String, dynamic> linhaConvertida = <String, dynamic>{};
+
       for (final col in _colunasSelecionadas.keys) {
         if (_colunasSelecionadas[col] != true) continue;
 
@@ -220,10 +265,10 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
         final tipo = _tiposPorCampo[col] ?? TipoDado.string;
         final convertido = converterValorPorTipo(valor, tipo);
 
-        linhaConvertida[col] = convertido is DateTime
-            ? convertido.toIso8601String()
-            : convertido;
+        linhaConvertida[col] =
+        convertido is DateTime ? convertido.toIso8601String() : convertido;
       }
+
       return linhaConvertida;
     }).toList();
 
@@ -247,13 +292,19 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
               tiposPorCampo: _tiposPorCampo,
               linhasSelecionadas: _linhasSelecionadas,
               onSelectLinha: (indexGlobal, selected) {
-                setState(() => _linhasSelecionadas[indexGlobal] = selected ?? false);
+                setState(() {
+                  _linhasSelecionadas[indexGlobal] = selected ?? false;
+                });
               },
               onToggleColuna: (coluna, selected) {
-                setState(() => _colunasSelecionadas[coluna] = selected ?? false);
+                setState(() {
+                  _colunasSelecionadas[coluna] = selected ?? false;
+                });
               },
               onChangeTipo: (coluna, tipo) {
-                setState(() => _tiposPorCampo[coluna] = tipo);
+                setState(() {
+                  _tiposPorCampo[coluna] = tipo;
+                });
               },
               paginaAtual: _paginaAtual,
               linhasPorPagina: _linhasPorPagina,
@@ -264,8 +315,6 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
     );
   }
 
-  // ---------- Importação (com correção do loop) ----------
-
   Future<void> _confirmarImportacao() async {
     final ref = FirebaseFirestore.instance
         .collection('trafficInfractions')
@@ -273,21 +322,18 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
         .collection(widget.path);
 
     final total = _linhasSelecionadas.entries.where((e) => e.value).length;
+
     if (total == 0) {
-      // ❗️ aviso via NotificationCenter
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Nada a importar'),
-          subtitle: const Text('Nenhuma linha selecionada.'),
-          type: AppNotificationType.warning,
-          leadingLabel: const Text('Importação'),
-          duration: const Duration(seconds: 4),
-        ),
+      _notify(
+        'Nada a importar',
+        subtitle: 'Nenhuma linha selecionada.',
+        type: NotificationType.warning,
       );
       return;
     }
 
-    // controla o progresso mostrado
+    final notificationCubit = context.read<NotificationCubit>();
+
     final progress = ValueNotifier<int>(0);
     _importDialogLoopStarted = false;
 
@@ -295,7 +341,6 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        // dispara o processamento apenas 1x
         if (!_importDialogLoopStarted) {
           _importDialogLoopStarted = true;
 
@@ -307,7 +352,7 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
                 if (!(_linhasSelecionadas[i] ?? false)) continue;
 
                 final linha = widget.jsonData[i];
-                final Map<String, dynamic> dadosFiltrados = {};
+                final Map<String, dynamic> dadosFiltrados = <String, dynamic>{};
 
                 for (final campo in _colunasSelecionadas.keys) {
                   if (_colunasSelecionadas[campo] != true) continue;
@@ -319,41 +364,45 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
                   dadosFiltrados[campo] = convertido;
                 }
 
-                // salve como preferir (add / set com docId único)
                 await ref.add(dadosFiltrados);
 
                 count++;
                 progress.value = count;
               }
 
-              if (ctx.mounted) Navigator.of(ctx).pop(); // fecha progress
-              if (mounted) Navigator.of(context).pop();  // fecha preview
+              if (ctx.mounted) {
+                Navigator.of(ctx).pop();
+              }
 
               if (mounted) {
-                // ✅ sucesso via NotificationCenter
-                NotificationCenter.instance.show(
-                  AppNotification(
-                    title: const Text('Importação concluída'),
-                    subtitle: Text('Registros importados: $count de $total.'),
-                    type: AppNotificationType.success,
-                    leadingLabel: const Text('Importação'),
-                    duration: const Duration(seconds: 6),
-                  ),
-                );
-                widget.onFinished?.call();
+                Navigator.of(context).pop();
               }
-            } catch (e) {
-              if (ctx.mounted) Navigator.of(ctx).pop(); // fecha progress
-              if (mounted) Navigator.of(context).pop();  // fecha preview
 
-              // ❌ erro via NotificationCenter
-              NotificationCenter.instance.show(
-                AppNotification(
-                  title: const Text('Falha na importação'),
-                  subtitle: Text('$e'),
-                  type: AppNotificationType.error,
-                  leadingLabel: const Text('Importação'),
-                  duration: const Duration(seconds: 8),
+              unawaited(
+                _notifyWithCubit(
+                  notificationCubit,
+                  'Importação concluída',
+                  subtitle: 'Registros importados: $count de $total.',
+                  type: NotificationType.success,
+                ),
+              );
+
+              widget.onFinished?.call();
+            } catch (e) {
+              if (ctx.mounted) {
+                Navigator.of(ctx).pop();
+              }
+
+              if (mounted) {
+                Navigator.of(context).pop();
+              }
+
+              unawaited(
+                _notifyWithCubit(
+                  notificationCubit,
+                  'Falha na importação',
+                  subtitle: '$e',
+                  type: NotificationType.error,
                 ),
               );
             }
@@ -363,10 +412,15 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
         return ValueListenableBuilder<int>(
           valueListenable: progress,
           builder: (_, current, _) {
-            return ProgressImportDialog(total: total, current: current);
+            return ProgressImportDialog(
+              total: total,
+              current: current,
+            );
           },
         );
       },
     );
+
+    progress.dispose();
   }
 }

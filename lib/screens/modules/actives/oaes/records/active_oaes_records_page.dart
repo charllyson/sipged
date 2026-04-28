@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/buttons/circle_button_change.dart';
-import 'package:sipged/screens/modules/actives/oaes/records/list_oaes_page.dart';
-import 'package:sipged/screens/modules/actives/oaes/records/tab_bar_oaes_page.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
-import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
-import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
-import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
-
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/screens/modules/actives/oaes/records/list_oaes_page.dart';
+import 'package:sipged/screens/modules/actives/oaes/records/tab_bar_oaes_page.dart';
 
 class ActiveOaesRecordsPage extends StatefulWidget {
   const ActiveOaesRecordsPage({super.key});
@@ -34,11 +36,29 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
 
     if (!_firedUserWarmup) {
       _firedUserWarmup = true;
+
       context.read<UserCubit>().warmup(
         listenRealtime: true,
         bindCurrentUser: true,
       );
     }
+  }
+
+  void _showNotification({
+    required String title,
+    String? subtitle,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'OAEs',
+        type: type,
+        duration: duration,
+      ),
+    );
   }
 
   @override
@@ -49,7 +69,11 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
 
         if (!_firedOaesWarmup && !st.initialized) {
           _firedOaesWarmup = true;
-          cubit.warmup();
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            cubit.warmup();
+          });
         }
 
         if (!st.initialized || st.loadStatus == ActiveOaesLoadStatus.loading) {
@@ -64,7 +88,32 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
             body: Stack(
               children: [
                 BackgroundChange(),
-                Center(child: Text('Carregando OAE\'s...')),
+                Center(
+                  child: LoadingTreeDots(
+                    size: 90,
+                    message: Text('Carregando OAEs...'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (st.loadStatus == ActiveOaesLoadStatus.failure) {
+          return Scaffold(
+            appBar: const UpBar(
+              leading: Padding(
+                padding: EdgeInsets.only(left: 12.0),
+                child: CircleButtonChange(),
+              ),
+              showPhotoMenu: true,
+            ),
+            body: Stack(
+              children: [
+                const BackgroundChange(),
+                Center(
+                  child: Text('Erro: ${st.error ?? '-'}'),
+                ),
               ],
             ),
           );
@@ -74,6 +123,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
 
         void onTapOae(ActiveOaesData item) {
           final idx = st.all.indexWhere((e) => e.id == item.id);
+
           if (idx != -1) {
             cubit.selectByIndex(idx);
           } else {
@@ -92,13 +142,11 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
 
         void onDeleteOae(String id) {
           cubit.delete(id);
-          NotificationCenter.instance.show(
-            AppNotification(
-              title: const Text('Solicitando exclusão...'),
-              type: AppNotificationType.warning,
-              leadingLabel: const Text('OAEs'),
-              duration: const Duration(seconds: 4),
-            ),
+
+          _showNotification(
+            title: 'Solicitando exclusão...',
+            subtitle: 'Registro enviado para exclusão.',
+            type: NotificationType.warning,
           );
         }
 
@@ -127,10 +175,22 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
                   onDelete: onDeleteOae,
                 ),
               ),
+              if (st.saving)
+                Stack(
+                  children: [
+                    ModalBarrier(
+                      dismissible: false,
+                      color: Colors.black.withValues(alpha: 0.4),
+                    ),
+                    const Center(
+                      child: LoadingTreeDots(size: 120),
+                    ),
+                  ],
+                ),
             ],
           ),
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: onAddOae,
+            onPressed: st.saving ? null : onAddOae,
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text(
               'Adicionar OAE',

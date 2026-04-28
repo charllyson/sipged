@@ -1,7 +1,11 @@
 import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -10,19 +14,20 @@ import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
-import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/contract_bell_notifier.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_1_metadados.dart';
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_2_documentos.dart';
@@ -53,18 +58,38 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
   late final ProgressCubit _progressBloc;
 
   ParecerJuridicoData _formData = const ParecerJuridicoData.empty();
+  ProcessData _contract = ProcessData.empty();
+
   bool _hydrated = false;
+  bool _loadingContract = false;
+
   String? _currentParecerId;
 
-  final _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController();
 
   bool get _isEditable => !widget.readOnly;
+
+  String get _contractId => widget.contractId.trim();
+
+  ProcessData get _effectiveContract {
+    if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
+    if (_contractId.isNotEmpty) return _contract.copyWith(id: _contractId);
+    return _contract;
+  }
 
   @override
   void initState() {
     super.initState();
+
     _progressBloc = ProgressCubit(repo: ProgressRepository());
-    context.read<ParecerJuridicoCubit>().load(widget.contractId);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_contractId.isEmpty) return;
+
+      context.read<ParecerJuridicoCubit>().load(_contractId);
+      unawaited(_loadContract(_contractId));
+    });
   }
 
   @override
@@ -74,48 +99,275 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     super.dispose();
   }
 
-  Future<void> _saveOnly() async {
-    final cubit = context.read<ParecerJuridicoCubit>();
+  Future<void> _loadContract(String contractId) async {
+    final cid = contractId.trim();
+    if (cid.isEmpty) return;
 
-    final completer = Completer<void>();
-    late final StreamSubscription sub;
+    if (mounted) {
+      setState(() => _loadingContract = true);
+    }
 
-    sub = cubit.stream.listen((s) {
-      if (!s.saving) {
-        if (!completer.isCompleted) completer.complete();
-        sub.cancel();
-      }
-    });
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(cid)
+          .get();
 
-    await cubit.saveAll(
-      contractId: widget.contractId,
-      sectionsData: _formData.toSectionsMap(),
-    );
+      if (!mounted) return;
 
-    await completer.future;
+      setState(() {
+        _contract = snapshot.exists
+            ? ProcessData.fromDocument(snapshot: snapshot)
+            : ProcessData.empty().copyWith(id: cid);
+        _loadingContract = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
 
+      setState(() {
+        _contract = ProcessData.empty().copyWith(id: cid);
+        _loadingContract = false;
+      });
+    }
+  }
+
+  String _currentActorName() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    final displayName = user?.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+
+    final email = user?.email?.trim() ?? '';
+    if (email.isNotEmpty) return email;
+
+    return 'Usuário';
+  }
+
+  Future<void> _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
     if (!mounted) return;
 
-    if (!cubit.state.saveSuccess) {
-      final err = cubit.state.error ?? 'Falha ao salvar';
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Parecer Jurídico'),
-          subtitle: const Text('Erro ao salvar.'),
-          details: Text(err),
-          type: AppNotificationType.error,
-        ),
+    final user = FirebaseAuth.instance.currentUser;
+
+    await ContractBellNotifier.show(
+      context: context,
+      contract: _effectiveContract,
+      title: title,
+      subtitle: subtitle,
+      details: details,
+      leadingLabel: 'Jurídico',
+      module: 'contracts_hiring_parecer',
+      type: type,
+      duration: duration,
+      saveInBell: saveInBell,
+      actorId: user?.uid,
+      actorName: _currentActorName(),
+      extra: extra,
+    );
+  }
+
+  Future<bool> _saveOnly() async {
+    if (widget.readOnly) {
+      await _notify(
+        title: 'Parecer Jurídico',
+        subtitle: 'Esta etapa está em modo somente leitura.',
+        type: NotificationType.info,
+      );
+      return false;
+    }
+
+    if (_contractId.isEmpty) {
+      await _notify(
+        title: 'Parecer Jurídico',
+        subtitle: 'Contrato não identificado para salvar.',
+        type: NotificationType.error,
+      );
+      return false;
+    }
+
+    final cubit = context.read<ParecerJuridicoCubit>();
+
+    try {
+      await cubit.saveAll(
+        contractId: _contractId,
+        sectionsData: _formData.toSectionsMap(),
+      );
+
+      if (!mounted) return false;
+
+      if (!cubit.state.saveSuccess) {
+        await _notify(
+          title: 'Parecer Jurídico',
+          subtitle: 'Erro ao salvar.',
+          details: cubit.state.error ?? 'Falha ao salvar',
+          type: NotificationType.error,
+          duration: const Duration(seconds: 6),
+        );
+        return false;
+      }
+
+      await _loadContract(_contractId);
+
+      if (!mounted) return false;
+
+      await _notify(
+        title: 'Parecer Jurídico atualizado',
+        subtitle: 'Alterações salvas por ${_currentActorName()}.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'parecer_saved',
+          'parecerId': cubit.state.parecerId,
+        },
+      );
+
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+
+      await _notify(
+        title: 'Parecer Jurídico',
+        subtitle: 'Erro ao salvar.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+
+      return false;
+    }
+  }
+
+  Future<void> _saveApproveAndNext() async {
+    final parecerCubit = context.read<ParecerJuridicoCubit>();
+    final pipeline = context.read<PipelineProgressCubit>();
+    final tab = DefaultTabController.of(context);
+    final repo = _progressBloc.repo;
+
+    final saved = await _saveOnly();
+
+    if (!mounted || !saved) return;
+
+    final parecerId = parecerCubit.state.parecerId;
+
+    if (parecerId == null || parecerId.isEmpty) {
+      await _notify(
+        title: 'Parecer Jurídico',
+        subtitle: 'Documento não encontrado para aprovar.',
+        type: NotificationType.error,
       );
       return;
     }
 
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: const Text('Parecer Jurídico'),
-        subtitle: const Text('Alterações salvas com sucesso.'),
-        type: AppNotificationType.success,
-      ),
-    );
+    final user = FirebaseAuth.instance.currentUser;
+    final actorName = _currentActorName();
+
+    try {
+      await repo.approveStage(
+        contractId: _contractId,
+        collectionName: 'parecer',
+        approverUid: user?.uid ?? '',
+        approverName: actorName,
+      );
+
+      await repo.setCompleted(
+        contractId: _contractId,
+        collectionName: 'parecer',
+        completed: true,
+      );
+
+      if (!mounted) return;
+
+      pipeline.setStageEnabled(HiringStageKey.publicacao, true);
+      unawaited(pipeline.refresh());
+
+      tab.animateTo((tab.index + 1).clamp(0, tab.length - 1));
+
+      await _notify(
+        title: 'Parecer Jurídico aprovado',
+        subtitle: 'Etapa concluída por $actorName.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'parecer_approved',
+          'parecerId': parecerId,
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      await _notify(
+        title: 'Parecer Jurídico',
+        subtitle: 'Erro ao aprovar.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+    }
+  }
+
+  Future<void> _updateApproved() async {
+    final parecerCubit = context.read<ParecerJuridicoCubit>();
+    final repo = _progressBloc.repo;
+
+    final saved = await _saveOnly();
+
+    if (!mounted || !saved) return;
+
+    final parecerId = parecerCubit.state.parecerId;
+
+    if (parecerId == null || parecerId.isEmpty) {
+      await _notify(
+        title: 'Parecer Jurídico',
+        subtitle: 'Documento não encontrado para atualizar.',
+        type: NotificationType.error,
+      );
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    final actorName = _currentActorName();
+
+    try {
+      await repo.touchApproval(
+        contractId: _contractId,
+        collectionName: 'parecer',
+        updatedByUid: user?.uid ?? '',
+        updatedByName: actorName,
+      );
+
+      if (!mounted) return;
+
+      await _notify(
+        title: 'Aprovação do Parecer Jurídico atualizada',
+        subtitle: 'Atualizada por $actorName.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'parecer_approval_updated',
+          'parecerId': parecerId,
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      await _notify(
+        title: 'Parecer Jurídico',
+        subtitle: 'Erro ao atualizar aprovação.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+    }
   }
 
   @override
@@ -123,15 +375,16 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     super.build(context);
 
     final users = context.select<UserCubit, List<UserData>>(
-          (c) => c.state.all,
+          (cubit) => cubit.state.all,
     );
 
     return BlocProvider.value(
       value: _progressBloc,
       child: BlocListener<ParecerJuridicoCubit, ParecerState>(
-        listenWhen: (prev, curr) =>
-        (prev.loading && !curr.loading) ||
-            (prev.parecerId != curr.parecerId),
+        listenWhen: (prev, curr) {
+          return (prev.loading && !curr.loading) ||
+              prev.parecerId != curr.parecerId;
+        },
         listener: (context, state) {
           if (!mounted || state.loading || !state.hasValidPath) return;
 
@@ -139,21 +392,25 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
           final needsHydrate = !_hydrated || _currentParecerId != incomingId;
 
           if (needsHydrate) {
-            final data =
-            ParecerJuridicoData.fromSectionsMap(state.sectionsData);
+            final data = ParecerJuridicoData.fromSectionsMap(
+              state.sectionsData,
+            );
 
             setState(() {
               _formData = data;
+              _hydrated = true;
+              _currentParecerId = incomingId;
             });
+          }
 
-            _hydrated = true;
-            _currentParecerId = incomingId;
+          if ((incomingId ?? '').isNotEmpty && _contractId.isNotEmpty) {
+            _progressBloc.bindToStage(
+              contractId: _contractId,
+              collectionName: 'parecer',
+            );
 
-            if (incomingId != null && incomingId.isNotEmpty) {
-              _progressBloc.bindToStage(
-                contractId: widget.contractId,
-                collectionName: 'parecer',
-              );
+            if ((_contract.id ?? '') != _contractId) {
+              unawaited(_loadContract(_contractId));
             }
           }
         },
@@ -161,13 +418,17 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
           builder: (context, state) {
             final pstate = context.watch<ProgressCubit>().state;
 
-            final locked = state.loading || state.saving || pstate.loading;
+            final locked =
+                state.loading || state.saving || pstate.loading || _loadingContract;
+
             final msg = state.loading
                 ? 'Sincronizando os dados...'
                 : state.saving
                 ? 'Salvando os dados...'
                 : pstate.loading
                 ? 'Atualizando aprovação...'
+                : _loadingContract
+                ? 'Carregando dados do contrato...'
                 : null;
 
             return ScreenLock(
@@ -237,159 +498,18 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                       ),
                     ],
                   ),
-                  bottomNavigationBar:
-                  BlocBuilder<ProgressCubit, ProgressState>(
-                    builder: (context, pstate) {
+                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
+                    builder: (context, progressState) {
                       return StageProgress(
                         title: 'Parecer Jurídico',
                         icon: Icons.gavel_outlined,
                         busy: state.saving,
-                        approved: pstate.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: () async {
-                          final parecerCubit =
-                          context.read<ParecerJuridicoCubit>();
-                          final pipeline =
-                          context.read<PipelineProgressCubit>();
-                          final tab = DefaultTabController.of(context);
-                          final repo = _progressBloc.repo;
-
+                        approved: progressState.approved,
+                        onSave: () async {
                           await _saveOnly();
-
-                          if (!mounted) return;
-
-                          final parecerId = parecerCubit.state.parecerId;
-
-                          if (parecerId == null || parecerId.isEmpty) {
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Parecer Jurídico'),
-                                subtitle: const Text(
-                                  'Documento não encontrado para aprovar.',
-                                ),
-                                type: AppNotificationType.error,
-                              ),
-                            );
-                            return;
-                          }
-
-                          final user = FirebaseAuth.instance.currentUser;
-                          final uid = user?.uid ?? '';
-                          final nameOrEmail =
-                          (user?.displayName?.trim().isNotEmpty ?? false)
-                              ? user!.displayName!
-                              : (user?.email ?? uid);
-
-                          try {
-                            await repo.approveStage(
-                              contractId: widget.contractId,
-                              collectionName: 'parecer',
-                              approverUid: uid,
-                              approverName: nameOrEmail,
-                            );
-
-                            await repo.setCompleted(
-                              contractId: widget.contractId,
-                              collectionName: 'parecer',
-                              completed: true,
-                            );
-
-                            if (!mounted) return;
-
-                            pipeline.setStageEnabled(
-                              HiringStageKey.parecer,
-                              true,
-                            );
-                            unawaited(pipeline.refresh());
-
-                            tab.animateTo(
-                              (tab.index + 1).clamp(0, tab.length - 1),
-                            );
-
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Parecer Jurídico'),
-                                subtitle: const Text(
-                                  'Aprovado e etapa concluída.',
-                                ),
-                                type: AppNotificationType.success,
-                              ),
-                            );
-                          } catch (e) {
-                            if (!mounted) return;
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Parecer Jurídico'),
-                                subtitle: const Text('Erro ao aprovar.'),
-                                details: Text('$e'),
-                                type: AppNotificationType.error,
-                              ),
-                            );
-                          }
                         },
-                        onUpdateApproved: () async {
-                          final parecerCubit =
-                          context.read<ParecerJuridicoCubit>();
-                          final repo = _progressBloc.repo;
-
-                          await _saveOnly();
-
-                          if (!mounted) return;
-
-                          final parecerId = parecerCubit.state.parecerId;
-                          if (parecerId == null || parecerId.isEmpty) {
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Parecer Jurídico'),
-                                subtitle: const Text(
-                                  'Documento não encontrado para atualizar.',
-                                ),
-                                type: AppNotificationType.error,
-                              ),
-                            );
-                            return;
-                          }
-
-                          final user = FirebaseAuth.instance.currentUser;
-                          final uid = user?.uid ?? '';
-                          final nameOrEmail =
-                          (user?.displayName?.trim().isNotEmpty ?? false)
-                              ? user!.displayName!
-                              : (user?.email ?? uid);
-
-                          try {
-                            await repo.touchApproval(
-                              contractId: widget.contractId,
-                              collectionName: 'parecer',
-                              updatedByUid: uid,
-                              updatedByName: nameOrEmail,
-                            );
-
-                            if (!mounted) return;
-
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Parecer Jurídico'),
-                                subtitle: const Text(
-                                  'Aprovação atualizada.',
-                                ),
-                                type: AppNotificationType.success,
-                              ),
-                            );
-                          } catch (e) {
-                            if (!mounted) return;
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Parecer Jurídico'),
-                                subtitle: const Text(
-                                  'Erro ao atualizar aprovação.',
-                                ),
-                                details: Text('$e'),
-                                type: AppNotificationType.error,
-                              ),
-                            );
-                          }
-                        },
+                        onSaveAndNext: _saveApproveAndNext,
+                        onUpdateApproved: _updateApproved,
                       );
                     },
                   ),

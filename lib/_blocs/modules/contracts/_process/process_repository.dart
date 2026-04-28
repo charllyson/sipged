@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'process_data.dart';
-import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/module/module_permission.dart' as perms;
 
 class ProcessRepository {
   final FirebaseFirestore _db;

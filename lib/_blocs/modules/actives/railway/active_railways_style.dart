@@ -2,7 +2,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_data.dart';
 
 class ActiveRailwaysStyle extends ChangeNotifier {
   /// status esperado (código canônico):
@@ -11,11 +11,11 @@ class ActiveRailwaysStyle extends ChangeNotifier {
   /// 'PLAN' -> Planejada
   /// 'INAT' -> Inativa
   /// default -> 'OUTRO'
-  static List<PolylineChangedData> styleLane(String? status, double zoom) {
+  static List<PolylineData> styleLane(String? status, double zoom) {
     switch (status?.toUpperCase()) {
       case 'OP':
         return [
-          PolylineChangedData(
+          PolylineData(
             points: const [],
             tag: null,
             color: colorForStatus('OP'),
@@ -30,7 +30,7 @@ class ActiveRailwaysStyle extends ChangeNotifier {
 
       case 'OBRA':
         return [
-          PolylineChangedData(
+          PolylineData(
             points: const [],
             tag: null,
             color: colorForStatus('OBRA'),
@@ -45,7 +45,7 @@ class ActiveRailwaysStyle extends ChangeNotifier {
 
       case 'PLAN':
         return [
-          PolylineChangedData(
+          PolylineData(
             points: const [],
             tag: null,
             color: colorForStatus('PLAN'),
@@ -60,7 +60,7 @@ class ActiveRailwaysStyle extends ChangeNotifier {
 
       case 'INAT':
         return [
-          PolylineChangedData(
+          PolylineData(
             points: const [],
             tag: null,
             color: colorForStatus('INAT'),
@@ -75,7 +75,7 @@ class ActiveRailwaysStyle extends ChangeNotifier {
 
       default:
         return [
-          PolylineChangedData(
+          PolylineData(
             points: const [],
             tag: null,
             color: colorForStatus('OUTRO'),

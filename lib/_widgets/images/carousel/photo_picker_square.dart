@@ -3,12 +3,14 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_widgets/images/carousel/custom_camera_page.dart';
 import 'package:sipged/_widgets/images/carousel/photo_preview_page.dart';
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class PhotoPickerSquare extends StatefulWidget {
@@ -47,14 +49,40 @@ class PhotoPickerSquare extends StatefulWidget {
 
 class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
   final ImagePicker _picker = ImagePicker();
+
   bool _busy = false;
 
   bool get _hasNewCallbacks =>
       widget.onPickFromCamera != null || widget.onPickFromGallery != null;
 
+  void _notify(
+      String title, {
+        NotificationType type = NotificationType.info,
+        String? subtitle,
+        Duration duration = const Duration(seconds: 5),
+      }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Fotos',
+        type: type,
+        duration: duration,
+        extra: const <String, dynamic>{
+          'module': 'photo_picker',
+        },
+      ),
+      saveInFirebase: false,
+    );
+  }
+
   Future<void> _runLocked(Future<void> Function() task) async {
     if (_busy) return;
+
     setState(() => _busy = true);
+
     try {
       await task();
     } finally {
@@ -78,6 +106,7 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       barrierColor: const Color(0x80000000),
       builder: (_) {
         dialogOpen = true;
+
         return Center(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -145,8 +174,13 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
                 title: const Text('Tirar foto'),
                 onTap: () async {
                   Navigator.of(sheetContext).pop();
-                  await Future<void>.delayed(const Duration(milliseconds: 120));
+
+                  await Future<void>.delayed(
+                    const Duration(milliseconds: 120),
+                  );
+
                   if (!mounted) return;
+
                   await _runLocked(_pickFromCamera);
                 },
               ),
@@ -155,8 +189,13 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
                 title: const Text('Escolher da galeria'),
                 onTap: () async {
                   Navigator.of(sheetContext).pop();
-                  await Future<void>.delayed(const Duration(milliseconds: 120));
+
+                  await Future<void>.delayed(
+                    const Duration(milliseconds: 120),
+                  );
+
                   if (!mounted) return;
+
                   await _runLocked(_pickFromGallery);
                 },
               ),
@@ -187,6 +226,7 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
         }
       } else if (Platform.isIOS) {
         if (!mounted) return;
+
         final NavigatorState navigator =
         Navigator.of(context, rootNavigator: true);
 
@@ -214,6 +254,7 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       }
 
       if (bytes == null || !mounted) return;
+
       final Uint8List safeBytes = bytes;
 
       final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
@@ -232,16 +273,14 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       );
 
       if (edited == null) return;
+
       await widget.onPickFromCamera?.call(edited);
     } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Falha ao obter imagem da câmera'),
-          subtitle: Text('$e'),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Fotos'),
-          duration: const Duration(seconds: 6),
-        ),
+      _notify(
+        'Falha ao obter imagem da câmera',
+        subtitle: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
       );
     }
   }
@@ -258,13 +297,16 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
         maxWidth: null,
         maxHeight: null,
       );
+
       if (file == null) return;
 
       final Uint8List? bytes = await _withBlockingDialog<Uint8List?>(
         message: 'Carregando foto…',
         task: file.readAsBytes,
       );
+
       if (bytes == null || !mounted) return;
+
       final Uint8List safeBytes = bytes;
 
       final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
@@ -283,16 +325,14 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       );
 
       if (edited == null) return;
+
       await widget.onPickFromGallery?.call(edited);
     } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Falha ao obter/editar imagem'),
-          subtitle: Text('$e'),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Fotos'),
-          duration: const Duration(seconds: 6),
-        ),
+      _notify(
+        'Falha ao obter/editar imagem',
+        subtitle: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
       );
     }
   }

@@ -6,7 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ValidityCubit extends Cubit<ValidityState> {

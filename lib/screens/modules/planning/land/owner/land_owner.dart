@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:sipged/_blocs/modules/planning/land/owner/land_owner_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/land/owner/land_owner_data.dart';
 import 'package:sipged/_blocs/modules/planning/land/owner/land_owner_state.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -60,11 +65,30 @@ class _LandOwnerState extends State<LandOwner> {
   void _initialize() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       context.read<LandOwnerCubit>().initialize(
         contractId: widget.contractId,
         propertyId: widget.propertyId,
       );
     });
+  }
+
+  void _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    required NotificationType type,
+  }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        details: details,
+        type: type,
+      ),
+    );
   }
 
   @override
@@ -149,6 +173,12 @@ class _LandOwnerState extends State<LandOwner> {
     notesCtrl.clear();
 
     context.read<LandOwnerCubit>().updateDraft(empty);
+
+    _notify(
+      title: 'Formulário limpo',
+      subtitle: 'Os campos do proprietário foram reiniciados.',
+      type: NotificationType.info,
+    );
   }
 
   @override
@@ -158,16 +188,23 @@ class _LandOwnerState extends State<LandOwner> {
       previous.error != current.error ||
           previous.successMessage != current.successMessage,
       listener: (context, state) {
-        if (state.error != null && state.error!.trim().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.error!)),
+        final error = state.error?.trim();
+        final success = state.successMessage?.trim();
+
+        if (error != null && error.isNotEmpty) {
+          _notify(
+            title: 'Erro no proprietário',
+            subtitle: 'Não foi possível concluir a operação.',
+            details: error,
+            type: NotificationType.error,
           );
         }
 
-        if (state.successMessage != null &&
-            state.successMessage!.trim().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.successMessage!)),
+        if (success != null && success.isNotEmpty) {
+          _notify(
+            title: 'Proprietário atualizado',
+            subtitle: success,
+            type: NotificationType.success,
           );
         }
       },
@@ -228,9 +265,10 @@ class _LandOwnerState extends State<LandOwner> {
                               width: w,
                               controller: phoneCtrl,
                               labelText: 'Telefone',
+                              keyboardType: TextInputType.phone,
                               inputFormatters: [
                                 FilteringTextInputFormatter.allow(
-                                  RegExp(r'[0-9./-]'),
+                                  RegExp(r'[0-9()+\s./-]'),
                                 ),
                               ],
                             ),

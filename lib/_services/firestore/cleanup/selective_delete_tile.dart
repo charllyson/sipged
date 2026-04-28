@@ -1,15 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/tiles/tile_widget.dart';
-import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
-import 'selective_delete_util.dart';
 
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'selective_delete_util.dart';
 
 class SelectiveDeleteSubcollectionTile extends StatelessWidget {
   const SelectiveDeleteSubcollectionTile({super.key});
+
+  void _notify(
+      BuildContext context,
+      String title, {
+        NotificationType type = NotificationType.info,
+        String? subtitle,
+        Duration duration = const Duration(seconds: 5),
+      }) {
+    if (!context.mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Limpeza',
+        type: type,
+        duration: duration,
+        extra: const <String, dynamic>{
+          'module': 'selective_delete_subcollection',
+        },
+      ),
+      saveInFirebase: false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,8 +45,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
       leading: Icons.delete_sweep,
       tileColor: Colors.white10,
       title: 'Apagar documentos (seletivo) de subcoleção',
-      subtitle:
-      'Informe coleção principal, subcoleção e campo (quando por filtro)',
+      subtitle: 'Informe coleção principal, subcoleção e campo (quando por filtro)',
       onTap: () async {
         final nav = Navigator.of(context, rootNavigator: true);
 
@@ -37,8 +64,10 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             );
 
             int dry = 0;
+
             try {
               final deleter = SubcollectionSelectiveDeleter();
+
               dry = await deleter.deleteIdsUnderEachParent(
                 parentCollectionPath: p.parent,
                 subcollection: p.sub,
@@ -47,14 +76,14 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
               );
             } catch (e) {
               if (nav.canPop()) nav.pop();
-              NotificationCenter.instance.show(
-                AppNotification(
-                  title: const Text('Falha no dry-run'),
-                  subtitle: Text('$e'),
-                  type: AppNotificationType.error,
-                  leadingLabel: const Text('Limpeza'),
-                  duration: const Duration(seconds: 6),
-                ),
+
+              if (!context.mounted) return;
+              _notify(
+                context,
+                'Falha no dry-run',
+                subtitle: '$e',
+                type: NotificationType.error,
+                duration: const Duration(seconds: 6),
               );
               return;
             } finally {
@@ -62,10 +91,12 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             }
 
             if (!context.mounted) return;
+
             final proceed = await confirmDialog(
               context,
               'Prévia: $dry documento(s) encontrados.\nApagar mesmo assim?',
             );
+
             if (!context.mounted || proceed != true) return;
 
             showDialog(
@@ -75,8 +106,10 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             );
 
             int real = 0;
+
             try {
               final deleter = SubcollectionSelectiveDeleter();
+
               real = await deleter.deleteIdsUnderEachParent(
                 parentCollectionPath: p.parent,
                 subcollection: p.sub,
@@ -85,14 +118,14 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
               );
             } catch (e) {
               if (nav.canPop()) nav.pop();
-              NotificationCenter.instance.show(
-                AppNotification(
-                  title: const Text('Erro ao apagar documentos'),
-                  subtitle: Text('$e'),
-                  type: AppNotificationType.error,
-                  leadingLabel: const Text('Limpeza'),
-                  duration: const Duration(seconds: 6),
-                ),
+
+              if (!context.mounted) return;
+              _notify(
+                context,
+                'Erro ao apagar documentos',
+                subtitle: '$e',
+                type: NotificationType.error,
+                duration: const Duration(seconds: 6),
               );
               return;
             } finally {
@@ -100,13 +133,12 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             }
 
             if (!context.mounted) return;
-            NotificationCenter.instance.show(
-              AppNotification(
-                title: Text('Apagados: $real documento(s).'),
-                type: AppNotificationType.success,
-                leadingLabel: const Text('Limpeza'),
-                duration: const Duration(seconds: 4),
-              ),
+
+            _notify(
+              context,
+              'Apagados: $real documento(s).',
+              type: NotificationType.success,
+              duration: const Duration(seconds: 4),
             );
             break;
 
@@ -121,8 +153,10 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             );
 
             int dry = 0;
+
             try {
               final deleter = SubcollectionSelectiveDeleter();
+
               dry = p.useParents
                   ? await deleter.deleteWhereUnderEachParent(
                 parentCollectionPath: p.parent,
@@ -137,14 +171,14 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
               );
             } catch (e) {
               if (nav.canPop()) nav.pop();
-              NotificationCenter.instance.show(
-                AppNotification(
-                  title: const Text('Falha no dry-run'),
-                  subtitle: Text('$e'),
-                  type: AppNotificationType.error,
-                  leadingLabel: const Text('Limpeza'),
-                  duration: const Duration(seconds: 6),
-                ),
+
+              if (!context.mounted) return;
+              _notify(
+                context,
+                'Falha no dry-run',
+                subtitle: '$e',
+                type: NotificationType.error,
+                duration: const Duration(seconds: 6),
               );
               return;
             } finally {
@@ -152,10 +186,12 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             }
 
             if (!context.mounted) return;
+
             final proceed = await confirmDialog(
               context,
               'Prévia: $dry documento(s) encontrados.\nApagar mesmo assim?',
             );
+
             if (!context.mounted || proceed != true) return;
 
             showDialog(
@@ -165,8 +201,10 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             );
 
             int real = 0;
+
             try {
               final deleter = SubcollectionSelectiveDeleter();
+
               real = p.useParents
                   ? await deleter.deleteWhereUnderEachParent(
                 parentCollectionPath: p.parent,
@@ -181,14 +219,14 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
               );
             } catch (e) {
               if (nav.canPop()) nav.pop();
-              NotificationCenter.instance.show(
-                AppNotification(
-                  title: const Text('Erro ao apagar documentos'),
-                  subtitle: Text('$e'),
-                  type: AppNotificationType.error,
-                  leadingLabel: const Text('Limpeza'),
-                  duration: const Duration(seconds: 6),
-                ),
+
+              if (!context.mounted) return;
+              _notify(
+                context,
+                'Erro ao apagar documentos',
+                subtitle: '$e',
+                type: NotificationType.error,
+                duration: const Duration(seconds: 6),
               );
               return;
             } finally {
@@ -196,13 +234,12 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
             }
 
             if (!context.mounted) return;
-            NotificationCenter.instance.show(
-              AppNotification(
-                title: Text('Apagados: $real documento(s).'),
-                type: AppNotificationType.success,
-                leadingLabel: const Text('Limpeza'),
-                duration: const Duration(seconds: 4),
-              ),
+
+            _notify(
+              context,
+              'Apagados: $real documento(s).',
+              type: NotificationType.success,
+              duration: const Duration(seconds: 4),
             );
             break;
         }
@@ -338,6 +375,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
     final subCtrl = TextEditingController(text: 'reportsMeasurement');
     final fieldCtrl = TextEditingController(text: 'migratedFromMeasurements');
     final valueCtrl = TextEditingController(text: 'true');
+
     WhereOp op = WhereOp.eq;
     bool useParents = true;
 
@@ -425,11 +463,12 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
                             valueCtrl.text.trim().isEmpty) {
                           return;
                         }
+
                         if (useParents && parentCtrl.text.trim().isEmpty) {
                           return;
                         }
 
-                        final dynamic parsed = (op == WhereOp.whereIn)
+                        final dynamic parsed = op == WhereOp.whereIn
                             ? FieldValueParser.parse(
                           valueCtrl.text,
                           tryList: true,
@@ -467,23 +506,27 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
 enum _Mode { byIds, byFilter }
 
 class _ByIdsParams {
+  _ByIdsParams(
+      this.parent,
+      this.sub,
+      this.ids,
+      );
+
   final String parent;
   final String sub;
   final List<String> ids;
-
-  _ByIdsParams(this.parent, this.sub, this.ids);
 }
 
 class _ByFilterParams {
-  final String parent;
-  final String sub;
-  final List<WhereFilter> filters;
-  final bool useParents;
-
   _ByFilterParams({
     required this.parent,
     required this.sub,
     required this.filters,
     required this.useParents,
   });
+
+  final String parent;
+  final String sub;
+  final List<WhereFilter> filters;
+  final bool useParents;
 }

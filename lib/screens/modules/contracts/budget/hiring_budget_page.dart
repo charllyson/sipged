@@ -1,21 +1,29 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sipged/_widgets/buttons/circle_button_change.dart';
-import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
-import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
-import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
-import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
+import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
+import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
 
 class HiringBudgetPage extends StatefulWidget {
-  const HiringBudgetPage({super.key, required this.contractData});
+  const HiringBudgetPage({
+    super.key,
+    required this.contractData,
+  });
+
   final ProcessData contractData;
 
   @override
@@ -24,6 +32,171 @@ class HiringBudgetPage extends StatefulWidget {
 
 class _HiringBudgetPageState extends State<HiringBudgetPage> {
   bool _saving = false;
+
+  String get _contractId => widget.contractData.id?.trim() ?? '';
+
+  String get _contractSummary {
+    final data = widget.contractData;
+
+    final summary = (data.summarySubjectContract ?? '').trim();
+    if (summary.isNotEmpty) return summary;
+
+    final number = (data.contractNumber ?? '').trim();
+    if (number.isNotEmpty) return 'Contrato $number';
+
+    final process = (data.processNumber ?? '').trim();
+    if (process.isNotEmpty) return 'Processo $process';
+
+    if (_contractId.isNotEmpty) return 'Contrato $_contractId';
+
+    return 'Contrato sem identificação';
+  }
+
+  String get _contractNumber {
+    final data = widget.contractData;
+
+    final number = (data.contractNumber ?? '').trim();
+    if (number.isNotEmpty) return number;
+
+    final process = (data.processNumber ?? '').trim();
+    if (process.isNotEmpty) return process;
+
+    return _contractId;
+  }
+
+  String _resolveActorName(String? uid) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final cleanUid = uid?.trim();
+
+    if (cleanUid != null && cleanUid.isNotEmpty) {
+      final meta = widget.contractData.participantsInfo[cleanUid];
+
+      if (meta != null) {
+        final fullName = (meta['fullName'] ??
+            meta['displayName'] ??
+            meta['nameComplete'] ??
+            '')
+            .toString()
+            .trim();
+
+        if (fullName.isNotEmpty) return fullName;
+
+        final name = (meta['name'] ?? '').toString().trim();
+        final surname = (meta['surname'] ?? '').toString().trim();
+
+        final composed = [name, surname]
+            .where((e) => e.trim().isNotEmpty)
+            .join(' ')
+            .trim();
+
+        if (composed.isNotEmpty) return composed;
+
+        final email = (meta['email'] ?? '').toString().trim();
+        if (email.isNotEmpty) return email;
+      }
+    }
+
+    final displayName = currentUser?.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+
+    final email = currentUser?.email?.trim() ?? '';
+    if (email.isNotEmpty) return email;
+
+    return 'Usuário';
+  }
+
+  List<String> _contractNotificationRecipients({
+    required String? currentUserId,
+  }) {
+    final current = currentUserId?.trim();
+    final ids = <String>{};
+
+    for (final entry in widget.contractData.permissionContractId.entries) {
+      final userId = entry.key.trim();
+      if (userId.isEmpty) continue;
+
+      final perms = entry.value;
+
+      final canRead = perms['read'] == true ||
+          perms['view'] == true ||
+          perms['create'] == true ||
+          perms['edit'] == true ||
+          perms['update'] == true ||
+          perms['delete'] == true ||
+          perms['admin'] == true ||
+          perms['owner'] == true;
+
+      if (!canRead) continue;
+      if (current != null && current.isNotEmpty && userId == current) continue;
+
+      ids.add(userId);
+    }
+
+    for (final userId in widget.contractData.participantsInfo.keys) {
+      final clean = userId.trim();
+      if (clean.isEmpty) continue;
+      if (current != null && current.isNotEmpty && clean == current) continue;
+
+      ids.add(clean);
+    }
+
+    return ids.toList();
+  }
+
+  Future<void> _showNotification({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUserId = currentUser?.uid.trim();
+    final actorName = _resolveActorName(currentUserId);
+
+    final notification = NotificationData(
+      title: title,
+      subtitle: subtitle,
+      details: details ?? _contractSummary,
+      leadingLabel: 'Orçamento',
+      type: type,
+      duration: duration,
+      persistInFirebase: saveInBell,
+      createdBy: currentUserId,
+      extra: <String, dynamic>{
+        'module': 'contracts_budget',
+        'contractId': _contractId,
+        'contractNumber': _contractNumber,
+        'contractSummary': _contractSummary,
+        'contractTitle': _contractSummary,
+        'actorId': currentUserId,
+        'actorName': actorName,
+        ...extra,
+      },
+    );
+
+    if (!saveInBell) {
+      await context.read<NotificationCubit>().show(notification);
+      return;
+    }
+
+    final recipients = _contractNotificationRecipients(
+      currentUserId: currentUserId,
+    );
+
+    if (recipients.isEmpty) {
+      await context.read<NotificationCubit>().show(notification);
+      return;
+    }
+
+    await context.read<NotificationCubit>().showToUsers(
+      notification,
+      userIds: recipients,
+      alsoShowLocalToast: true,
+    );
+  }
 
   Future<void> _load(
       BudgetCubit cubit,
@@ -55,6 +228,15 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
       bc.MagicTableController c,
       String contractId,
       ) async {
+    if (contractId.trim().isEmpty) {
+      await _showNotification(
+        title: 'Contrato inválido',
+        subtitle: 'Não foi possível identificar o contrato.',
+        type: NotificationType.error,
+      );
+      return;
+    }
+
     setState(() => _saving = true);
 
     try {
@@ -65,38 +247,45 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
         data: domain,
       );
 
-      if (mounted) {
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('Orçamento'),
-            subtitle: const Text('Alterações salvas'),
-            type: AppNotificationType.success,
-          ),
-        );
-      }
+      if (!mounted) return;
+
+      final actorName = _resolveActorName(
+        FirebaseAuth.instance.currentUser?.uid,
+      );
+
+      await _showNotification(
+        title: 'Orçamento atualizado',
+        subtitle: 'Alterações salvas por $actorName.',
+        details: _contractSummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'budget_updated',
+        },
+      );
     } catch (e) {
-      if (mounted) {
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('Falha ao salvar'),
-            subtitle: Text('$e'),
-            type: AppNotificationType.error,
-          ),
-        );
-      }
+      if (!mounted) return;
+
+      await _showNotification(
+        title: 'Falha ao salvar orçamento',
+        subtitle: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final contractId = widget.contractData.id!;
+    final contractId = _contractId;
 
     return ChangeNotifierProvider<bc.MagicTableController>(
       create: (_) => bc.MagicTableController(
-        cellPadHorizontal:
-        const EdgeInsets.symmetric(horizontal: 12).horizontal,
+        cellPadHorizontal: const EdgeInsets.symmetric(horizontal: 12).horizontal,
       ),
       builder: (context, _) {
         final ctrl = context.watch<bc.MagicTableController>();
@@ -110,9 +299,9 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
 
         return Scaffold(
           appBar: UpBar(
-            leading: Padding(
-              padding: const EdgeInsets.only(left: 12.0),
-              child: const CircleButtonChange(),
+            leading: const Padding(
+              padding: EdgeInsets.only(left: 12.0),
+              child: CircleButtonChange(),
             ),
           ),
           body: Stack(
@@ -126,43 +315,44 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
                   allowAddColumn: false,
                   allowRemoveColumn: false,
                   allowAddRow: false,
-                  onRequestSaveAfterStructureChange: (c) =>
-                      _saveNow(cubit, c, contractId),
+                  onRequestSaveAfterStructureChange: (c) {
+                    return _saveNow(cubit, c, contractId);
+                  },
                   bottomScrollGap: 90,
                   rightScrollGap: 60,
-                  floatingActionsBuilder: (ctx, c) => [
-                    FloatingActionButton.small(
-                      backgroundColor: Colors.white,
-                      heroTag: 'pasteExcel',
-                      tooltip: 'Colar do Excel (Ctrl+V)',
-                      onPressed: isBusy ? null : () => c.pasteFromClipboard(),
-                      child: const Icon(Icons.paste),
-                    ),
-                    const SizedBox(height: 12),
-                    FloatingActionButton.small(
-                      backgroundColor: Colors.white,
-                      heroTag: 'saveBudget',
-                      tooltip: 'Salvar orçamento no Firestore',
-                      onPressed: isBusy
-                          ? null
-                          : () async {
-                        if (!c.hasData) {
-                          NotificationCenter.instance.show(
-                            AppNotification(
-                              title: const Text('Nada para salvar'),
-                              subtitle: const Text(
-                                'Cole dados do Excel antes de salvar.',
-                              ),
-                              type: AppNotificationType.info,
-                            ),
-                          );
-                          return;
-                        }
-                        await _saveNow(cubit, c, contractId);
-                      },
-                      child: const Icon(Icons.save),
-                    ),
-                  ],
+                  floatingActionsBuilder: (ctx, c) {
+                    return [
+                      FloatingActionButton.small(
+                        backgroundColor: Colors.white,
+                        heroTag: 'pasteExcel',
+                        tooltip: 'Colar do Excel (Ctrl+V)',
+                        onPressed: isBusy ? null : () => c.pasteFromClipboard(),
+                        child: const Icon(Icons.paste),
+                      ),
+                      const SizedBox(height: 12),
+                      FloatingActionButton.small(
+                        backgroundColor: Colors.white,
+                        heroTag: 'saveBudget',
+                        tooltip: 'Salvar orçamento no Firestore',
+                        onPressed: isBusy
+                            ? null
+                            : () async {
+                          if (!c.hasData) {
+                            await _showNotification(
+                              title: 'Nada para salvar',
+                              subtitle:
+                              'Cole dados do Excel antes de salvar.',
+                              type: NotificationType.info,
+                            );
+                            return;
+                          }
+
+                          await _saveNow(cubit, c, contractId);
+                        },
+                        child: const Icon(Icons.save),
+                      ),
+                    ];
+                  },
                 ),
               ),
               const Align(

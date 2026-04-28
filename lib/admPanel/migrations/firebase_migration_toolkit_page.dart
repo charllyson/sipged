@@ -1,12 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
-
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class FirebaseMigrationToolkitPage extends StatefulWidget {
   final String? initialPath;
@@ -55,6 +58,29 @@ class _FirebaseMigrationToolkitPageState
     super.dispose();
   }
 
+  void _notify({
+    required String title,
+    String? subtitle,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Firebase',
+        type: type,
+        duration: duration,
+        extra: const <String, dynamic>{
+          'module': 'firebase_migration_toolkit',
+        },
+      ),
+      saveInFirebase: false,
+    );
+  }
+
   Future<void> _loadCollection() async {
     final path = _pathCtrl.text.trim();
 
@@ -86,6 +112,7 @@ class _FirebaseMigrationToolkitPageState
       final ids = docs.map((d) => d.id).toList();
 
       if (!mounted) return;
+
       setState(() {
         _docs = docs;
         _docIds = ids;
@@ -94,17 +121,15 @@ class _FirebaseMigrationToolkitPageState
         _hasLoaded = true;
       });
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Coleção carregada'),
-          subtitle: Text('Encontrados ${ids.length} documentos em "$path".'),
-          type: AppNotificationType.success,
-          leadingLabel: const Text('Firebase'),
-          duration: const Duration(seconds: 4),
-        ),
+      _notify(
+        title: 'Coleção carregada',
+        subtitle: 'Encontrados ${ids.length} documentos em "$path".',
+        type: NotificationType.success,
+        duration: const Duration(seconds: 4),
       );
     } catch (e) {
       if (!mounted) return;
+
       setState(() {
         _errorMessage = 'Erro ao carregar coleção: $e';
         _docs = [];
@@ -114,14 +139,11 @@ class _FirebaseMigrationToolkitPageState
         _hasLoaded = true;
       });
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Erro ao carregar coleção'),
-          subtitle: Text('$e'),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Firebase'),
-          duration: const Duration(seconds: 6),
-        ),
+      _notify(
+        title: 'Erro ao carregar coleção',
+        subtitle: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
       );
     } finally {
       if (mounted) {
@@ -144,9 +166,11 @@ class _FirebaseMigrationToolkitPageState
 
   void _toggleSelectAllFieldsForDoc(String docId, Map<String, dynamic> data) {
     final keys = data.keys.toList();
+
     setState(() {
       final current = _selectedFieldsByDocId[docId] ?? <String>{};
       final allSelected = keys.isNotEmpty && current.length == keys.length;
+
       if (allSelected) {
         _selectedFieldsByDocId[docId] = <String>{};
       } else {
@@ -158,6 +182,7 @@ class _FirebaseMigrationToolkitPageState
   void _toggleFieldSelection(String docId, String fieldName, bool selected) {
     setState(() {
       final set = _selectedFieldsByDocId.putIfAbsent(docId, () => <String>{});
+
       if (selected) {
         set.add(fieldName);
       } else {
@@ -172,9 +197,12 @@ class _FirebaseMigrationToolkitPageState
 
     for (final doc in _docs) {
       final data = doc.data();
+
       if (data.containsKey(fieldName)) {
         docsWithField++;
+
         final selectedFields = _selectedFieldsByDocId[doc.id] ?? <String>{};
+
         if (selectedFields.contains(fieldName)) {
           docsWithFieldSelected++;
         }
@@ -188,10 +216,14 @@ class _FirebaseMigrationToolkitPageState
     setState(() {
       for (final doc in _docs) {
         final data = doc.data();
+
         if (!data.containsKey(fieldName)) continue;
 
         final docId = doc.id;
-        final set = _selectedFieldsByDocId.putIfAbsent(docId, () => <String>{});
+        final set = _selectedFieldsByDocId.putIfAbsent(
+          docId,
+              () => <String>{},
+        );
 
         if (selected) {
           set.add(fieldName);
@@ -209,10 +241,13 @@ class _FirebaseMigrationToolkitPageState
 
   String _stringifyFieldValue(dynamic value) {
     if (value == null) return 'null';
+
     var s = value.toString();
+
     if (s.length > 200) {
       s = '${s.substring(0, 197)}...';
     }
+
     return s;
   }
 
@@ -221,41 +256,31 @@ class _FirebaseMigrationToolkitPageState
     final targetPath = _targetPathCtrl.text.trim();
 
     if (sourcePath.isEmpty) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Origem não informada'),
-          subtitle: const Text('Informe o caminho da coleção de origem.'),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Firebase'),
-          duration: const Duration(seconds: 4),
-        ),
+      _notify(
+        title: 'Origem não informada',
+        subtitle: 'Informe o caminho da coleção de origem.',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 4),
       );
       return;
     }
 
     if (targetPath.isEmpty) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Destino não informado'),
-          subtitle: const Text('Informe o caminho da coleção destino.'),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Firebase'),
-          duration: const Duration(seconds: 4),
-        ),
+      _notify(
+        title: 'Destino não informado',
+        subtitle: 'Informe o caminho da coleção destino.',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 4),
       );
       return;
     }
 
     if (_selectedIds.isEmpty) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Nenhum documento selecionado'),
-          subtitle:
-          const Text('Selecione ao menos um documento para copiar.'),
-          type: AppNotificationType.info,
-          leadingLabel: const Text('Firebase'),
-          duration: const Duration(seconds: 4),
-        ),
+      _notify(
+        title: 'Nenhum documento selecionado',
+        subtitle: 'Selecione ao menos um documento para copiar.',
+        type: NotificationType.info,
+        duration: const Duration(seconds: 4),
       );
       return;
     }
@@ -270,6 +295,7 @@ class _FirebaseMigrationToolkitPageState
 
       for (final doc in _docs) {
         final docId = doc.id;
+
         if (!_selectedIds.contains(docId)) continue;
 
         final data = doc.data();
@@ -288,49 +314,38 @@ class _FirebaseMigrationToolkitPageState
 
         if (toCopy.isEmpty) continue;
 
-        final targetRef =
-        FirebaseFirestore.instance.collection(targetPath).doc(docId);
+        final targetRef = FirebaseFirestore.instance
+            .collection(targetPath)
+            .doc(docId);
 
         batch.set(targetRef, toCopy, SetOptions(merge: true));
         ops++;
       }
 
       if (ops == 0) {
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('Nada para copiar'),
-            subtitle: const Text(
-              'Nenhum campo selecionado ou dados vazios nos documentos escolhidos.',
-            ),
-            type: AppNotificationType.info,
-            leadingLabel: const Text('Firebase'),
-            duration: const Duration(seconds: 4),
-          ),
+        _notify(
+          title: 'Nada para copiar',
+          subtitle:
+          'Nenhum campo selecionado ou dados vazios nos documentos escolhidos.',
+          type: NotificationType.info,
+          duration: const Duration(seconds: 4),
         );
       } else {
         await batch.commit();
 
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('Cópia concluída'),
-            subtitle: Text(
-              'Campos copiados para "$targetPath" em $ops documento(s).',
-            ),
-            type: AppNotificationType.success,
-            leadingLabel: const Text('Firebase'),
-            duration: const Duration(seconds: 5),
-          ),
+        _notify(
+          title: 'Cópia concluída',
+          subtitle: 'Campos copiados para "$targetPath" em $ops documento(s).',
+          type: NotificationType.success,
+          duration: const Duration(seconds: 5),
         );
       }
     } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Erro ao copiar campos'),
-          subtitle: Text('$e'),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Firebase'),
-          duration: const Duration(seconds: 6),
-        ),
+      _notify(
+        title: 'Erro ao copiar campos',
+        subtitle: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
       );
     } finally {
       if (mounted) {
@@ -368,7 +383,11 @@ class _FirebaseMigrationToolkitPageState
       body: LayoutBuilder(
         builder: (context, constraints) {
           double maxW = constraints.maxWidth;
-          if (constraints.maxWidth >= 1600) maxW = 1100;
+
+          if (constraints.maxWidth >= 1600) {
+            maxW = 1100;
+          }
+
           if (constraints.maxWidth >= 1200 && constraints.maxWidth < 1600) {
             maxW = 1000;
           }
@@ -456,8 +475,10 @@ class _FirebaseMigrationToolkitPageState
                       padding: EdgeInsets.only(top: 16),
                       child: Text(
                         'Nenhum documento encontrado para esta coleção.',
-                        style:
-                        TextStyle(fontSize: 13, color: Colors.black54),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.black54,
+                        ),
                       ),
                     )
                   else if (_docIds.isNotEmpty) ...[
@@ -503,8 +524,10 @@ class _FirebaseMigrationToolkitPageState
                             final fieldKeys = data.keys.toList()..sort();
                             final selectedFieldSet =
                                 _selectedFieldsByDocId[id] ?? <String>{};
+
                             final allFieldsSelected = fieldKeys.isNotEmpty &&
                                 selectedFieldSet.length == fieldKeys.length;
+
                             final isDocSelected = _selectedIds.contains(id);
 
                             return ExpansionTile(
@@ -659,7 +682,10 @@ class _FirebaseMigrationToolkitPageState
                               centered: false,
                             ),
                           )
-                              : const Icon(Icons.copy_all_outlined, size: 18),
+                              : const Icon(
+                            Icons.copy_all_outlined,
+                            size: 18,
+                          ),
                           label: const Text('Copiar campos selecionados'),
                         ),
                       ),

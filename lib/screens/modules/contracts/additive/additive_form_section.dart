@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+
 import 'package:sipged/_utils/mask/sipged_masks.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
@@ -32,29 +33,23 @@ class AdditiveFormSection extends StatefulWidget {
   final VoidCallback onSave;
   final VoidCallback onClear;
 
-  // SideListBox (compat: String OU Attachment)
   final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
 
-  /// progress/loading do SideListBox (novo padrão)
   final bool sideLoading;
   final double? uploadProgress;
 
-  /// mantém o pai sincronizado com a lista interna do SideListBox
   final void Function(List<dynamic> newItems)? onSideItemsChanged;
 
-  /// persistir rename (opcional)
-  /// Retorne true se persistiu; false para o SideListBox reverter.
   final Future<bool> Function({
   required int index,
   required Attachment oldItem,
   required Attachment newItem,
   })? onRenamePersistSideItem;
 
-  // Dropdown de ordem
   final List<String> orderOptions;
   final Set<String> greyOrderItems;
   final void Function(String?) onChangedOrder;
@@ -131,13 +126,15 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
     setState(() => _currentType = t);
   }
 
-  bool _exibeValor() =>
-      const ['VALOR', 'REEQUÍLIBRIO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
-          .contains(_currentType.toUpperCase());
+  bool _exibeValor() {
+    return const ['VALOR', 'REEQUÍLIBRIO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
+        .contains(_currentType.toUpperCase());
+  }
 
-  bool _exibePrazo() =>
-      const ['PRAZO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
-          .contains(_currentType.toUpperCase());
+  bool _exibePrazo() {
+    return const ['PRAZO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
+        .contains(_currentType.toUpperCase());
+  }
 
   void _onTypeChanged(String? value) {
     final v = (value ?? '').trim();
@@ -146,6 +143,7 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
     if (!_exibeValor()) {
       widget.valueController.clear();
     }
+
     if (!_exibePrazo()) {
       widget.additionalDaysContractController.clear();
       widget.additionalDaysExecutionController.clear();
@@ -169,30 +167,32 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
         TextInputFormatter? mask,
         required bool isEditable,
       }) {
+    final inputFormatters = <TextInputFormatter>[
+      if (date) FilteringTextInputFormatter.digitsOnly,
+      if (date) SipGedMasks.dateDDMMYYYY,
+      if (money) const SipGedMoneyFormatter(),
+      ?mask,
+    ];
+
+    final field = CustomTextField(
+      width: width,
+      controller: ctrl,
+      enabled: enabled && isEditable,
+      labelText: label,
+      prefixText: money ? 'R\$ ' : null,
+      keyboardType: date
+          ? TextInputType.datetime
+          : money
+          ? TextInputType.number
+          : null,
+      inputFormatters: inputFormatters,
+    );
+
+    if (!tooltip) return field;
+
     return Tooltip(
-      message: tooltip
-          ? 'Este campo é calculado automaticamente e não pode ser editado.'
-          : '',
-      child: CustomTextField(
-        width: width,
-        controller: ctrl,
-        enabled: enabled && isEditable,
-        labelText: label,
-        keyboardType:
-        date ? TextInputType.datetime : (money ? TextInputType.number : null),
-        inputFormatters: [
-          if (date) FilteringTextInputFormatter.digitsOnly,
-          if (date) SipGedMasks.dateDDMMYYYY,
-          if (money)
-            CurrencyInputFormatter(
-              leadingSymbol: r'R$ ',
-              useSymbolPadding: true,
-              thousandSeparator: ThousandSeparator.Period,
-              mantissaLength: 2,
-            ),
-          ?mask,
-        ],
-      ),
+      message: 'Este campo é calculado automaticamente e não pode ser editado.',
+      child: field,
     );
   }
 
@@ -209,7 +209,7 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
         final double inputsWidth = responsiveInputWidth(
           context: context,
           itemsPerLine: 4,
-          reservedWidth: isSmallScreen ? 0.0 : (sideWidth + 12.0),
+          reservedWidth: isSmallScreen ? 0.0 : sideWidth + 12.0,
           spacing: 12.0,
           margin: 12.0,
           extraPadding: 24.0,
@@ -218,8 +218,8 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
 
         final double minCardHeight = isSmallScreen ? 260.0 : 170.0;
 
-        // ✅ regra única para habilitar ações de anexos
-        final bool canEditSide = widget.isEditable && widget.selectedAdditive != null;
+        final bool canEditSide =
+            widget.isEditable && widget.selectedAdditive != null;
 
         final camposWrap = Wrap(
           spacing: 12,
@@ -293,7 +293,9 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
               icon: const Icon(Icons.save),
               label: Text(widget.editingMode ? 'Atualizar' : 'Salvar'),
               onPressed: widget.formValidated
-                  ? (widget.isEditable ? widget.onSave : null)
+                  ? widget.isEditable
+                  ? widget.onSave
+                  : null
                   : null,
             ),
             const SizedBox(width: 12),
@@ -319,25 +321,16 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
           title: 'Arquivos do Aditivo',
           items: widget.sideItems,
           selectedIndex: widget.selectedSideIndex,
-
-          // ✅ só habilita add quando há aditivo selecionado + editável
           onAddPressed: canEditSide ? widget.onAddSideItem : null,
-
-          onTap: widget.onTapSideItem == null ? null : (i) => widget.onTapSideItem!(i),
-
-          // ✅ O DELETE APARECE quando onDelete != null
-          // Aqui garantimos que só passa != null quando pode editar + pai forneceu callback.
-          onDelete: (canEditSide && widget.onDeleteSideItem != null)
+          onTap: widget.onTapSideItem == null
+              ? null
+              : (i) => widget.onTapSideItem!(i),
+          onDelete: canEditSide && widget.onDeleteSideItem != null
               ? (i) => widget.onDeleteSideItem!(i)
               : null,
-
           width: sideWidth,
-
-          // progress
           loading: widget.sideLoading,
           uploadProgress: widget.uploadProgress,
-
-          // rename
           enableRename: canEditSide,
           onItemsChanged: widget.onSideItemsChanged,
           onRenamePersist: widget.onRenamePersistSideItem,

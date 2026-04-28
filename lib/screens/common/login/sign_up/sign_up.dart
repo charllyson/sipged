@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -12,13 +12,19 @@ import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class SignUp extends StatefulWidget {
-  const SignUp({super.key, required this.userData});
+  const SignUp({
+    super.key,
+    required this.userData,
+  });
+
   final UserData userData;
 
   @override
@@ -57,14 +63,57 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
   void _notify(
       String title, {
         String? subtitle,
-        AppNotificationType type = AppNotificationType.info,
+        NotificationType type = NotificationType.info,
       }) {
-    NotificationCenter.instance.show(
-      AppNotification(
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Cadastro',
         type: type,
-        title: Text(title),
-        subtitle:
-        (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+        duration: const Duration(seconds: 4),
+        extra: const <String, dynamic>{
+          'module': 'signup',
+        },
+      ),
+      saveInFirebase: false,
+    );
+  }
+
+  Future<void> _showPasswordMismatchDialog() async {
+    if (!mounted) return;
+
+    await showWindowDialog<void>(
+      context: context,
+      title: 'Erro na senha',
+      width: 420,
+      child: Builder(
+        builder: (dialogCtx) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'As senhas digitadas não coincidem. Por favor, digite novamente.',
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    FilledButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -77,44 +126,15 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
     if (_passController.text != _repeatPassController.text) {
       _passController.clear();
       _repeatPassController.clear();
-      if (!mounted) return;
 
-      await showWindowDialog<void>(
-        context: context,
-        title: 'Erro na senha',
-        width: 420,
-        child: Builder(
-          builder: (dialogCtx) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'As senhas digitadas não coincidem. Por favor, digite novamente.',
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      FilledButton(
-                        onPressed: () => Navigator.of(dialogCtx).pop(),
-                        child: const Text('OK'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      );
+      await _showPasswordMismatchDialog();
       return;
     }
 
     final isValid = _formKey.currentState?.validate() ?? false;
+
     if (!isValid) return;
+
     _formKey.currentState?.save();
 
     _loading.value = true;
@@ -135,16 +155,19 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
 
       if (!ok) {
         if (!mounted) return;
+
         _notify(
           'Erro ao cadastrar',
           subtitle: _loginCubit.state.errorMessage ??
               'Verifique os dados e tente novamente.',
-          type: AppNotificationType.error,
+          type: NotificationType.error,
         );
+
         return;
       }
 
       final uid = _loginCubit.state.firebaseUser?.uid;
+
       if (uid != null) {
         newUser.uid = uid;
 
@@ -154,17 +177,20 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
       }
 
       if (!mounted) return;
+
       _notify(
         'Cadastro realizado com sucesso!',
-        type: AppNotificationType.success,
+        type: NotificationType.success,
       );
+
       navigator.pop();
     } catch (e) {
       if (!mounted) return;
+
       _notify(
         'Erro inesperado ao cadastrar',
         subtitle: '$e',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
       );
     } finally {
       if (mounted) {
@@ -175,8 +201,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
 
   @override
   Widget build(BuildContext context) {
-    final cpfDigits =
-    (widget.userData.cpf ?? '').replaceAll(RegExp(r'\D'), '');
+    final cpfDigits = (widget.userData.cpf ?? '').replaceAll(RegExp(r'\D'), '');
     final cpfFormatted =
     cpfDigits.isEmpty ? '' : SipGedFormatNumbers.formatCPF(cpfDigits);
 
@@ -218,9 +243,10 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                               ),
                               CustomTextField(
                                 controller: _emailController,
-                                onSaved: (v) =>
-                                widget.userData.email =
-                                    v?.trim().toLowerCase(),
+                                onSaved: (v) {
+                                  widget.userData.email =
+                                      v?.trim().toLowerCase();
+                                },
                                 labelText: 'E-mail',
                                 prefixIcon: const Icon(Icons.account_circle),
                                 keyboardType: TextInputType.emailAddress,
@@ -237,12 +263,15 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                                   color: Colors.green,
                                 ),
                                 keyboardType: TextInputType.number,
-                                inputFormatters: [CpfInputFormatter()],
+                                inputFormatters: [
+                                  CpfInputFormatter(),
+                                ],
                               ),
                               DateFieldChange(
                                 validator: validateDateToBirthday,
-                                onSaved: (v) =>
-                                widget.userData.dateToBirthday = v,
+                                onSaved: (v) {
+                                  widget.userData.dateToBirthday = v;
+                                },
                                 labelText: 'Data de nascimento',
                                 prefix: const Icon(Icons.cake),
                               ),
@@ -281,8 +310,9 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                                     )
                                         : const Text(
                                       'Cadastrar',
-                                      style:
-                                      TextStyle(color: Colors.white),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   );
                                 },
@@ -300,7 +330,10 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
               valueListenable: _loading,
               builder: (_, loading, _) {
                 if (!loading) return const SizedBox.shrink();
-                return const _BlockingOverlay(message: 'Criando conta…');
+
+                return const _BlockingOverlay(
+                  message: 'Criando conta…',
+                );
               },
             ),
           ],
@@ -311,7 +344,10 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
 }
 
 class _BlockingOverlay extends StatelessWidget {
-  const _BlockingOverlay({required this.message});
+  const _BlockingOverlay({
+    required this.message,
+  });
+
   final String message;
 
   @override
@@ -331,7 +367,7 @@ class _BlockingOverlay extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF1E1E1E),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF6E6E6E)),
+                border: Border.all(color: Color(0xFF6E6E6E)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

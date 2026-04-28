@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/charts/bars/bar_chart_metrics.dart';
 import 'package:sipged/_widgets/charts/bars/bar_chart_shimmer_widget.dart';

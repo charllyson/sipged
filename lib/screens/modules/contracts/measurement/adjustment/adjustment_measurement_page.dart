@@ -9,28 +9,37 @@ import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustmen
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_state.dart';
 
-import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'adjustment_measurement_form_section.dart';
 import 'adjustment_measurement_graph_section.dart';
 import 'adjustment_measurement_table_section.dart';
 
 class AdjustmentMeasurement extends StatelessWidget {
-  const AdjustmentMeasurement({super.key, required this.contractData});
+  const AdjustmentMeasurement({
+    super.key,
+    required this.contractData,
+  });
+
   final ProcessData contractData;
 
   @override
   Widget build(BuildContext context) {
     final contractId = contractData.id?.toString();
+
     if (contractId == null || contractId.isEmpty) {
-      return const Center(child: Text('Contrato inválido para reajustes.'));
+      return const Center(
+        child: Text('Contrato inválido para reajustes.'),
+      );
     }
 
     return BlocProvider(
@@ -43,14 +52,19 @@ class AdjustmentMeasurement extends StatelessWidget {
 }
 
 class _AdjustmentMeasurementView extends StatefulWidget {
-  const _AdjustmentMeasurementView({required this.contractData});
+  const _AdjustmentMeasurementView({
+    required this.contractData,
+  });
+
   final ProcessData contractData;
 
   @override
-  State<_AdjustmentMeasurementView> createState() => _AdjustmentMeasurementViewState();
+  State<_AdjustmentMeasurementView> createState() =>
+      _AdjustmentMeasurementViewState();
 }
 
-class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> {
+class _AdjustmentMeasurementViewState
+    extends State<_AdjustmentMeasurementView> {
   final orderCtrl = TextEditingController();
   final processCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
@@ -63,6 +77,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
   @override
   void initState() {
     super.initState();
+
     orderCtrl.addListener(_validateForm);
     processCtrl.addListener(_validateForm);
     valueCtrl.addListener(_validateForm);
@@ -74,16 +89,39 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
     orderCtrl
       ..removeListener(_validateForm)
       ..dispose();
+
     processCtrl
       ..removeListener(_validateForm)
       ..dispose();
+
     valueCtrl
       ..removeListener(_validateForm)
       ..dispose();
+
     dateCtrl
       ..removeListener(_validateForm)
       ..dispose();
+
     super.dispose();
+  }
+
+  void _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        details: details,
+        leadingLabel: 'Reajuste',
+        type: type,
+        duration: duration,
+      ),
+    );
   }
 
   void _validateForm() {
@@ -91,14 +129,19 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
         processCtrl.text.trim().isNotEmpty &&
         valueCtrl.text.trim().isNotEmpty &&
         dateCtrl.text.trim().isNotEmpty;
-    if (formValidated != ok) setState(() => formValidated = ok);
+
+    if (formValidated != ok && mounted) {
+      setState(() => formValidated = ok);
+    }
   }
 
   int _computeNextOrder(AdjustmentMeasurementState state) {
     if (state.adjustments.isEmpty) return 1;
+
     final maxOrder = state.adjustments
         .map((e) => e.order ?? 0)
         .fold<int>(0, (prev, curr) => math.max(prev, curr));
+
     return maxOrder + 1;
   }
 
@@ -111,12 +154,13 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
       processCtrl.clear();
       valueCtrl.clear();
       dateCtrl.clear();
+      _validateForm();
       return;
     }
 
     orderCtrl.text = (sel.order ?? '').toString();
     processCtrl.text = sel.numberprocess ?? '';
-    valueCtrl.text = (sel.value ?? 0.0).toStringAsFixed(2);
+    valueCtrl.text = SipGedFormatMoney.brlNoSymbol(sel.value);
 
     if (sel.date != null) {
       final d = sel.date!;
@@ -125,28 +169,38 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
     } else {
       dateCtrl.clear();
     }
+
+    _validateForm();
   }
 
-  int? _parseInt(String text) => int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), ''));
+  int? _parseInt(String text) {
+    return int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), ''));
+  }
 
   double _parseCurrency(String text) {
-    final cleaned = text
-        .replaceAll('R\$', '')
-        .replaceAll('.', '')
-        .replaceAll(' ', '')
-        .replaceAll(',', '.')
-        .trim();
-    return double.tryParse(cleaned) ?? 0.0;
+    return SipGedFormatMoney.parseBrl(text) ?? 0.0;
   }
 
   DateTime? _parseDate(String text) {
     final parts = text.split('/');
+
     if (parts.length != 3) return null;
+
     final d = int.tryParse(parts[0]);
     final m = int.tryParse(parts[1]);
     final y = int.tryParse(parts[2]);
+
     if (d == null || m == null || y == null) return null;
-    return DateTime(y, m, d);
+    if (m < 1 || m > 12) return null;
+    if (d < 1 || d > 31) return null;
+
+    final date = DateTime(y, m, d);
+
+    if (date.day != d || date.month != m || date.year != y) {
+      return null;
+    }
+
+    return date;
   }
 
   List<Attachment> _onlyAttachments(List<dynamic> items) {
@@ -159,7 +213,9 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
     final contractId = widget.contractData.id?.toString();
 
     return BlocConsumer<AdjustmentMeasurementCubit, AdjustmentMeasurementState>(
-      listener: (context, state) => _fillFieldsFromSelected(state),
+      listener: (context, state) {
+        _fillFieldsFromSelected(state);
+      },
       builder: (context, state) {
         if (state.status == AdjustmentMeasurementStatus.loading &&
             state.adjustments.isEmpty) {
@@ -168,9 +224,16 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
           );
         }
 
-        final labels = state.adjustments.map((m) => (m.order ?? 0).toString()).toList();
+        final labels = state.adjustments
+            .map((m) => (m.order ?? 0).toString())
+            .toList();
+
         final values = state.adjustments.map((m) => m.value ?? 0.0).toList();
-        final total = state.adjustments.fold<double>(0.0, (s, m) => s + (m.value ?? 0.0));
+
+        final total = state.adjustments.fold<double>(
+          0.0,
+              (sum, item) => sum + (item.value ?? 0.0),
+        );
 
         final double totalApostilles = 0.0;
         final double totalAdditives = 0.0;
@@ -180,7 +243,12 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
         final selectedIndex = state.selectedIndex;
 
         final nextOrder = _computeNextOrder(state);
-        final usedOrders = state.adjustments.map((m) => m.order).whereType<int>().toSet().toList()
+
+        final usedOrders = state.adjustments
+            .map((m) => m.order)
+            .whereType<int>()
+            .toSet()
+            .toList()
           ..sort();
 
         final orderOptions = <String>[
@@ -188,7 +256,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
           if (!usedOrders.contains(nextOrder)) nextOrder.toString(),
         ];
 
-        final Set<String> greyOrderItems = usedOrders.map((o) => o.toString()).toSet();
+        final greyOrderItems = usedOrders.map((o) => o.toString()).toSet();
 
         final attachments = state.attachments;
 
@@ -208,9 +276,11 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                           valorTotal: valorTotalDisponivel,
                           totalMedicoes: total,
                           selectedIndex: selectedIndex,
-                          onSelectIndex: (i) => cubit.selectByIndex(i),
+                          onSelectIndex: cubit.selectByIndex,
                         ),
-                        const SectionTitle(text: 'Cadastrar reajuste no sistema'),
+                        const SectionTitle(
+                          text: 'Cadastrar reajuste no sistema',
+                        ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: AdjustmentMeasurementFormSection(
@@ -230,10 +300,12 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 context,
                                 'Deseja salvar este reajuste?',
                               );
+
                               if (!ok) return;
 
                               final parsedOrder = _parseInt(orderCtrl.text);
-                              final effectiveOrder = (parsedOrder == null || parsedOrder <= 0)
+                              final effectiveOrder =
+                              (parsedOrder == null || parsedOrder <= 0)
                                   ? _computeNextOrder(state)
                                   : parsedOrder;
 
@@ -241,17 +313,23 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                               final date = _parseDate(dateCtrl.text);
 
                               if (date == null) {
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    type: AppNotificationType.error,
-                                    title: const Text('Data do reajuste inválida'),
-                                    subtitle: const Text('Use o formato dd/MM/aaaa.'),
-                                  ),
+                                _notify(
+                                  title: 'Data do reajuste inválida',
+                                  subtitle: 'Use o formato dd/MM/aaaa.',
+                                  type: NotificationType.error,
                                 );
                                 return;
                               }
 
-                              if (contractId == null || contractId.isEmpty) return;
+                              if (contractId == null || contractId.isEmpty) {
+                                _notify(
+                                  title: 'Contrato inválido',
+                                  subtitle:
+                                  'Não foi possível identificar o contrato.',
+                                  type: NotificationType.error,
+                                );
+                                return;
+                              }
 
                               final isNew = state.selected?.id == null;
 
@@ -259,7 +337,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 id: state.selected?.id,
                                 contractId: contractId,
                                 order: effectiveOrder,
-                                numberprocess: processCtrl.text,
+                                numberprocess: processCtrl.text.trim(),
                                 value: value,
                                 date: date,
                                 attachments: state.selected?.attachments,
@@ -269,22 +347,20 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                               try {
                                 await cubit.saveOrUpdate(data);
 
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    type: AppNotificationType.success,
-                                    title: Text(isNew ? 'Reajuste criado' : 'Reajuste atualizado'),
-                                    subtitle: Text(
-                                      'Reajuste da medição ${data.order} salvo com sucesso.',
-                                    ),
-                                  ),
+                                _notify(
+                                  title: isNew
+                                      ? 'Reajuste criado'
+                                      : 'Reajuste atualizado',
+                                  subtitle:
+                                  'Reajuste da medição ${data.order} salvo com sucesso.',
+                                  type: NotificationType.success,
                                 );
                               } catch (e) {
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    type: AppNotificationType.error,
-                                    title: const Text('Erro ao salvar reajuste'),
-                                    subtitle: Text('$e'),
-                                  ),
+                                _notify(
+                                  title: 'Erro ao salvar reajuste',
+                                  subtitle: '$e',
+                                  type: NotificationType.error,
+                                  duration: const Duration(seconds: 6),
                                 );
                               }
                             },
@@ -306,66 +382,77 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                   adjustmentId: state.selected!.id!,
                                 );
 
-                                if (mounted) {
-                                  setState(() {
-                                    _selectedSideIndex =
-                                    (cubit.state.attachments.isNotEmpty)
-                                        ? cubit.state.attachments.length - 1
-                                        : null;
-                                  });
-                                }
+                                if (!mounted) return;
 
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    type: AppNotificationType.success,
-                                    title: Text('Arquivo anexado'),
-                                    subtitle: Text('Upload concluído.'),
-                                  ),
+                                setState(() {
+                                  _selectedSideIndex =
+                                  cubit.state.attachments.isNotEmpty
+                                      ? cubit.state.attachments
+                                      .length -
+                                      1
+                                      : null;
+                                });
+
+                                _notify(
+                                  title: 'Arquivo anexado',
+                                  subtitle: 'Upload concluído.',
+                                  type: NotificationType.success,
                                 );
                               } catch (e) {
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    type: AppNotificationType.error,
-                                    title: const Text('Falha ao anexar arquivo'),
-                                    subtitle: Text('$e'),
-                                  ),
+                                _notify(
+                                  title: 'Falha ao anexar arquivo',
+                                  subtitle: '$e',
+                                  type: NotificationType.error,
+                                  duration: const Duration(seconds: 6),
                                 );
                               }
                             }
                                 : null,
-                            onTapSideItem: (i) => setState(() => _selectedSideIndex = i),
-                            onDeleteSideItem: (i) async {
-                              if (contractId == null || contractId.isEmpty) return;
-                              final sel = state.selected;
-                              if (sel?.id == null) return;
-                              if (i < 0 || i >= attachments.length) return;
+                            onTapSideItem: (index) {
+                              setState(() => _selectedSideIndex = index);
+                            },
+                            onDeleteSideItem: (index) async {
+                              if (contractId == null || contractId.isEmpty) {
+                                return;
+                              }
 
-                              final ok = await confirmDialog(context, 'Remover este arquivo?');
+                              final sel = state.selected;
+
+                              if (sel?.id == null) return;
+                              if (index < 0 || index >= attachments.length) {
+                                return;
+                              }
+
+                              final ok = await confirmDialog(
+                                context,
+                                'Remover este arquivo?',
+                              );
+
                               if (!ok) return;
 
                               try {
                                 await cubit.deleteAttachment(
                                   contractId: contractId,
                                   adjustmentId: sel!.id!,
-                                  attachment: attachments[i],
+                                  attachment: attachments[index],
                                 );
 
-                                if (mounted) setState(() => _selectedSideIndex = null);
+                                if (mounted) {
+                                  setState(() => _selectedSideIndex = null);
+                                }
 
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    type: AppNotificationType.warning,
-                                    title: Text('Arquivo removido'),
-                                    subtitle: Text('O anexo foi apagado com sucesso.'),
-                                  ),
+                                _notify(
+                                  title: 'Arquivo removido',
+                                  subtitle:
+                                  'O anexo foi apagado com sucesso.',
+                                  type: NotificationType.warning,
                                 );
                               } catch (e) {
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    type: AppNotificationType.error,
-                                    title: const Text('Erro ao remover arquivo'),
-                                    subtitle: Text('$e'),
-                                  ),
+                                _notify(
+                                  title: 'Erro ao remover arquivo',
+                                  subtitle: '$e',
+                                  type: NotificationType.error,
+                                  duration: const Duration(seconds: 6),
                                 );
                               }
                             },
@@ -374,8 +461,12 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                               required Attachment oldItem,
                               required Attachment newItem,
                             }) async {
-                              if (contractId == null || contractId.isEmpty) return false;
+                              if (contractId == null || contractId.isEmpty) {
+                                return false;
+                              }
+
                               final sel = state.selected;
+
                               if (sel?.id == null) return false;
 
                               try {
@@ -385,38 +476,57 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                   oldItem: oldItem,
                                   newItem: newItem,
                                 );
+
+                                _notify(
+                                  title: 'Anexo renomeado',
+                                  subtitle: newItem.label,
+                                  type: NotificationType.success,
+                                );
+
                                 return true;
-                              } catch (_) {
+                              } catch (e) {
+                                _notify(
+                                  title: 'Falha ao renomear anexo',
+                                  subtitle: '$e',
+                                  type: NotificationType.error,
+                                  duration: const Duration(seconds: 6),
+                                );
+
                                 return false;
                               }
                             },
                             onSideItemsChanged: (newItems) async {
                               final next = _onlyAttachments(newItems);
+
                               await cubit.updateAttachments(next);
 
-                              if (mounted) {
-                                setState(() {
-                                  if (next.isEmpty) {
-                                    _selectedSideIndex = null;
-                                  } else {
-                                    _selectedSideIndex =
-                                        (_selectedSideIndex ?? 0).clamp(0, next.length - 1);
-                                  }
-                                });
-                              }
+                              if (!mounted) return;
+
+                              setState(() {
+                                if (next.isEmpty) {
+                                  _selectedSideIndex = null;
+                                } else {
+                                  _selectedSideIndex =
+                                      (_selectedSideIndex ?? 0).clamp(
+                                        0,
+                                        next.length - 1,
+                                      );
+                                }
+                              });
                             },
                             orderOptions: orderOptions,
                             greyOrderItems: greyOrderItems,
                             onChangedOrder: (value) {
                               final picked = int.tryParse(value ?? '');
+
                               if (picked == null || picked <= 0) return;
 
-                              final idx = state.adjustments.indexWhere(
-                                    (m) => (m.order ?? -1) == picked,
+                              final index = state.adjustments.indexWhere(
+                                    (item) => (item.order ?? -1) == picked,
                               );
 
-                              if (idx >= 0) {
-                                cubit.selectByIndex(idx);
+                              if (index >= 0) {
+                                cubit.selectByIndex(index);
                               } else {
                                 cubit.clearSelection();
                                 orderCtrl.text = picked.toString();
@@ -424,20 +534,30 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                             },
                           ),
                         ),
-                        const SectionTitle(text: 'Reajustes cadastrados no sistema'),
+                        const SectionTitle(
+                          text: 'Reajustes cadastrados no sistema',
+                        ),
                         AdjustmentMeasurementTableSection(
                           onTapItem: (AdjustmentMeasurementData data) {
-                            final idx = state.adjustments.indexWhere((e) => e.id == data.id);
-                            if (idx >= 0) cubit.selectByIndex(idx);
+                            final index = state.adjustments.indexWhere(
+                                  (item) => item.id == data.id,
+                            );
+
+                            if (index >= 0) {
+                              cubit.selectByIndex(index);
+                            }
                           },
                           onDelete: (id) async {
                             final ok = await confirmDialog(
                               context,
                               'Deseja realmente apagar este reajuste?',
                             );
+
                             if (!ok) return;
 
-                            if (contractId == null || contractId.isEmpty) return;
+                            if (contractId == null || contractId.isEmpty) {
+                              return;
+                            }
 
                             try {
                               await cubit.delete(
@@ -445,20 +565,18 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 adjustmentId: id,
                               );
 
-                              NotificationCenter.instance.show(
-                                AppNotification(
-                                  type: AppNotificationType.warning,
-                                  title: Text('Reajuste apagado'),
-                                  subtitle: Text('O reajuste foi removido com sucesso.'),
-                                ),
+                              _notify(
+                                title: 'Reajuste apagado',
+                                subtitle:
+                                'O reajuste foi removido com sucesso.',
+                                type: NotificationType.warning,
                               );
                             } catch (e) {
-                              NotificationCenter.instance.show(
-                                AppNotification(
-                                  type: AppNotificationType.error,
-                                  title: const Text('Erro ao apagar reajuste'),
-                                  subtitle: Text('$e'),
-                                ),
+                              _notify(
+                                title: 'Erro ao apagar reajuste',
+                                subtitle: '$e',
+                                type: NotificationType.error,
+                                duration: const Duration(seconds: 6),
                               );
                             }
                           },

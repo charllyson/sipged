@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_utils/formats/sipged_format_money.dart';
-import 'package:sipged/_widgets/overlays/shimmer_w60_h14.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
+import 'package:sipged/_widgets/draw/shimmer/shimmer_w60_h14.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 class ExpandableCard extends StatefulWidget {

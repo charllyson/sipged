@@ -1,27 +1,40 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:geocoding/geocoding.dart' as geo;
 import 'package:geolocator/geolocator.dart';
 
-import 'infractions_bloc.dart';
-import 'infractions_data.dart';
-
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_blocs/modules/transit/infractions/infractions_bloc.dart';
+import 'package:sipged/_blocs/modules/transit/infractions/infractions_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 class InfractionsController extends ChangeNotifier {
-  InfractionsController({required InfractionsBloc bloc}) : _bloc = bloc;
+  InfractionsController({
+    required InfractionsBloc bloc,
+    NotificationCubit? notificationCubit,
+  })  : _bloc = bloc,
+        _notificationCubit = notificationCubit;
 
   InfractionsBloc _bloc;
-  void updateDeps(InfractionsBloc b) {
-    _bloc = b;
+  NotificationCubit? _notificationCubit;
+
+  void updateDeps(
+      InfractionsBloc bloc, {
+        NotificationCubit? notificationCubit,
+      }) {
+    _bloc = bloc;
+    _notificationCubit = notificationCubit ?? _notificationCubit;
   }
 
   bool initRan = false;
   bool isEditable = true;
   bool isSaving = false;
   bool formValidated = false;
+
   bool _loading = false;
   bool get loading => _loading;
 
@@ -32,15 +45,18 @@ class InfractionsController extends ChangeNotifier {
   int? selectedMonth;
 
   final int _itemsPerPage = 50;
+
   int currentPage = 1;
   int totalPages = 1;
+
   bool isFiltering = false;
   bool isPaging = false;
 
-  List<InfractionsData> _allUniverse = [];
+  List<InfractionsData> _allUniverse = <InfractionsData>[];
   List<InfractionsData> get selectorUniverseAll => _allUniverse;
-  List<InfractionsData> _filtered = [];
-  List<InfractionsData> pageItems = [];
+
+  List<InfractionsData> _filtered = <InfractionsData>[];
+  List<InfractionsData> pageItems = <InfractionsData>[];
 
   final orderCtrl = TextEditingController();
   final aitNumberCtrl = TextEditingController();
@@ -76,6 +92,7 @@ class InfractionsController extends ChangeNotifier {
           distanceFilter: 0,
           forceLocationManager: false,
         );
+
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:
         return AppleSettings(
@@ -84,6 +101,7 @@ class InfractionsController extends ChangeNotifier {
           distanceFilter: 0,
           pauseLocationUpdatesAutomatically: false,
         );
+
       default:
         return LocationSettings(
           accuracy: accuracy,
@@ -94,9 +112,11 @@ class InfractionsController extends ChangeNotifier {
 
   Future<void> postFrameInit(BuildContext context) async {
     if (initRan) return;
+
     initRan = true;
 
     _setLoading(true);
+
     try {
       await _loadAllYearsUniverse();
 
@@ -105,8 +125,10 @@ class InfractionsController extends ChangeNotifier {
           .whereType<int>()
           .toList()
         ..sort((a, b) => b.compareTo(a));
+
       selectedYear =
       yearsInData.isNotEmpty ? yearsInData.first : DateTime.now().year;
+
       selectedMonth = null;
 
       await applyDateFilter(
@@ -125,12 +147,17 @@ class InfractionsController extends ChangeNotifier {
 
   Future<void> _loadAllYearsUniverse() async {
     final containers = await _bloc.listYearContainers();
+
     final years = containers
         .map((c) => (c.data()['year'] ?? 0) as int)
         .where((y) => y > 0)
         .toList()
       ..sort();
-    final lists = await Future.wait(years.map((y) => _bloc.getInfractionsByYear(y)));
+
+    final lists = await Future.wait(
+      years.map((y) => _bloc.getInfractionsByYear(y)),
+    );
+
     _allUniverse = lists.expand((l) => l).toList();
   }
 
@@ -140,7 +167,7 @@ class InfractionsController extends ChangeNotifier {
 
   @override
   void dispose() {
-    for (final c in [
+    for (final c in <TextEditingController>[
       orderCtrl,
       aitNumberCtrl,
       dateCtrl,
@@ -156,6 +183,7 @@ class InfractionsController extends ChangeNotifier {
     ]) {
       c.dispose();
     }
+
     super.dispose();
   }
 
@@ -169,12 +197,22 @@ class InfractionsController extends ChangeNotifier {
 
     final targetYear = year;
     final targetMonth = month;
-    final sameFilters =
-        (targetYear == selectedYear) && (targetMonth == selectedMonth);
 
-    const trustedResetSources = {'init', 'selector', 'changeYear', 'changeMonth'};
+    final sameFilters =
+        targetYear == selectedYear && targetMonth == selectedMonth;
+
+    const trustedResetSources = <String>{
+      'init',
+      'selector',
+      'changeYear',
+      'changeMonth',
+    };
+
     if (isPaging) resetToFirstPage = false;
-    final allowReset = resetToFirstPage && trustedResetSources.contains(source);
+
+    final allowReset =
+        resetToFirstPage && trustedResetSources.contains(source);
+
     if (!allowReset && sameFilters) return;
 
     isFiltering = true;
@@ -195,14 +233,19 @@ class InfractionsController extends ChangeNotifier {
       _filtered.sort((a, b) {
         final ao = a.orderInfraction ?? 0;
         final bo = b.orderInfraction ?? 0;
+
         if (ao != bo) return ao.compareTo(bo);
+
         final ad = a.dateInfraction?.millisecondsSinceEpoch ?? 0;
         final bd = b.dateInfraction?.millisecondsSinceEpoch ?? 0;
+
         return ad.compareTo(bd);
       });
 
       final totalDocs = _filtered.length;
-      totalPages = totalDocs == 0 ? 1 : ((totalDocs + _itemsPerPage - 1) ~/ _itemsPerPage);
+
+      totalPages =
+      totalDocs == 0 ? 1 : ((totalDocs + _itemsPerPage - 1) ~/ _itemsPerPage);
 
       if (allowReset) {
         currentPage = 1;
@@ -215,6 +258,7 @@ class InfractionsController extends ChangeNotifier {
 
       if (allowReset) {
         orderCtrl.text = _calcNextOrder(_filtered).toString();
+
         final now = DateTime.now();
         dateCtrl.text = _formatDateUI(now);
         timeCtrl.text = _formatTimeUI(now);
@@ -227,13 +271,16 @@ class InfractionsController extends ChangeNotifier {
 
   void _slicePage() {
     if (_filtered.isEmpty) {
-      pageItems = [];
+      pageItems = <InfractionsData>[];
       return;
     }
+
     final start = (currentPage - 1) * _itemsPerPage;
+
     final end = (start + _itemsPerPage) > _filtered.length
         ? _filtered.length
-        : (start + _itemsPerPage);
+        : start + _itemsPerPage;
+
     pageItems = _filtered.sublist(start, end);
   }
 
@@ -243,6 +290,7 @@ class InfractionsController extends ChangeNotifier {
 
     isPaging = true;
     _safeNotify();
+
     try {
       currentPage = page;
       _slicePage();
@@ -271,7 +319,10 @@ class InfractionsController extends ChangeNotifier {
   }
 
   int _calcNextOrder(List<InfractionsData> list) {
-    return (list.map((e) => e.orderInfraction ?? 0).fold(0, (a, b) => a > b ? a : b)) + 1;
+    return list
+        .map((e) => e.orderInfraction ?? 0)
+        .fold<int>(0, (a, b) => a > b ? a : b) +
+        1;
   }
 
   void selectFromTable(InfractionsData item, int indexInPage) {
@@ -291,8 +342,8 @@ class InfractionsController extends ChangeNotifier {
     organAuthorityCtrl.text = item.organAuthority ?? '';
     addressCtrl.text = item.addressInfraction ?? '';
     bairroCtrl.text = item.bairro ?? '';
-    latitudeCtrl.text = (item.latitude?.toString() ?? '');
-    longitudeCtrl.text = (item.longitude?.toString() ?? '');
+    latitudeCtrl.text = item.latitude?.toString() ?? '';
+    longitudeCtrl.text = item.longitude?.toString() ?? '';
 
     _validateForm();
     _safeNotify();
@@ -303,7 +354,7 @@ class InfractionsController extends ChangeNotifier {
     currentInfractionId = null;
     _dateValue = null;
 
-    for (final c in [
+    for (final c in <TextEditingController>[
       orderCtrl,
       aitNumberCtrl,
       dateCtrl,
@@ -340,18 +391,23 @@ class InfractionsController extends ChangeNotifier {
       data.id = currentInfractionId;
 
       final targetYear = data.dateInfraction?.year;
+
       if (targetYear == null) {
         _notify(
           'Informe a data da infração',
-          type: AppNotificationType.warning,
+          type: NotificationType.warning,
           subtitle: 'Não foi possível determinar o ano.',
         );
         return;
       }
 
-      await _bloc.salvarOuAtualizarInfracao(year: targetYear, data: data);
+      await _bloc.salvarOuAtualizarInfracao(
+        year: targetYear,
+        data: data,
+      );
 
       await _reloadAllUniverse();
+
       await applyDateFilter(
         year: selectedYear,
         month: selectedMonth,
@@ -359,10 +415,18 @@ class InfractionsController extends ChangeNotifier {
         source: 'save',
       );
 
-      _notify('Infração salva com sucesso', type: AppNotificationType.success);
+      _notify(
+        'Infração salva com sucesso',
+        type: NotificationType.success,
+      );
+
       await createNew();
     } catch (e) {
-      _notify('Erro ao salvar', type: AppNotificationType.error, subtitle: '$e');
+      _notify(
+        'Erro ao salvar',
+        type: NotificationType.error,
+        subtitle: '$e',
+      );
     } finally {
       isSaving = false;
       _safeNotify();
@@ -378,20 +442,25 @@ class InfractionsController extends ChangeNotifier {
             (e) => e.id == id,
         orElse: () => InfractionsData(id: id),
       );
+
       final targetYear = item.dateInfraction?.year ?? selectedYear;
 
       if (targetYear == null) {
         _notify(
           'Não foi possível determinar o ano do registro',
-          type: AppNotificationType.warning,
+          type: NotificationType.warning,
           subtitle: 'Exclusão não executada.',
         );
         return;
       }
 
-      await _bloc.deleteInfraction(year: targetYear, recordId: id);
+      await _bloc.deleteInfraction(
+        year: targetYear,
+        recordId: id,
+      );
 
       await _reloadAllUniverse();
+
       await applyDateFilter(
         year: selectedYear,
         month: selectedMonth,
@@ -399,10 +468,20 @@ class InfractionsController extends ChangeNotifier {
         source: 'delete',
       );
 
-      _notify('Infração removida', type: AppNotificationType.success);
-      if (currentInfractionId == id) await createNew();
+      _notify(
+        'Infração removida',
+        type: NotificationType.success,
+      );
+
+      if (currentInfractionId == id) {
+        await createNew();
+      }
     } catch (e) {
-      _notify('Erro ao remover', type: AppNotificationType.error, subtitle: '$e');
+      _notify(
+        'Erro ao remover',
+        type: NotificationType.error,
+        subtitle: '$e',
+      );
     } finally {
       isSaving = false;
       _safeNotify();
@@ -412,6 +491,7 @@ class InfractionsController extends ChangeNotifier {
   InfractionsData _formToModel() {
     DateTime? baseDate = _dateValue ?? _parseDate(dateCtrl.text);
     final tod = _parseTimeOfDay(timeCtrl.text);
+
     if (baseDate != null && tod != null) {
       baseDate = DateTime(
         baseDate.year,
@@ -439,9 +519,15 @@ class InfractionsController extends ChangeNotifier {
   }
 
   void _attachValidation() {
-    for (final c in [dateCtrl, timeCtrl, aitNumberCtrl, codeCtrl]) {
+    for (final c in <TextEditingController>[
+      dateCtrl,
+      timeCtrl,
+      aitNumberCtrl,
+      codeCtrl,
+    ]) {
       c.addListener(_validateForm);
     }
+
     _validateForm();
   }
 
@@ -450,6 +536,7 @@ class InfractionsController extends ChangeNotifier {
         timeCtrl.text.trim().isNotEmpty &&
         aitNumberCtrl.text.trim().isNotEmpty &&
         codeCtrl.text.trim().isNotEmpty;
+
     if (formValidated != ok) {
       formValidated = ok;
       _safeNotify();
@@ -458,41 +545,52 @@ class InfractionsController extends ChangeNotifier {
 
   String _formatDateUI(DateTime? dt) {
     if (dt == null) return '';
+
     String two(int n) => n.toString().padLeft(2, '0');
+
     return '${two(dt.day)}/${two(dt.month)}/${dt.year}';
   }
 
   String _formatTimeUI(DateTime? dt) {
     if (dt == null) return '';
+
     String two(int n) => n.toString().padLeft(2, '0');
+
     return '${two(dt.hour)}:${two(dt.minute)}';
   }
 
   DateTime? _parseDate(String raw) {
     final s = raw.trim();
+
     if (s.isEmpty) return null;
 
     final m1 = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(s);
+
     if (m1 != null) {
       final d = int.parse(m1.group(1)!);
       final mo = int.parse(m1.group(2)!);
       final y = int.parse(m1.group(3)!);
+
       return DateTime(y, mo, d);
     }
 
     final m2 = RegExp(
       r'^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$',
     ).firstMatch(s);
+
     if (m2 != null) {
       final y = int.parse(m2.group(1)!);
       final mo = int.parse(m2.group(2)!);
       final d = int.parse(m2.group(3)!);
+
       if (m2.group(4) != null) {
         final h = int.parse(m2.group(4)!);
         final mi = int.parse(m2.group(5)!);
         final se = int.tryParse(m2.group(6) ?? '0') ?? 0;
+
         return DateTime(y, mo, d, h, mi, se);
       }
+
       return DateTime(y, mo, d);
     }
 
@@ -501,43 +599,63 @@ class InfractionsController extends ChangeNotifier {
 
   TimeOfDay? _parseTimeOfDay(String raw) {
     final s = raw.trim();
+
     if (s.isEmpty) return null;
+
     final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(s);
+
     if (m == null) return null;
+
     final h = int.parse(m.group(1)!);
     final mi = int.parse(m.group(2)!);
+
     if (h < 0 || h > 23 || mi < 0 || mi > 59) return null;
+
     return TimeOfDay(hour: h, minute: mi);
   }
 
   double? _parseDouble(String text) {
     final t = text.replaceAll(',', '.').trim();
+
     if (t.isEmpty) return null;
+
     return double.tryParse(t);
   }
 
   String? _emptyToNull(String? s) {
     if (s == null) return null;
+
     final t = s.trim();
+
     return t.isEmpty ? null : t;
   }
 
   void _notify(
       String title, {
-        AppNotificationType type = AppNotificationType.info,
+        NotificationType type = NotificationType.info,
         String? subtitle,
         String? id,
       }) {
+    final cubit = _notificationCubit;
+    if (cubit == null) return;
+
     if (id != null) {
-      NotificationCenter.instance.dismissById(id);
+      cubit.dismissById(id);
     }
-    NotificationCenter.instance.show(
-      AppNotification(
-        id: id,
-        title: Text(title),
-        subtitle:
-        (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
-        type: type,
+
+    unawaited(
+      cubit.show(
+        NotificationData(
+          id: id,
+          title: title,
+          subtitle: subtitle?.trim().isNotEmpty == true ? subtitle : null,
+          leadingLabel: 'Infração',
+          type: type,
+          extra: const <String, dynamic>{
+            'module': 'infractions',
+          },
+        ),
+        saveInFirebase: false,
       ),
     );
   }
@@ -545,20 +663,23 @@ class InfractionsController extends ChangeNotifier {
   Future<void> fillFromUserLocation(BuildContext context) async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
+
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+
         if (permission == LocationPermission.denied) {
           _notify(
             'Permissão de localização negada.',
-            type: AppNotificationType.warning,
+            type: NotificationType.warning,
           );
           return;
         }
       }
+
       if (permission == LocationPermission.deniedForever) {
         _notify(
           'Permissão de localização negada permanentemente.',
-          type: AppNotificationType.warning,
+          type: NotificationType.warning,
         );
         return;
       }
@@ -568,27 +689,34 @@ class InfractionsController extends ChangeNotifier {
           accuracy: LocationAccuracy.best,
         ),
       );
+
       latitudeCtrl.text = pos.latitude.toStringAsFixed(6);
       longitudeCtrl.text = pos.longitude.toStringAsFixed(6);
 
-      final placemarks =
-      await geo.placemarkFromCoordinates(pos.latitude, pos.longitude);
+      final placemarks = await geo.placemarkFromCoordinates(
+        pos.latitude,
+        pos.longitude,
+      );
+
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
-        addressCtrl.text = [
-          if ((p.street ?? '').isNotEmpty) p.street,
-          if ((p.subLocality ?? '').isNotEmpty) p.subLocality,
-          if ((p.locality ?? '').isNotEmpty) p.locality,
-          if ((p.administrativeArea ?? '').isNotEmpty) p.administrativeArea,
-        ].whereType<String>().join(', ');
-        bairroCtrl.text = (p.subLocality ?? '');
+
+        addressCtrl.text = <String>[
+          if ((p.street ?? '').isNotEmpty) p.street!,
+          if ((p.subLocality ?? '').isNotEmpty) p.subLocality!,
+          if ((p.locality ?? '').isNotEmpty) p.locality!,
+          if ((p.administrativeArea ?? '').isNotEmpty)
+            p.administrativeArea!,
+        ].join(', ');
+
+        bairroCtrl.text = p.subLocality ?? '';
       }
 
       _safeNotify();
     } catch (e) {
       _notify(
         'Falha ao obter localização',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
         subtitle: '$e',
       );
     }
@@ -596,13 +724,16 @@ class InfractionsController extends ChangeNotifier {
 
   void _setLoading(bool v) {
     if (_loading == v) return;
+
     _loading = v;
     _safeNotify();
   }
 
   void _safeNotify() {
     if (!hasListeners) return;
+
     final phase = SchedulerBinding.instance.schedulerPhase;
+
     if (phase == SchedulerPhase.idle) {
       notifyListeners();
     } else {

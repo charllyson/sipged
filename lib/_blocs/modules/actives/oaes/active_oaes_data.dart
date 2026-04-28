@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
+import 'package:sipged/_widgets/map/markers/marker_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ActiveOaesData {
@@ -386,9 +386,9 @@ class ActiveOaesData {
 
 // helper para Marker
 extension OAEsDataExtension on ActiveOaesData {
-  MarkerChangedData<ActiveOaesData>? toTaggedMarker() {
+  MarkerData<ActiveOaesData>? toTaggedMarker() {
     if (latitude == null || longitude == null) return null;
-    return MarkerChangedData<ActiveOaesData>(
+    return MarkerData<ActiveOaesData>(
       point: LatLng(latitude!, longitude!),
       data: this,
       properties: toMap(),

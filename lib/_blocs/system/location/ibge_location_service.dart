@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/system/location/ibge_localidade_data.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_data.dart';
 
 class IBGELocationService {
   IBGELocationService();
@@ -109,14 +109,14 @@ class IBGELocationService {
   // 2) MALHAS (POLÍGONOS)
   // ---------------------------------------------------------------------------
 
-  Future<List<PolygonChangedData>> fetchMunicipioPolygonsByUf(int ufCode) async {
+  Future<List<PolygonData>> fetchMunicipioPolygonsByUf(int ufCode) async {
     final municipios = await fetchMunicipiosByUf(ufCode);
     if (municipios.isEmpty) return const [];
 
     final futures = municipios.map((m) => _loadPolygonForMunicipio(m)).toList();
     final results = await Future.wait(futures);
 
-    return results.whereType<PolygonChangedData>().toList();
+    return results.whereType<PolygonData>().toList();
   }
 
   Future<IBGELocationDetailData> fetchMunicipioDetails(String idIbge) async {
@@ -212,7 +212,7 @@ class IBGELocationService {
   // ===========================================================================
   // Helpers internos (malha -> PolygonChanged)
   // ===========================================================================
-  Future<PolygonChangedData?> _loadPolygonForMunicipio(IBGELocationData m) async {
+  Future<PolygonData?> _loadPolygonForMunicipio(IBGELocationData m) async {
     final id = m.idIbge;
     final nome = m.nome;
 
@@ -221,7 +221,7 @@ class IBGELocationService {
     try {
       final body = await _getTextProxy(path);
 
-      final polygonChanged = await compute<Map<String, dynamic>, PolygonChangedData?>(
+      final polygonChanged = await compute<Map<String, dynamic>, PolygonData?>(
         _parseGeoJsonToPolygonCompute,
         {
           'body': body,
@@ -237,7 +237,7 @@ class IBGELocationService {
   }
 }
 
-PolygonChangedData? _parseGeoJsonToPolygonCompute(Map<String, dynamic> data) {
+PolygonData? _parseGeoJsonToPolygonCompute(Map<String, dynamic> data) {
   final body = data['body'] as String;
   final id = data['id'] as String;
   final nome = data['nome'] as String;
@@ -267,7 +267,7 @@ PolygonChangedData? _parseGeoJsonToPolygonCompute(Map<String, dynamic> data) {
 
     final titleNome = nome.trim().toUpperCase();
 
-    return PolygonChangedData(
+    return PolygonData(
       polygon: polygon,
       title: titleNome,
       properties: props,

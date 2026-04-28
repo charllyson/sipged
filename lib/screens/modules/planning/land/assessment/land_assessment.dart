@@ -6,8 +6,12 @@ import 'package:sipged/_blocs/modules/planning/land/assessment/land_assessment_c
 import 'package:sipged/_blocs/modules/planning/land/assessment/land_assessment_data.dart';
 import 'package:sipged/_blocs/modules/planning/land/assessment/land_assessment_state.dart';
 
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
-import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
+import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
@@ -59,6 +63,7 @@ class _LandAssessmentState extends State<LandAssessment> {
   @override
   void didUpdateWidget(covariant LandAssessment oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.contractId != widget.contractId ||
         oldWidget.propertyId != widget.propertyId) {
       _lastSyncKey = null;
@@ -69,6 +74,7 @@ class _LandAssessmentState extends State<LandAssessment> {
   void _initialize() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       context.read<LandAssessmentCubit>().initialize(
         contractId: widget.contractId,
         propertyId: widget.propertyId,
@@ -93,6 +99,32 @@ class _LandAssessmentState extends State<LandAssessment> {
     _notesCtrl.dispose();
 
     super.dispose();
+  }
+
+  void _notifySuccess(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Sucesso',
+        subtitle: message,
+        type: NotificationType.success,
+        leadingLabel: 'Avaliação',
+      ),
+    );
+  }
+
+  void _notifyError(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Erro',
+        subtitle: message,
+        type: NotificationType.error,
+        leadingLabel: 'Avaliação',
+      ),
+    );
   }
 
   double _responsiveWidth(BuildContext context, double reserved) {
@@ -130,6 +162,7 @@ class _LandAssessmentState extends State<LandAssessment> {
     ].join('_');
 
     if (_lastSyncKey == key) return;
+
     _lastSyncKey = key;
 
     _appraisalNumberCtrl.text = d.appraisalNumber;
@@ -201,6 +234,7 @@ class _LandAssessmentState extends State<LandAssessment> {
     );
 
     context.read<LandAssessmentCubit>().updateDraft(cleared);
+
     _syncFromState(cleared);
 
     setState(() {
@@ -233,27 +267,18 @@ class _LandAssessmentState extends State<LandAssessment> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<LandAssessmentCubit, LandAssessmentState>(
-      listenWhen: (previous, current) =>
-      previous.error != current.error ||
-          previous.successMessage != current.successMessage,
+      listenWhen: (previous, current) {
+        return previous.error != current.error ||
+            previous.successMessage != current.successMessage;
+      },
       listener: (context, state) {
         if (state.error != null && state.error!.trim().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.error!),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _notifyError(state.error!);
         }
 
         if (state.successMessage != null &&
             state.successMessage!.trim().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.successMessage!),
-              backgroundColor: Colors.green,
-            ),
-          );
+          _notifySuccess(state.successMessage!);
         }
       },
       builder: (context, state) {
@@ -358,11 +383,12 @@ class _LandAssessmentState extends State<LandAssessment> {
                     TextButton.icon(
                       onPressed: state.loading
                           ? null
-                          : () =>
-                          context.read<LandAssessmentCubit>().initialize(
-                            contractId: widget.contractId,
-                            propertyId: widget.propertyId,
-                          ),
+                          : () {
+                        context.read<LandAssessmentCubit>().initialize(
+                          contractId: widget.contractId,
+                          propertyId: widget.propertyId,
+                        );
+                      },
                       icon: const Icon(Icons.refresh),
                       label: const Text('Recarregar'),
                     ),
@@ -370,8 +396,11 @@ class _LandAssessmentState extends State<LandAssessment> {
                       onPressed: state.saving || !_canSave()
                           ? null
                           : () async {
-                        final cubit = context.read<LandAssessmentCubit>();
+                        final cubit =
+                        context.read<LandAssessmentCubit>();
+
                         cubit.updateDraft(_buildDraft(state));
+
                         await cubit.save();
                       },
                       icon: state.saving
@@ -397,7 +426,9 @@ class _LandAssessmentState extends State<LandAssessment> {
                       onPressed: state.saving
                           ? null
                           : () async {
-                        await context.read<LandAssessmentCubit>().delete();
+                        await context
+                            .read<LandAssessmentCubit>()
+                            .delete();
                       },
                       icon: const Icon(Icons.delete_outline),
                       label: const Text('Excluir'),

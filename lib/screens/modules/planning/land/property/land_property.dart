@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:sipged/_blocs/modules/planning/land/property/land_property_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/land/property/land_property_data.dart';
 import 'package:sipged/_blocs/modules/planning/land/property/land_property_state.dart';
 
-import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LandProperty extends StatefulWidget {
@@ -138,6 +144,7 @@ class _LandPropertyState extends State<LandProperty> {
   void _initialize() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       context.read<LandPropertyCubit>().initialize(
         contractId: widget.contractId,
         propertyId: widget.propertyId,
@@ -145,9 +152,28 @@ class _LandPropertyState extends State<LandProperty> {
     });
   }
 
+  void _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    required NotificationType type,
+  }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        details: details,
+        type: type,
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _scrollCtrl.dispose();
+
     for (final c in [
       registryCtrl,
       registryOfficeCtrl,
@@ -174,6 +200,7 @@ class _LandPropertyState extends State<LandProperty> {
     ]) {
       c.dispose();
     }
+
     super.dispose();
   }
 
@@ -194,6 +221,10 @@ class _LandPropertyState extends State<LandProperty> {
   }
 
   void _syncFromState(LandPropertyData d) {
+    final attachmentsToken = d.attachments
+        .map((a) => '${a.id}_${a.label}_${a.url}_${a.path}')
+        .join('|');
+
     final syncKey = [
       d.id,
       d.updatedAt?.millisecondsSinceEpoch,
@@ -219,7 +250,7 @@ class _LandPropertyState extends State<LandProperty> {
       d.improvementsSummary,
       d.latitude,
       d.longitude,
-      d.attachments.length,
+      attachmentsToken,
     ].join('_');
 
     if (_lastSyncKey == syncKey) return;
@@ -258,9 +289,18 @@ class _LandPropertyState extends State<LandProperty> {
   }
 
   Future<void> _openUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+
     try {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (_) {}
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      _notify(
+        title: 'Não foi possível abrir o arquivo',
+        subtitle: 'Verifique se o link do anexo está válido.',
+        type: NotificationType.error,
+      );
+    }
   }
 
   LandPropertyData _buildDraft(LandPropertyState state) {
@@ -329,8 +369,15 @@ class _LandPropertyState extends State<LandProperty> {
 
     hasImprovementsCtrl.text = 'Não';
     _attachments = const [];
+
     context.read<LandPropertyCubit>().updateDraft(empty);
     widget.onSavedPropertyId?.call(null);
+
+    _notify(
+      title: 'Formulário limpo',
+      subtitle: 'Os campos do imóvel foram reiniciados.',
+      type: NotificationType.info,
+    );
   }
 
   @override
@@ -341,17 +388,24 @@ class _LandPropertyState extends State<LandProperty> {
           previous.successMessage != current.successMessage ||
           previous.propertyId != current.propertyId,
       listener: (context, state) {
-        if (state.error != null && state.error!.trim().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.error!)),
+        final error = state.error?.trim();
+        final success = state.successMessage?.trim();
+
+        if (error != null && error.isNotEmpty) {
+          _notify(
+            title: 'Erro no imóvel',
+            subtitle: 'Não foi possível concluir a operação.',
+            details: error,
+            type: NotificationType.error,
           );
           context.read<LandPropertyCubit>().clearMessages();
         }
 
-        if (state.successMessage != null &&
-            state.successMessage!.trim().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.successMessage!)),
+        if (success != null && success.isNotEmpty) {
+          _notify(
+            title: 'Imóvel atualizado',
+            subtitle: success,
+            type: NotificationType.success,
           );
           context.read<LandPropertyCubit>().clearMessages();
         }
@@ -376,6 +430,7 @@ class _LandPropertyState extends State<LandProperty> {
               items: _attachments,
               selectedIndex: null,
               width: sideWidth,
+              openOnTap: false,
               onAddPressed: () async {
                 final suggestion = await askLabelDialog(context, 'Documento');
                 if (suggestion == null) return;
@@ -402,28 +457,57 @@ class _LandPropertyState extends State<LandProperty> {
                 bloc.updateDraft(
                   _buildDraft(state).copyWith(attachments: updated),
                 );
+
+                _notify(
+                  title: 'Anexo adicionado',
+                  subtitle: 'O documento foi incluído na lista do imóvel.',
+                  type: NotificationType.success,
+                );
               },
               onTap: (i) {
+                if (i < 0 || i >= _attachments.length) return;
+
                 final url = _attachments[i].url;
                 if (url.trim().isNotEmpty) {
                   _openUrl(url);
+                } else {
+                  _notify(
+                    title: 'Arquivo sem link',
+                    subtitle:
+                    'Este item ainda não possui URL vinculada para abertura.',
+                    type: NotificationType.info,
+                  );
                 }
               },
               onDelete: (i) {
-                final updated = List<Attachment>.from(_attachments)..removeAt(i);
+                if (i < 0 || i >= _attachments.length) return;
+
+                final updated = List<Attachment>.from(_attachments)
+                  ..removeAt(i);
+
                 setState(() {
                   _attachments = updated;
                 });
+
                 bloc.updateDraft(
                   _buildDraft(state).copyWith(attachments: updated),
                 );
+
+                _notify(
+                  title: 'Anexo removido',
+                  subtitle: 'O documento foi removido da lista do imóvel.',
+                  type: NotificationType.info,
+                );
               },
               onItemsChanged: (items) {
+                final updated = items.whereType<Attachment>().toList();
+
                 setState(() {
-                  _attachments = List<Attachment>.from(items);
+                  _attachments = updated;
                 });
+
                 bloc.updateDraft(
-                  _buildDraft(state).copyWith(attachments: _attachments),
+                  _buildDraft(state).copyWith(attachments: updated),
                 );
               },
               onRenamePersist: ({
@@ -431,6 +515,8 @@ class _LandPropertyState extends State<LandProperty> {
                 required Attachment oldItem,
                 required Attachment newItem,
               }) async {
+                if (index < 0 || index >= _attachments.length) return false;
+
                 final updated = List<Attachment>.from(_attachments);
                 updated[index] = newItem;
 
@@ -441,6 +527,13 @@ class _LandPropertyState extends State<LandProperty> {
                 bloc.updateDraft(
                   _buildDraft(state).copyWith(attachments: updated),
                 );
+
+                _notify(
+                  title: 'Anexo renomeado',
+                  subtitle: 'O rótulo do documento foi atualizado.',
+                  type: NotificationType.success,
+                );
+
                 return true;
               },
             );
@@ -532,7 +625,7 @@ class _LandPropertyState extends State<LandProperty> {
                       labelText: 'KM Inicial',
                       keyboardType: TextInputType.number,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d\.,-]')),
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d.,-]')),
                       ],
                     ),
                     CustomTextField(
@@ -541,7 +634,7 @@ class _LandPropertyState extends State<LandProperty> {
                       labelText: 'KM Final',
                       keyboardType: TextInputType.number,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d\.,-]')),
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d.,-]')),
                       ],
                     ),
                     DropDownChange(
@@ -557,7 +650,7 @@ class _LandPropertyState extends State<LandProperty> {
                       labelText: 'Área Total (m²)',
                       keyboardType: TextInputType.number,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d\.,-]')),
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d.,-]')),
                       ],
                     ),
                     CustomTextField(
@@ -566,7 +659,7 @@ class _LandPropertyState extends State<LandProperty> {
                       labelText: 'Área Atingida (m²)',
                       keyboardType: TextInputType.number,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d\.,-]')),
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d.,-]')),
                       ],
                     ),
                     CustomTextField(
@@ -575,7 +668,7 @@ class _LandPropertyState extends State<LandProperty> {
                       labelText: 'Área Remanescente (m²)',
                       keyboardType: TextInputType.number,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d\.,-]')),
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d.,-]')),
                       ],
                     ),
                     DropDownChange(
@@ -597,7 +690,7 @@ class _LandPropertyState extends State<LandProperty> {
                       labelText: 'Latitude',
                       keyboardType: TextInputType.number,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d\.,-]')),
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d.,-]')),
                       ],
                     ),
                     CustomTextField(
@@ -606,7 +699,7 @@ class _LandPropertyState extends State<LandProperty> {
                       labelText: 'Longitude',
                       keyboardType: TextInputType.number,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d\.,-]')),
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d.,-]')),
                       ],
                     ),
                   ],
@@ -628,9 +721,22 @@ class _LandPropertyState extends State<LandProperty> {
                       ),
                     ),
                     TextButton.icon(
-                      icon: const Icon(Icons.save),
+                      icon: state.saving
+                          ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: LoadingTreeDots(
+                          size: 16,
+                          centered: false,
+                        ),
+                      )
+                          : const Icon(Icons.save),
                       label: Text(
-                        (state.propertyId ?? '').isNotEmpty ? 'Atualizar' : 'Salvar',
+                        state.saving
+                            ? 'Salvando...'
+                            : (state.propertyId ?? '').isNotEmpty
+                            ? 'Atualizar'
+                            : 'Salvar',
                       ),
                       onPressed: state.saving
                           ? null
@@ -646,8 +752,17 @@ class _LandPropertyState extends State<LandProperty> {
                     ),
                     if ((state.propertyId ?? '').isNotEmpty)
                       TextButton.icon(
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Excluir'),
+                        icon: state.deleting
+                            ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: LoadingTreeDots(
+                            size: 16,
+                            centered: false,
+                          ),
+                        )
+                            : const Icon(Icons.delete_outline),
+                        label: Text(state.deleting ? 'Excluindo...' : 'Excluir'),
                         onPressed: state.deleting ? null : bloc.delete,
                       ),
                   ],

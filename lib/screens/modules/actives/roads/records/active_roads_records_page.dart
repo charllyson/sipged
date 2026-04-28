@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
-import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
-import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
-import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+
 import 'package:sipged/screens/modules/actives/roads/records/list_roads_page.dart';
 
 import 'tab_bar_roads_page.dart';
-
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ActiveRoadsRecordsPage extends StatefulWidget {
   const ActiveRoadsRecordsPage({super.key});
@@ -26,6 +29,7 @@ class ActiveRoadsRecordsPage extends StatefulWidget {
 class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
   bool _firedUserWarmup = false;
   bool _firedRoadsWarmup = false;
+  String? _lastFailureMessage;
 
   @override
   void didChangeDependencies() {
@@ -33,11 +37,29 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
 
     if (!_firedUserWarmup) {
       _firedUserWarmup = true;
+
       context.read<UserCubit>().warmup(
         listenRealtime: true,
         bindCurrentUser: true,
       );
     }
+  }
+
+  void _showNotification({
+    required String title,
+    String? subtitle,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Rodovias',
+        type: type,
+        duration: duration,
+      ),
+    );
   }
 
   void _openTabBarForRoad(ActiveRoadsData? road) {
@@ -61,7 +83,11 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
 
         if (!_firedRoadsWarmup && !st.initialized) {
           _firedRoadsWarmup = true;
-          cubit.warmup();
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            cubit.warmup();
+          });
         }
 
         if (!st.initialized || st.loadStatus == ActiveRoadsLoadStatus.loading) {
@@ -70,50 +96,73 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
             body: Stack(
               children: [
                 BackgroundChange(),
-                Center(child: Text('Carregando rodovias...')),
+                Center(
+                  child: LoadingTreeDots(
+                    size: 90,
+                    message: Text('Carregando rodovias...'),
+                  ),
+                ),
               ],
             ),
           );
         }
 
         if (st.loadStatus == ActiveRoadsLoadStatus.failure) {
-          if (st.error != null && st.error!.isNotEmpty) {
-            NotificationCenter.instance.show(
-              AppNotification(
-                title: const Text('Falha ao carregar rodovias'),
-                subtitle: Text(st.error ?? 'Erro desconhecido'),
-                type: AppNotificationType.error,
-              ),
-            );
+          final error = st.error ?? 'Erro desconhecido';
+
+          if (_lastFailureMessage != error) {
+            _lastFailureMessage = error;
+
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+
+              _showNotification(
+                title: 'Falha ao carregar rodovias',
+                subtitle: error,
+                type: NotificationType.error,
+                duration: const Duration(seconds: 6),
+              );
+            });
           }
+
           return Scaffold(
-            body: Center(child: Text('Erro: ${st.error ?? '-'}')),
+            appBar: const UpBar(),
+            body: Stack(
+              children: [
+                const BackgroundChange(),
+                Center(
+                  child: Text('Erro: ${st.error ?? '-'}'),
+                ),
+              ],
+            ),
           );
         }
+
+        _lastFailureMessage = null;
 
         final roads = st.all;
 
         void onTapRoad(ActiveRoadsData item) {
           _openTabBarForRoad(item);
+
           final rotulo = item.acronym ?? item.id ?? '';
-          NotificationCenter.instance.show(
-            AppNotification(
-              title: const Text('Editando rodovia'),
-              subtitle: Text(rotulo),
-              type: AppNotificationType.info,
-              duration: const Duration(seconds: 3),
-            ),
+
+          _showNotification(
+            title: 'Editando rodovia',
+            subtitle: rotulo,
+            type: NotificationType.info,
+            duration: const Duration(seconds: 3),
           );
         }
 
         void onDeleteRoad(String id) {
           cubit.deleteById(id);
-          NotificationCenter.instance.show(
-            AppNotification(
-              title: const Text('Solicitando exclusão...'),
-              type: AppNotificationType.warning,
-              duration: const Duration(seconds: 3),
-            ),
+
+          _showNotification(
+            title: 'Solicitando exclusão...',
+            subtitle: 'Registro enviado para exclusão.',
+            type: NotificationType.warning,
+            duration: const Duration(seconds: 3),
           );
         }
 
@@ -136,10 +185,22 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
                   ),
                 ),
               ),
+              if (st.savingOrImporting)
+                Stack(
+                  children: [
+                    ModalBarrier(
+                      dismissible: false,
+                      color: Colors.black.withValues(alpha: 0.35),
+                    ),
+                    const Center(
+                      child: LoadingTreeDots(size: 120),
+                    ),
+                  ],
+                ),
             ],
           ),
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: onAddRoad,
+            onPressed: st.savingOrImporting ? null : onAddRoad,
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text(
               'Adicionar rodovia',

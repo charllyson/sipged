@@ -1,15 +1,18 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
@@ -20,6 +23,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dar
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_state.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/contract_bell_notifier.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/5Edital/section_1_divulgacao_recebimento.dart';
 import 'package:sipged/screens/modules/contracts/hiring/5Edital/section_2_sessao_julgamento.dart';
@@ -50,19 +54,40 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
   late final ProgressCubit _progressCubit;
 
   EditalData _formData = const EditalData.empty();
+  ProcessData _contract = ProcessData.empty();
+
   bool _hydrated = false;
+  bool _loadingContract = false;
+
   String? _currentEditalId;
 
-  final _scrollCtrl = ScrollController();
-  final _resultadoKey = GlobalKey();
+  final ScrollController _scrollCtrl = ScrollController();
+  final GlobalKey _resultadoKey = GlobalKey();
 
   bool get _isEditable => !widget.readOnly;
+
+  String get _contractId => widget.contractId.trim();
+
+  ProcessData get _effectiveContract {
+    if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
+    if (_contractId.isNotEmpty) return _contract.copyWith(id: _contractId);
+    return _contract;
+  }
 
   @override
   void initState() {
     super.initState();
+
     _progressCubit = ProgressCubit(repo: ProgressRepository());
-    context.read<EditalCubit>().load(widget.contractId);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      if (_contractId.isNotEmpty) {
+        context.read<EditalCubit>().load(_contractId);
+        unawaited(_loadContract(_contractId));
+      }
+    });
   }
 
   @override
@@ -72,33 +97,118 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
     super.dispose();
   }
 
-  String? _quickValidate(EditalData d) {
-    if (d.numero.trim().isEmpty) return 'Informe o número do edital/processo.';
-    if (d.modalidade.trim().isEmpty) return 'Selecione a modalidade.';
-    if (d.criterio.trim().isEmpty) return 'Selecione o critério de julgamento.';
+  Future<void> _loadContract(String contractId) async {
+    final cid = contractId.trim();
+    if (cid.isEmpty) return;
+
+    if (mounted) {
+      setState(() => _loadingContract = true);
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(cid)
+          .get();
+
+      if (!mounted) return;
+
+      setState(() {
+        _contract = snapshot.exists
+            ? ProcessData.fromDocument(snapshot: snapshot)
+            : ProcessData.empty().copyWith(id: cid);
+        _loadingContract = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _contract = ProcessData.empty().copyWith(id: cid);
+        _loadingContract = false;
+      });
+    }
+  }
+
+  String _currentActorName() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    final displayName = user?.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+
+    final email = user?.email?.trim() ?? '';
+    if (email.isNotEmpty) return email;
+
+    return 'Usuário';
+  }
+
+  Future<void> _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    if (!mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    await ContractBellNotifier.show(
+      context: context,
+      contract: _effectiveContract,
+      title: title,
+      subtitle: subtitle,
+      details: details,
+      leadingLabel: 'Edital',
+      module: 'contracts_hiring_edital',
+      type: type,
+      duration: duration,
+      saveInBell: saveInBell,
+      actorId: user?.uid,
+      actorName: _currentActorName(),
+      extra: extra,
+    );
+  }
+
+  String? _quickValidate(EditalData data) {
+    if (data.numero.trim().isEmpty) {
+      return 'Informe o número do edital/processo.';
+    }
+
+    if (data.modalidade.trim().isEmpty) {
+      return 'Selecione a modalidade.';
+    }
+
+    if (data.criterio.trim().isEmpty) {
+      return 'Selecione o critério de julgamento.';
+    }
+
     return null;
   }
 
   Future<void> _scrollToResultado() async {
     final ctx = _resultadoKey.currentContext;
-    if (ctx != null) {
-      await Scrollable.ensureVisible(
-        ctx,
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOut,
-        alignment: 0.05,
-      );
-    }
+    if (ctx == null) return;
+
+    await Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+      alignment: 0.05,
+    );
   }
 
   void _definirVencedorEIr(int index) {
     final propostas = _formData.propostasItems;
+
     if (index < 0 || index >= propostas.length) return;
 
-    final p = propostas[index];
-    final licitante = (p['licitante'] ?? '').toString();
-    final cnpj = (p['cnpj'] ?? '').toString();
-    final valor = (p['valor'] ?? '').toString();
+    final proposta = propostas[index];
+
+    final licitante = (proposta['licitante'] ?? '').toString();
+    final cnpj = (proposta['cnpj'] ?? '').toString();
+    final valor = (proposta['valor'] ?? '').toString();
 
     setState(() {
       _formData = _formData.copyWith(
@@ -109,63 +219,216 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
       );
     });
 
-    _scrollToResultado();
+    unawaited(_scrollToResultado());
   }
 
-  Future<void> _saveOnly() async {
-    final cubit = context.read<EditalCubit>();
+  Future<bool> _saveOnly() async {
+    if (widget.readOnly) {
+      await _notify(
+        title: 'Edital',
+        subtitle: 'Esta etapa está em modo somente leitura.',
+        type: NotificationType.info,
+      );
+      return false;
+    }
 
     final quick = _quickValidate(_formData);
+
     if (quick != null) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Validação do Edital'),
-          subtitle: Text(quick),
-          type: AppNotificationType.warning,
-        ),
+      await _notify(
+        title: 'Validação do Edital',
+        subtitle: quick,
+        type: NotificationType.warning,
       );
-      return;
+
+      return false;
     }
 
-    final completer = Completer<void>();
-    late final StreamSubscription sub;
+    final cubit = context.read<EditalCubit>();
 
-    sub = cubit.stream.listen((s) {
-      if (!s.saving) {
-        if (!completer.isCompleted) completer.complete();
-        sub.cancel();
+    try {
+      await cubit.saveAll(
+        contractId: _contractId,
+        sectionsData: _formData.toSectionsMap(),
+      );
+
+      if (!mounted) return false;
+
+      if (!cubit.state.saveSuccess) {
+        final err = cubit.state.error ?? 'Falha ao salvar';
+
+        await _notify(
+          title: 'Edital',
+          subtitle: 'Erro ao salvar.',
+          details: err,
+          type: NotificationType.error,
+          duration: const Duration(seconds: 6),
+        );
+
+        return false;
       }
-    });
 
-    await cubit.saveAll(
-      contractId: widget.contractId,
-      sectionsData: _formData.toSectionsMap(),
-    );
+      await _loadContract(_contractId);
 
-    await completer.future;
+      if (!mounted) return false;
 
-    if (!mounted) return;
-
-    if (!cubit.state.saveSuccess) {
-      final err = cubit.state.error ?? 'Falha ao salvar';
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Edital'),
-          subtitle: const Text('Erro ao salvar.'),
-          details: Text(err),
-          type: AppNotificationType.error,
-        ),
+      await _notify(
+        title: 'Edital atualizado',
+        subtitle: 'Alterações salvas por ${_currentActorName()}.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'edital_saved',
+          'editalId': cubit.state.editalId,
+        },
       );
+
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+
+      await _notify(
+        title: 'Edital',
+        subtitle: 'Erro ao salvar.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+
+      return false;
+    }
+  }
+
+  Future<void> _saveApproveAndNext() async {
+    final editalCubit = context.read<EditalCubit>();
+    final pipeline = context.read<PipelineProgressCubit>();
+    final controller = DefaultTabController.of(context);
+    final repo = _progressCubit.repo;
+
+    final saved = await _saveOnly();
+
+    if (!mounted || !saved) return;
+
+    final editalId = editalCubit.state.editalId;
+
+    if (editalId == null || editalId.isEmpty) {
+      await _notify(
+        title: 'Edital',
+        subtitle: 'Documento não encontrado para aprovar.',
+        type: NotificationType.error,
+      );
+
       return;
     }
 
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: const Text('Edital'),
-        subtitle: const Text('Alterações salvas com sucesso.'),
-        type: AppNotificationType.success,
-      ),
-    );
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid ?? '';
+    final actorName = _currentActorName();
+
+    try {
+      await repo.approveStage(
+        contractId: _contractId,
+        collectionName: 'edital',
+        approverUid: uid,
+        approverName: actorName,
+      );
+
+      await repo.setCompleted(
+        contractId: _contractId,
+        collectionName: 'edital',
+        completed: true,
+      );
+
+      if (!mounted) return;
+
+      pipeline.setStageEnabled(HiringStageKey.habilitacao, true);
+      unawaited(pipeline.refresh());
+
+      controller.animateTo(
+        (controller.index + 1).clamp(0, controller.length - 1),
+      );
+
+      await _notify(
+        title: 'Edital aprovado',
+        subtitle: 'Etapa concluída por $actorName.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'edital_approved',
+          'editalId': editalId,
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      await _notify(
+        title: 'Edital',
+        subtitle: 'Erro ao aprovar a etapa.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+    }
+  }
+
+  Future<void> _updateApproved() async {
+    final editalCubit = context.read<EditalCubit>();
+    final repo = _progressCubit.repo;
+
+    final saved = await _saveOnly();
+
+    if (!mounted || !saved) return;
+
+    final editalId = editalCubit.state.editalId;
+
+    if (editalId == null || editalId.isEmpty) {
+      await _notify(
+        title: 'Edital',
+        subtitle: 'Documento não encontrado para atualizar.',
+        type: NotificationType.error,
+      );
+
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid ?? '';
+    final actorName = _currentActorName();
+
+    try {
+      await repo.touchApproval(
+        contractId: _contractId,
+        collectionName: 'edital',
+        updatedByUid: uid,
+        updatedByName: actorName,
+      );
+
+      if (!mounted) return;
+
+      await _notify(
+        title: 'Aprovação do Edital atualizada',
+        subtitle: 'Atualizada por $actorName.',
+        details: _effectiveContract.displaySummary,
+        type: NotificationType.success,
+        saveInBell: true,
+        extra: <String, dynamic>{
+          'action': 'edital_approval_updated',
+          'editalId': editalId,
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      await _notify(
+        title: 'Edital',
+        subtitle: 'Erro ao atualizar aprovação.',
+        details: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+    }
   }
 
   @override
@@ -175,8 +438,10 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
     return BlocProvider.value(
       value: _progressCubit,
       child: BlocListener<EditalCubit, EditalState>(
-        listenWhen: (prev, curr) =>
-        (prev.loading && !curr.loading) || (prev.editalId != curr.editalId),
+        listenWhen: (prev, curr) {
+          return (prev.loading && !curr.loading) ||
+              prev.editalId != curr.editalId;
+        },
         listener: (context, state) {
           if (!mounted || state.loading || !state.hasValidPath) return;
 
@@ -191,12 +456,16 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
               _hydrated = true;
               _currentEditalId = incomingId;
             });
+          }
 
-            if (incomingId != null && incomingId.isNotEmpty) {
-              _progressCubit.bindToStage(
-                contractId: widget.contractId,
-                collectionName: 'edital',
-              );
+          if ((incomingId ?? '').isNotEmpty) {
+            _progressCubit.bindToStage(
+              contractId: _contractId,
+              collectionName: 'edital',
+            );
+
+            if ((_contract.id ?? '') != _contractId) {
+              unawaited(_loadContract(_contractId));
             }
           }
         },
@@ -204,13 +473,17 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
           builder: (context, state) {
             final pstate = context.watch<ProgressCubit>().state;
 
-            final locked = state.loading || state.saving || pstate.loading;
+            final locked =
+                state.loading || state.saving || pstate.loading || _loadingContract;
+
             final msg = state.loading
                 ? 'Sincronizando os dados...'
                 : state.saving
                 ? 'Salvando os dados...'
                 : pstate.loading
                 ? 'Atualizando aprovação...'
+                : _loadingContract
+                ? 'Carregando dados do contrato...'
                 : null;
 
             return ScreenLock(
@@ -234,39 +507,51 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                             SectionDivulgacaoRecebimento(
                               isEditable: _isEditable,
                               data: _formData,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionSessaoJulgamento(
                               isEditable: _isEditable,
                               data: _formData,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionPropostas(
                               isEditable: _isEditable,
                               data: _formData,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                               onDefinirVencedorEIr: _definirVencedorEIr,
                             ),
                             const SizedBox(height: 12),
                             SectionLances(
                               isEditable: _isEditable,
                               data: _formData,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionParecerRecursos(
                               isEditable: _isEditable,
                               data: _formData,
-                              onChanged: (updated) => setState(() => _formData = updated),
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                             const SizedBox(height: 12),
                             SectionResultado(
                               isEditable: _isEditable,
                               data: _formData,
-                              onChanged: (updated) => setState(() => _formData = updated),
                               keyResultado: _resultadoKey,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                             ),
                           ],
                         ),
@@ -274,83 +559,17 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                     ],
                   ),
                   bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
-                    builder: (context, p) {
+                    builder: (context, progressState) {
                       return StageProgress(
                         title: 'Edital – Julgamento',
                         icon: Icons.gavel_outlined,
                         busy: state.saving,
-                        approved: p.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: () async {
-                          final editalCubit = context.read<EditalCubit>();
-                          final pipeline = context.read<PipelineProgressCubit>();
-                          final controller = DefaultTabController.of(context);
-                          final repo = _progressCubit.repo;
-
+                        approved: progressState.approved,
+                        onSave: () async {
                           await _saveOnly();
-
-                          if (!mounted) return;
-
-                          final editalId = editalCubit.state.editalId;
-                          if (editalId == null || editalId.isEmpty) {
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Edital'),
-                                subtitle: const Text('Documento não encontrado para aprovar.'),
-                                type: AppNotificationType.error,
-                              ),
-                            );
-                            return;
-                          }
-
-                          final user = FirebaseAuth.instance.currentUser;
-                          final uid = user?.uid ?? '';
-                          final nameOrEmail =
-                          (user?.displayName?.trim().isNotEmpty ?? false)
-                              ? user!.displayName!
-                              : (user?.email ?? uid);
-
-                          try {
-                            await repo.approveStage(
-                              contractId: widget.contractId,
-                              collectionName: 'edital',
-                              approverUid: uid,
-                              approverName: nameOrEmail,
-                            );
-                            await repo.setCompleted(
-                              contractId: widget.contractId,
-                              collectionName: 'edital',
-                              completed: true,
-                            );
-
-                            if (!mounted) return;
-
-                            pipeline.setStageEnabled(HiringStageKey.habilitacao, true);
-                            unawaited(pipeline.refresh());
-
-                            controller.animateTo(
-                              (controller.index + 1).clamp(0, controller.length - 1),
-                            );
-
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Edital'),
-                                subtitle: const Text('Aprovado e etapa concluída.'),
-                                type: AppNotificationType.success,
-                              ),
-                            );
-                          } catch (e) {
-                            if (!mounted) return;
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Edital'),
-                                subtitle: const Text('Erro ao aprovar a etapa.'),
-                                details: Text('$e'),
-                                type: AppNotificationType.error,
-                              ),
-                            );
-                          }
                         },
+                        onSaveAndNext: _saveApproveAndNext,
+                        onUpdateApproved: _updateApproved,
                       );
                     },
                   ),

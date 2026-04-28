@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:sipged/_blocs/modules/planning/land/notification/land_notification_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/land/notification/land_notification_data.dart';
 import 'package:sipged/_blocs/modules/planning/land/notification/land_notification_state.dart';
 
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
@@ -64,6 +69,7 @@ class _LandNotificationState extends State<LandNotification> {
   @override
   void didUpdateWidget(covariant LandNotification oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.contractId != widget.contractId ||
         oldWidget.propertyId != widget.propertyId) {
       _lastSyncKey = null;
@@ -74,6 +80,7 @@ class _LandNotificationState extends State<LandNotification> {
   void _initialize() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       context.read<LandNotificationCubit>().initialize(
         contractId: widget.contractId,
         propertyId: widget.propertyId,
@@ -101,6 +108,24 @@ class _LandNotificationState extends State<LandNotification> {
     registryUpdateDateCtrl.dispose();
 
     super.dispose();
+  }
+
+  void _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    required NotificationType type,
+  }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        details: details,
+        type: type,
+      ),
+    );
   }
 
   double _responsiveWidth(BuildContext context) {
@@ -144,23 +169,30 @@ class _LandNotificationState extends State<LandNotification> {
     negotiationStatusCtrl.text = d.negotiationStatus;
     notesCtrl.text = d.notes;
 
-    dupDateCtrl.text =
-    d.dupDate != null ? SipGedFormatDates.dateToDdMMyyyy(d.dupDate!) : '';
+    dupDateCtrl.text = d.dupDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(d.dupDate!)
+        : '';
+
     doPublicationDateCtrl.text = d.doPublicationDate != null
         ? SipGedFormatDates.dateToDdMMyyyy(d.doPublicationDate!)
         : '';
+
     notificationDateCtrl.text = d.notificationDate != null
         ? SipGedFormatDates.dateToDdMMyyyy(d.notificationDate!)
         : '';
+
     agreementDateCtrl.text = d.agreementDate != null
         ? SipGedFormatDates.dateToDdMMyyyy(d.agreementDate!)
         : '';
+
     possessionDateCtrl.text = d.possessionDate != null
         ? SipGedFormatDates.dateToDdMMyyyy(d.possessionDate!)
         : '';
+
     evictionDateCtrl.text = d.evictionDate != null
         ? SipGedFormatDates.dateToDdMMyyyy(d.evictionDate!)
         : '';
+
     registryUpdateDateCtrl.text = d.registryUpdateDate != null
         ? SipGedFormatDates.dateToDdMMyyyy(d.registryUpdateDate!)
         : '';
@@ -222,25 +254,50 @@ class _LandNotificationState extends State<LandNotification> {
     _registryUpdateDate = null;
 
     context.read<LandNotificationCubit>().updateDraft(empty);
+
+    _notify(
+      title: 'Formulário limpo',
+      subtitle: 'Os campos da notificação foram reiniciados.',
+      type: NotificationType.info,
+    );
+  }
+
+  Future<void> _save(LandNotificationState state) async {
+    final bloc = context.read<LandNotificationCubit>();
+
+    bloc.updateDraft(_buildDraft(state));
+    await bloc.save(userId: widget.userId);
+  }
+
+  Future<void> _delete(LandNotificationCubit bloc) async {
+    await bloc.delete();
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<LandNotificationCubit, LandNotificationState>(
-      listenWhen: (previous, current) =>
-      previous.error != current.error ||
-          previous.successMessage != current.successMessage,
+      listenWhen: (previous, current) {
+        return previous.error != current.error ||
+            previous.successMessage != current.successMessage;
+      },
       listener: (context, state) {
-        if (state.error != null && state.error!.trim().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.error!)),
+        final error = state.error?.trim();
+        final success = state.successMessage?.trim();
+
+        if (error != null && error.isNotEmpty) {
+          _notify(
+            title: 'Erro na notificação',
+            subtitle: 'Não foi possível concluir a operação.',
+            details: error,
+            type: NotificationType.error,
           );
         }
 
-        if (state.successMessage != null &&
-            state.successMessage!.trim().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.successMessage!)),
+        if (success != null && success.isNotEmpty) {
+          _notify(
+            title: 'Notificação atualizada',
+            subtitle: success,
+            type: NotificationType.success,
           );
         }
       },
@@ -394,21 +451,26 @@ class _LandNotificationState extends State<LandNotification> {
                               label: const Text('Recarregar'),
                               onPressed: state.loading
                                   ? null
-                                  : () => bloc.initialize(
-                                contractId: widget.contractId,
-                                propertyId: widget.propertyId,
-                              ),
+                                  : () {
+                                bloc.initialize(
+                                  contractId: widget.contractId,
+                                  propertyId: widget.propertyId,
+                                );
+                              },
                             ),
                             TextButton.icon(
                               icon: const Icon(Icons.cleaning_services_outlined),
                               label: const Text('Limpar'),
-                              onPressed:
-                              state.saving ? null : () => _clearForm(state),
+                              onPressed: state.saving
+                                  ? null
+                                  : () => _clearForm(state),
                             ),
                             TextButton.icon(
                               icon: const Icon(Icons.delete_outline),
                               label: const Text('Excluir'),
-                              onPressed: state.saving ? null : () => bloc.delete(),
+                              onPressed: state.saving
+                                  ? null
+                                  : () => _delete(bloc),
                             ),
                             ElevatedButton.icon(
                               icon: state.saving
@@ -426,10 +488,7 @@ class _LandNotificationState extends State<LandNotification> {
                               ),
                               onPressed: state.saving
                                   ? null
-                                  : () {
-                                bloc.updateDraft(_buildDraft(state));
-                                bloc.save(userId: widget.userId);
-                              },
+                                  : () => _save(state),
                             ),
                           ],
                         ),

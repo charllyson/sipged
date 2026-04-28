@@ -9,6 +9,10 @@ import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_state.dart';
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_data.dart';
@@ -34,6 +38,7 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
 
   final _dateCtrl = TextEditingController();
   final _nextDateCtrl = TextEditingController();
+
   DateTime? _date;
   DateTime? _nextDate;
 
@@ -51,17 +56,47 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
     _costCtrl.dispose();
     _dateCtrl.dispose();
     _nextDateCtrl.dispose();
+
     super.dispose();
+  }
+
+  void _notifySuccess(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Sucesso',
+        subtitle: message,
+        type: NotificationType.success,
+        leadingLabel: 'Inspeção',
+      ),
+    );
+  }
+
+  void _notifyError(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Erro',
+        subtitle: message,
+        type: NotificationType.error,
+        leadingLabel: 'Inspeção',
+      ),
+    );
   }
 
   double? _parseDouble(String text) {
     final t = text.trim().replaceAll(',', '.');
+
     if (t.isEmpty) return null;
+
     return double.tryParse(t);
   }
 
   String _fmtDate(DateTime? d) {
     if (d == null) return '-';
+
     return '${d.day.toString().padLeft(2, '0')}/'
         '${d.month.toString().padLeft(2, '0')}/'
         '${d.year.toString()}';
@@ -69,12 +104,15 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
 
   List<String>? _parseTags(String raw) {
     final s = raw.trim();
+
     if (s.isEmpty) return null;
+
     final parts = s
         .split(',')
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
+
     return parts.isEmpty ? null : parts;
   }
 
@@ -84,20 +122,25 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
     required DateTime? nextDate,
   }) {
     final buf = StringBuffer();
+
     if (notes != null && notes.trim().isNotEmpty) {
       buf.writeln(notes.trim());
     }
+
     if (costEstimate != null && costEstimate.trim().isNotEmpty) {
       buf.writeln('Custo estimado: R\$ ${costEstimate.trim()}');
     }
+
     if (nextDate != null) {
       buf.writeln('Próxima inspeção: ${_fmtDate(nextDate)}');
     }
+
     return buf.toString().trim();
   }
 
   List<OacInspectionEntry> _readInspectionsFromForm(ActiveOacsData form) {
     final raw = form.inspections ?? const <OacInspectionEntry>[];
+
     return raw.map((e) => e.copy()).toList(growable: true);
   }
 
@@ -138,7 +181,6 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
       builder: (context, st) {
         final cubit = context.read<ActiveOacsCubit>();
         final oac = st.form;
-        final messenger = ScaffoldMessenger.of(context);
 
         if (oac.id == null || oac.id!.isEmpty) {
           return const Padding(
@@ -170,81 +212,101 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
         }
 
         Future<void> onDelete(String id) async {
-          final updated = inspections.where((e) => e.id != id).toList();
-          _writeInspectionsToCubit(cubit: cubit, base: oac, inspections: updated);
-          await cubit.upsert(cubit.state.form);
+          try {
+            final updated = inspections.where((e) => e.id != id).toList();
 
-          if (!mounted) return;
-          messenger.showSnackBar(
-            const SnackBar(content: Text('Inspeção removida.')),
-          );
+            _writeInspectionsToCubit(
+              cubit: cubit,
+              base: oac,
+              inspections: updated,
+            );
+
+            await cubit.upsert(cubit.state.form);
+
+            if (!mounted) return;
+
+            _notifySuccess('Inspeção removida.');
+          } catch (e) {
+            _notifyError('Falha ao remover inspeção: $e');
+          }
         }
 
         Future<void> onSaveInspection() async {
           if (!(_formKey.currentState?.validate() ?? false)) return;
 
-          final nowId =
-              _editingInspectionId ?? 'insp_${DateTime.now().millisecondsSinceEpoch}';
-          final date = _date ?? DateTime.now();
+          try {
+            final nowId = _editingInspectionId ??
+                'insp_${DateTime.now().millisecondsSinceEpoch}';
 
-          final entry = OacInspectionEntry(
-            id: nowId,
-            date: date,
-            inspectorUserId: _inspectorCtrl.text.trim().isEmpty
-                ? null
-                : _inspectorCtrl.text.trim(),
-            score: _parseDouble(_scoreCtrl.text),
-            method: _methodCtrl.text.trim().isEmpty
-                ? null
-                : _methodCtrl.text.trim(),
-            anomalies: _parseTags(_anomaliesCtrl.text),
-            notes: _buildNotes(
-              notes: _notesCtrl.text,
-              costEstimate: _costCtrl.text,
-              nextDate: _nextDate,
-            ),
-          );
+            final date = _date ?? DateTime.now();
 
-          final idx = inspections.indexWhere((e) => e.id == nowId);
-          if (idx == -1) {
-            inspections.insert(0, entry);
-          } else {
-            inspections[idx] = entry;
-          }
-
-          _writeInspectionsToCubit(
-            cubit: cubit,
-            base: oac,
-            inspections: inspections,
-          );
-          await cubit.upsert(cubit.state.form);
-
-          if (!mounted) return;
-          _clearInspectionForm();
-
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text(
-                idx == -1
-                    ? 'Inspeção adicionada.'
-                    : 'Inspeção atualizada.',
+            final entry = OacInspectionEntry(
+              id: nowId,
+              date: date,
+              inspectorUserId: _inspectorCtrl.text.trim().isEmpty
+                  ? null
+                  : _inspectorCtrl.text.trim(),
+              score: _parseDouble(_scoreCtrl.text),
+              method:
+              _methodCtrl.text.trim().isEmpty ? null : _methodCtrl.text.trim(),
+              anomalies: _parseTags(_anomaliesCtrl.text),
+              notes: _buildNotes(
+                notes: _notesCtrl.text,
+                costEstimate: _costCtrl.text,
+                nextDate: _nextDate,
               ),
-            ),
-          );
+            );
+
+            final idx = inspections.indexWhere((e) => e.id == nowId);
+
+            if (idx == -1) {
+              inspections.insert(0, entry);
+            } else {
+              inspections[idx] = entry;
+            }
+
+            _writeInspectionsToCubit(
+              cubit: cubit,
+              base: oac,
+              inspections: inspections,
+            );
+
+            await cubit.upsert(cubit.state.form);
+
+            if (!mounted) return;
+
+            _clearInspectionForm();
+
+            _notifySuccess(
+              idx == -1 ? 'Inspeção adicionada.' : 'Inspeção atualizada.',
+            );
+          } catch (e) {
+            _notifyError('Falha ao salvar inspeção: $e');
+          }
         }
 
         Future<void> onUploadInspectionAttachment(String inspectionId) async {
-          final att = await _repo.pickAndUploadSingle(
-            baseDir: 'actives_oacs/${oac.id}/inspections/$inspectionId',
-            allowedExtensions: null,
-            forcedLabel: null,
-          );
-          if (att == null) return;
+          try {
+            final att = await _repo.pickAndUploadSingle(
+              baseDir: 'actives_oacs/${oac.id}/inspections/$inspectionId',
+              allowedExtensions: null,
+              forcedLabel: null,
+            );
 
-          final list = _attachmentsByInspection[inspectionId] ?? <Attachment>[];
-          _attachmentsByInspection[inspectionId] = [att, ...list];
+            if (att == null) return;
 
-          if (mounted) setState(() {});
+            final list = _attachmentsByInspection[inspectionId] ?? <Attachment>[];
+
+            _attachmentsByInspection[inspectionId] = [att, ...list];
+
+            if (mounted) {
+              setState(() {});
+            }
+
+            _notifySuccess('Anexo enviado com sucesso.');
+          } catch (e) {
+            _notifyError('Falha ao enviar anexo: $e');
+          }
         }
 
         return Padding(
@@ -260,11 +322,13 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                   builder: (context, constraints) {
                     final width = constraints.maxWidth;
 
-                    double w(int perLine) => width >= 900
-                        ? (width - (perLine - 1) * 12) / perLine
-                        : width >= 600
-                        ? (width - 12) / 2
-                        : width;
+                    double w(int perLine) {
+                      return width >= 900
+                          ? (width - (perLine - 1) * 12) / perLine
+                          : width >= 600
+                          ? (width - 12) / 2
+                          : width;
+                    }
 
                     return Wrap(
                       spacing: 12,
@@ -380,6 +444,7 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
 
                       final title =
                           '${_fmtDate(ins.date)} • ${ins.method ?? 'Sem método'}';
+
                       final subtitle =
                           'Inspetor: ${ins.inspectorUserId ?? '-'} • Nota: ${ins.score?.toStringAsFixed(1) ?? '-'}';
 
@@ -428,8 +493,9 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                               SideListBox(
                                 title: 'Anexos da inspeção',
                                 items: attachments,
-                                onAddPressed: () =>
-                                    onUploadInspectionAttachment(ins.id),
+                                onAddPressed: () {
+                                  onUploadInspectionAttachment(ins.id);
+                                },
                               ),
                             ],
                           ),

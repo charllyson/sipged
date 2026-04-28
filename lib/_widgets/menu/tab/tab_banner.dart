@@ -11,10 +11,10 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_widgets/list/search/search_user_permission_widget.dart';
 
-import 'package:sipged/_blocs/system/permitions/module_permission.dart'
+import 'package:sipged/_blocs/system/module/module_permission.dart'
 as perms;
-import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:sipged/_blocs/system/permitions/contract_permission.dart'
+import 'package:sipged/_blocs/system/user/user_permission.dart' as roles;
+import 'package:sipged/_blocs/modules/contracts/_process/contract_permission.dart'
 as acl;
 
 import 'package:sipged/_widgets/stamp/stamp.dart';

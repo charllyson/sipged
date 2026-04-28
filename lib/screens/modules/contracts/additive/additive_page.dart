@@ -6,8 +6,8 @@ import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_state.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
-import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
@@ -74,7 +74,9 @@ class _AdditivePageState extends State<AdditivePage> {
     _addDaysExecCtrl.addListener(recomputeValidity);
     _addDaysContractCtrl.addListener(recomputeValidity);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => recomputeValidity());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      recomputeValidity();
+    });
   }
 
   @override
@@ -87,6 +89,7 @@ class _AdditivePageState extends State<AdditivePage> {
     _addDaysExecCtrl.dispose();
     _addDaysContractCtrl.dispose();
     _cubit.close();
+
     super.dispose();
   }
 
@@ -99,9 +102,14 @@ class _AdditivePageState extends State<AdditivePage> {
         ? SipGedFormatDates.dateToDdMMyyyy(a.additiveDate!)
         : '';
     _typeCtrl.text = a.typeOfAdditive ?? '';
+
+    // IMPORTANTE:
+    // O campo agora recebe apenas "1.234,56".
+    // O "R$" é exibido pelo prefixText no CustomTextField.
     _valueCtrl.text = a.additiveValue != null
-        ? SipGedFormatMoney.doubleToText(a.additiveValue)
+        ? SipGedFormatMoney.brlNoSymbol(a.additiveValue)
         : '';
+
     _addDaysExecCtrl.text = a.additiveValidityExecutionDays?.toString() ?? '';
     _addDaysContractCtrl.text = a.additiveValidityContractDays?.toString() ?? '';
 
@@ -118,7 +126,9 @@ class _AdditivePageState extends State<AdditivePage> {
   void _clearForm({bool keepOrder = false}) {
     _lastFilledId = null;
 
-    if (!keepOrder) _orderCtrl.clear();
+    if (!keepOrder) {
+      _orderCtrl.clear();
+    }
 
     _processCtrl.clear();
     _dateCtrl.clear();
@@ -176,10 +186,12 @@ class _AdditivePageState extends State<AdditivePage> {
 
   void _ensureSelectedAttachmentIndexValid(int newLen) {
     if (_selectedAttachmentIndex == null) return;
+
     if (newLen <= 0) {
       setState(() => _selectedAttachmentIndex = null);
       return;
     }
+
     if (_selectedAttachmentIndex! >= newLen) {
       setState(() => _selectedAttachmentIndex = newLen - 1);
     }
@@ -221,14 +233,19 @@ class _AdditivePageState extends State<AdditivePage> {
                       builder: (context, constraints) {
                         return SingleChildScrollView(
                           child: ConstrainedBox(
-                            constraints:
-                            BoxConstraints(minHeight: constraints.maxHeight),
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const SectionTitle(text: 'Cadastrar aditivos no sistema'),
+                                const SectionTitle(
+                                  text: 'Cadastrar aditivos no sistema',
+                                ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
                                   child: AdditiveFormSection(
                                     isEditable: state.isEditable,
                                     editingMode: state.editingMode,
@@ -251,6 +268,7 @@ class _AdditivePageState extends State<AdditivePage> {
                                     onClear: () {
                                       _cubit.createNewAdditive();
                                       _clearForm();
+
                                       _orderCtrl.text =
                                           state.nextAvailableOrder.toString();
 
@@ -270,7 +288,9 @@ class _AdditivePageState extends State<AdditivePage> {
                                       if (v == null) return;
 
                                       _orderCtrl.text = v;
-                                      final ord = int.tryParse(v.trim()) ?? 0;
+
+                                      final ord =
+                                          int.tryParse(v.trim()) ?? 0;
 
                                       _cubit.selectAdditiveByOrder(ord);
                                       _cubit.reloadAttachments();
@@ -292,17 +312,25 @@ class _AdditivePageState extends State<AdditivePage> {
                                       );
                                     },
                                     sideItems: state.sideAttachments,
-                                    selectedSideIndex: _selectedAttachmentIndex,
+                                    selectedSideIndex:
+                                    _selectedAttachmentIndex,
                                     onAddSideItem: state.canAddFile
-                                        ? () => _cubit.addAttachmentWithPicker(context)
+                                        ? () => _cubit
+                                        .addAttachmentWithPicker(context)
                                         : null,
                                     onTapSideItem: (i) {
-                                      setState(() => _selectedAttachmentIndex = i);
+                                      setState(() {
+                                        _selectedAttachmentIndex = i;
+                                      });
                                     },
                                     onDeleteSideItem: (i) async {
                                       await _cubit.deleteAttachment(i);
+
                                       if (!mounted) return;
-                                      setState(() => _selectedAttachmentIndex = null);
+
+                                      setState(() {
+                                        _selectedAttachmentIndex = null;
+                                      });
                                     },
                                     onSideItemsChanged: (newItems) {
                                       _ensureSelectedAttachmentIndexValid(
@@ -326,7 +354,9 @@ class _AdditivePageState extends State<AdditivePage> {
                                     },
                                   ),
                                 ),
-                                const SectionTitle(text: 'Gráfico dos aditivos'),
+                                const SectionTitle(
+                                  text: 'Gráfico dos aditivos',
+                                ),
                                 if (!isLoading && state.additives.isEmpty)
                                   const Padding(
                                     padding: EdgeInsets.all(24),
@@ -343,8 +373,11 @@ class _AdditivePageState extends State<AdditivePage> {
                                       if (index < 0) {
                                         _cubit.createNewAdditive();
                                         _clearForm();
-                                        _orderCtrl.text =
-                                            state.nextAvailableOrder.toString();
+
+                                        _orderCtrl.text = state
+                                            .nextAvailableOrder
+                                            .toString();
+
                                         return;
                                       }
 

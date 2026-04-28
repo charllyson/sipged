@@ -12,6 +12,10 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -29,6 +33,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final _firstCtrl = TextEditingController();
   final _lastCtrl = TextEditingController();
+
   static const double _cardsLift = 120;
 
   bool _saving = false;
@@ -44,6 +49,32 @@ class _UserProfilePageState extends State<UserProfilePage> {
     _firstCtrl.dispose();
     _lastCtrl.dispose();
     super.dispose();
+  }
+
+  void _notifySuccess(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Sucesso',
+        subtitle: message,
+        type: NotificationType.success,
+        leadingLabel: 'Perfil',
+      ),
+    );
+  }
+
+  void _notifyError(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Erro',
+        subtitle: message,
+        type: NotificationType.error,
+        leadingLabel: 'Perfil',
+      ),
+    );
   }
 
   Widget _header(UserData? user) {
@@ -112,21 +143,26 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
+
     final img = await picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 85,
     );
+
     if (img == null) return;
 
     if (kIsWeb) {
       final bytes = await img.readAsBytes();
+
       if (!mounted) return;
+
       setState(() {
         _previewBytes = bytes;
         _pickedFile = null;
       });
     } else {
       if (!mounted) return;
+
       setState(() {
         _pickedFile = img;
         _previewBytes = null;
@@ -135,13 +171,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 
   Future<String?> _uploadIfNeeded(String uid) async {
-    final messenger = ScaffoldMessenger.of(context);
-
     if (_previewBytes == null && _pickedFile == null) return _currentPhoto;
 
     try {
       final ref = FirebaseStorage.instance.ref('users/$uid/profile.jpg');
-      UploadTask task;
+
+      late final UploadTask task;
 
       if (kIsWeb) {
         task = ref.putData(
@@ -158,25 +193,24 @@ class _UserProfilePageState extends State<UserProfilePage> {
       final snap = await task.whenComplete(() => null);
       return await snap.ref.getDownloadURL();
     } catch (_) {
-      if (mounted) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Não foi possível enviar a foto.')),
-        );
-      }
+      _notifyError('Não foi possível enviar a foto.');
       return _currentPhoto;
     }
   }
 
   Future<void> _onSave(UserData current) async {
-    final messenger = ScaffoldMessenger.of(context);
     final userCubit = context.read<UserCubit>();
 
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _saving = true);
 
     try {
       final uid = current.uid ?? FirebaseAuth.instance.currentUser?.uid ?? '';
-      if (uid.isEmpty) throw Exception('UID inválido');
+
+      if (uid.isEmpty) {
+        throw Exception('UID inválido');
+      }
 
       final photoUrl = await _uploadIfNeeded(uid);
 
@@ -211,6 +245,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         await authUser.updateDisplayName(
           displayName.isEmpty ? null : displayName,
         );
+
         if ((photoUrl ?? '').isNotEmpty) {
           await authUser.updatePhotoURL(photoUrl);
         }
@@ -224,15 +259,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
         _previewBytes = null;
       });
 
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Perfil atualizado!')),
-      );
+      _notifySuccess('Perfil atualizado com sucesso.');
     } catch (_) {
-      if (mounted) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Falha ao salvar seu perfil.')),
-        );
-      }
+      _notifyError('Falha ao salvar seu perfil.');
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -243,9 +272,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<UserCubit, UserState>(
-      buildWhen: (prev, curr) =>
-      prev.current != curr.current ||
-          prev.isLoadingUsers != curr.isLoadingUsers,
+      buildWhen: (prev, curr) {
+        return prev.current != curr.current ||
+            prev.isLoadingUsers != curr.isLoadingUsers;
+      },
       builder: (context, state) {
         final user = state.current;
 
@@ -279,8 +309,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
                         final photoCard = _glassCard(
                           Padding(
-                            padding:
-                            const EdgeInsets.fromLTRB(16, 18, 16, 20),
+                            padding: const EdgeInsets.fromLTRB(
+                              16,
+                              18,
+                              16,
+                              20,
+                            ),
                             child: Row(
                               children: [
                                 _AvatarEditable(
@@ -302,8 +336,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
                         final formCard = _glassCard(
                           Padding(
-                            padding:
-                            const EdgeInsets.fromLTRB(16, 18, 16, 20),
+                            padding: const EdgeInsets.fromLTRB(
+                              16,
+                              18,
+                              16,
+                              20,
+                            ),
                             child: Form(
                               key: _formKey,
                               child: Column(
@@ -375,7 +413,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             FilledButton.icon(
-                              onPressed: _saving ? null : () => _onSave(user),
+                              onPressed:
+                              _saving ? null : () => _onSave(user),
                               icon: _saving
                                   ? const SizedBox(
                                 width: 22,
@@ -439,19 +478,24 @@ class _UserProfilePageState extends State<UserProfilePage> {
     );
   }
 
-  Widget _nameField() => CustomTextField(
-    controller: _firstCtrl,
-    labelText: 'Nome',
-    hintText: 'Seu nome',
-    validator: (v) =>
-    (v == null || v.trim().isEmpty) ? 'Informe seu nome' : null,
-  );
+  Widget _nameField() {
+    return CustomTextField(
+      controller: _firstCtrl,
+      labelText: 'Nome',
+      hintText: 'Seu nome',
+      validator: (v) {
+        return (v == null || v.trim().isEmpty) ? 'Informe seu nome' : null;
+      },
+    );
+  }
 
-  Widget _surnameField() => CustomTextField(
-    controller: _lastCtrl,
-    labelText: 'Sobrenome',
-    hintText: 'Seu sobrenome',
-  );
+  Widget _surnameField() {
+    return CustomTextField(
+      controller: _lastCtrl,
+      labelText: 'Sobrenome',
+      hintText: 'Seu sobrenome',
+    );
+  }
 
   Widget _infoChip(IconData icon, String text) {
     return Container(
@@ -466,7 +510,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
         children: [
           Icon(icon, size: 16, color: Colors.blueGrey.shade700),
           const SizedBox(width: 6),
-          Text(text, style: TextStyle(color: Colors.blueGrey.shade900)),
+          Text(
+            text,
+            style: TextStyle(color: Colors.blueGrey.shade900),
+          ),
         ],
       ),
     );
@@ -511,16 +558,22 @@ class _AvatarEditable extends StatelessWidget {
           backgroundImage: MemoryImage(previewBytes!),
         );
       }
+
       if ((photoUrl ?? '').isNotEmpty) {
         return CircleAvatar(
           radius: radius,
           backgroundImage: NetworkImage(photoUrl!),
         );
       }
+
       return CircleAvatar(
         radius: radius,
         backgroundColor: Colors.blueGrey.shade200,
-        child: Icon(Icons.person, size: radius, color: Colors.white70),
+        child: Icon(
+          Icons.person,
+          size: radius,
+          color: Colors.white70,
+        ),
       );
     }();
 
@@ -549,7 +602,11 @@ class _AvatarEditable extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Icon(Icons.edit, size: 18, color: Colors.white),
+                child: const Icon(
+                  Icons.edit,
+                  size: 18,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),

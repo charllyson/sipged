@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:sipged/_utils/formats/sipged_format_firestore.dart';
+import 'package:sipged/_utils/formatters/sipged_format_firestore.dart';
 
 import 'dfd_sections.dart';
 

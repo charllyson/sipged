@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+
 import 'package:sipged/_utils/mask/sipged_masks.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
@@ -28,30 +29,25 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onClear;
 
-  // SideListBox
   final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
 
-  /// ✅ persistência do rename (SideListBox cuida do dialog)
   final Future<bool> Function({
   required int index,
   required Attachment oldItem,
   required Attachment newItem,
   })? onRenamePersist;
 
-  /// ✅ notifica a tela pai com a lista já atualizada (rename otimista etc.)
   final void Function(List<dynamic> newItems)? onSideItemsChanged;
 
-  /// ✅ overlay de upload/carregamento (igual ao ReportMeasurement)
   final bool sideLoading;
   final double? sideUploadProgress;
 
-  // Dropdown de ordem
-  final List<String> orderOptions; // 1..(max+1)
-  final Set<String> greyOrderItems; // existentes (cinza)
+  final List<String> orderOptions;
+  final Set<String> greyOrderItems;
   final void Function(String?) onChangedOrder;
 
   const AdjustmentMeasurementFormSection({
@@ -103,25 +99,12 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
         bool date = false,
         List<TextInputFormatter>? mask,
       }) {
-    List<TextInputFormatter> formatters = [];
-
-    if (money) {
-      formatters = [
-        CurrencyInputFormatter(
-          leadingSymbol: 'R\$ ',
-          useSymbolPadding: true,
-          thousandSeparator: ThousandSeparator.Period,
-          mantissaLength: 2,
-        ),
-      ];
-    } else if (date) {
-      formatters = [
-        FilteringTextInputFormatter.digitsOnly,
-        SipGedMasks.dateDDMMYYYY,
-      ];
-    } else if (mask != null) {
-      formatters = mask;
-    }
+    final formatters = <TextInputFormatter>[
+      if (date) FilteringTextInputFormatter.digitsOnly,
+      if (date) SipGedMasks.dateDDMMYYYY,
+      if (money) const SipGedMoneyFormatter(),
+      if (mask != null) ...mask,
+    ];
 
     final customTextField = CustomTextField(
       width: width,
@@ -129,8 +112,14 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       labelText: label,
       controller: controller,
       keyboardType: money
-          ? TextInputType.number
+          ? const TextInputType.numberWithOptions(decimal: true)
           : (date ? TextInputType.datetime : TextInputType.text),
+      prefixText: money ? 'R\$ ' : null,
+      prefixStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: Color(0xFF111827),
+      ),
       inputFormatters: formatters,
     );
 
@@ -140,6 +129,7 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
         child: customTextField,
       );
     }
+
     return customTextField;
   }
 
@@ -160,7 +150,7 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
           labelText: 'Ordem da medição',
           items: orderOptions,
           greyItems: greyOrderItems,
-          enabled: true, // mantém selecionável mesmo se isEditable=false
+          enabled: true,
           onChanged: onChangedOrder,
         ),
         _input(
@@ -226,16 +216,11 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
           : null,
       onTap: onTapSideItem,
       onDelete: isEditable ? onDeleteSideItem : null,
-
-      // ✅ rename + sync
       enableRename: isEditable,
       onRenamePersist: onRenamePersist,
       onItemsChanged: onSideItemsChanged,
-
-      // ✅ overlay (mesma lógica do outro módulo)
       loading: sideLoading,
       uploadProgress: sideUploadProgress,
-
       width: sideWidth,
     );
 

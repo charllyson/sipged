@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_map.dart';
+import 'package:sipged/_blocs/system/map/map_data.dart';
 import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_panel.dart';
 
@@ -32,23 +34,31 @@ class LayerDrawer extends StatelessWidget {
 
   final String? currentUserId;
 
-  final ValueChanged<String> onSelectedChanged;
-  final void Function(String id, bool active) onToggleLayer;
-  final ValueChanged<String> onMoveUp;
-  final ValueChanged<String> onMoveDown;
+  final FutureOr<void> Function(String id) onSelectedChanged;
+  final FutureOr<void> Function(String id, bool active) onToggleLayer;
+  final FutureOr<void> Function(String id) onMoveUp;
+  final FutureOr<void> Function(String id) onMoveDown;
 
-  final Future<void> Function(String? parentId, int? targetIndex)
+  final FutureOr<void> Function(String? parentId, int? targetIndex)
   onCreateEmptyGroup;
 
-  final Future<void> Function(String? parentId, int? targetIndex) onCreateLayer;
+  final FutureOr<void> Function(String? parentId, int? targetIndex)
+  onCreateLayer;
 
-  final void Function(String draggedId, String? targetParentId, int targetIndex)
-  onDropItem;
+  final FutureOr<void> Function(
+      String draggedId,
+      String? targetParentId,
+      int targetIndex,
+      ) onDropItem;
 
-  final ValueChanged<String> onRenameSelected;
-  final ValueChanged<String> onRemoveSelected;
-  final ValueChanged<String> onConnectLayer;
-  final ValueChanged<String> onOpenTable;
+  final FutureOr<void> Function(String id) onRenameSelected;
+  final FutureOr<void> Function(String id) onRemoveSelected;
+  final FutureOr<void> Function(String id) onConnectLayer;
+  final FutureOr<void> Function(String id) onOpenTable;
+
+  void _runVoid(FutureOr<void> Function() action) {
+    unawaited(Future<void>.sync(action));
+  }
 
   List<LayerData> _filterTreeForUser({
     required List<LayerData> tree,
@@ -284,23 +294,56 @@ class LayerDrawer extends StatelessWidget {
                         activeLayerIds: visibleActiveLayerIds,
                         selectedId: selectedId,
                         currentUserId: resolvedCurrentUserId,
-                        onSelectedChanged: onSelectedChanged,
-                        onClearSelection: () {
-                          onSelectedChanged('');
+                        onSelectedChanged: (id) {
+                          _runVoid(() => onSelectedChanged(id));
                         },
-                        onToggleLayer: onToggleLayer,
+                        onClearSelection: () {
+                          _runVoid(() => onSelectedChanged(''));
+                        },
+                        onToggleLayer: (id, active) {
+                          _runVoid(() => onToggleLayer(id, active));
+                        },
                         hasDataByLayer: visibleHasDataByLayer,
-                        supportsConnect: (layer) =>
-                        layer.supportsConnect && !layer.isGroup,
-                        onMoveUp: onMoveUp,
-                        onMoveDown: onMoveDown,
-                        onCreateEmptyGroup: onCreateEmptyGroup,
-                        onCreateLayer: onCreateLayer,
-                        onDropItem: onDropItem,
-                        onRenameSelected: onRenameSelected,
-                        onRemoveSelected: onRemoveSelected,
-                        onConnectLayer: onConnectLayer,
-                        onOpenTable: onOpenTable,
+                        supportsConnect: (layer) {
+                          return layer.supportsConnect && !layer.isGroup;
+                        },
+                        onMoveUp: (id) {
+                          _runVoid(() => onMoveUp(id));
+                        },
+                        onMoveDown: (id) {
+                          _runVoid(() => onMoveDown(id));
+                        },
+                        onCreateEmptyGroup: (parentId, targetIndex) async {
+                          await onCreateEmptyGroup(parentId, targetIndex);
+                        },
+                        onCreateLayer: (parentId, targetIndex) async {
+                          await onCreateLayer(parentId, targetIndex);
+                        },
+                        onDropItem: (
+                            draggedId,
+                            targetParentId,
+                            targetIndex,
+                            ) {
+                          _runVoid(
+                                () => onDropItem(
+                              draggedId,
+                              targetParentId,
+                              targetIndex,
+                            ),
+                          );
+                        },
+                        onRenameSelected: (id) {
+                          _runVoid(() => onRenameSelected(id));
+                        },
+                        onRemoveSelected: (id) {
+                          _runVoid(() => onRemoveSelected(id));
+                        },
+                        onConnectLayer: (id) {
+                          _runVoid(() => onConnectLayer(id));
+                        },
+                        onOpenTable: (id) {
+                          _runVoid(() => onOpenTable(id));
+                        },
                       ),
                     ),
                   ),

@@ -8,6 +8,13 @@ class ProcessData {
   final int? initialValidityExecution;
   final int? initialValidityContract;
 
+  /// Campos de resumo do contrato
+  final String? contractNumber;
+  final String? summarySubjectContract;
+  final String? companyLeader;
+  final String? regionOfState;
+  final String? processNumber;
+
   /// ACL por contrato
   final Map<String, Map<String, bool>> permissionContractId;
 
@@ -19,6 +26,11 @@ class ProcessData {
     this.publicationDate,
     this.initialValidityExecution,
     this.initialValidityContract,
+    this.contractNumber,
+    this.summarySubjectContract,
+    this.companyLeader,
+    this.regionOfState,
+    this.processNumber,
     this.permissionContractId = const {},
     this.participantsInfo = const {},
   });
@@ -29,9 +41,40 @@ class ProcessData {
       publicationDate: null,
       initialValidityExecution: 0,
       initialValidityContract: 0,
+      contractNumber: null,
+      summarySubjectContract: null,
+      companyLeader: null,
+      regionOfState: null,
+      processNumber: null,
       permissionContractId: {},
       participantsInfo: {},
     );
+  }
+
+  String get displaySummary {
+    final obra = (summarySubjectContract ?? '').trim();
+    if (obra.isNotEmpty) return obra;
+
+    final contrato = (contractNumber ?? '').trim();
+    if (contrato.isNotEmpty) return 'Contrato $contrato';
+
+    final processo = (processNumber ?? '').trim();
+    if (processo.isNotEmpty) return 'Processo $processo';
+
+    final localId = (id ?? '').trim();
+    if (localId.isNotEmpty) return 'Contrato $localId';
+
+    return 'Contrato sem identificação';
+  }
+
+  String get displayNumber {
+    final contrato = (contractNumber ?? '').trim();
+    if (contrato.isNotEmpty) return contrato;
+
+    final processo = (processNumber ?? '').trim();
+    if (processo.isNotEmpty) return processo;
+
+    return id ?? '';
   }
 
   ProcessData copyWith({
@@ -39,6 +82,11 @@ class ProcessData {
     DateTime? publicationDate,
     int? initialValidityExecution,
     int? initialValidityContract,
+    String? contractNumber,
+    String? summarySubjectContract,
+    String? companyLeader,
+    String? regionOfState,
+    String? processNumber,
     Map<String, Map<String, bool>>? permissionContractId,
     Map<String, Map<String, dynamic>>? participantsInfo,
   }) {
@@ -49,6 +97,12 @@ class ProcessData {
       initialValidityExecution ?? this.initialValidityExecution,
       initialValidityContract:
       initialValidityContract ?? this.initialValidityContract,
+      contractNumber: contractNumber ?? this.contractNumber,
+      summarySubjectContract:
+      summarySubjectContract ?? this.summarySubjectContract,
+      companyLeader: companyLeader ?? this.companyLeader,
+      regionOfState: regionOfState ?? this.regionOfState,
+      processNumber: processNumber ?? this.processNumber,
       permissionContractId:
       permissionContractId ?? this.permissionContractId,
       participantsInfo: participantsInfo ?? this.participantsInfo,
@@ -79,6 +133,21 @@ class ProcessData {
     return null;
   }
 
+  static String? _readStringAny(
+      Map<String, dynamic> json,
+      List<String> keys,
+      ) {
+    for (final key in keys) {
+      final value = json[key];
+      if (value == null) continue;
+
+      final text = value.toString().trim();
+      if (text.isNotEmpty) return text;
+    }
+
+    return null;
+  }
+
   factory ProcessData.fromDocument({required DocumentSnapshot snapshot}) {
     if (!snapshot.exists) {
       throw Exception('Contrato não encontrado');
@@ -103,13 +172,56 @@ class ProcessData {
       (json['initialvalidityexecutiondays'] as num?)?.toInt(),
       initialValidityContract:
       (json['initialvaliditycontractdays'] as num?)?.toInt(),
+
+      contractNumber: _readStringAny(json, const [
+        'contractNumber',
+        'contractnumber',
+        'numberContract',
+        'numbercontract',
+        'numeroContrato',
+        'numerocontrato',
+      ]),
+      summarySubjectContract: _readStringAny(json, const [
+        'summarySubjectContract',
+        'summarysubjectcontract',
+        'summary_subject_contract',
+        'object',
+        'objeto',
+        'obra',
+        'subject',
+      ]),
+      companyLeader: _readStringAny(json, const [
+        'companyLeader',
+        'companyleader',
+        'empresaLider',
+        'empresalider',
+        'company',
+        'empresa',
+      ]),
+      regionOfState: _readStringAny(json, const [
+        'regionOfState',
+        'regionofstate',
+        'region',
+        'regiao',
+        'regional',
+      ]),
+      processNumber: _readStringAny(json, const [
+        'processNumber',
+        'processnumber',
+        'numberprocess',
+        'numeroProcesso',
+        'numeroprocesso',
+      ]),
+
       permissionContractId: (rawPerms is Map<String, dynamic>)
           ? rawPerms.map(
             (userId, perm) => MapEntry(
           userId,
-          Map<String, bool>.from((perm as Map).map(
-                (k, v) => MapEntry(k.toString(), v == true),
-          )),
+          Map<String, bool>.from(
+            (perm as Map).map(
+                  (k, v) => MapEntry(k.toString(), v == true),
+            ),
+          ),
         ),
       )
           : <String, Map<String, bool>>{},
@@ -132,6 +244,12 @@ class ProcessData {
         'initialvalidityexecutiondays': initialValidityExecution,
       if (initialValidityContract != null)
         'initialvaliditycontractdays': initialValidityContract,
+      if (contractNumber != null) 'contractNumber': contractNumber,
+      if (summarySubjectContract != null)
+        'summarySubjectContract': summarySubjectContract,
+      if (companyLeader != null) 'companyLeader': companyLeader,
+      if (regionOfState != null) 'regionOfState': regionOfState,
+      if (processNumber != null) 'processNumber': processNumber,
       'permissionContractId': permissionContractId,
       'participantsInfo': participantsInfo,
     };

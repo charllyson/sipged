@@ -7,8 +7,8 @@ import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_state.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_style.dart';
 import 'package:sipged/screens/modules/actives/roads/network/road_label_circle.dart';
-import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
+import 'package:sipged/_widgets/map/markers/marker_data.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_data.dart';
 
 enum ActiveRoadsLoadStatus { idle, loading, success, failure }
 
@@ -505,11 +505,11 @@ class ActiveRoadsState extends Equatable {
     return mapGeoms.where((g) => ids.contains(g.id)).toList(growable: false);
   }
 
-  List<PolylineChangedData> buildStyledPolylines({
+  List<PolylineData> buildStyledPolylines({
     required double zoom,
     required double centerLatitude,
   }) {
-    final lines = <PolylineChangedData>[];
+    final lines = <PolylineData>[];
 
     for (final geom in filteredMapGeoms) {
       final code = _surfaceCodeOf(geom.road);
@@ -637,7 +637,7 @@ List<ActiveRoadMapGeom> _selectRoadLabelGeoms({
 }
 
 extension ActiveRoadsLabelClusterExt on ActiveRoadsState {
-  List<MarkerChangedData<ActiveRoadsData>> buildRoadLabelTaggedMarkers({
+  List<MarkerData<ActiveRoadsData>> buildRoadLabelTaggedMarkers({
     required double zoom,
   }) {
     final size = _labelDiameterForZoom(zoom);
@@ -658,7 +658,7 @@ extension ActiveRoadsLabelClusterExt on ActiveRoadsState {
       final label = _labelTextForRoad(r);
       if (label.isEmpty) return null;
 
-      return MarkerChangedData<ActiveRoadsData>(
+      return MarkerData<ActiveRoadsData>(
         point: anchor,
         data: r,
         properties: {
@@ -668,7 +668,7 @@ extension ActiveRoadsLabelClusterExt on ActiveRoadsState {
         },
       );
     })
-        .whereType<MarkerChangedData<ActiveRoadsData>>()
+        .whereType<MarkerData<ActiveRoadsData>>()
         .toList(growable: false);
   }
 }

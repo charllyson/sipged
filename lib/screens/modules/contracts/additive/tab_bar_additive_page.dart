@@ -8,7 +8,7 @@ import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cub
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
 
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
-import 'package:sipged/screens/modules/operation/schedule/financial/schedule_physical_financial_widget.dart';
+import 'package:sipged/screens/modules/operation/schedule/financial/physfin_widget.dart';
 import 'package:sipged/screens/modules/contracts/additive/additive_page.dart';
 
 class TabBarAdditivePage extends StatelessWidget {
@@ -50,7 +50,7 @@ class TabBarAdditivePage extends StatelessWidget {
               contractId: c.id!,
               initialServiceKey: 'geral',
             ),
-            child: SchedulePhysicalFinancialWidget(
+            child: PhysFinWidget(
               contractData: c!,
               chronogramMode: true,
             ),

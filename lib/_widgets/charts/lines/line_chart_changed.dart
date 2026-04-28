@@ -5,7 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/_widgets/charts/lines/shimmer_line_chart.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 

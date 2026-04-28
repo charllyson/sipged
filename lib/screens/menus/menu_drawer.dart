@@ -15,7 +15,7 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 
 // Permissões centralizadas
-import 'package:sipged/_blocs/system/permitions/module_permission.dart'
+import 'package:sipged/_blocs/system/module/module_permission.dart'
 as perms;
 
 class DrawerMenu extends StatefulWidget {

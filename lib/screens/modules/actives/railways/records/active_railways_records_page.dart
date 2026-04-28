@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 
-import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
-import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart';
-import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'active_railways_form.dart';
 import 'active_railways_records_table_section.dart';
-
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ActiveRailwaysRecordsPage extends StatefulWidget {
   const ActiveRailwaysRecordsPage({super.key});
@@ -28,12 +29,12 @@ class ActiveRailwaysRecordsPage extends StatefulWidget {
       _ActiveRailwaysRecordsPageState();
 }
 
-class _ActiveRailwaysRecordsPageState
-    extends State<ActiveRailwaysRecordsPage> {
+class _ActiveRailwaysRecordsPageState extends State<ActiveRailwaysRecordsPage> {
   bool _firedUserWarmup = false;
   bool _firedWarmup = false;
 
   ActiveRailwayData? _editing;
+  String? _lastFailureMessage;
 
   @override
   void didChangeDependencies() {
@@ -41,6 +42,7 @@ class _ActiveRailwaysRecordsPageState
 
     if (!_firedUserWarmup) {
       _firedUserWarmup = true;
+
       context.read<UserCubit>().warmup(
         listenRealtime: true,
         bindCurrentUser: true,
@@ -48,13 +50,32 @@ class _ActiveRailwaysRecordsPageState
     }
   }
 
+  void _showNotification({
+    required String title,
+    String? subtitle,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Ferrovias',
+        type: type,
+        duration: duration,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<UserCubit, UserState>(
-      buildWhen: (a, b) =>
-      a.current != b.current || a.isLoadingUsers != b.isLoadingUsers,
+      buildWhen: (a, b) {
+        return a.current != b.current || a.isLoadingUsers != b.isLoadingUsers;
+      },
       builder: (context, userState) {
         final currentUser = userState.current;
+
         if (currentUser == null) {
           return const Scaffold(
             body: Center(
@@ -69,30 +90,58 @@ class _ActiveRailwaysRecordsPageState
 
             if (!_firedWarmup && !st.initialized) {
               _firedWarmup = true;
-              cubit.warmup();
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                cubit.warmup();
+              });
             }
 
             if (!st.initialized ||
                 st.loadStatus == ActiveRailwaysLoadStatus.loading) {
               return const Scaffold(
-                body: Center(
-                  child: LoadingTreeDots(size: 110),
+                body: Stack(
+                  children: [
+                    BackgroundChange(),
+                    Center(
+                      child: LoadingTreeDots(size: 110),
+                    ),
+                  ],
                 ),
               );
             }
 
             if (st.loadStatus == ActiveRailwaysLoadStatus.failure) {
-              NotificationCenter.instance.show(
-                AppNotification(
-                  title: const Text('Falha ao carregar ferrovias'),
-                  subtitle: Text(st.error ?? 'Erro desconhecido'),
-                  type: AppNotificationType.error,
+              final error = st.error ?? 'Erro desconhecido';
+
+              if (_lastFailureMessage != error) {
+                _lastFailureMessage = error;
+
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+
+                  _showNotification(
+                    title: 'Falha ao carregar ferrovias',
+                    subtitle: error,
+                    type: NotificationType.error,
+                    duration: const Duration(seconds: 6),
+                  );
+                });
+              }
+
+              return Scaffold(
+                body: Stack(
+                  children: [
+                    const BackgroundChange(),
+                    Center(
+                      child: Text('Erro: ${st.error ?? '-'}'),
+                    ),
+                  ],
                 ),
               );
-              return Scaffold(
-                body: Center(child: Text('Erro: ${st.error ?? '-'}')),
-              );
             }
+
+            _lastFailureMessage = null;
 
             return Stack(
               children: [
@@ -120,28 +169,29 @@ class _ActiveRailwaysRecordsPageState
                               futureRailways: Future.value(st.all),
                               onTapItem: (item) {
                                 setState(() => _editing = item);
+
                                 final rotulo =
                                     item.codigo ?? item.nome ?? item.id ?? '';
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    title: const Text('Editando registro'),
-                                    subtitle: Text(rotulo),
-                                    type: AppNotificationType.info,
-                                    duration: const Duration(seconds: 3),
-                                  ),
+
+                                _showNotification(
+                                  title: 'Editando registro',
+                                  subtitle: rotulo,
+                                  type: NotificationType.info,
+                                  duration: const Duration(seconds: 3),
                                 );
                               },
                               onDelete: (id) {
                                 cubit.deleteById(id);
+
                                 if (_editing?.id == id) {
                                   setState(() => _editing = null);
                                 }
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    title: const Text('Solicitando exclusão...'),
-                                    type: AppNotificationType.warning,
-                                    duration: const Duration(seconds: 3),
-                                  ),
+
+                                _showNotification(
+                                  title: 'Solicitando exclusão...',
+                                  subtitle: 'Registro enviado para exclusão.',
+                                  type: NotificationType.warning,
+                                  duration: const Duration(seconds: 3),
                                 );
                               },
                             ),

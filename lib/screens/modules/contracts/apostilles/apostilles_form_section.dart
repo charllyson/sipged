@@ -1,8 +1,9 @@
 // lib/screens/modules/contracts/apostilles/apostilles_form_section.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+
 import 'package:sipged/_utils/mask/sipged_masks.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
@@ -37,14 +38,12 @@ class ApostilleFormSection extends StatelessWidget {
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
 
-  /// ✅ persistência do rename (retorna true se ok)
   final Future<bool> Function({
   required int index,
   required Attachment oldItem,
   required Attachment newItem,
   })? onRenamePersist;
 
-  /// ✅ notifica pai com lista atual (renomeada/deletada etc.)
   final void Function(List<dynamic> newItems)? onItemsChanged;
 
   final List<String> orderNumberOptions;
@@ -88,29 +87,32 @@ class ApostilleFormSection extends StatelessWidget {
         TextInputFormatter? mask,
         required bool isEditable,
       }) {
+    final inputFormatters = <TextInputFormatter>[
+      if (date) FilteringTextInputFormatter.digitsOnly,
+      if (date) SipGedMasks.dateDDMMYYYY,
+      if (money) const SipGedMoneyFormatter(),
+      ?mask,
+    ];
+
+    final field = CustomTextField(
+      width: width,
+      controller: ctrl,
+      enabled: enabled && isEditable,
+      labelText: label,
+      prefixText: money ? 'R\$ ' : null,
+      keyboardType: date
+          ? TextInputType.datetime
+          : money
+          ? TextInputType.number
+          : null,
+      inputFormatters: inputFormatters,
+    );
+
+    if (!tooltip) return field;
+
     return Tooltip(
-      message: tooltip ? 'Este campo é gerado automaticamente.' : '',
-      child: CustomTextField(
-        width: width,
-        controller: ctrl,
-        enabled: enabled && isEditable,
-        labelText: label,
-        keyboardType: date
-            ? TextInputType.datetime
-            : (money ? TextInputType.number : null),
-        inputFormatters: [
-          if (date) FilteringTextInputFormatter.digitsOnly,
-          if (date) SipGedMasks.dateDDMMYYYY,
-          if (money)
-            CurrencyInputFormatter(
-              leadingSymbol: r'R$ ',
-              useSymbolPadding: true,
-              thousandSeparator: ThousandSeparator.Period,
-              mantissaLength: 2,
-            ),
-          ?mask,
-        ],
-      ),
+      message: 'Este campo é gerado automaticamente.',
+      child: field,
     );
   }
 
@@ -127,7 +129,7 @@ class ApostilleFormSection extends StatelessWidget {
         final double inputsWidth = responsiveInputWidth(
           context: context,
           itemsPerLine: 4,
-          reservedWidth: isSmallScreen ? 0.0 : (sideWidth + 12.0),
+          reservedWidth: isSmallScreen ? 0.0 : sideWidth + 12.0,
           spacing: 12.0,
           margin: 12.0,
           extraPadding: 24.0,
@@ -136,7 +138,6 @@ class ApostilleFormSection extends StatelessWidget {
 
         final double minCardHeight = isSmallScreen ? 260.0 : 170.0;
 
-        // ✅ regra única (igual AdditiveFormSection)
         final bool canEditSide = isEditable && selectedApostille != null;
 
         final camposWrap = Wrap(
@@ -165,7 +166,11 @@ class ApostilleFormSection extends StatelessWidget {
               controller: dateController,
               initialValue: selectedApostille?.apostilleData,
               labelText: 'Data do apostilamento',
-              onChanged: (date) => selectedApostille?.apostilleData = date,
+              onChanged: (date) {
+                if (selectedApostille != null) {
+                  selectedApostille!.apostilleData = date;
+                }
+              },
             ),
             _input(
               inputsWidth,
@@ -183,7 +188,11 @@ class ApostilleFormSection extends StatelessWidget {
             TextButton.icon(
               icon: const Icon(Icons.save),
               label: Text(editingMode ? 'Atualizar' : 'Salvar'),
-              onPressed: formValidated ? (isEditable ? onSave : null) : null,
+              onPressed: formValidated
+                  ? isEditable
+                  ? onSave
+                  : null
+                  : null,
             ),
             const SizedBox(width: 12),
             if (editingMode)
@@ -208,24 +217,15 @@ class ApostilleFormSection extends StatelessWidget {
           title: 'Arquivos do Apostilamento',
           items: sideItems,
           selectedIndex: selectedSideIndex,
-
-          // ✅ mesma lógica do AdditiveFormSection
           onAddPressed: canEditSide ? onAddSideItem : null,
-
           onTap: onTapSideItem == null ? null : (i) => onTapSideItem!(i),
-
-          onDelete: (canEditSide && onDeleteSideItem != null)
+          onDelete: canEditSide && onDeleteSideItem != null
               ? (i) => onDeleteSideItem!(i)
               : null,
-
-          // ✅ rename só quando pode editar + callback existe
           enableRename: canEditSide,
-          onRenamePersist: (canEditSide && onRenamePersist != null)
-              ? onRenamePersist
-              : null,
-
+          onRenamePersist:
+          canEditSide && onRenamePersist != null ? onRenamePersist : null,
           onItemsChanged: onItemsChanged,
-
           width: sideWidth,
         );
 

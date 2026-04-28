@@ -3,8 +3,43 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/feature_enums.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/feature_parsed_geometry.dart';
+
+enum FeatureGeometryType {
+  point,
+  multiPoint,
+  lineString,
+  multiLineString,
+  polygon,
+  multiPolygon,
+  unknown,
+}
+
+enum FeatureGeometryFamily {
+  point,
+  line,
+  polygon,
+  unknown,
+}
+
+enum TypeFieldGeoJson {
+  string,
+  integer,
+  double_,
+  boolean,
+  datetime,
+}
+
+class FeatureParsedGeometry {
+  final List<LatLng> markerPoints;
+  final List<List<LatLng>> lineParts;
+  final List<List<LatLng>> polygonRings;
+
+  const FeatureParsedGeometry({
+    this.markerPoints = const [],
+    this.lineParts = const [],
+    this.polygonRings = const [],
+  });
+}
 
 class FeatureData {
   final String? id;

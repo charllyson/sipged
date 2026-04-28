@@ -15,15 +15,14 @@ import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
-import 'package:sipged/_blocs/system/permitions/contract_permission.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/contract_permission.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/buttons/expanded_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
-import 'package:sipged/_widgets/search/search_widget.dart';
-import 'package:sipged/_widgets/user/user_greeting.dart';
+import 'package:sipged/_widgets/map/search/search_widget.dart';
 import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
 import 'list_demand_status.dart';
@@ -406,7 +405,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
   @override
   Widget build(BuildContext context) {
     final ProcessCubit cubit = context.read<ProcessCubit>();
-    final fb_auth.User? firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+    final fb_auth.User? _ = fb_auth.FirebaseAuth.instance.currentUser;
 
     final UserData? currentUser =
     context.select<UserCubit, UserData?>((cubit) => cubit.state.current);
@@ -449,10 +448,9 @@ class _ListDemandPageState extends State<ListDemandPage> {
                     UpBar(
                       includeSafeTop: true,
                       actions: [
-                        SearchAction(
+                        SearchWidget(
                           onSearch: (text) => _onSearchChanged(cubit, text),
                         ),
-                        UserGreeting(firebaseUser: firebaseUser),
                       ],
                       titleWidgets: [
                         Text(widget.pageTitle),

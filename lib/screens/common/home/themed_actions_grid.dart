@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/system/module/module_data.dart';
-import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/module/module_permission.dart' as perms;
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/menu/drawer/menu_drawer_item.dart';
 import 'package:sipged/screens/common/home/home_tip.dart';

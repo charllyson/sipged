@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
 class FirebaseUtils {
@@ -11,6 +13,7 @@ class FirebaseUtils {
     required String path,
     VoidCallback? onFinished,
   }) async {
+    final notificationCubit = context.read<NotificationCubit>();
     final collectionRef = FirebaseFirestore.instance.collection(path);
     const int batchSize = 500;
 
@@ -20,9 +23,10 @@ class FirebaseUtils {
 
       if (totalDocs == 0) {
         _notify(
+          notificationCubit,
           'Coleção não encontrada ou vazia',
           subtitle: '"$path"',
-          type: AppNotificationType.warning,
+          type: NotificationType.warning,
         );
         return;
       }
@@ -36,56 +40,65 @@ class FirebaseUtils {
             'Ela contém $totalDocs documentos.',
       );
 
-      if (!context.mounted) return;
       if (!confirm) return;
 
       _notify(
+        notificationCubit,
         'Apagando documentos…',
         subtitle: '$totalDocs docs em "$path"',
-        type: AppNotificationType.info,
+        type: NotificationType.info,
       );
 
       while (true) {
         final querySnapshot = await collectionRef.limit(batchSize).get();
+
         if (querySnapshot.docs.isEmpty) break;
 
         final batch = FirebaseFirestore.instance.batch();
+
         for (final doc in querySnapshot.docs) {
           batch.delete(doc.reference);
         }
 
         await batch.commit();
-        await Future.delayed(const Duration(milliseconds: 250));
+        await Future<void>.delayed(const Duration(milliseconds: 250));
       }
 
       _notify(
+        notificationCubit,
         'Coleção deletada com sucesso',
         subtitle: '"$path" • $totalDocs docs',
-        type: AppNotificationType.success,
+        type: NotificationType.success,
       );
 
       onFinished?.call();
-    } catch (e, stack) {
-      final _ = stack;
+    } catch (e) {
       _notify(
+        notificationCubit,
         'Erro ao deletar coleção',
         subtitle: '"$path": $e',
-        type: AppNotificationType.error,
+        type: NotificationType.error,
       );
     }
   }
 
   static void _notify(
+      NotificationCubit notificationCubit,
       String title, {
         String? subtitle,
-        AppNotificationType type = AppNotificationType.info,
+        NotificationType type = NotificationType.info,
       }) {
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: Text(title),
-        subtitle: subtitle != null ? Text(subtitle) : null,
+    notificationCubit.show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Firestore',
         type: type,
+        extra: const <String, dynamic>{
+          'module': 'firebase_utils',
+        },
       ),
+      saveInFirebase: false,
     );
   }
 }

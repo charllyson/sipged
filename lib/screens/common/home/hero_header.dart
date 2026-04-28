@@ -5,6 +5,7 @@ import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
+import 'package:sipged/screens/common/notification/notification_bell.dart';
 import 'package:sipged/screens/common/home/company_logo.dart';
 
 class HeroHeader extends StatelessWidget {
@@ -34,6 +35,7 @@ class HeroHeader extends StatelessWidget {
 
         final logoUrl = (company?.logoUrl ?? '').trim();
         final userName = (user?.name ?? '').trim();
+        final userId = (user?.uid ?? '').trim();
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -77,6 +79,7 @@ class HeroHeader extends StatelessWidget {
             if (userName.isNotEmpty)
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   const PopUpPhotoMenu(),
                   const SizedBox(width: 6),
@@ -109,6 +112,29 @@ class HeroHeader extends StatelessWidget {
                           color: Colors.blueGrey.shade800,
                         ),
                       ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .62),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.black.withValues(alpha: .06),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .04),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: NotificationBell(
+                      userId: userId.isNotEmpty ? userId : null,
+                      iconColor: Colors.blueGrey.shade800,
                     ),
                   ),
                 ],

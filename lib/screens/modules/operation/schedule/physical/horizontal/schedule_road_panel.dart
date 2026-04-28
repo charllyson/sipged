@@ -10,14 +10,15 @@ import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cub
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/lane/schedule_lane_edit_section.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_header.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
-
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ScheduleRoadPanel extends StatefulWidget {
   final ProcessData contract;
@@ -38,6 +39,25 @@ class ScheduleRoadPanel extends StatefulWidget {
 class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
   bool _importingGeometry = false;
 
+  void _notify({
+    required String title,
+    String? subtitle,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Cronograma',
+        type: type,
+        duration: duration,
+      ),
+    );
+  }
+
   Future<void> _openEditLanes(
       BuildContext context,
       ScheduleRoadState st,
@@ -57,14 +77,12 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
     if (!mounted) return;
 
     if (rows != null) {
-      cubit.saveLanes(rows);
+      await cubit.saveLanes(rows);
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Faixas atualizadas'),
-          type: AppNotificationType.success,
-          duration: const Duration(seconds: 3),
-        ),
+      _notify(
+        title: 'Faixas atualizadas',
+        type: NotificationType.success,
+        duration: const Duration(seconds: 3),
       );
 
       widget.onSaved?.call();
@@ -79,8 +97,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
 
     final cubit = context.read<ScheduleRoadCubit>();
 
-    final summarySubjectContract =
-        st.summarySubjectContract ?? widget.contract.id;
+    final summarySubjectContract = st.summarySubjectContract ?? widget.contract.id;
 
     setState(() => _importingGeometry = true);
 
@@ -121,22 +138,19 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
 
       if (!mounted) return;
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Geometria importada com sucesso'),
-          type: AppNotificationType.success,
-          duration: const Duration(seconds: 4),
-        ),
+      _notify(
+        title: 'Geometria importada com sucesso',
+        type: NotificationType.success,
+        duration: const Duration(seconds: 4),
       );
     } catch (e) {
       if (!mounted) return;
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Erro ao importar geometria: $e'),
-          type: AppNotificationType.error,
-          duration: const Duration(seconds: 6),
-        ),
+      _notify(
+        title: 'Erro ao importar geometria',
+        subtitle: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
       );
     } finally {
       if (mounted) {
@@ -149,7 +163,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        BackgroundChange(),
+        const BackgroundChange(),
         BlocBuilder<ScheduleRoadCubit, ScheduleRoadState>(
           builder: (ctx, st) {
             final canEdit = widget.enabled && !st.loadingLanes && !st.isBusy;
@@ -217,9 +231,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
                       OutlinedButton.icon(
                         icon: const Icon(Icons.edit_note),
                         label: const Text('Editar faixas'),
-                        onPressed: canEdit
-                            ? () => _openEditLanes(context, st)
-                            : null,
+                        onPressed: canEdit ? () => _openEditLanes(context, st) : null,
                       ),
                       FilledButton.icon(
                         icon: _importingGeometry

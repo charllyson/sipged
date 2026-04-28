@@ -1,4 +1,4 @@
-import 'package:sipged/_blocs/modules/planning/geo/feature/feature_enums.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 
 class FeatureImport {
   final String name;

@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+
 import 'package:sipged/_blocs/modules/planning/land/payment/land_payment_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/land/payment/land_payment_data.dart';
 import 'package:sipged/_blocs/modules/planning/land/payment/land_payment_state.dart';
 
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
-import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
+import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -61,6 +66,7 @@ class _LandPaymentState extends State<LandPayment> {
   @override
   void didUpdateWidget(covariant LandPayment oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.contractId != widget.contractId ||
         oldWidget.propertyId != widget.propertyId) {
       _lastSyncKey = null;
@@ -71,6 +77,7 @@ class _LandPaymentState extends State<LandPayment> {
   void _initialize() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       context.read<LandPaymentCubit>().initialize(
         contractId: widget.contractId,
         propertyId: widget.propertyId,
@@ -81,6 +88,7 @@ class _LandPaymentState extends State<LandPayment> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
+
     paymentStatusCtrl.dispose();
     paymentTypeCtrl.dispose();
     paymentRequestDateCtrl.dispose();
@@ -91,7 +99,34 @@ class _LandPaymentState extends State<LandPayment> {
     accountingLiquidationCtrl.dispose();
     bankOrderCtrl.dispose();
     notesCtrl.dispose();
+
     super.dispose();
+  }
+
+  void _notifySuccess(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Sucesso',
+        subtitle: message,
+        type: NotificationType.success,
+        leadingLabel: 'Pagamento',
+      ),
+    );
+  }
+
+  void _notifyError(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Erro',
+        subtitle: message,
+        type: NotificationType.error,
+        leadingLabel: 'Pagamento',
+      ),
+    );
   }
 
   double _responsiveWidth(BuildContext context) {
@@ -127,6 +162,7 @@ class _LandPaymentState extends State<LandPayment> {
     ].join('_');
 
     if (_lastSyncKey == key) return;
+
     _lastSyncKey = key;
 
     paymentStatusCtrl.text = d.paymentStatus;
@@ -192,31 +228,33 @@ class _LandPaymentState extends State<LandPayment> {
     _paymentAuthorizationDate = null;
     _paymentDate = null;
 
+    _lastSyncKey = null;
+
     context.read<LandPaymentCubit>().updateDraft(empty);
+
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<LandPaymentCubit, LandPaymentState>(
-      listenWhen: (previous, current) =>
-      previous.error != current.error ||
-          previous.successMessage != current.successMessage,
+      listenWhen: (previous, current) {
+        return previous.error != current.error ||
+            previous.successMessage != current.successMessage;
+      },
       listener: (context, state) {
         if (state.error != null && state.error!.trim().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.error!)),
-          );
+          _notifyError(state.error!);
         }
 
         if (state.successMessage != null &&
             state.successMessage!.trim().isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.successMessage!)),
-          );
+          _notifySuccess(state.successMessage!);
         }
       },
       builder: (context, state) {
         _syncFromState(state.draft);
+
         final bloc = context.read<LandPaymentCubit>();
         final w = _responsiveWidth(context);
 

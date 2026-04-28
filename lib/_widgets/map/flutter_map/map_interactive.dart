@@ -4,92 +4,25 @@ import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:provider/provider.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_changed_layer.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_changed.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
-import 'package:sipged/_services/map/map_box/service/nominatim_service.dart';
-
-import 'package:sipged/_widgets/map/base/map_flutter_types.dart';
-import 'package:sipged/_widgets/map/base/map_flutter_layer.dart';
+import 'package:sipged/_widgets/map/base/map_layer.dart';
+import 'package:sipged/_widgets/map/base/map_types.dart';
+import 'package:sipged/_widgets/map/buttons/map_type.dart';
+import 'package:sipged/_widgets/map/buttons/my_location.dart';
+import 'package:sipged/_widgets/map/buttons/search_map.dart';
 import 'package:sipged/_widgets/map/flutter_map/map_interactive_helpers.dart';
-import 'package:sipged/_widgets/map/flutter_map/map_top_buttons.dart';
-import 'package:sipged/_widgets/map/flutter_map/map_user_location.dart';
-import 'package:sipged/_widgets/map/legend/legend_widget.dart';
-import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
-import 'package:sipged/_widgets/map/markers/marker_changed_layer.dart';
+import 'package:sipged/_widgets/map/legend/legend_change.dart';
+import 'package:sipged/_widgets/map/pin/pin_user_location.dart';
+import 'package:sipged/_widgets/map/markers/marker_data.dart';
+import 'package:sipged/_widgets/map/markers/marker_layer.dart';
 import 'package:sipged/_widgets/map/pin/pin_search.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_changed_layer.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
-import 'package:sipged/_widgets/map/suggestions/search_suggestion.dart';
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_widgets/search/search_overlay.dart';
-import 'package:sipged/_widgets/search/search_widget.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_data.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_data.dart';
 
 class MapInteractivePage<T> extends StatefulWidget {
-  final double? initialZoom;
-  final double? maxZoom;
-  final double? minZoom;
-  final bool activeMap;
-  final bool showLegend;
-  final bool dropPinOnTap;
-  final bool clearMarkerSelectionOnMapTap;
-  final Widget Function()? baseTileLayerBuilder;
-  final Widget Function(
-      MapController mapController,
-      GlobalKey captureKey,
-      )? overlayBuilder;
-
-  final List<PolylineChangedData>? tappablePolylines;
-  final Future<void> Function()? onClearPolylineSelection;
-  final Future<void> Function(PolylineChangedData)? onSelectPolyline;
-
-  final void Function({
-  required BuildContext context,
-  required Offset position,
-  required Object? tag,
-  required MapController mapController,
-  LatLng? tapLatLng,
-  Offset Function(Offset local)? toGlobal,
-  })? onShowPolylineTooltip;
-
-  final List<MarkerChangedData<T>>? taggedMarkers;
-
-  final Widget Function(
-      List<MarkerChangedData<T>> taggedMarkers,
-      LatLng? selectedMarkerPosition,
-      ValueChanged<MarkerChangedData<T>> onMarkerSelected,
-      )? clusterWidgetBuilder;
-
-  final List<Marker>? extraMarkers;
-
-  final List<PolygonChangedData>? polygonsChanged;
-  final Map<String, Color>? polygonChangeColors;
-
-  final bool allowMultiSelect;
-  final List<String>? selectedRegionNames;
-  final Function(String? region)? onRegionTap;
-
-  final bool showSearch;
-  final bool showChangeMapType;
-  final bool showMyLocation;
-  final Widget Function(void Function(String) onSearch)? searchActionBuilder;
-  final double searchTargetZoom;
-  final bool showSearchMarker;
-
-  final ValueChanged<double>? onZoomChanged;
-  final void Function(double zoom, LatLng center)? onCameraChanged;
-
-  final void Function(double lat, double lon)? onMapTap;
-  final void Function(MapController controller)? onControllerReady;
-  final void Function(void Function(LatLng p) setActivePoint)? onBindSetActivePoint;
-
-  final List<LatLng>? initialGeometryPoints;
-  final int? selectedBaseIndex;
-
   const MapInteractivePage({
     super.key,
     this.initialZoom = 9.0,
@@ -128,6 +61,72 @@ class MapInteractivePage<T> extends StatefulWidget {
     this.selectedBaseIndex,
   });
 
+  final double? initialZoom;
+  final double? maxZoom;
+  final double? minZoom;
+
+  final bool activeMap;
+  final bool showLegend;
+  final bool dropPinOnTap;
+  final bool clearMarkerSelectionOnMapTap;
+
+  final Widget Function()? baseTileLayerBuilder;
+
+  final Widget Function(
+      MapController mapController,
+      GlobalKey captureKey,
+      )? overlayBuilder;
+
+  final List<PolylineData>? tappablePolylines;
+  final Future<void> Function()? onClearPolylineSelection;
+  final Future<void> Function(PolylineData)? onSelectPolyline;
+
+  final void Function({
+  required BuildContext context,
+  required Offset position,
+  required Object? tag,
+  required MapController mapController,
+  LatLng? tapLatLng,
+  Offset Function(Offset local)? toGlobal,
+  })? onShowPolylineTooltip;
+
+  final List<MarkerData<T>>? taggedMarkers;
+
+  final Widget Function(
+      List<MarkerData<T>> taggedMarkers,
+      LatLng? selectedMarkerPosition,
+      ValueChanged<MarkerData<T>> onMarkerSelected,
+      )? clusterWidgetBuilder;
+
+  final List<Marker>? extraMarkers;
+
+  final List<PolygonData>? polygonsChanged;
+  final Map<String, Color>? polygonChangeColors;
+
+  final bool allowMultiSelect;
+  final List<String>? selectedRegionNames;
+  final Function(String? region)? onRegionTap;
+
+  final bool showSearch;
+  final bool showChangeMapType;
+  final bool showMyLocation;
+
+  final Widget Function(void Function(String) onSearch)? searchActionBuilder;
+  final double searchTargetZoom;
+  final bool showSearchMarker;
+
+  final ValueChanged<double>? onZoomChanged;
+  final void Function(double zoom, LatLng center)? onCameraChanged;
+
+  final void Function(double lat, double lon)? onMapTap;
+  final void Function(MapController controller)? onControllerReady;
+
+  final void Function(void Function(LatLng point) setActivePoint)?
+  onBindSetActivePoint;
+
+  final List<LatLng>? initialGeometryPoints;
+  final int? selectedBaseIndex;
+
   @override
   State<MapInteractivePage<T>> createState() => _MapInteractivePageState<T>();
 }
@@ -137,39 +136,39 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   final MapController _mapController = MapController();
   final GlobalKey _captureKey = GlobalKey();
 
+  late final NetworkTileProvider _tileProvider = NetworkTileProvider();
+
+  final ValueNotifier<LatLng?> _userLocationVN = ValueNotifier<LatLng?>(null);
+  final ValueNotifier<LatLng?> _searchHitVN = ValueNotifier<LatLng?>(null);
+
+  final ValueNotifier<Set<String>> _selectedRegionsVN =
+  ValueNotifier<Set<String>>({});
+
+  final ValueNotifier<LatLng?> _selectedMarkerPositionVN =
+  ValueNotifier<LatLng?>(null);
+
   int _indexSelectedMap = 0;
 
   Timer? _cameraDebounce;
-  static const Duration _kCameraDebounce = Duration(milliseconds: 220);
 
+  static const Duration _kCameraDebounce = Duration(milliseconds: 220);
   static const Duration _kPulseDuration = Duration(seconds: 2);
+
   late final AnimationController _pulseController = AnimationController(
     vsync: this,
     duration: _kPulseDuration,
   )..repeat(reverse: true);
 
   late final Animation<double> _pulseAnimation =
-  CurvedAnimation(parent: _pulseController, curve: Curves.easeOut).drive(
-    Tween(begin: 0.6, end: 1.3),
+  CurvedAnimation(
+    parent: _pulseController,
+    curve: Curves.easeOut,
+  ).drive(
+    Tween<double>(
+      begin: 0.6,
+      end: 1.3,
+    ),
   );
-
-  late NominatimBloc _systemBloc;
-
-  late final NominatimService _geocoder = NominatimService.nominatim(
-    userAgent: 'siged-app/1.0 (org.gov.br)',
-    acceptLanguage: 'pt-BR',
-    countryCodes: 'br',
-    limit: 1,
-  );
-
-  late final NetworkTileProvider _tileProvider = NetworkTileProvider();
-
-  final ValueNotifier<LatLng?> _userLocationVN = ValueNotifier<LatLng?>(null);
-  final ValueNotifier<LatLng?> _searchHitVN = ValueNotifier<LatLng?>(null);
-  final ValueNotifier<Set<String>> _selectedRegionsVN =
-  ValueNotifier<Set<String>>({});
-  final ValueNotifier<LatLng?> _selectedMarkerPositionVN =
-  ValueNotifier<LatLng?>(null);
 
   late double _initZoom;
   late LatLng _initCenter;
@@ -177,18 +176,28 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   LatLng _lastCenter = const LatLng(-9.65, -36.7);
   double _lastZoom = 9.0;
 
-  late final MapInteractiveHelpers _helpers =
-  MapInteractiveHelpers(norm: _norm);
+  late final MapInteractiveHelpers _helpers = MapInteractiveHelpers(
+    norm: _norm,
+  );
 
-  String _norm(String s) =>
-      removeDiacritics(s).replaceAll(RegExp(r'\s+'), ' ').trim().toUpperCase();
+  String _norm(String value) {
+    return removeDiacritics(value)
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toUpperCase();
+  }
 
-  bool get _isOsmPublic => MapFlutterTypes.mapBase[_indexSelectedMap]
-      .url
-      .contains('tile.openstreetmap.org');
+  bool get _isOsmPublic {
+    if (MapTypes.mapBase.isEmpty) return false;
 
-  List<PolygonChangedData> get _regionalPolys =>
-      widget.polygonsChanged ?? const <PolygonChangedData>[];
+    return MapTypes.mapBase[_indexSelectedMap].url.contains(
+      'tile.openstreetmap.org',
+    );
+  }
+
+  List<PolygonData> get _regionalPolys {
+    return widget.polygonsChanged ?? const <PolygonData>[];
+  }
 
   @override
   void initState() {
@@ -198,7 +207,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
     if (widget.selectedBaseIndex != null &&
         widget.selectedBaseIndex! >= 0 &&
-        widget.selectedBaseIndex! < MapFlutterTypes.mapBase.length) {
+        widget.selectedBaseIndex! < MapTypes.mapBase.length) {
       _indexSelectedMap = widget.selectedBaseIndex!;
     }
 
@@ -214,16 +223,19 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     _lastCenter = _initCenter;
     _lastZoom = _initZoom;
 
-    _helpers.rebuildPolygonBBoxes(regionalPolys: _regionalPolys);
+    _helpers.rebuildPolygonBBoxes(
+      regionalPolys: _regionalPolys,
+    );
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _systemBloc = context.read<NominatimBloc>();
 
     if (widget.selectedRegionNames != null) {
-      _selectedRegionsVN.value = _helpers.toNormSet(widget.selectedRegionNames);
+      _selectedRegionsVN.value = _helpers.toNormSet(
+        widget.selectedRegionNames,
+      );
     }
   }
 
@@ -243,13 +255,16 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
         widget.selectedBaseIndex != oldWidget.selectedBaseIndex &&
         widget.selectedBaseIndex != _indexSelectedMap) {
       final idx = widget.selectedBaseIndex!;
-      if (idx >= 0 && idx < MapFlutterTypes.mapBase.length) {
-        setState(() => _indexSelectedMap = idx);
+
+      if (idx >= 0 && idx < MapTypes.mapBase.length) {
+        setState(() {
+          _indexSelectedMap = idx;
+        });
       }
     }
 
     _helpers.rebuildPolygonBBoxesIfNeeded(
-      oldPolys: oldWidget.polygonsChanged ?? const [],
+      oldPolys: oldWidget.polygonsChanged ?? const <PolygonData>[],
       newPolys: _regionalPolys,
     );
 
@@ -279,9 +294,12 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
 
       if (center != null) {
-        final zoom = (_lastZoom == 0) ? (widget.initialZoom ?? 9.0) : _lastZoom;
+        final zoom = _lastZoom == 0 ? widget.initialZoom ?? 9.0 : _lastZoom;
+
         _mapController.move(center, zoom);
+
         _lastCenter = center;
+        _lastZoom = zoom;
       }
     }
   }
@@ -289,69 +307,27 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   @override
   void dispose() {
     _cameraDebounce?.cancel();
+
     _pulseController.dispose();
+
     _userLocationVN.dispose();
     _searchHitVN.dispose();
     _selectedRegionsVN.dispose();
     _selectedMarkerPositionVN.dispose();
+
     super.dispose();
   }
 
-  Future<void> _handleMyLocationTap() async {
-    final loc = await _systemBloc.getUserCurrentLocation();
-    if (!mounted) return;
+  void _setLastCamera(LatLng center, double zoom) {
+    _lastCenter = center;
+    _lastZoom = zoom;
 
-    if (loc != null) {
-      _userLocationVN.value = loc;
-      _searchHitVN.value = loc;
-
-      _mapController.move(loc, 16);
-      _lastCenter = loc;
-      _lastZoom = 16;
-
-      widget.onMapTap?.call(loc.latitude, loc.longitude);
-
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Minha localização centralizada'),
-          type: AppNotificationType.success,
-        ),
-      );
-      return;
-    }
-
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: const Text('Não foi possível obter sua localização'),
-        type: AppNotificationType.error,
-      ),
-    );
-  }
-
-  void _handleMapSwitchTap() {
-    setState(() {
-      _indexSelectedMap =
-          (_indexSelectedMap + 1) % MapFlutterTypes.mapBase.length;
-    });
-
-    Future.microtask(() {
-      try {
-        final c = _mapController.camera.center;
-        final z = _mapController.camera.zoom;
-        _mapController.move(c, z);
-      } catch (_) {}
-    });
-
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: Text('Mapa: ${MapFlutterTypes.mapBase[_indexSelectedMap].nome}'),
-        type: AppNotificationType.info,
-      ),
-    );
+    widget.onZoomChanged?.call(zoom);
+    widget.onCameraChanged?.call(zoom, center);
   }
 
   Future<void> _handlePolylineTap(
-      List<PolylineChangedData> tapped,
+      List<PolylineData> tapped,
       TapUpDetails details,
       ) async {
     if (tapped.isEmpty) return;
@@ -364,16 +340,20 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     await widget.onSelectPolyline?.call(tappedPolyline);
 
     final onShow = widget.onShowPolylineTooltip;
+
     if (onShow == null) return;
 
     Offset Function(Offset local)? toGlobal;
+
     final rb = _captureKey.currentContext?.findRenderObject() as RenderBox?;
+
     if (rb != null) {
       toGlobal = rb.localToGlobal;
     }
 
-    final tapLatLng =
-    _mapController.camera.screenOffsetToLatLng(details.localPosition);
+    final tapLatLng = _mapController.camera.screenOffsetToLatLng(
+      details.localPosition,
+    );
 
     if (!mounted) return;
 
@@ -405,7 +385,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     _selectedRegionsVN.value = next;
   }
 
-  String? _getProp(PolygonChangedData reg, String keyWanted) {
+  String? _getProp(PolygonData reg, String keyWanted) {
     return _helpers.getProp(reg, keyWanted);
   }
 
@@ -414,7 +394,10 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       _searchHitVN.value = point;
     }
 
-    widget.onMapTap?.call(point.latitude, point.longitude);
+    widget.onMapTap?.call(
+      point.latitude,
+      point.longitude,
+    );
 
     bool hit = false;
     final regs = _regionalPolys;
@@ -425,6 +408,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       if (!_helpers.containsInBBox(regionKeyNorm, point)) continue;
 
       final pts = reg.polygon.points;
+
       if (pts.isEmpty) continue;
 
       if (_helpers.pointInPolygon(point, pts)) {
@@ -442,7 +426,9 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
           widget.onRegionTap?.call(null);
         } else {
           _toggleRegion(regionKeyNorm);
+
           final regionPayload = _getProp(reg, 'processo') ?? reg.title;
+
           widget.onRegionTap?.call(regionPayload);
         }
 
@@ -462,78 +448,14 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     }
   }
 
-  Future<List<SearchSuggestion<dynamic>>> _fetchAddressSuggestions(
-      String q,
-      ) async {
-    if (q.trim().length < 3) return const [];
-
-    final results = await _geocoder.search(q, limit: 8);
-
-    return results
-        .map(
-          (r) => SearchSuggestion.address(
-        id: r.id,
-        title: r.title,
-        subtitle: r.city ?? r.state ?? r.country,
-        point: r.point,
-      ),
-    )
-        .toList(growable: false);
-  }
-
-  void _onSuggestionTap(
-      SearchSuggestion<dynamic> s,
-      void Function(String) onSearch,
-      ) {
-    final data = s.data;
-    if (data is LatLng) {
-      onSearch('${data.latitude},${data.longitude}');
-      return;
-    }
-    onSearch(s.title);
-  }
-
-  Future<void> _onSearch(String text) async {
-    final q = text.trim();
-    if (q.isEmpty) return;
-
-    final parsed = _helpers.parseLatLng(q);
-    if (parsed != null) {
-      _goTo(parsed);
-      widget.onMapTap?.call(parsed.latitude, parsed.longitude);
-      return;
-    }
-
-    try {
-      final hit = await _geocoder.geocode(q);
-      if (hit != null) {
-        _goTo(hit);
-        widget.onMapTap?.call(hit.latitude, hit.longitude);
-        return;
-      }
-    } catch (_) {}
-
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: const Text('Não encontrado'),
-        subtitle: const Text('Tente “lat, lng” ou refine a busca.'),
-        type: AppNotificationType.warning,
-      ),
-    );
-  }
-
-  void _goTo(LatLng p) {
-    _searchHitVN.value = p;
-    _mapController.move(p, widget.searchTargetZoom);
-    _lastCenter = p;
-    _lastZoom = widget.searchTargetZoom;
-  }
-
   void _scheduleCameraCallbacks() {
     _cameraDebounce?.cancel();
+
     _cameraDebounce = Timer(_kCameraDebounce, () {
       if (!mounted) return;
+
       final cam = _mapController.camera;
+
       widget.onZoomChanged?.call(cam.zoom);
       widget.onCameraChanged?.call(cam.zoom, cam.center);
     });
@@ -547,9 +469,9 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
         children.add(widget.baseTileLayerBuilder!());
       } else {
         children.add(
-          MapFlutterLayer(
+          MapLayer(
             tileProvider: _tileProvider,
-            urlTemplate: MapFlutterTypes.mapBase[_indexSelectedMap].url,
+            urlTemplate: MapTypes.mapBase[_indexSelectedMap].url,
           ),
         );
       }
@@ -557,7 +479,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
     if (_regionalPolys.isNotEmpty) {
       children.add(
-        PolygonChangedLayer(
+        PolygonChanged(
           mapController: _mapController,
           polygons: _regionalPolys,
           selectedRegionsVN: _selectedRegionsVN,
@@ -568,9 +490,10 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     }
 
     final lines = widget.tappablePolylines;
+
     if (lines != null && lines.isNotEmpty) {
       children.add(
-        PolylineChangedLayer(
+        PolylineChanged(
           polylines: lines,
           culling: true,
           pointerDistanceTolerance: 15,
@@ -583,19 +506,19 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     }
 
     children.add(
-      MarkerChangedLayer<T>(
+      MarkerChanged<T>(
         taggedMarkers: widget.taggedMarkers,
         clusterWidgetBuilder: widget.clusterWidgetBuilder,
         selectedMarkerPositionVN: _selectedMarkerPositionVN,
-        onMarkerSelected: (m) {
-          _selectedMarkerPositionVN.value = m.point;
+        onMarkerSelected: (marker) {
+          _selectedMarkerPositionVN.value = marker.point;
         },
         extraMarkers: widget.extraMarkers,
       ),
     );
 
     children.add(
-      MapUserLocation(
+      PinUserLocation(
         userLocationVN: _userLocationVN,
         pulseAnimation: _pulseAnimation,
       ),
@@ -603,7 +526,9 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
     if (widget.showSearchMarker) {
       children.add(
-        PinSearch(searchHitVN: _searchHitVN),
+        PinSearch(
+          searchHitVN: _searchHitVN,
+        ),
       );
     }
 
@@ -626,33 +551,67 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     return children;
   }
 
-  Widget _buildSearchActionButton() {
-    final builder = widget.searchActionBuilder;
-    if (builder != null) return builder(_onSearch);
+  List<Widget> _buildFloatingMapButtons() {
+    final buttons = <Widget>[];
 
-    return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        color: Colors.black38,
-        borderRadius: BorderRadius.circular(90),
-      ),
-      child: SearchAction(
-        onSearch: _onSearch,
-        fetchSuggestions: _fetchAddressSuggestions,
-        onSuggestionTap: (s) => _onSuggestionTap(s, _onSearch),
-        hintText: 'Buscar endereço ou "lat, lng"...',
-        expandSide: SearchExpandSide.right,
-        maxWidth: 320,
-        height: 42,
-      ),
-    );
+    if (widget.showSearch) {
+      buttons.add(
+        SearchMap(
+          mapController: _mapController,
+          searchHitVN: _searchHitVN,
+          searchActionBuilder: widget.searchActionBuilder,
+          searchTargetZoom: widget.searchTargetZoom,
+          onMapTap: widget.onMapTap,
+          onMoved: _setLastCamera,
+        ),
+      );
+    }
+
+    if (widget.showMyLocation) {
+      if (buttons.isNotEmpty) {
+        buttons.add(const SizedBox(width: 8));
+      }
+
+      buttons.add(
+        MyLocation(
+          mapController: _mapController,
+          userLocationVN: _userLocationVN,
+          searchHitVN: _searchHitVN,
+          onMapTap: widget.onMapTap,
+          onMoved: _setLastCamera,
+        ),
+      );
+    }
+
+    if (widget.showChangeMapType) {
+      if (buttons.isNotEmpty) {
+        buttons.add(const SizedBox(width: 8));
+      }
+
+      buttons.add(
+        MapType(
+          mapController: _mapController,
+          selectedMapIndex: _indexSelectedMap,
+          onChanged: (index) {
+            if (!mounted) return;
+
+            setState(() {
+              _indexSelectedMap = index;
+            });
+          },
+        ),
+      );
+    }
+
+    return buttons;
   }
 
   @override
   Widget build(BuildContext context) {
     final hasLegend =
         widget.showLegend && (widget.polygonChangeColors?.isNotEmpty ?? false);
+
+    final floatingButtons = _buildFloatingMapButtons();
 
     return Stack(
       children: [
@@ -676,8 +635,9 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
               ),
               onMapReady: () {
                 widget.onControllerReady?.call(_mapController);
-                widget.onBindSetActivePoint?.call((LatLng p) {
-                  _searchHitVN.value = p;
+
+                widget.onBindSetActivePoint?.call((LatLng point) {
+                  _searchHitVN.value = point;
                 });
 
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -690,6 +650,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
               onMapEvent: (_) {
                 _lastCenter = _mapController.camera.center;
                 _lastZoom = _mapController.camera.zoom;
+
                 _scheduleCameraCallbacks();
               },
             ),
@@ -707,23 +668,19 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
           Positioned(
             left: 8,
             bottom: 8,
-            child: LegendWidged(
+            child: LegendChange(
               regionColors: widget.polygonChangeColors!,
             ),
           ),
-        Positioned(
-          top: 10,
-          left: 10,
-          child: MapTopButtons(
-            showSearch: widget.showSearch,
-            showMyLocation: widget.showMyLocation,
-            showChangeMapType: widget.showChangeMapType,
-            mapName: MapFlutterTypes.mapBase[_indexSelectedMap].nome,
-            onMyLocationTap: _handleMyLocationTap,
-            onMapSwitchTap: _handleMapSwitchTap,
-            searchAction: _buildSearchActionButton(),
+        if (floatingButtons.isNotEmpty)
+          Positioned(
+            top: 10,
+            left: 10,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: floatingButtons,
+            ),
           ),
-        ),
       ],
     );
   }

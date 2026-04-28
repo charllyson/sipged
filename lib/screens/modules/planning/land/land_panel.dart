@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/screens/modules/planning/land/land_tabs.dart';
-
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class LandPanel extends StatelessWidget {
   final ProcessData contractData;
@@ -16,6 +18,25 @@ class LandPanel extends StatelessWidget {
     required this.contractData,
     this.onRequestMapRefresh,
   });
+
+  void _notify(
+      BuildContext context, {
+        required String title,
+        String? subtitle,
+        NotificationType type = NotificationType.info,
+        String leadingLabel = 'Direito de Passagem',
+        Duration duration = const Duration(seconds: 4),
+      }) {
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        type: type,
+        leadingLabel: leadingLabel,
+        duration: duration,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,14 +60,11 @@ class LandPanel extends StatelessWidget {
                 subtitle: const Text('Cadastrar novo decreto vinculado ao contrato'),
                 trailing: const Icon(Icons.check_circle, color: Colors.grey),
                 onTap: () {
-                  NotificationCenter.instance.show(
-                    AppNotification(
-                      title: const Text('Em implementação'),
-                      subtitle: const Text('Ação: Adicionar DUP'),
-                      type: AppNotificationType.info,
-                      leadingLabel: const Text('Direito de Passagem'),
-                      duration: const Duration(seconds: 4),
-                    ),
+                  _notify(
+                    context,
+                    title: 'Em implementação',
+                    subtitle: 'Ação: Adicionar DUP',
+                    type: NotificationType.info,
                   );
                 },
               ),

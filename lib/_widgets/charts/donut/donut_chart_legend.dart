@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'donut_chart_changed.dart';
 
 class DonutChartLegend extends StatelessWidget {

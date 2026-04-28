@@ -8,7 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_style.dart';
 import 'package:sipged/_utils/geometry/sipged_poly_simplify.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_data.dart';
 import 'package:sipged/screens/modules/actives/railways/network/railway_ties.dart';
 
 enum ActiveRailwaysLoadStatus { idle, loading, success, failure }
@@ -209,9 +209,9 @@ class ActiveRailwaysState extends Equatable {
   List<String>? get selectedRegionNamesForMap =>
       selectedRegionFilter == null ? null : [selectedRegionFilter!];
 
-  List<PolylineChangedData> buildStyledPolylines({double? zoom}) {
+  List<PolylineData> buildStyledPolylines({double? zoom}) {
     final z = zoom ?? mapZoom;
-    final List<PolylineChangedData> lines = [];
+    final List<PolylineData> lines = [];
 
     final m = RailwayTies.metricsForZoom(z);
 
@@ -257,7 +257,7 @@ class ActiveRailwaysState extends Equatable {
 
           if (m.outlinePx > 0) {
             lines.add(
-              PolylineChangedData(
+              PolylineData(
                 isDotted: false,
                 points: ptsMain,
                 color: Colors.white.withValues(alpha: 0.95),
@@ -272,7 +272,7 @@ class ActiveRailwaysState extends Equatable {
           }
 
           lines.add(
-            PolylineChangedData(
+            PolylineData(
               isDotted: camada.isDotted,
               points: ptsMain,
               color: isSelected ? Colors.redAccent : camada.color,
@@ -310,7 +310,7 @@ class ActiveRailwaysState extends Equatable {
 
             if (m.tieHaloPx > 0) {
               lines.add(
-                PolylineChangedData(
+                PolylineData(
                   isDotted: false,
                   points: t,
                   color: Colors.white,
@@ -323,7 +323,7 @@ class ActiveRailwaysState extends Equatable {
             }
 
             lines.add(
-              PolylineChangedData(
+              PolylineData(
                 isDotted: false,
                 points: t,
                 color: Colors.black,

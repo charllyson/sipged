@@ -1,6 +1,7 @@
 // lib/bootstrap.dart
 
 import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -24,6 +25,9 @@ import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_repository.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_repository.dart';
 
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
@@ -180,6 +184,15 @@ Future<void> bootstrapAndRunApp() async {
             BlocProvider<LoginCubit>(
               create: (ctx) => LoginCubit(
                 repository: ctx.read<LoginRepository>(),
+              ),
+            ),
+
+            RepositoryProvider<NotificationRepository>(
+              create: (_) => NotificationRepository(),
+            ),
+            BlocProvider<NotificationCubit>(
+              create: (ctx) => NotificationCubit(
+                repository: ctx.read<NotificationRepository>(),
               ),
             ),
 

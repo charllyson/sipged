@@ -7,7 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
 
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_style.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_data.dart';
 
 @immutable
 class RoadViewField {
@@ -546,7 +546,7 @@ class ActiveRoadsData {
 
   double get idealDetailMapZoom => computeIdealZoom(points ?? const []);
 
-  List<PolylineChangedData> buildDetailPolylines({
+  List<PolylineData> buildDetailPolylines({
     required double zoom,
     required double centerLatitude,
   }) {

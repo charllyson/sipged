@@ -1,5 +1,3 @@
-// lib/gate_page.dart
-
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,19 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_utils/theme/app_theme.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
-import 'package:sipged/screens/common/login/sign_in/sign_in.dart';
-
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_state.dart';
-
-import 'package:sipged/_blocs/system/user/user_repository.dart';
-import 'package:sipged/_blocs/system/user/user_data.dart';
-
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/user/user_repository.dart';
+
+import 'package:sipged/_utils/theme/app_theme.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+
+import 'package:sipged/screens/common/login/sign_in/sign_in.dart';
+import 'package:sipged/screens/common/notification/notification_host.dart';
 import 'package:sipged/screens/common/setup/initial_setup_page.dart';
 import 'package:sipged/screens/menus/menu_list_page.dart';
 
@@ -39,10 +37,7 @@ class _GatePageState extends State<GatePage> {
   String? _loadedUserUid;
 
   Future<void> _loadSetupOnce() {
-    _setupLoadFuture ??= context
-        .read<SetupCubit>()
-        .loadSystemSetup()
-        .timeout(
+    _setupLoadFuture ??= context.read<SetupCubit>().loadSystemSetup().timeout(
       const Duration(seconds: 20),
       onTimeout: () {
         debugPrint('[GatePage] Timeout ao carregar setup do sistema.');
@@ -80,142 +75,146 @@ class _GatePageState extends State<GatePage> {
   Widget build(BuildContext context) {
     final userRepo = context.read<UserRepository>();
 
-    return MaterialApp(
-      title: 'SIPGED',
-      debugShowCheckedModeBanner: false,
-      locale: const Locale('pt', 'BR'),
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.light,
-      supportedLocales: const [
-        Locale('pt', 'BR'),
-        Locale('en', 'US'),
-      ],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      builder: (context, child) {
-        return NotificationCenterHost(
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-      home: BlocBuilder<LoginCubit, LoginState>(
-        builder: (context, loginState) {
-          final firebaseUser = FirebaseAuth.instance.currentUser;
-
-          if (loginState.status == LoginStatus.loading) {
-            return const Scaffold(
-              body: Center(
-                child: Text('Verificando os dados...'),
-              ),
-            );
-          }
-
-          final shouldShowLogin = firebaseUser == null ||
-              loginState.status == LoginStatus.unauthenticated ||
-              loginState.status == LoginStatus.failure;
-
-          if (shouldShowLogin) {
-            _resetCachedUser();
-            return const SignIn();
-          }
-
-          final uid = firebaseUser.uid;
-
-          return FutureBuilder<UserData?>(
-            future: _loadUserOnce(
-              uid: uid,
-              userRepo: userRepo,
-            ),
-            builder: (context, userSnapshot) {
-              if (userSnapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  body: LoadingTreeDots(
-                    message: Text('Carregando os dados...'),
-                  ),
-                );
-              }
-
-              if (userSnapshot.hasError) {
-                debugPrint('[GatePage] Erro ao carregar usuário: '
-                    '${userSnapshot.error}');
-
-                return _StartupErrorView(
-                  title: 'Não foi possível carregar o usuário.',
-                  message:
-                  'Verifique sua conexão e tente recarregar o sistema.',
-                  onRetry: () {
-                    setState(() {
-                      _resetCachedUser();
-                    });
-                  },
-                );
-              }
-
-              final userData = userSnapshot.data;
-
-              if (userData == null) {
-                return const SignIn();
-              }
-
-              return FutureBuilder<void>(
-                future: _loadSetupOnce(),
-                builder: (context, setupLoadSnapshot) {
-                  if (setupLoadSnapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return const Scaffold(
-                      body: LoadingTreeDots(
-                        message: Text('Carregando a configuração...'),
-                      ),
-                    );
-                  }
-
-                  if (setupLoadSnapshot.hasError) {
-                    debugPrint('[GatePage] Erro ao carregar setup: '
-                        '${setupLoadSnapshot.error}');
-
-                    return _StartupErrorView(
-                      title: 'Não foi possível carregar a configuração.',
-                      message:
-                      'Verifique sua conexão e tente recarregar o sistema.',
-                      onRetry: () {
-                        setState(() {
-                          _setupLoadFuture = null;
-                        });
-                      },
-                    );
-                  }
-
-                  return BlocBuilder<SetupCubit, SetupState>(
-                    builder: (context, setupState) {
-                      final base = const MenuListPage();
-
-                      final needsSetup = kForceInitialSetupOverlay ||
-                          setupState.companyProfile == null;
-
-                      if (!needsSetup) {
-                        return base;
-                      }
-
-                      return Stack(
-                        children: [
-                          base,
-                          Positioned.fill(
-                            child: InitialSetupPage(
-                              user: userData,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-              );
-            },
+    return BlocProvider<NotificationCubit>(
+      create: (_) => NotificationCubit(),
+      child: MaterialApp(
+        title: 'SIPGED',
+        debugShowCheckedModeBanner: false,
+        locale: const Locale('pt', 'BR'),
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: ThemeMode.light,
+        supportedLocales: const [
+          Locale('pt', 'BR'),
+          Locale('en', 'US'),
+        ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        builder: (context, child) {
+          return NotificationHost(
+            child: child ?? const SizedBox.shrink(),
           );
         },
+        home: BlocBuilder<LoginCubit, LoginState>(
+          builder: (context, loginState) {
+            final firebaseUser = FirebaseAuth.instance.currentUser;
+
+            if (loginState.status == LoginStatus.loading) {
+              return const Scaffold(
+                body: Center(
+                  child: Text('Verificando os dados...'),
+                ),
+              );
+            }
+
+            final shouldShowLogin = firebaseUser == null ||
+                loginState.status == LoginStatus.unauthenticated ||
+                loginState.status == LoginStatus.failure;
+
+            if (shouldShowLogin) {
+              _resetCachedUser();
+              return const SignIn();
+            }
+
+            final uid = firebaseUser.uid;
+
+            return FutureBuilder<UserData?>(
+              future: _loadUserOnce(
+                uid: uid,
+                userRepo: userRepo,
+              ),
+              builder: (context, userSnapshot) {
+                if (userSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    body: LoadingTreeDots(
+                      message: Text('Carregando os dados...'),
+                    ),
+                  );
+                }
+
+                if (userSnapshot.hasError) {
+                  debugPrint(
+                    '[GatePage] Erro ao carregar usuário: ${userSnapshot.error}',
+                  );
+
+                  return _StartupErrorView(
+                    title: 'Não foi possível carregar o usuário.',
+                    message: 'Verifique sua conexão e tente recarregar o sistema.',
+                    onRetry: () {
+                      setState(() {
+                        _resetCachedUser();
+                      });
+                    },
+                  );
+                }
+
+                final userData = userSnapshot.data;
+
+                if (userData == null) {
+                  return const SignIn();
+                }
+
+                return FutureBuilder<void>(
+                  future: _loadSetupOnce(),
+                  builder: (context, setupLoadSnapshot) {
+                    if (setupLoadSnapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return const Scaffold(
+                        body: LoadingTreeDots(
+                          message: Text('Carregando a configuração...'),
+                        ),
+                      );
+                    }
+
+                    if (setupLoadSnapshot.hasError) {
+                      debugPrint(
+                        '[GatePage] Erro ao carregar setup: ${setupLoadSnapshot.error}',
+                      );
+
+                      return _StartupErrorView(
+                        title: 'Não foi possível carregar a configuração.',
+                        message:
+                        'Verifique sua conexão e tente recarregar o sistema.',
+                        onRetry: () {
+                          setState(() {
+                            _setupLoadFuture = null;
+                          });
+                        },
+                      );
+                    }
+
+                    return BlocBuilder<SetupCubit, SetupState>(
+                      builder: (context, setupState) {
+                        final base = const MenuListPage();
+
+                        final needsSetup = kForceInitialSetupOverlay ||
+                            setupState.companyProfile == null;
+
+                        if (!needsSetup) {
+                          return base;
+                        }
+
+                        return Stack(
+                          children: [
+                            base,
+                            Positioned.fill(
+                              child: InitialSetupPage(
+                                user: userData,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

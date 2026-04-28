@@ -1,6 +1,12 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:printing/printing.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class ExportPdfButton extends StatefulWidget {
@@ -24,8 +30,22 @@ class ExportPdfButton extends StatefulWidget {
 class _ExportPdfButtonState extends State<ExportPdfButton> {
   bool _busy = false;
 
+  void _notifyError(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Erro ao exportar',
+        subtitle: message,
+        type: NotificationType.error,
+        leadingLabel: 'PDF',
+      ),
+    );
+  }
+
   Future<void> _export() async {
     if (_busy) return;
+
     setState(() => _busy = true);
 
     try {
@@ -33,7 +53,11 @@ class _ExportPdfButtonState extends State<ExportPdfButton> {
 
       if (info.canShare) {
         final bytes = await widget.onBuildPdfBytes();
-        await Printing.sharePdf(bytes: bytes, filename: widget.fileName);
+
+        await Printing.sharePdf(
+          bytes: bytes,
+          filename: widget.fileName,
+        );
       } else if (info.canPrint) {
         await Printing.layoutPdf(
           onLayout: (format) async => await widget.onBuildPdfBytes(),
@@ -46,12 +70,11 @@ class _ExportPdfButtonState extends State<ExportPdfButton> {
         );
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Falha ao exportar PDF: $e')),
-      );
+      _notifyError('Falha ao exportar PDF: $e');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 

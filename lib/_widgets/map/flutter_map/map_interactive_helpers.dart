@@ -1,9 +1,9 @@
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
+import 'package:sipged/_widgets/map/markers/marker_data.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_data.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_data.dart';
 
 class _BBox {
   final double minLat;
@@ -69,7 +69,7 @@ class MapInteractiveHelpers {
   // CACHE DE BBOX DOS POLÍGONOS
   // =========================================================
 
-  void rebuildPolygonBBoxes({required List<PolygonChangedData> regionalPolys}) {
+  void rebuildPolygonBBoxes({required List<PolygonData> regionalPolys}) {
     _bboxByRegionNorm.clear();
 
     for (final reg in regionalPolys) {
@@ -80,8 +80,8 @@ class MapInteractiveHelpers {
   }
 
   void rebuildPolygonBBoxesIfNeeded({
-    required List<PolygonChangedData> oldPolys,
-    required List<PolygonChangedData> newPolys,
+    required List<PolygonData> oldPolys,
+    required List<PolygonData> newPolys,
   }) {
     final shouldRebuild =
         oldPolys.length != newPolys.length || !identical(oldPolys, newPolys);
@@ -102,9 +102,9 @@ class MapInteractiveHelpers {
 
   bool hasAnyGeometry({
     List<LatLng>? initialGeometryPoints,
-    List<PolygonChangedData>? polygons,
-    List<PolylineChangedData>? polylines,
-    List<MarkerChangedData<dynamic>>? taggedMarkers,
+    List<PolygonData>? polygons,
+    List<PolylineData>? polylines,
+    List<MarkerData<dynamic>>? taggedMarkers,
     List<Marker>? extraMarkers,
   }) {
     return collectAllGeometryPoints(
@@ -118,9 +118,9 @@ class MapInteractiveHelpers {
 
   LatLng? computeInitialCenterFromGeometries({
     List<LatLng>? initialGeometryPoints,
-    List<PolygonChangedData>? polygons,
-    List<PolylineChangedData>? polylines,
-    List<MarkerChangedData<dynamic>>? taggedMarkers,
+    List<PolygonData>? polygons,
+    List<PolylineData>? polylines,
+    List<MarkerData<dynamic>>? taggedMarkers,
     List<Marker>? extraMarkers,
   }) {
     final pts = collectAllGeometryPoints(
@@ -153,9 +153,9 @@ class MapInteractiveHelpers {
 
   List<LatLng> collectAllGeometryPoints({
     List<LatLng>? initialGeometryPoints,
-    List<PolygonChangedData>? polygons,
-    List<PolylineChangedData>? polylines,
-    List<MarkerChangedData<dynamic>>? taggedMarkers,
+    List<PolygonData>? polygons,
+    List<PolylineData>? polylines,
+    List<MarkerData<dynamic>>? taggedMarkers,
     List<Marker>? extraMarkers,
   }) {
     // Caso já venha uma lista preparada externamente, usa ela direto.
@@ -165,17 +165,17 @@ class MapInteractiveHelpers {
 
     final pts = <LatLng>[];
 
-    final regs = polygons ?? const <PolygonChangedData>[];
+    final regs = polygons ?? const <PolygonData>[];
     for (final reg in regs) {
       pts.addAll(reg.polygon.points);
     }
 
-    final lines = polylines ?? const <PolylineChangedData>[];
+    final lines = polylines ?? const <PolylineData>[];
     for (final line in lines) {
       pts.addAll(line.points);
     }
 
-    final tagged = taggedMarkers ?? const <MarkerChangedData<dynamic>>[];
+    final tagged = taggedMarkers ?? const <MarkerData<dynamic>>[];
     for (final m in tagged) {
       pts.add(m.point);
     }
@@ -219,7 +219,7 @@ class MapInteractiveHelpers {
   // PROPERTIES
   // =========================================================
 
-  String? getProp(PolygonChangedData reg, String keyWanted) {
+  String? getProp(PolygonData reg, String keyWanted) {
     final wanted = norm(keyWanted);
     final props = reg.properties;
 
@@ -260,7 +260,7 @@ class MapInteractiveHelpers {
 
     // Ex: S 9.65 O 36.7 | N 10 E 20 | S10 W20
     final reB = RegExp(
-      r'(?:(N|S)\s*)?(\d{1,3}(?:\.\d+)?)\D+(?:(E|W|L|O)\s*)?(\d{1,3}(?:\.\d+)?)',
+      r'(?:([NS])\s*)?(\d{1,3}(?:\.\d+)?)\D+(?:([EWLO])\s*)?(\d{1,3}(?:\.\d+)?)',
       caseSensitive: false,
     );
     final mB = reB.firstMatch(input);

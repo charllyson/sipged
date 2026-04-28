@@ -2,14 +2,20 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/screens/modules/actives/oaes/card_3d.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
+import 'package:sipged/_widgets/map/markers/marker_data.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 import 'package:sipged/_widgets/DataTime/selector/selector_dates.dart';
@@ -41,7 +47,7 @@ class ActiveOaesDetails extends StatefulWidget {
     this.titleSideList = 'Projetos e Documentos',
   });
 
-  final MarkerChangedData<ActiveOaesData> marker;
+  final MarkerData<ActiveOaesData> marker;
   final VoidCallback? onClose;
 
   final List<dynamic> sideItems;
@@ -80,28 +86,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
 
   bool _busy = false;
 
-  Future<T> _withBusy<T>(Future<T> Function() task) async {
-    if (mounted) setState(() => _busy = true);
-    try {
-      return await task();
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _wrapBusy(FutureOr<void> Function()? fn) async {
-    if (fn == null) return;
-    await _withBusy(() async => Future.sync(fn));
-  }
-
-  Future<void> _wrapBusyIndex(
-      FutureOr<void> Function(int index)? fn,
-      int index,
-      ) async {
-    if (fn == null) return;
-    await _withBusy(() async => Future.sync(() => fn(index)));
-  }
-
   @override
   void initState() {
     super.initState();
@@ -127,13 +111,74 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     }
   }
 
+  void _notifySuccess(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Sucesso',
+        subtitle: message,
+        type: NotificationType.success,
+        leadingLabel: 'OAE',
+      ),
+    );
+  }
+
+  void _notifyError(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Erro',
+        subtitle: message,
+        type: NotificationType.error,
+        leadingLabel: 'OAE',
+      ),
+    );
+  }
+
+  Future<T> _withBusy<T>(Future<T> Function() task) async {
+    if (mounted) setState(() => _busy = true);
+
+    try {
+      return await task();
+    } catch (_) {
+      _notifyError('Falha ao processar a operação.');
+      rethrow;
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _wrapBusy(FutureOr<void> Function()? fn) async {
+    if (fn == null) return;
+
+    try {
+      await _withBusy(() async => Future.sync(fn));
+    } catch (_) {}
+  }
+
+  Future<void> _wrapBusyIndex(
+      FutureOr<void> Function(int index)? fn,
+      int index,
+      ) async {
+    if (fn == null) return;
+
+    try {
+      await _withBusy(() async => Future.sync(() => fn(index)));
+    } catch (_) {}
+  }
+
   Future<void> _loadInitialPhotos() async {
     try {
       final id = widget.marker.data.id;
+
       if (id == null) {
         _allPhotos = const [];
         _filtered = const [];
+
         if (mounted) setState(() {});
+
         return;
       }
 
@@ -145,19 +190,23 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     } catch (_) {
       _allPhotos = const [];
       _filtered = const [];
+
       if (mounted) setState(() {});
     }
   }
 
   Future<void> _persistPhotos() async {
     final id = widget.marker.data.id;
+
     if (id == null) return;
+
     await _repo.savePhotos(id, _allPhotos);
   }
 
   Future<void> _addPhotoFromBytes(Uint8List bytes) async {
     await _withBusy(() async {
       final d = widget.marker.data;
+
       if (d.id == null) return;
 
       final att = await _repo.uploadPhotoBytes(
@@ -169,19 +218,19 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
       );
 
       _allPhotos = [..._allPhotos, att];
+
       _applyCurrentFilter();
+
       await _persistPhotos();
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Foto adicionada com sucesso!')),
-      );
+      _notifySuccess('Foto adicionada com sucesso.');
     });
   }
 
   Future<void> _handleDelete(Attachment att) async {
     await _withBusy(() async {
       final path = att.path;
+
       if (path.isNotEmpty) {
         await _repo.deleteByPath(path);
       }
@@ -190,12 +239,10 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
         ..removeWhere((e) => e.path == att.path);
 
       _applyCurrentFilter();
+
       await _persistPhotos();
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Foto removida.')),
-      );
+      _notifySuccess('Foto removida.');
     });
   }
 
@@ -207,19 +254,22 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
           final tb = b.createdAt?.millisecondsSinceEpoch ?? 0;
           return tb.compareTo(ta);
         });
+
       if (mounted) setState(() {});
+
       return;
     }
 
-    _filtered = _allPhotos
-        .where((a) {
+    _filtered = _allPhotos.where((a) {
       final dt = a.createdAt;
+
       if (dt == null) return false;
+
       final okYear = (_selectedYear == null) || dt.year == _selectedYear;
       final okMonth = (_selectedMonth == null) || dt.month == _selectedMonth;
+
       return okYear && okMonth;
-    })
-        .toList()
+    }).toList()
       ..sort((a, b) {
         final ta = a.createdAt?.millisecondsSinceEpoch ?? 0;
         final tb = b.createdAt?.millisecondsSinceEpoch ?? 0;
@@ -313,7 +363,8 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
-                        itemCount: (_filtered.isEmpty ? 0 : _filtered.length) +
+                        itemCount:
+                        (_filtered.isEmpty ? 0 : _filtered.length) +
                             (widget.isEditable ? 1 : 0),
                         separatorBuilder: (_, _) => const SizedBox(width: 10),
                         itemBuilder: (context, index) {
@@ -341,11 +392,14 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                             onTap: () async {
                               final items =
                               _filtered.map((a) => a.toPhotoItem()).toList();
+
                               final start = index - offset;
+
                               await showPhotoGalleryDialog(
                                 context,
                                 items: items,
-                                initialIndex: start.clamp(0, items.length - 1),
+                                initialIndex:
+                                start.clamp(0, items.length - 1),
                               );
                             },
                             onRemove: (widget.isEditable && !_busy)
@@ -370,6 +424,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                             sortDescending: true,
                             onFilterChanged: (filtered) {
                               _filtered = filtered;
+
                               if (mounted) setState(() {});
                             },
                             onSelectionChanged: ({
@@ -403,10 +458,13 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           side,
-                          const SectionTitle(text: 'Informações gerais da OAE'),
+                          const SectionTitle(
+                            text: 'Informações gerais da OAE',
+                          ),
                           Padding(
-                            padding:
-                            const EdgeInsets.symmetric(horizontal: 12.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0,
+                            ),
                             child: details,
                           ),
                         ],
@@ -415,7 +473,9 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           side,
-                          const SectionTitle(text: 'Informações gerais da OAE'),
+                          const SectionTitle(
+                            text: 'Informações gerais da OAE',
+                          ),
                           Flexible(
                             child: Padding(
                               padding: const EdgeInsets.only(right: 12.0),
@@ -490,6 +550,10 @@ extension _AttachmentToPhoto on Attachment {
       uploadedAtMs: createdAt?.millisecondsSinceEpoch,
       uploadedBy: updatedBy,
     );
-    return PhotoUrlItem(url, meta: meta);
+
+    return PhotoUrlItem(
+      url,
+      meta: meta,
+    );
   }
 }

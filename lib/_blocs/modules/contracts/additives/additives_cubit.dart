@@ -9,27 +9,29 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 
-// usuário/permissões
+import 'package:sipged/_blocs/system/module/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
-import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_blocs/system/user/user_permission.dart' as roles;
+
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
+import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
-// notificações locais
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'additives_state.dart';
 
 class AdditivesCubit extends Cubit<AdditivesState> {
   AdditivesCubit({
     required this.contract,
     required this.repository,
+    this.notificationCubit,
     UserData? initialUser,
   })  : _currentUser = initialUser,
         super(AdditivesState.initial()) {
     _init();
+
     if (initialUser != null) {
       updateUser(initialUser);
     }
@@ -37,6 +39,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   final ProcessData contract;
   final AdditivesRepository repository;
+  final NotificationCubit? notificationCubit;
 
   UserData? _currentUser;
 
@@ -58,6 +61,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       );
       return;
     }
+
     await loadAdditives();
   }
 
@@ -66,9 +70,48 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     return (u?.name ?? u?.email ?? 'Usuário').trim();
   }
 
+  String? _userId() {
+    final uid = (_currentUser?.uid ?? '').trim();
+    return uid.isNotEmpty ? uid : null;
+  }
+
   String _stamp([DateTime? dt]) {
     final d = dt ?? DateTime.now();
     return DateFormat('dd/MM/yyyy HH:mm').format(d);
+  }
+
+  Future<void> _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    String? leadingLabel,
+    NotificationType type = NotificationType.info,
+    bool saveInFirebase = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    final cubit = notificationCubit;
+    if (cubit == null) return;
+
+    final userId = _userId();
+
+    await cubit.show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        details: details ?? '${_userName()} • ${_stamp()}',
+        leadingLabel: leadingLabel ?? 'Aditivo',
+        type: type,
+        createdBy: userId,
+        persistInFirebase: saveInFirebase,
+        extra: {
+          'module': 'additives',
+          'contractId': contract.id,
+          ...extra,
+        },
+      ),
+      userId: userId,
+      saveInFirebase: saveInFirebase,
+    );
   }
 
   // =========================
@@ -83,19 +126,23 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
+
     if (roles.roleForUser(user) == roles.UserProfile.administrador) {
       return true;
     }
+
     final canEdit = perms.userCanModule(
       user: user,
       module: 'additives',
       action: 'edit',
     );
+
     final canCreate = perms.userCanModule(
       user: user,
       module: 'additives',
       action: 'create',
     );
+
     return canEdit || canCreate;
   }
 
@@ -121,12 +168,14 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       );
       return;
     }
+
     emit(state.copyWith(status: AdditivesStatus.loading));
 
     try {
       final list = await repository.ensureForContract(contract.id!);
       final orders = _extractExistingOrders(list);
       final next = _computeNextOrder(orders);
+
       emit(
         state.copyWith(
           status: AdditivesStatus.loaded,
@@ -162,6 +211,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   void selectAdditive(AdditivesData data) {
     final index = state.additives.indexWhere((e) => e.id == data.id);
+
     if (index == -1) {
       _clearSelection();
       return;
@@ -181,7 +231,9 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       return;
     }
 
-    final index = state.additives.indexWhere((e) => (e.additiveOrder ?? 0) == order);
+    final index = state.additives.indexWhere(
+          (e) => (e.additiveOrder ?? 0) == order,
+    );
 
     if (index == -1) {
       emit(
@@ -204,7 +256,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         state.copyWith(
           selectedIndex: index,
           editingMode: true,
-          sideAttachments: (data.attachments ?? const <Attachment>[]),
+          sideAttachments: data.attachments ?? const <Attachment>[],
         ),
       );
       return;
@@ -219,7 +271,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         selected: data,
         selectedIndex: index,
         editingMode: true,
-        sideAttachments: (data.attachments ?? const <Attachment>[]),
+        sideAttachments: data.attachments ?? const <Attachment>[],
         clearSelected: false,
         sideLoading: false,
         clearUploadProgress: true,
@@ -242,6 +294,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   void createNewAdditive() {
     final next = _computeNextOrder(state.existingOrders);
+
     emit(
       state.copyWith(
         editingMode: false,
@@ -280,6 +333,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     }
 
     final valid = obrig.every((s) => s.trim().isNotEmpty);
+
     if (valid != state.formValid) {
       emit(state.copyWith(formValid: valid));
     }
@@ -289,12 +343,17 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   // Salvamento / atualização
   // =========================
 
-  String _onlyDigits(String s) => s.replaceAll(RegExp(r'[^\d]'), '');
+  String _onlyDigits(String s) {
+    return s.replaceAll(RegExp(r'[^\d]'), '');
+  }
 
   AdditivesData? _findByOrder(int order) {
     if (order <= 0) return null;
+
     try {
-      return state.additives.firstWhere((e) => (e.additiveOrder ?? 0) == order);
+      return state.additives.firstWhere(
+            (e) => (e.additiveOrder ?? 0) == order,
+      );
     } catch (_) {
       return null;
     }
@@ -310,6 +369,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     required String typeText,
   }) async {
     if (contract.id == null) return;
+
     emit(state.copyWith(isSaving: true, clearError: true));
 
     try {
@@ -324,8 +384,12 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         additiveOrder: ord > 0 ? ord : null,
         additiveDate: SipGedFormatDates.ddMMyyyyToDate(dateText),
         additiveValue: SipGedFormatNumbers.toDouble(valueText),
-        additiveValidityContractDays: int.tryParse(_onlyDigits(addDaysContractText)),
-        additiveValidityExecutionDays: int.tryParse(_onlyDigits(addDaysExecText)),
+        additiveValidityContractDays: int.tryParse(
+          _onlyDigits(addDaysContractText),
+        ),
+        additiveValidityExecutionDays: int.tryParse(
+          _onlyDigits(addDaysExecText),
+        ),
         typeOfAdditive: typeText,
         pdfUrl: state.selected?.pdfUrl ?? byOrder?.pdfUrl,
         attachments: state.selected?.attachments ?? byOrder?.attachments,
@@ -338,12 +402,19 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
       final bool didUpdate = resolvedId != null;
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text(didUpdate ? 'Aditivo atualizado' : 'Aditivo salvo'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: didUpdate ? 'Aditivo atualizado' : 'Aditivo salvo',
+        subtitle: processText.trim().isNotEmpty
+            ? 'Processo: ${processText.trim()}'
+            : null,
+        type: NotificationType.success,
+        saveInFirebase: true,
+        extra: {
+          'action': didUpdate ? 'update' : 'create',
+          'additiveOrder': ord,
+          'additiveProcess': processText,
+          'typeOfAdditive': typeText,
+        },
       );
 
       await loadAdditives();
@@ -354,14 +425,23 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         createNewAdditive();
       }
     } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Erro ao salvar: $e'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+      await _notify(
+        title: 'Erro ao salvar aditivo',
+        subtitle: e.toString(),
+        type: NotificationType.error,
+        saveInFirebase: false,
+        extra: {
+          'action': 'save_error',
+          'error': e.toString(),
+        },
+      );
+
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: 'Erro ao salvar: $e',
         ),
       );
-      emit(state.copyWith(isSaving: false, errorMessage: 'Erro ao salvar: $e'));
       return;
     } finally {
       emit(state.copyWith(isSaving: false));
@@ -370,6 +450,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   Future<void> deleteSelectedAdditive() async {
     final selected = state.selected;
+
     if (contract.id == null || selected?.id == null) return;
 
     emit(state.copyWith(isSaving: true, clearError: true));
@@ -380,27 +461,43 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         additiveId: selected!.id!,
       );
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Aditivo deletado'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Aditivo deletado',
+        subtitle: selected.additiveNumberProcess?.trim().isNotEmpty == true
+            ? 'Processo: ${selected.additiveNumberProcess!.trim()}'
+            : null,
+        type: NotificationType.success,
+        saveInFirebase: true,
+        extra: {
+          'action': 'delete',
+          'additiveId': selected.id,
+          'additiveOrder': selected.additiveOrder,
+          'additiveProcess': selected.additiveNumberProcess,
+        },
       );
 
       await loadAdditives();
       createNewAdditive();
     } catch (e, st) {
-      // ignore: avoid_print
-      print('>>> ERRO em deleteSelectedAdditive: $e\n$st');
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Erro ao deletar: $e'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+      debugPrint('>>> ERRO em deleteSelectedAdditive: $e\n$st');
+
+      await _notify(
+        title: 'Erro ao deletar aditivo',
+        subtitle: e.toString(),
+        type: NotificationType.error,
+        saveInFirebase: false,
+        extra: {
+          'action': 'delete_error',
+          'error': e.toString(),
+        },
+      );
+
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: 'Erro ao deletar: $e',
         ),
       );
-      emit(state.copyWith(isSaving: false, errorMessage: 'Erro ao deletar: $e'));
       return;
     } finally {
       emit(state.copyWith(isSaving: false));
@@ -413,6 +510,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   Future<void> reloadAttachments() async {
     final selected = state.selected;
+
     if (selected == null || contract.id == null || selected.id == null) {
       emit(
         state.copyWith(
@@ -465,9 +563,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         return;
       }
 
-      final List<Attachment> list = files
-          .map(
-            (f) => Attachment(
+      final List<Attachment> list = files.map((f) {
+        return Attachment(
           id: f.name,
           label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
           url: f.url,
@@ -478,9 +575,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
               '',
           createdAt: DateTime.now(),
           createdBy: _currentUser?.uid,
-        ),
-      )
-          .toList();
+        );
+      }).toList();
 
       await repository.setAttachments(
         contractId: contract.id!,
@@ -523,18 +619,23 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   String _suggestLabelFromName(AdditivesData additive, String original) {
-    final base = original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+    final base = original
+        .split('/')
+        .last
+        .replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+
     final ord = additive.additiveOrder ?? 0;
+
     return 'Aditivo $ord - $base';
   }
 
   Future<void> addAttachmentWithPicker(BuildContext context) async {
     final cId = contract.id;
     final a = state.selected;
+
     if (cId == null || a == null || a.id == null) return;
     if (!state.canAddFile) return;
 
-    // ✅ SideList progress ON (sem travar a tela toda)
     emit(
       state.copyWith(
         sideLoading: true,
@@ -544,7 +645,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     );
 
     try {
-      final (Uint8List bytes, String originalName) = await repository.pickFileBytes();
+      final (Uint8List bytes, String originalName) =
+      await repository.pickFileBytes();
 
       final suggestion = _suggestLabelFromName(a, originalName);
       final label = suggestion;
@@ -557,12 +659,13 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         label: label,
         onProgress: (p) {
           final v = p.isNaN ? 0.0 : p.clamp(0.0, 1.0);
-          // evita spam de emits se quiser: aqui mantive simples
           emit(state.copyWith(uploadProgress: v, sideLoading: true));
         },
       );
 
-      final current = List<Attachment>.from(a.attachments ?? const <Attachment>[])..add(att);
+      final current = List<Attachment>.from(
+        a.attachments ?? const <Attachment>[],
+      )..add(att);
 
       await repository.setAttachments(
         contractId: cId,
@@ -599,23 +702,30 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         ),
       );
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Anexo adicionado'),
-          subtitle: Text(att.label),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Anexo adicionado',
+        subtitle: att.label,
+        type: NotificationType.success,
+        saveInFirebase: true,
+        extra: {
+          'action': 'attachment_create',
+          'additiveId': a.id,
+          'attachmentId': att.id,
+          'attachmentLabel': att.label,
+        },
       );
     } catch (e) {
-      // ignore: avoid_print
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Erro ao anexar'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Erro ao anexar',
+        subtitle: e.toString(),
+        type: NotificationType.error,
+        saveInFirebase: false,
+        extra: {
+          'action': 'attachment_create_error',
+          'error': e.toString(),
+        },
       );
+
       emit(
         state.copyWith(
           sideLoading: false,
@@ -632,13 +742,21 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     required String newLabel,
   }) async {
     final a = state.selected;
+
     if (a == null || a.attachments == null) return;
     if (index < 0 || index >= a.attachments!.length) return;
 
-    emit(state.copyWith(sideLoading: true, clearUploadProgress: true, clearError: true));
+    emit(
+      state.copyWith(
+        sideLoading: true,
+        clearUploadProgress: true,
+        clearError: true,
+      ),
+    );
 
     try {
       final att = a.attachments![index];
+
       final updated = Attachment(
         id: att.id,
         label: newLabel.isEmpty ? att.label : newLabel,
@@ -689,22 +807,30 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         ),
       );
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Nome do anexo atualizado'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Nome do anexo atualizado',
+        subtitle: updated.label,
+        type: NotificationType.success,
+        saveInFirebase: true,
+        extra: {
+          'action': 'attachment_rename',
+          'additiveId': a.id,
+          'attachmentId': updated.id,
+          'attachmentLabel': updated.label,
+        },
       );
     } catch (e) {
-      // ignore: avoid_print
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Erro ao renomear'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Erro ao renomear',
+        subtitle: e.toString(),
+        type: NotificationType.error,
+        saveInFirebase: false,
+        extra: {
+          'action': 'attachment_rename_error',
+          'error': e.toString(),
+        },
       );
+
       emit(
         state.copyWith(
           sideLoading: false,
@@ -718,17 +844,31 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   Future<void> deleteAttachment(int index) async {
     final a = state.selected;
+
     if (a == null || a.id == null || contract.id == null) return;
 
-    emit(state.copyWith(sideLoading: true, clearUploadProgress: true, clearError: true));
+    emit(
+      state.copyWith(
+        sideLoading: true,
+        clearUploadProgress: true,
+        clearError: true,
+      ),
+    );
 
     try {
-      final atts = List<Attachment>.from(a.attachments ?? const <Attachment>[]);
+      final atts = List<Attachment>.from(
+        a.attachments ?? const <Attachment>[],
+      );
+
+      Attachment? removed;
+
       if (index >= 0 && index < atts.length) {
-        final removed = atts.removeAt(index);
+        removed = atts.removeAt(index);
+
         if (removed.path.isNotEmpty) {
           await repository.deleteStorageByPath(removed.path);
         }
+
         await repository.setAttachments(
           contractId: contract.id!,
           additiveId: a.id!,
@@ -765,22 +905,30 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         ),
       );
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Anexo removido'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Anexo removido',
+        subtitle: removed?.label,
+        type: NotificationType.success,
+        saveInFirebase: true,
+        extra: {
+          'action': 'attachment_delete',
+          'additiveId': a.id,
+          'attachmentId': removed?.id,
+          'attachmentLabel': removed?.label,
+        },
       );
     } catch (e) {
-      // ignore: avoid_print
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Erro ao remover'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
+      await _notify(
+        title: 'Erro ao remover',
+        subtitle: e.toString(),
+        type: NotificationType.error,
+        saveInFirebase: false,
+        extra: {
+          'action': 'attachment_delete_error',
+          'error': e.toString(),
+        },
       );
+
       emit(
         state.copyWith(
           sideLoading: false,
@@ -797,14 +945,19 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   // =========================
 
   Set<int> _extractExistingOrders(List<AdditivesData> list) {
-    return list.map((e) => e.additiveOrder ?? 0).where((e) => e > 0).toSet();
+    return list
+        .map((e) => e.additiveOrder ?? 0)
+        .where((e) => e > 0)
+        .toSet();
   }
 
   int _computeNextOrder(Set<int> existing) {
     if (existing.isEmpty) return 1;
+
     for (int i = 1; i <= existing.length + 1; i++) {
       if (!existing.contains(i)) return i;
     }
+
     final max = existing.reduce((a, b) => a > b ? a : b);
     return max + 1;
   }

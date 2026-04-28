@@ -1,10 +1,24 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 
 class MapState {
+  const MapState({
+    this.panelGroups = const <DockPanelData>[],
+    this.selectedToolId,
+    this.selectedLayerPanelItemId,
+    this.activeEditingPointLayerId,
+    this.activeEditingLineLayerId,
+    this.activeEditingPolygonLayerId,
+    this.draftOwnedTemporaryLayerIds = const <String>{},
+    this.draftPointLayers = const <String, List<LatLng>>{},
+    this.draftLineLayers = const <String, List<LatLng>>{},
+    this.draftPolygonLayers = const <String, List<LatLng>>{},
+  });
+
   final List<DockPanelData> panelGroups;
 
   final String? selectedToolId;
@@ -19,19 +33,6 @@ class MapState {
   final Map<String, List<LatLng>> draftPointLayers;
   final Map<String, List<LatLng>> draftLineLayers;
   final Map<String, List<LatLng>> draftPolygonLayers;
-
-  const MapState({
-    this.panelGroups = const [],
-    this.selectedToolId,
-    this.selectedLayerPanelItemId,
-    this.activeEditingPointLayerId,
-    this.activeEditingLineLayerId,
-    this.activeEditingPolygonLayerId,
-    this.draftOwnedTemporaryLayerIds = const <String>{},
-    this.draftPointLayers = const <String, List<LatLng>>{},
-    this.draftLineLayers = const <String, List<LatLng>>{},
-    this.draftPolygonLayers = const <String, List<LatLng>>{},
-  });
 
   factory MapState.initial() {
     return const MapState(
@@ -62,14 +63,20 @@ class MapState {
   }
 
   bool get isPointToolSelected => selectedToolId == 'tool_point';
+
   bool get isLineToolSelected => selectedToolId == 'tool_line';
+
   bool get isPolygonToolSelected => selectedToolId == 'tool_polygon';
+
   bool get isMeasureDistanceToolSelected =>
       selectedToolId == 'tool_measure_distance';
+
   bool get isMeasureAreaToolSelected => selectedToolId == 'tool_measure_area';
 
   bool get hasPointDraftInProgress => activeEditingPointLayerId != null;
+
   bool get hasLineDraftInProgress => activeEditingLineLayerId != null;
+
   bool get hasPolygonDraftInProgress => activeEditingPolygonLayerId != null;
 
   bool get hasAnyVectorEditingInProgress =>
@@ -156,35 +163,35 @@ class MapState {
           ? this.panelGroups
           : List<DockPanelData>.unmodifiable(panelGroups),
       selectedToolId:
-      clearSelectedTool ? null : (selectedToolId ?? this.selectedToolId),
+      clearSelectedTool ? null : selectedToolId ?? this.selectedToolId,
       selectedLayerPanelItemId: clearSelectedLayerPanelItem
           ? null
-          : (selectedLayerPanelItemId ?? this.selectedLayerPanelItemId),
+          : selectedLayerPanelItemId ?? this.selectedLayerPanelItemId,
       activeEditingPointLayerId: clearActiveEditingPointLayerId
           ? null
-          : (activeEditingPointLayerId ?? this.activeEditingPointLayerId),
+          : activeEditingPointLayerId ?? this.activeEditingPointLayerId,
       activeEditingLineLayerId: clearActiveEditingLineLayerId
           ? null
-          : (activeEditingLineLayerId ?? this.activeEditingLineLayerId),
+          : activeEditingLineLayerId ?? this.activeEditingLineLayerId,
       activeEditingPolygonLayerId: clearActiveEditingPolygonLayerId
           ? null
-          : (activeEditingPolygonLayerId ?? this.activeEditingPolygonLayerId),
+          : activeEditingPolygonLayerId ?? this.activeEditingPolygonLayerId,
       draftOwnedTemporaryLayerIds: draftOwnedTemporaryLayerIds == null
           ? this.draftOwnedTemporaryLayerIds
           : Set<String>.unmodifiable(draftOwnedTemporaryLayerIds),
       draftPointLayers: draftPointLayers == null
           ? this.draftPointLayers
-          : _freezeDrafts(draftPointLayers),
+          : freezeDrafts(draftPointLayers),
       draftLineLayers: draftLineLayers == null
           ? this.draftLineLayers
-          : _freezeDrafts(draftLineLayers),
+          : freezeDrafts(draftLineLayers),
       draftPolygonLayers: draftPolygonLayers == null
           ? this.draftPolygonLayers
-          : _freezeDrafts(draftPolygonLayers),
+          : freezeDrafts(draftPolygonLayers),
     );
   }
 
-  static Map<String, List<LatLng>> _freezeDrafts(
+  static Map<String, List<LatLng>> freezeDrafts(
       Map<String, List<LatLng>> source,
       ) {
     return Map<String, List<LatLng>>.unmodifiable({

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
-import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 
 class ScheduleCells extends StatelessWidget {
   final ScheduleRoadData scheduleData;

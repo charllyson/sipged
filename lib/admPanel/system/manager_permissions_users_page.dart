@@ -12,8 +12,8 @@ import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 
-import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:sipged/_blocs/system/permitions/module_permission.dart' as pp;
+import 'package:sipged/_blocs/system/user/user_permission.dart' as roles;
+import 'package:sipged/_blocs/system/module/module_permission.dart' as pp;
 
 class ManagerPermissionsUsersPage extends StatefulWidget {
   const ManagerPermissionsUsersPage({super.key});

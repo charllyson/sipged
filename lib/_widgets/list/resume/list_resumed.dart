@@ -7,7 +7,7 @@ import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.d
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
 // DFD

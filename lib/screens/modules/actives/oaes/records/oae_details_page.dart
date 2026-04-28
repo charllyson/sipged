@@ -12,6 +12,10 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
@@ -98,6 +102,24 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
     super.dispose();
   }
 
+  void _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    required NotificationType type,
+  }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        details: details,
+        type: type,
+      ),
+    );
+  }
+
   void _hydrateFromForm(ActiveOaesData d) {
     _currentId = d.id;
     _hydrated = true;
@@ -166,10 +188,23 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
       _latitudeCtrl.text = lat.toStringAsFixed(6);
       _longitudeCtrl.text = lon.toStringAsFixed(6);
     });
+
+    _notify(
+      title: 'Coordenada selecionada',
+      subtitle: 'Latitude e longitude atualizadas pelo mapa.',
+      type: NotificationType.info,
+    );
   }
 
   Future<void> _handleSave(ActiveOaesState st) async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      _notify(
+        title: 'Formulário incompleto',
+        subtitle: 'Verifique os campos obrigatórios antes de salvar.',
+        type: NotificationType.warning,
+      );
+      return;
+    }
 
     final cubit = context.read<ActiveOaesCubit>();
     final base = st.form;
@@ -206,15 +241,15 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
 
     await cubit.upsert(data);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            data.id == null ? 'OAE salva com sucesso.' : 'OAE atualizada.',
-          ),
-        ),
-      );
-    }
+    if (!mounted) return;
+
+    _notify(
+      title: data.id == null ? 'OAE salva' : 'OAE atualizada',
+      subtitle: data.id == null
+          ? 'A obra de arte especial foi cadastrada com sucesso.'
+          : 'Os dados da obra de arte especial foram atualizados.',
+      type: NotificationType.success,
+    );
   }
 
   @override
@@ -269,6 +304,10 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                             controller: _stateCtrl,
                             labelText: 'UF',
                             width: w(4),
+                            inputFormatters: [
+                              UpperCaseTextFormatter(),
+                              LengthLimitingTextInputFormatter(2),
+                            ],
                           ),
                           CustomTextField(
                             controller: _roadCtrl,
@@ -291,21 +330,42 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                             labelText: 'Extensão (m)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d.,-]'),
+                              ),
+                            ],
                           ),
                           CustomTextField(
                             controller: _widthCtrl,
                             labelText: 'Largura (m)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d.,-]'),
+                              ),
+                            ],
                           ),
                           CustomTextField(
                             controller: _areaCtrl,
                             labelText: 'Área (m²)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d.,-]'),
+                              ),
+                            ],
                           ),
                           CustomTextField(
                             controller: _structureTypeCtrl,
@@ -326,6 +386,11 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                                   decimal: true,
                                   signed: true,
                                 ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[\d.,-]'),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -343,6 +408,11 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                                   decimal: true,
                                   signed: true,
                                 ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[\d.,-]'),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -351,7 +421,14 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                             labelText: 'Altitude',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d.,-]'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -367,7 +444,14 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                             labelText: 'Nota (0 a 5)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d.,-]'),
+                              ),
+                            ],
                           ),
                           CustomTextField(
                             controller: _relatedContractsCtrl,
@@ -379,21 +463,42 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                             labelText: 'Valor intervenção',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d.,-]'),
+                              ),
+                            ],
                           ),
                           CustomTextField(
                             controller: _linearCostMediaCtrl,
                             labelText: 'Custo linear médio',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d.,-]'),
+                              ),
+                            ],
                           ),
                           CustomTextField(
                             controller: _costEstimateCtrl,
                             labelText: 'Custo estimado',
                             width: w(3),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d.,-]'),
+                              ),
+                            ],
                           ),
                           CustomTextField(
                             controller: _companyBuildCtrl,
@@ -509,6 +614,19 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
           stackedRightOnTop: true,
         );
       },
+    );
+  }
+}
+
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
     );
   }
 }

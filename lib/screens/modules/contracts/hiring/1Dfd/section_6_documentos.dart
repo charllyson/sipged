@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -6,6 +7,10 @@ import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_storage_bloc.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
@@ -47,9 +52,11 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
   @override
   void initState() {
     super.initState();
+
     _storage = DfdStorageBloc();
 
     final cubit = context.read<DfdCubit>();
+
     _sub = cubit.stream.listen((state) async {
       if (!mounted) return;
       if (state.loading) return;
@@ -60,6 +67,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
       if (dfdId == null || docsId == null) return;
 
       final changed = dfdId != _lastDfdId || docsId != _lastDocsId;
+
       if (!changed) return;
 
       _lastDfdId = dfdId;
@@ -75,10 +83,37 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     super.dispose();
   }
 
+  void _notifyError(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Erro',
+        subtitle: message,
+        type: NotificationType.error,
+        leadingLabel: 'DFD',
+      ),
+    );
+  }
+
+  void _notifyWarning(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Atenção',
+        subtitle: message,
+        type: NotificationType.warning,
+        leadingLabel: 'DFD',
+      ),
+    );
+  }
+
   Future<void> _refreshDocs(String dfdId, String documentosId) async {
     if (!mounted) return;
 
     setState(() => _busy = true);
+
     try {
       final list = await _storage.listarDocsDfd(
         contractId: widget.contractId,
@@ -96,12 +131,11 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
         }
       });
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Falha ao carregar anexos do DFD.')),
-      );
+      _notifyError('Falha ao carregar anexos do DFD.');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -111,20 +145,21 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     final documentosId = state.sectionIds['documentos'];
 
     if (dfdId == null || documentosId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aguarde: preparando área de documentos...')),
-      );
+      _notifyWarning('Aguarde: preparando área de documentos...');
       return;
     }
 
     setState(() => _uploadProgress = 0.0);
+
     try {
       final a = await _storage.uploadFile(
         contractId: widget.contractId,
         dfdId: dfdId,
         documentosId: documentosId,
         onProgress: (p) {
-          if (mounted) setState(() => _uploadProgress = p);
+          if (mounted) {
+            setState(() => _uploadProgress = p);
+          }
         },
         allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
       );
@@ -136,12 +171,11 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
         _selectedIndex = _items.length - 1;
       });
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Falha no upload do anexo.')),
-      );
+      _notifyError('Falha no upload do anexo.');
     } finally {
-      if (mounted) setState(() => _uploadProgress = null);
+      if (mounted) {
+        setState(() => _uploadProgress = null);
+      }
     }
   }
 
@@ -151,6 +185,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     final state = context.read<DfdCubit>().state;
     final dfdId = state.dfdId;
     final documentosId = state.sectionIds['documentos'];
+
     if (dfdId == null || documentosId == null) return;
 
     final fileName = _items[i].label;
@@ -180,17 +215,21 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
         }
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível excluir o anexo.')),
-      );
+      _notifyError('Não foi possível excluir o anexo.');
     }
   }
 
-  void _updateEtp(String? v) => widget.onChanged(widget.data.copyWith(etpAnexo: v));
-  void _updateProjetoBasico(String? v) =>
-      widget.onChanged(widget.data.copyWith(projetoBasico: v));
-  void _updateTermoMatriz(String? v) =>
-      widget.onChanged(widget.data.copyWith(termoMatrizRiscos: v));
+  void _updateEtp(String? v) {
+    widget.onChanged(widget.data.copyWith(etpAnexo: v));
+  }
+
+  void _updateProjetoBasico(String? v) {
+    widget.onChanged(widget.data.copyWith(projetoBasico: v));
+  }
+
+  void _updateTermoMatriz(String? v) {
+    widget.onChanged(widget.data.copyWith(termoMatrizRiscos: v));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -205,19 +244,21 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
             final isNarrow = inner.maxWidth < 820;
             final panelWidth = isNarrow ? inner.maxWidth : 300.0;
 
-            double inputW(int perLine) => responsiveInputWidth(
-              context: context,
-              itemsPerLine: perLine,
-              containerWidth: inner.maxWidth,
-              reservedWidth: isNarrow ? 0.0 : panelWidth,
-              spaceBetweenReserved: isNarrow ? 0.0 : 12.0,
-              margin: 12,
-              extraPadding: 0.0,
-              spacing: 12.0,
-              minItemWidth: 260.0,
-              minWidthSmallScreen: 280,
-              forceItemsPerLineOnSmall: true,
-            );
+            double inputW(int perLine) {
+              return responsiveInputWidth(
+                context: context,
+                itemsPerLine: perLine,
+                containerWidth: inner.maxWidth,
+                reservedWidth: isNarrow ? 0.0 : panelWidth,
+                spaceBetweenReserved: isNarrow ? 0.0 : 12.0,
+                margin: 12,
+                extraPadding: 0.0,
+                spacing: 12.0,
+                minItemWidth: 260.0,
+                minWidthSmallScreen: 280,
+                forceItemsPerLineOnSmall: true,
+              );
+            }
 
             final rightInputs = Wrap(
               spacing: 12,
@@ -264,20 +305,14 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
                 onDelete: widget.isEditable ? _deleteAt : null,
                 loading: _busy,
                 uploadProgress: _uploadProgress,
-
-                // ✅ agora o SideListBox cuida do rename; só mantemos o pai sincronizado
                 enableRename: widget.isEditable,
                 onItemsChanged: (newItems) {
                   final cast = newItems.whereType<Attachment>().toList();
+
                   if (!mounted) return;
+
                   setState(() => _items = cast);
                 },
-
-                // (opcional) se quiser persistir rename depois, pluga aqui
-                // onRenamePersist: ({required index, required oldItem, required newItem}) async {
-                //   // TODO: persistir (ex: salvar metadata/FireStore)
-                //   return true;
-                // },
               ),
             );
 

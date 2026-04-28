@@ -7,7 +7,6 @@ as vector_import_file_reader;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/feature_enums.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_import.dart';
 import 'package:xml/xml.dart' as xml;
 

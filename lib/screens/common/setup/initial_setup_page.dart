@@ -10,6 +10,11 @@ import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
@@ -35,6 +40,7 @@ class InitialSetupPage extends StatefulWidget {
   });
 
   bool get isDialog => presentationMode == InitialSetupPresentationMode.dialog;
+
   bool get isPage => presentationMode == InitialSetupPresentationMode.page;
 
   @override
@@ -113,6 +119,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     _newFundingCtrl.dispose();
     _newProgramCtrl.dispose();
     _newExpenseNatureCtrl.dispose();
+
     super.dispose();
   }
 
@@ -151,9 +158,16 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     }
 
     final ext = (file.extension ?? '').toLowerCase();
+
     String contentType = 'image/png';
-    if (ext == 'jpg' || ext == 'jpeg') contentType = 'image/jpeg';
-    if (ext == 'webp') contentType = 'image/webp';
+
+    if (ext == 'jpg' || ext == 'jpeg') {
+      contentType = 'image/jpeg';
+    }
+
+    if (ext == 'webp') {
+      contentType = 'image/webp';
+    }
 
     setState(() {
       _logoBytes = bytes;
@@ -212,10 +226,13 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     if (!mounted) return;
 
     setState(() => _saving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: Colors.redAccent,
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Erro',
+        subtitle: msg,
+        type: NotificationType.error,
+        leadingLabel: 'Sistema',
       ),
     );
   }
@@ -223,8 +240,13 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
   void _success(String msg) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Sucesso',
+        subtitle: msg,
+        type: NotificationType.success,
+        leadingLabel: 'Sistema',
+      ),
     );
   }
 
@@ -322,17 +344,21 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (_selectedUnit == null) {
       final created = await cubit.createUnit(name);
+
       if (created != null && mounted) {
         _success('Unidade adicionada com sucesso.');
         _clearUnitSelection();
       }
+
       return;
     }
 
     final unitId = _selectedUnit!.unitId ?? _selectedUnit!.id;
     final updated = await cubit.updateUnitName(unitId, name);
+
     if (updated != null && mounted) {
       _success('Unidade atualizada com sucesso.');
+
       setState(() {
         _selectedUnit = updated;
         _newUnitCtrl.text = updated.label;
@@ -344,11 +370,13 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     if (_selectedUnit == null) return;
 
     final unitId = _selectedUnit!.unitId ?? _selectedUnit!.id;
+
     await context.read<SetupCubit>().deleteUnit(unitId);
 
     if (!mounted) return;
 
     final cubit = context.read<SetupCubit>();
+
     if (cubit.state.error == null) {
       _success('Unidade removida com sucesso.');
       _clearUnitSelection();
@@ -365,17 +393,21 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (_selectedRoad == null) {
       final created = await cubit.createRoad(name);
+
       if (created != null && mounted) {
         _success('Rodovia adicionada com sucesso.');
         _clearRoadSelection();
       }
+
       return;
     }
 
     final roadId = _selectedRoad!.roadId ?? _selectedRoad!.id;
     final updated = await cubit.updateRoadName(roadId, name);
+
     if (updated != null && mounted) {
       _success('Rodovia atualizada com sucesso.');
+
       setState(() {
         _selectedRoad = updated;
         _newRoadCtrl.text = updated.label;
@@ -387,11 +419,13 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     if (_selectedRoad == null) return;
 
     final roadId = _selectedRoad!.roadId ?? _selectedRoad!.id;
+
     await context.read<SetupCubit>().deleteRoad(roadId);
 
     if (!mounted) return;
 
     final cubit = context.read<SetupCubit>();
+
     if (cubit.state.error == null) {
       _success('Rodovia removida com sucesso.');
       _clearRoadSelection();
@@ -416,16 +450,19 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
         _success('Região adicionada com sucesso.');
         _clearRegionSelection();
       }
+
       return;
     }
 
     final regionId = _selectedRegion!.regionId ?? _selectedRegion!.id;
 
     final updatedName = await cubit.updateRegionName(regionId, name);
+
     if (updatedName == null) {
       if (mounted && cubit.state.error != null) {
         _error(cubit.state.error!);
       }
+
       return;
     }
 
@@ -436,11 +473,13 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (updatedRegion != null && mounted) {
       _success('Região atualizada com sucesso.');
+
       setState(() {
         _selectedRegion = updatedRegion;
         _newRegionCtrl.text = updatedRegion.label;
-        _selectedMunicipios =
-        List<String>.from(updatedRegion.municipios ?? []);
+        _selectedMunicipios = List<String>.from(
+          updatedRegion.municipios ?? [],
+        );
       });
     }
   }
@@ -449,11 +488,13 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     if (_selectedRegion == null) return;
 
     final regionId = _selectedRegion!.regionId ?? _selectedRegion!.id;
+
     await context.read<SetupCubit>().deleteRegion(regionId);
 
     if (!mounted) return;
 
     final cubit = context.read<SetupCubit>();
+
     if (cubit.state.error == null) {
       _success('Região removida com sucesso.');
       _clearRegionSelection();
@@ -470,17 +511,21 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (_selectedFunding == null) {
       final created = await cubit.createFundingSource(name);
+
       if (created != null && mounted) {
         _success('Fonte adicionada com sucesso.');
         _clearFundingSelection();
       }
+
       return;
     }
 
     final sourceId = _selectedFunding!.genericId ?? _selectedFunding!.id;
     final updated = await cubit.updateFundingSourceName(sourceId, name);
+
     if (updated != null && mounted) {
       _success('Fonte atualizada com sucesso.');
+
       setState(() {
         _selectedFunding = updated;
         _newFundingCtrl.text = updated.label;
@@ -492,11 +537,13 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     if (_selectedFunding == null) return;
 
     final sourceId = _selectedFunding!.genericId ?? _selectedFunding!.id;
+
     await context.read<SetupCubit>().deleteFundingSource(sourceId);
 
     if (!mounted) return;
 
     final cubit = context.read<SetupCubit>();
+
     if (cubit.state.error == null) {
       _success('Fonte removida com sucesso.');
       _clearFundingSelection();
@@ -513,17 +560,21 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (_selectedProgram == null) {
       final created = await cubit.createProgram(name);
+
       if (created != null && mounted) {
         _success('Programa adicionado com sucesso.');
         _clearProgramSelection();
       }
+
       return;
     }
 
     final programId = _selectedProgram!.genericId ?? _selectedProgram!.id;
     final updated = await cubit.updateProgramName(programId, name);
+
     if (updated != null && mounted) {
       _success('Programa atualizado com sucesso.');
+
       setState(() {
         _selectedProgram = updated;
         _newProgramCtrl.text = updated.label;
@@ -535,11 +586,13 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     if (_selectedProgram == null) return;
 
     final programId = _selectedProgram!.genericId ?? _selectedProgram!.id;
+
     await context.read<SetupCubit>().deleteProgram(programId);
 
     if (!mounted) return;
 
     final cubit = context.read<SetupCubit>();
+
     if (cubit.state.error == null) {
       _success('Programa removido com sucesso.');
       _clearProgramSelection();
@@ -556,18 +609,23 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (_selectedExpenseNature == null) {
       final created = await cubit.createExpenseNature(name);
+
       if (created != null && mounted) {
         _success('Natureza de despesa adicionada com sucesso.');
         _clearExpenseNatureSelection();
       }
+
       return;
     }
 
     final natureId =
         _selectedExpenseNature!.genericId ?? _selectedExpenseNature!.id;
+
     final updated = await cubit.updateExpenseNatureName(natureId, name);
+
     if (updated != null && mounted) {
       _success('Natureza de despesa atualizada com sucesso.');
+
       setState(() {
         _selectedExpenseNature = updated;
         _newExpenseNatureCtrl.text = updated.label;
@@ -580,11 +638,13 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     final natureId =
         _selectedExpenseNature!.genericId ?? _selectedExpenseNature!.id;
+
     await context.read<SetupCubit>().deleteExpenseNature(natureId);
 
     if (!mounted) return;
 
     final cubit = context.read<SetupCubit>();
+
     if (cubit.state.error == null) {
       _success('Natureza de despesa removida com sucesso.');
       _clearExpenseNatureSelection();
@@ -641,18 +701,16 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
       child: Wrap(
         spacing: 8,
         runSpacing: 6,
-        children: _selectedMunicipios
-            .map(
-              (e) => Text(
+        children: _selectedMunicipios.map((e) {
+          return Text(
             e,
             style: const TextStyle(
               fontSize: 12,
               color: Colors.blue,
               fontWeight: FontWeight.w600,
             ),
-          ),
-        )
-            .toList(),
+          );
+        }).toList(),
       ),
     );
   }
@@ -672,9 +730,11 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
         onPickLogo: _pickLogo,
         cnpjValidator: (v) {
           final raw = v?.replaceAll(RegExp(r'\D'), '') ?? '';
+
           if (raw.isEmpty) return 'Informe o CNPJ';
           if (raw.length != 14) return 'CNPJ inválido';
           if (!CNPJValidator.isValid(raw)) return 'CNPJ inválido';
+
           return null;
         },
       ),
@@ -730,6 +790,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
               ? null
               : () async {
             final selected = await setupRegionMap(context);
+
             if (selected != null && mounted) {
               setState(() {
                 _selectedMunicipios = selected;
@@ -806,6 +867,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
           child: LayoutBuilder(
             builder: (_, constraints) {
               final width = (constraints.maxWidth * 0.9).clamp(680.0, 1200.0);
+
               final dialogHeight =
               (constraints.maxHeight * 0.9).clamp(400.0, 800.0);
 
@@ -827,8 +889,12 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
                               child: Scrollbar(
                                 thumbVisibility: true,
                                 child: SingleChildScrollView(
-                                  padding:
-                                  const EdgeInsets.fromLTRB(12, 12, 12, 20),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    12,
+                                    12,
+                                    12,
+                                    20,
+                                  ),
                                   child: Column(
                                     crossAxisAlignment:
                                     CrossAxisAlignment.start,
@@ -882,7 +948,9 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
               builder: (context, state) {
                 final media = MediaQuery.of(context);
                 final topSafe = media.padding.top;
+
                 const appBarHeight = 56.0;
+
                 final topOffset = topSafe + appBarHeight + 12;
 
                 return LayoutBuilder(

@@ -16,6 +16,10 @@ import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_state.dart';
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_data.dart';
@@ -85,8 +89,10 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
 
   final _createdByCtrl = TextEditingController();
   final _updatedByCtrl = TextEditingController();
+
   String? _createdById;
   String? _updatedById;
+
   String _createdAtStr = '-';
   String _updatedAtStr = '-';
 
@@ -142,34 +148,69 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
 
     _createdByCtrl.dispose();
     _updatedByCtrl.dispose();
+
     super.dispose();
   }
 
-  int? _parseInt(String t) => t.trim().isEmpty ? null : int.tryParse(t.trim());
+  void _notifySuccess(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Sucesso',
+        subtitle: message,
+        type: NotificationType.success,
+        leadingLabel: 'OAC',
+      ),
+    );
+  }
+
+  void _notifyError(String message) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: 'Erro',
+        subtitle: message,
+        type: NotificationType.error,
+        leadingLabel: 'OAC',
+      ),
+    );
+  }
+
+  int? _parseInt(String t) {
+    return t.trim().isEmpty ? null : int.tryParse(t.trim());
+  }
 
   double? _parseDouble(String text) {
     final t = text.trim().replaceAll(',', '.');
+
     if (t.isEmpty) return null;
+
     return double.tryParse(t);
   }
 
   String _fmtDate(DateTime? d) {
     if (d == null) return '-';
+
     return '${d.day.toString().padLeft(2, '0')}/'
         '${d.month.toString().padLeft(2, '0')}/'
         '${d.year.toString()}';
   }
 
-  bool _isValidLatLng(double lat, double lng) =>
-      lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  bool _isValidLatLng(double lat, double lng) {
+    return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  }
 
   void _moveMapToCurrentLatLng() {
     final lat = double.tryParse(_latitudeCtrl.text.replaceAll(',', '.'));
     final lon = double.tryParse(_longitudeCtrl.text.replaceAll(',', '.'));
+
     if (lat == null || lon == null) return;
     if (!_isValidLatLng(lat, lon)) return;
 
     final pos = LatLng(lat, lon);
+
     _mapController?.move(pos, 16);
     _setActivePoint?.call(pos);
   }
@@ -249,6 +290,8 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
     final cubit = context.read<ActiveOacsCubit>();
     final base = st.form;
 
+    final wasNew = base.id == null;
+
     final data = base.copyWith(
       order: _parseInt(_orderCtrl.text),
       identificationName: _identificationCtrl.text.trim().isEmpty
@@ -266,8 +309,9 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
       longitude: _parseDouble(_longitudeCtrl.text),
       altitude: _parseDouble(_altitudeCtrl.text),
       oacType: _tipoCtrl.text.trim().isEmpty ? null : _tipoCtrl.text.trim(),
-      material:
-      _materialCtrl.text.trim().isEmpty ? null : _materialCtrl.text.trim(),
+      material: _materialCtrl.text.trim().isEmpty
+          ? null
+          : _materialCtrl.text.trim(),
       hydraulicType:
       _seccaoCtrl.text.trim().isEmpty ? null : _seccaoCtrl.text.trim(),
       diameter: _parseDouble(_diametroCtrl.text),
@@ -300,16 +344,14 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
       nextInspectionDate: _dtProximaInspecao,
     );
 
-    await cubit.upsert(data);
+    try {
+      await cubit.upsert(data);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            data.id == null ? 'OAC salva com sucesso.' : 'OAC atualizada.',
-          ),
-        ),
+      _notifySuccess(
+        wasNew ? 'OAC salva com sucesso.' : 'OAC atualizada com sucesso.',
       );
+    } catch (e) {
+      _notifyError('Falha ao salvar OAC: $e');
     }
   }
 
@@ -338,11 +380,13 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                 builder: (context, constraints) {
                   final width = constraints.maxWidth;
 
-                  double w(int perLine) => width >= 900
-                      ? (width - (perLine - 1) * 12) / perLine
-                      : width >= 600
-                      ? (width - 12) / 2
-                      : width;
+                  double w(int perLine) {
+                    return width >= 900
+                        ? (width - (perLine - 1) * 12) / perLine
+                        : width >= 600
+                        ? (width - 12) / 2
+                        : width;
+                  }
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,7 +431,9 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                             labelText: 'KM',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           CustomTextField(
                             controller: _ladoCtrl,
@@ -443,7 +489,9 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                             labelText: 'Altitude',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                         ],
                       ),
@@ -484,49 +532,63 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                             labelText: 'Diâmetro (m)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           CustomTextField(
                             controller: _alturaCtrl,
                             labelText: 'Altura (m)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           CustomTextField(
                             controller: _larguraCtrl,
                             labelText: 'Largura (m)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           CustomTextField(
                             controller: _comprimentoCtrl,
                             labelText: 'Comprimento (m)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           CustomTextField(
                             controller: _anguloCtrl,
                             labelText: 'Ângulo com a via (°)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           CustomTextField(
                             controller: _cotaMontanteCtrl,
                             labelText: 'Cota montante',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           CustomTextField(
                             controller: _cotaJusanteCtrl,
                             labelText: 'Cota jusante',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                         ],
                       ),
@@ -546,14 +608,18 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                             labelText: 'Vazão de projeto',
                             width: w(3),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           CustomTextField(
                             controller: _declividadeCtrl,
                             labelText: 'Declividade (%)',
                             width: w(3),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           CustomTextField(
                             controller: _observacoesHidraulicaCtrl,
@@ -574,7 +640,9 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                             labelText: 'Nota (0 a 5)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           CustomTextField(
                             controller: _empresaRespCtrl,
@@ -591,14 +659,18 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                             labelText: 'Custo estimado (R\$)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           CustomTextField(
                             controller: _custoUltimaManutCtrl,
                             labelText: 'Custo última manutenção (R\$)',
                             width: w(4),
                             keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                           SizedBox(
                             width: w(4),

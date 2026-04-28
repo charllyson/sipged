@@ -1,9 +1,11 @@
 import 'package:camera/camera.dart' as cam;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/notification/app_notification.dart';
-import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 
 class CustomCameraPage extends StatefulWidget {
@@ -21,6 +23,29 @@ class _CustomCameraPageState extends State<CustomCameraPage>
   String? _error;
   int _initToken = 0;
 
+  void _notify(
+      String title, {
+        NotificationType type = NotificationType.info,
+        String? subtitle,
+        Duration duration = const Duration(seconds: 5),
+      }) {
+    if (!mounted) return;
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Câmera',
+        type: type,
+        duration: duration,
+        extra: const <String, dynamic>{
+          'module': 'camera',
+        },
+      ),
+      saveInFirebase: false,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -31,9 +56,11 @@ class _CustomCameraPageState extends State<CustomCameraPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+
     final c = _controller;
     _controller = null;
     c?.dispose();
+
     super.dispose();
   }
 
@@ -46,9 +73,11 @@ class _CustomCameraPageState extends State<CustomCameraPage>
         state == AppLifecycleState.paused) {
       c.dispose();
       _controller = null;
+
       if (mounted) {
         setState(() {});
       }
+
       return;
     }
 
@@ -74,6 +103,7 @@ class _CustomCameraPageState extends State<CustomCameraPage>
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
       final cams = await cam.availableCameras();
+
       if (cams.isEmpty) {
         throw 'Nenhuma câmera disponível neste dispositivo.';
       }
@@ -110,36 +140,35 @@ class _CustomCameraPageState extends State<CustomCameraPage>
       });
     } on cam.CameraException catch (e) {
       if (!mounted) return;
+
+      final msg = e.description ?? e.code;
+
       setState(() {
-        _error = 'Erro da câmera: ${e.description ?? e.code}';
+        _error = 'Erro da câmera: $msg';
       });
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Falha ao iniciar a câmera'),
-          subtitle: Text(e.description ?? e.code),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Câmera'),
-          duration: const Duration(seconds: 6),
-        ),
+      _notify(
+        'Falha ao iniciar a câmera',
+        subtitle: msg,
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
       );
     } catch (e) {
       if (!mounted) return;
+
       setState(() {
         _error = 'Erro ao iniciar câmera: $e';
       });
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Falha ao iniciar a câmera'),
-          subtitle: Text('$e'),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Câmera'),
-          duration: const Duration(seconds: 6),
-        ),
+      _notify(
+        'Falha ao iniciar a câmera',
+        subtitle: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
       );
     } finally {
       _initializing = false;
+
       if (mounted && token == _initToken) {
         setState(() => _busy = false);
       }
@@ -148,48 +177,52 @@ class _CustomCameraPageState extends State<CustomCameraPage>
 
   Future<void> _take() async {
     final c = _controller;
+
     if (c == null || !c.value.isInitialized || _busy) return;
 
     setState(() => _busy = true);
+
     try {
       final xfile = await c.takePicture();
       final bytes = await xfile.readAsBytes();
+
       if (!mounted) return;
+
       Navigator.of(context).pop<Uint8List>(bytes);
     } on cam.CameraException catch (e) {
       if (!mounted) return;
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Falha ao capturar'),
-          subtitle: Text(e.description ?? e.code),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Câmera'),
-          duration: const Duration(seconds: 6),
-        ),
+
+      _notify(
+        'Falha ao capturar',
+        subtitle: e.description ?? e.code,
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
       );
     } catch (e) {
       if (!mounted) return;
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Falha ao capturar'),
-          subtitle: Text('$e'),
-          type: AppNotificationType.error,
-          leadingLabel: const Text('Câmera'),
-          duration: const Duration(seconds: 6),
-        ),
+
+      _notify(
+        'Falha ao capturar',
+        subtitle: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
       );
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
   Widget _buildPreview() {
     final c = _controller;
+
     if (c == null || !c.value.isInitialized) {
       return const LoadingTreeDots();
     }
 
     final previewSize = c.value.previewSize;
+
     if (previewSize == null) {
       return const LoadingTreeDots();
     }
@@ -229,6 +262,7 @@ class _CustomCameraPageState extends State<CustomCameraPage>
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(12),
