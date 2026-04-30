@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
+
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/map/map/map_change.dart';
 
 import '../../../../_blocs/modules/transit/infractions/infractions_bloc.dart';
 import '../../../../_widgets/draw/background/background_change.dart';
@@ -13,8 +19,6 @@ import '../../../../_blocs/modules/transit/infractions/infractions_controller.da
 import 'infractions_form_section.dart';
 import 'infractions_selector_dates_section.dart';
 import 'infractions_table_section.dart';
-
-import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
 
 class InfractionsRecordsPage extends StatefulWidget {
   const InfractionsRecordsPage({super.key});
@@ -34,6 +38,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       c.postFrameInit(context);
@@ -103,14 +108,17 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                               text: 'Cadastrar infrações de trânsito no sistema',
                             ),
                             Padding(
-                              padding:
-                              const EdgeInsets.symmetric(horizontal: 9.0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9.0,
+                              ),
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
                                   final maxW = constraints.maxWidth;
                                   final isSmall = maxW <= 900;
+
                                   final double leftWidth =
                                   isSmall ? maxW : (maxW - 12) / 2;
+
                                   final double rightWidth =
                                   isSmall ? maxW : (maxW - 12) / 2;
 
@@ -155,11 +163,8 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                               BorderRadius.circular(16),
                                             ),
                                             clipBehavior: Clip.antiAlias,
-                                            child: const MapInteractivePage(
-                                              initialZoom: 9,
-                                              activeMap: true,
-                                              showLegend: true,
-                                            ),
+                                            child:
+                                            const _InfractionsMapPreview(),
                                           ),
                                         ),
                                       ],
@@ -178,8 +183,11 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                         child: _SizeReporter(
                                           onSize: (size) {
                                             final h = size.height;
+
                                             if (_formHeight != h && mounted) {
-                                              setState(() => _formHeight = h);
+                                              setState(() {
+                                                _formHeight = h;
+                                              });
                                             }
                                           },
                                           child: ClipRRect(
@@ -206,8 +214,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                               ctrl.organAuthorityCtrl,
                                               addressCtrl: ctrl.addressCtrl,
                                               bairroCtrl: ctrl.bairroCtrl,
-                                              latitudeCtrl:
-                                              ctrl.latitudeCtrl,
+                                              latitudeCtrl: ctrl.latitudeCtrl,
                                               longitudeCtrl:
                                               ctrl.longitudeCtrl,
                                               onSave: () => _handleSave(ctrl),
@@ -226,10 +233,11 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                         height: mapH < _minDeskHeight
                                             ? _minDeskHeight
                                             : mapH,
-                                        child: const MapInteractivePage(
-                                          initialZoom: 9,
-                                          activeMap: true,
-                                          showLegend: true,
+                                        child: ClipRRect(
+                                          borderRadius:
+                                          BorderRadius.circular(8),
+                                          child:
+                                          const _InfractionsMapPreview(),
                                         ),
                                       ),
                                     ],
@@ -241,8 +249,9 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                               text: 'Filtrar por data infrações de trânsito',
                             ),
                             Padding(
-                              padding:
-                              const EdgeInsets.symmetric(horizontal: 12.0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12.0,
+                              ),
                               child: InfractionsSelectorDatesSection(
                                 allInfractions: ctrl.selectorUniverseAll,
                                 initialYear: ctrl.selectedYear,
@@ -278,6 +287,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                 selectedItem: ctrl.selectedInfraction,
                                 onTapItem: (item) {
                                   final idx = ctrl.pageItems.indexOf(item);
+
                                   if (idx != -1) {
                                     ctrl.selectFromTable(item, idx);
                                   }
@@ -321,6 +331,40 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
   }
 }
 
+class _InfractionsMapPreview extends StatelessWidget {
+  const _InfractionsMapPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return MapChange(
+      key: const ValueKey('infractions-map-preview'),
+
+      features: const <FeatureData>[],
+      layersById: const <String, LayerData>{},
+      orderedActiveLayerIds: const <String>[],
+
+      selectedFeatureKey: null,
+      loading: false,
+
+      visualDataSignature: 'infractions-map-preview',
+
+      initialCenter: const LatLng(-9.6658, -35.7353),
+      initialZoom: 9,
+      minZoom: 4,
+      maxZoom: 19,
+
+      showSearch: false,
+      showControls: true,
+
+      onControllerReady: (_) {},
+
+      onCameraChanged: (_, _) {},
+
+      onFeatureTap: (_) {},
+    );
+  }
+}
+
 class _SizeReporter extends StatefulWidget {
   const _SizeReporter({
     required this.child,
@@ -343,6 +387,7 @@ class _SizeReporterState extends State<_SizeReporter> {
       if (!mounted) return;
 
       final size = context.size;
+
       if (size != null && size != _old) {
         _old = size;
         widget.onSize(size);

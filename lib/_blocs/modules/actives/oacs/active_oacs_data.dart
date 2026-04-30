@@ -1,10 +1,10 @@
 // lib/_blocs/modules/actives/oacs/active_oacs_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/map/markers/marker_data.dart';
 
 /// ----------------------------------------------------------------------------
 /// OAC (Obra de Arte Corrente) — modelo completo para:
@@ -18,73 +18,65 @@ class ActiveOacsData {
   String? id;
   int? order;
 
-  String? identificationName; // ex: "OAC-AL220-001"
-  String? code; // código interno/externo
-  String? legacyCode; // código legado (se existir)
+  String? identificationName;
+  String? code;
+  String? legacyCode;
 
   // Localização
-  String? state; // UF
+  String? state;
   String? municipality;
-  String? road; // ex: AL-220
-  String? region; // label da regional
-  String? kmRef; // km 10+500, ou "10.5"
-  String? locality; // povoado/bairro
-  String? referencePoint; // marco, ponte próxima etc.
+  String? road;
+  String? region;
+  String? kmRef;
+  String? locality;
+  String? referencePoint;
 
   double? latitude;
   double? longitude;
   double? altitude;
 
   // Classificação da OAC
-  String? oacType; // BUEIRO, SARJETA, GALERIA, DRENO, PASSAGEM MOLHADA...
-  String? material; // CONCRETO, AÇO, PEAD, ALVENARIA...
-  String? hydraulicType; // tubular, celular, retangular...
-  String? environment; // urbano/rural, rio, vala, etc.
+  String? oacType;
+  String? material;
+  String? hydraulicType;
+  String? environment;
 
   // Dimensões / implantação
-  double? length; // m
-  double? width; // m
-  double? height; // m
-  double? diameter; // m (se tubular)
-  int? numberOfCells; // células/vãos
-  double? slope; // declividade %
-  double? coverHeight; // altura de recobrimento (m)
-  double? inletElevation; // cota montante
-  double? outletElevation; // cota jusante
-  double? catchmentArea; // bacia (km²) se tiver
-  double? designFlow; // vazão projeto (m³/s)
+  double? length;
+  double? width;
+  double? height;
+  double? diameter;
+  int? numberOfCells;
+  double? slope;
+  double? coverHeight;
+  double? inletElevation;
+  double? outletElevation;
+  double? catchmentArea;
+  double? designFlow;
   String? hydrologyNotes;
 
-  // Implantação (documentação)
+  // Implantação
   DateTime? implantationDate;
   String? implantationCompany;
   String? implantationContractId;
   String? implantationNotes;
 
-  // Condição / status (monitoramento)
-  ///
-  /// score 0..5 (mesma lógica do OAE, mas semântica para OAC)
-  /// 0: NOVA / OK
-  /// 1: CRÍTICA
-  /// 2: RUIM
-  /// 3: REGULAR
-  /// 4: BOA
-  /// 5: EXCELENTE
+  // Condição / status
   double? conditionScore;
 
-  String? conditionLabelOverride; // se quiser sobrescrever label
+  String? conditionLabelOverride;
   DateTime? lastInspectionDate;
   DateTime? nextInspectionDate;
   String? lastInspectorUserId;
 
   // Problemas recorrentes
-  bool? hasSiltation;      // assoreamento
-  bool? hasObstruction;    // obstrução
-  bool? hasErosion;        // erosão
-  bool? hasCracks;         // trincas
-  bool? hasCorrosion;      // corrosão
-  bool? hasDeformation;    // deformação
-  bool? hasLeakage;        // infiltração
+  bool? hasSiltation;
+  bool? hasObstruction;
+  bool? hasErosion;
+  bool? hasCracks;
+  bool? hasCorrosion;
+  bool? hasDeformation;
+  bool? hasLeakage;
   String? anomaliesNotes;
 
   // Custos / estimativas
@@ -94,13 +86,13 @@ class ActiveOacsData {
 
   // Relacionamentos
   String? relatedContracts;
-  String? responsibleCompany; // operação/manutenção
+  String? responsibleCompany;
 
   // Documentos / anexos e fotos
-  List<Attachment>? attachments; // projetos, PDFs etc. (SideListBox)
-  List<Attachment>? photos;      // galeria (como no OAE details)
+  List<Attachment>? attachments;
+  List<Attachment>? photos;
 
-  // Históricos (dentro do documento)
+  // Históricos
   List<OacInspectionEntry>? inspections;
   List<OacMaintenanceEntry>? maintenances;
 
@@ -181,24 +173,31 @@ class ActiveOacsData {
   // ===========================================================================
   // Converters helpers
   // ===========================================================================
+
   static Map<String, dynamic> _readSnapData(DocumentSnapshot snap) {
     if (snap is DocumentSnapshot<Map<String, dynamic>>) {
       return snap.data() ?? <String, dynamic>{};
     }
+
     final raw = snap.data();
-    return (raw is Map<String, dynamic>) ? raw : <String, dynamic>{};
+    return raw is Map<String, dynamic> ? raw : <String, dynamic>{};
   }
 
   static DateTime? _toDate(dynamic v) {
     if (v == null) return null;
     if (v is DateTime) return v;
     if (v is Timestamp) return v.toDate();
+
     if (v is int) {
       try {
         return DateTime.fromMillisecondsSinceEpoch(v);
-      } catch (_) {}
+      } catch (_) {
+        return null;
+      }
     }
+
     if (v is String) return DateTime.tryParse(v);
+
     return null;
   }
 
@@ -220,52 +219,78 @@ class ActiveOacsData {
     if (v == null) return null;
     if (v is bool) return v;
     if (v is num) return v != 0;
+
     if (v is String) {
       final s = v.trim().toLowerCase();
+
       if (s == 'true' || s == 'sim' || s == '1') return true;
-      if (s == 'false' || s == 'nao' || s == 'não' || s == '0') return false;
+      if (s == 'false' || s == 'nao' || s == 'não' || s == '0') {
+        return false;
+      }
     }
+
     return null;
   }
 
   static List<Attachment>? _toAttachments(dynamic v) {
     if (v == null) return null;
+
     if (v is List) {
-      return v.map<Attachment>((e) {
+      return v
+          .where((e) => e != null)
+          .map<Attachment>((e) {
         if (e is Attachment) return e;
         return Attachment.fromMap(Map<String, dynamic>.from(e as Map));
-      }).toList(growable: true);
+      })
+          .toList(growable: true);
     }
+
     return null;
   }
 
   static List<OacInspectionEntry>? _toInspections(dynamic v) {
     if (v == null) return null;
+
     if (v is List) {
-      return v.map<OacInspectionEntry>((e) {
+      return v
+          .where((e) => e != null)
+          .map<OacInspectionEntry>((e) {
         if (e is OacInspectionEntry) return e;
-        return OacInspectionEntry.fromMap(Map<String, dynamic>.from(e as Map));
-      }).toList(growable: true);
+        return OacInspectionEntry.fromMap(
+          Map<String, dynamic>.from(e as Map),
+        );
+      })
+          .toList(growable: true);
     }
+
     return null;
   }
 
   static List<OacMaintenanceEntry>? _toMaintenances(dynamic v) {
     if (v == null) return null;
+
     if (v is List) {
-      return v.map<OacMaintenanceEntry>((e) {
+      return v
+          .where((e) => e != null)
+          .map<OacMaintenanceEntry>((e) {
         if (e is OacMaintenanceEntry) return e;
-        return OacMaintenanceEntry.fromMap(Map<String, dynamic>.from(e as Map));
-      }).toList(growable: true);
+        return OacMaintenanceEntry.fromMap(
+          Map<String, dynamic>.from(e as Map),
+        );
+      })
+          .toList(growable: true);
     }
+
     return null;
   }
 
   // ===========================================================================
   // Factories
   // ===========================================================================
+
   factory ActiveOacsData.fromDocument(DocumentSnapshot snap) {
     final data = _readSnapData(snap);
+
     return ActiveOacsData(
       id: snap.id,
       order: _toInt(data['order']),
@@ -404,9 +429,11 @@ class ActiveOacsData {
   // ===========================================================================
   // Clone / copyWith
   // ===========================================================================
+
   ActiveOacsData.fromData(ActiveOacsData d) {
     id = d.id;
     order = d.order;
+
     identificationName = d.identificationName;
     code = d.code;
     legacyCode = d.legacyCode;
@@ -468,7 +495,8 @@ class ActiveOacsData {
     relatedContracts = d.relatedContracts;
     responsibleCompany = d.responsibleCompany;
 
-    attachments = d.attachments == null ? null : List<Attachment>.from(d.attachments!);
+    attachments =
+    d.attachments == null ? null : List<Attachment>.from(d.attachments!);
     photos = d.photos == null ? null : List<Attachment>.from(d.photos!);
 
     inspections = d.inspections?.map((e) => e.copy()).toList();
@@ -583,8 +611,7 @@ class ActiveOacsData {
       hydrologyNotes: hydrologyNotes ?? this.hydrologyNotes,
       implantationDate: implantationDate ?? this.implantationDate,
       implantationCompany: implantationCompany ?? this.implantationCompany,
-      implantationContractId:
-      implantationContractId ?? this.implantationContractId,
+      implantationContractId: implantationContractId ?? this.implantationContractId,
       implantationNotes: implantationNotes ?? this.implantationNotes,
       conditionScore: conditionScore ?? this.conditionScore,
       conditionLabelOverride:
@@ -622,6 +649,7 @@ class ActiveOacsData {
   // ===========================================================================
   // Serialização
   // ===========================================================================
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -690,7 +718,6 @@ class ActiveOacsData {
     };
   }
 
-  /// Firestore: grava apenas campos setados, com Timestamp em datas.
   Map<String, dynamic> toFirestore() {
     Timestamp? ts(DateTime? d) => d == null ? null : Timestamp.fromDate(d);
 
@@ -706,7 +733,6 @@ class ActiveOacsData {
     put('identificationName', identificationName);
     put('code', code);
     put('legacyCode', legacyCode);
-
     put('state', state);
     put('municipality', municipality);
     put('road', road);
@@ -714,16 +740,13 @@ class ActiveOacsData {
     put('kmRef', kmRef);
     put('locality', locality);
     put('referencePoint', referencePoint);
-
     put('latitude', latitude);
     put('longitude', longitude);
     put('altitude', altitude);
-
     put('oacType', oacType);
     put('material', material);
     put('hydraulicType', hydraulicType);
     put('environment', environment);
-
     put('length', length);
     put('width', width);
     put('height', height);
@@ -739,19 +762,20 @@ class ActiveOacsData {
 
     final imp = ts(implantationDate);
     if (imp != null) map['implantationDate'] = imp;
+
     put('implantationCompany', implantationCompany);
     put('implantationContractId', implantationContractId);
     put('implantationNotes', implantationNotes);
-
     put('conditionScore', conditionScore);
     put('conditionLabelOverride', conditionLabelOverride);
 
     final lastI = ts(lastInspectionDate);
     if (lastI != null) map['lastInspectionDate'] = lastI;
+
     final nextI = ts(nextInspectionDate);
     if (nextI != null) map['nextInspectionDate'] = nextI;
-    put('lastInspectorUserId', lastInspectorUserId);
 
+    put('lastInspectorUserId', lastInspectorUserId);
     put('hasSiltation', hasSiltation);
     put('hasObstruction', hasObstruction);
     put('hasErosion', hasErosion);
@@ -760,23 +784,24 @@ class ActiveOacsData {
     put('hasDeformation', hasDeformation);
     put('hasLeakage', hasLeakage);
     put('anomaliesNotes', anomaliesNotes);
-
     put('maintenanceCostEstimate', maintenanceCostEstimate);
     put('lastMaintenanceCost', lastMaintenanceCost);
     put('maintenanceCostNotes', maintenanceCostNotes);
-
     put('relatedContracts', relatedContracts);
     put('responsibleCompany', responsibleCompany);
 
     if (attachments != null) {
       map['attachments'] = attachments!.map((a) => a.toMap()).toList();
     }
+
     if (photos != null) {
       map['photos'] = photos!.map((a) => a.toMap()).toList();
     }
+
     if (inspections != null) {
       map['inspections'] = inspections!.map((e) => e.toMap()).toList();
     }
+
     if (maintenances != null) {
       map['maintenances'] = maintenances!.map((e) => e.toMap()).toList();
     }
@@ -785,15 +810,16 @@ class ActiveOacsData {
   }
 
   // ===========================================================================
-  // Status/cores (0..5) – mantendo a semântica do seu painel
+  // Status / cores
   // ===========================================================================
+
   static Color getColorByNota(double nota) {
-    if (nota == 0) return Colors.green.shade700;  // Nova/OK
-    if (nota == 1) return Colors.red.shade900;    // Crítica
-    if (nota == 2) return Colors.orange.shade900; // Ruim
-    if (nota == 3) return Colors.yellow.shade800; // Regular
-    if (nota == 4) return Colors.purple.shade400; // Boa
-    if (nota == 5) return Colors.blue.shade700;   // Excelente
+    if (nota == 0) return Colors.green.shade700;
+    if (nota == 1) return Colors.red.shade900;
+    if (nota == 2) return Colors.orange.shade900;
+    if (nota == 3) return Colors.yellow.shade800;
+    if (nota == 4) return Colors.purple.shade400;
+    if (nota == 5) return Colors.blue.shade700;
     return Colors.grey.shade400;
   }
 
@@ -818,27 +844,30 @@ class ActiveOacsData {
 
   static Color colorForScore(num? score) {
     if (score == null) return Colors.grey.shade400;
+
     final s = score.toDouble();
     if (s.isNaN) return Colors.grey.shade400;
+
     final c = s.clamp(0, 5).toDouble();
     return getColorByNota(c);
   }
 
-  static List<Color> colorsFromScores(List<num?> scores) =>
-      scores.map(colorForScore).toList(growable: false);
+  static List<Color> colorsFromScores(List<num?> scores) {
+    return scores.map(colorForScore).toList(growable: false);
+  }
 }
 
 /// ----------------------------------------------------------------------------
-/// Inspeção (entrada de histórico)
+/// Inspeção
 /// ----------------------------------------------------------------------------
 class OacInspectionEntry {
-  final String id; // uuid simples (timestamp-based) para diferenciar
+  final String id;
   final DateTime date;
   final String? inspectorUserId;
-  final double? score; // 0..5
-  final String? method; // visual, drone, topografia, etc.
+  final double? score;
+  final String? method;
   final String? notes;
-  final List<String>? anomalies; // lista curta de tags
+  final List<String>? anomalies;
 
   OacInspectionEntry({
     required this.id,
@@ -868,13 +897,16 @@ class OacInspectionEntry {
     }
 
     return OacInspectionEntry(
-      id: (map['id'] as String?) ?? 'insp_${DateTime.now().millisecondsSinceEpoch}',
+      id: (map['id'] as String?) ??
+          'insp_${DateTime.now().millisecondsSinceEpoch}',
       date: dt(map['date']) ?? DateTime.now(),
       inspectorUserId: map['inspectorUserId'] as String?,
       score: dd(map['score']),
       method: map['method'] as String?,
       notes: map['notes'] as String?,
-      anomalies: (map['anomalies'] as List?)?.map((e) => e.toString()).toList(),
+      anomalies: (map['anomalies'] as List?)
+          ?.map((e) => e.toString())
+          .toList(growable: true),
     );
   }
 
@@ -890,25 +922,27 @@ class OacInspectionEntry {
     };
   }
 
-  OacInspectionEntry copy() => OacInspectionEntry(
-    id: id,
-    date: date,
-    inspectorUserId: inspectorUserId,
-    score: score,
-    method: method,
-    notes: notes,
-    anomalies: anomalies == null ? null : List<String>.from(anomalies!),
-  );
+  OacInspectionEntry copy() {
+    return OacInspectionEntry(
+      id: id,
+      date: date,
+      inspectorUserId: inspectorUserId,
+      score: score,
+      method: method,
+      notes: notes,
+      anomalies: anomalies == null ? null : List<String>.from(anomalies!),
+    );
+  }
 }
 
 /// ----------------------------------------------------------------------------
-/// Manutenção (entrada de histórico)
+/// Manutenção
 /// ----------------------------------------------------------------------------
 class OacMaintenanceEntry {
   final String id;
   final DateTime date;
-  final String? team; // equipe/empresa
-  final String? type; // desobstrução, limpeza, recomposição, troca, etc.
+  final String? team;
+  final String? type;
   final String? notes;
   final double? cost;
   final bool? emergency;
@@ -944,16 +978,22 @@ class OacMaintenanceEntry {
       if (v == null) return null;
       if (v is bool) return v;
       if (v is num) return v != 0;
+
       if (v is String) {
         final s = v.trim().toLowerCase();
+
         if (s == 'true' || s == 'sim' || s == '1') return true;
-        if (s == 'false' || s == 'nao' || s == 'não' || s == '0') return false;
+        if (s == 'false' || s == 'nao' || s == 'não' || s == '0') {
+          return false;
+        }
       }
+
       return null;
     }
 
     return OacMaintenanceEntry(
-      id: (map['id'] as String?) ?? 'mnt_${DateTime.now().millisecondsSinceEpoch}',
+      id: (map['id'] as String?) ??
+          'mnt_${DateTime.now().millisecondsSinceEpoch}',
       date: dt(map['date']) ?? DateTime.now(),
       team: map['team'] as String?,
       type: map['type'] as String?,
@@ -975,25 +1015,49 @@ class OacMaintenanceEntry {
     };
   }
 
-  OacMaintenanceEntry copy() => OacMaintenanceEntry(
-    id: id,
-    date: date,
-    team: team,
-    type: type,
-    notes: notes,
-    cost: cost,
-    emergency: emergency,
-  );
+  OacMaintenanceEntry copy() {
+    return OacMaintenanceEntry(
+      id: id,
+      date: date,
+      team: team,
+      type: type,
+      notes: notes,
+      cost: cost,
+      emergency: emergency,
+    );
+  }
 }
 
-/// helper para Marker
+/// Helpers para uso direto com flutter_map Marker.
 extension OacsDataExtension on ActiveOacsData {
-  MarkerData<ActiveOacsData>? toTaggedMarker() {
+  LatLng? get latLng {
     if (latitude == null || longitude == null) return null;
-    return MarkerData<ActiveOacsData>(
-      point: LatLng(latitude!, longitude!),
-      data: this,
-      properties: toMap(),
+    return LatLng(latitude!, longitude!);
+  }
+
+  Map<String, dynamic> get markerProperties {
+    return toMap();
+  }
+
+  Marker? toMarker({
+    required Widget child,
+    double width = 42,
+    double height = 42,
+    Alignment? alignment = Alignment.center,
+    bool? rotate,
+    Key? key,
+  }) {
+    final point = latLng;
+    if (point == null) return null;
+
+    return Marker(
+      key: key,
+      point: point,
+      width: width,
+      height: height,
+      alignment: alignment,
+      rotate: rotate,
+      child: child,
     );
   }
 }

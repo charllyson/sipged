@@ -1,3 +1,5 @@
+// lib/screens/modules/actives/oaes/network/active_oaes_details.dart
+
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -6,33 +8,29 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
-
 import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
-
-import 'package:sipged/screens/modules/actives/oaes/card_3d.dart';
-import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/list/files/side_list_box.dart';
-import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/map/markers/marker_data.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
-
 import 'package:sipged/_widgets/DataTime/selector/selector_dates.dart';
-import 'package:sipged/_widgets/images/carousel/photo_item.dart';
-import 'package:sipged/_widgets/images/carousel/photo_gallery_dialog.dart';
-import 'package:sipged/_widgets/images/carousel/photo_thumb.dart';
-import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
+import 'package:sipged/_widgets/images/carousel/photo_gallery_dialog.dart';
+import 'package:sipged/_widgets/images/carousel/photo_item.dart';
 import 'package:sipged/_widgets/images/carousel/photo_picker_square.dart';
+import 'package:sipged/_widgets/images/carousel/photo_thumb.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/screens/modules/actives/oaes/card_3d.dart';
 import 'package:sipged/screens/modules/actives/oaes/network/details_panel_body.dart';
 import 'package:sipged/screens/modules/actives/oaes/network/panel_header.dart';
 
 class ActiveOaesDetails extends StatefulWidget {
   const ActiveOaesDetails({
     super.key,
-    required this.marker,
+    required this.data,
     this.onClose,
     required this.sideItems,
     this.selectedSideIndex,
@@ -47,7 +45,7 @@ class ActiveOaesDetails extends StatefulWidget {
     this.titleSideList = 'Projetos e Documentos',
   });
 
-  final MarkerData<ActiveOaesData> marker;
+  final ActiveOaesData data;
   final VoidCallback? onClose;
 
   final List<dynamic> sideItems;
@@ -96,8 +94,8 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
   void didUpdateWidget(covariant ActiveOaesDetails oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final oldId = oldWidget.marker.data.id;
-    final newId = widget.marker.data.id;
+    final oldId = oldWidget.data.id;
+    final newId = widget.data.id;
 
     if (oldId != newId) {
       _selectedYear = null;
@@ -105,7 +103,8 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
       _allPhotos = const [];
       _filtered = const [];
       _loadInitialPhotos();
-      setState(() {});
+
+      if (mounted) setState(() {});
     } else {
       _applyCurrentFilter();
     }
@@ -171,14 +170,13 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
 
   Future<void> _loadInitialPhotos() async {
     try {
-      final id = widget.marker.data.id;
+      final id = widget.data.id;
 
       if (id == null) {
         _allPhotos = const [];
         _filtered = const [];
 
         if (mounted) setState(() {});
-
         return;
       }
 
@@ -186,6 +184,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
 
       _allPhotos = list;
       _filtered = List<Attachment>.from(_allPhotos);
+
       _applyCurrentFilter();
     } catch (_) {
       _allPhotos = const [];
@@ -196,7 +195,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
   }
 
   Future<void> _persistPhotos() async {
-    final id = widget.marker.data.id;
+    final id = widget.data.id;
 
     if (id == null) return;
 
@@ -205,7 +204,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
 
   Future<void> _addPhotoFromBytes(Uint8List bytes) async {
     await _withBusy(() async {
-      final d = widget.marker.data;
+      final d = widget.data;
 
       if (d.id == null) return;
 
@@ -256,7 +255,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
         });
 
       if (mounted) setState(() {});
-
       return;
     }
 
@@ -279,26 +277,58 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     if (mounted) setState(() {});
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final d = widget.marker.data;
+  String _coordText(ActiveOaesData d) {
+    final lat = d.latitude;
+    final lon = d.longitude;
 
-    final entries = <MapEntry<String, String>>[
+    if (lat == null || lon == null) return '-';
+
+    return '${lat.toStringAsFixed(5)}, ${lon.toStringAsFixed(5)}';
+  }
+
+  List<MapEntry<String, String>> _buildEntries(ActiveOaesData d) {
+    final baseKeys = <String>{
+      'id',
+      'order',
+      'score',
+      'state',
+      'road',
+      'region',
+      'identificationName',
+      'latitude',
+      'longitude',
+      'altitude',
+      'attachments',
+    };
+
+    final extraEntries = d.toMap().entries.where((e) {
+      if (baseKeys.contains(e.key)) return false;
+      if (e.value == null) return false;
+
+      final value = e.value.toString().trim();
+      if (value.isEmpty || value == '[]') return false;
+
+      return true;
+    }).map(
+          (e) => MapEntry(e.key, e.value.toString()),
+    );
+
+    return <MapEntry<String, String>>[
       MapEntry('Identificação', d.identificationName ?? '-'),
       MapEntry('UF', d.state ?? '-'),
-      MapEntry('Município', d.state ?? '-'),
-      MapEntry('Nota', (d.score != null) ? d.score!.toStringAsFixed(1) : '-'),
+      MapEntry('Município', d.region ?? '-'),
+      MapEntry('Rodovia', d.road ?? '-'),
+      MapEntry('Nota', d.score != null ? d.score!.toStringAsFixed(1) : '-'),
       MapEntry('Ordem', d.order?.toString() ?? '-'),
-      MapEntry(
-        'Coordenadas',
-        '${widget.marker.point.latitude.toStringAsFixed(5)}, '
-            '${widget.marker.point.longitude.toStringAsFixed(5)}',
-      ),
-      ...widget.marker.properties.entries.map(
-            (e) => MapEntry(e.key, e.value?.toString() ?? ''),
-      ),
+      MapEntry('Coordenadas', _coordText(d)),
+      ...extraEntries,
     ];
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.data;
+    final entries = _buildEntries(d);
     final carouselTheme = const CarouselPhotoTheme();
 
     return Scaffold(
@@ -358,13 +388,13 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                     header,
                     const Divider(height: 1),
                     const SizedBox(height: 12),
+
                     SizedBox(
                       height: photosHeight,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
-                        itemCount:
-                        (_filtered.isEmpty ? 0 : _filtered.length) +
+                        itemCount: (_filtered.isEmpty ? 0 : _filtered.length) +
                             (widget.isEditable ? 1 : 0),
                         separatorBuilder: (_, _) => const SizedBox(width: 10),
                         itemBuilder: (context, index) {
@@ -390,26 +420,31 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                             item: item,
                             theme: carouselTheme,
                             onTap: () async {
-                              final items =
-                              _filtered.map((a) => a.toPhotoItem()).toList();
+                              final items = _filtered
+                                  .map((a) => a.toPhotoItem())
+                                  .toList();
 
-                              final start = index - offset;
+                              if (items.isEmpty) return;
+
+                              final start =
+                              (index - offset).clamp(0, items.length - 1);
 
                               await showPhotoGalleryDialog(
                                 context,
                                 items: items,
-                                initialIndex:
-                                start.clamp(0, items.length - 1),
+                                initialIndex: start,
                               );
                             },
-                            onRemove: (widget.isEditable && !_busy)
+                            onRemove: widget.isEditable && !_busy
                                 ? () => _handleDelete(att)
                                 : null,
                           );
                         },
                       ),
                     ),
+
                     const SizedBox(height: 12),
+
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0),
                       child: AbsorbPointer(
@@ -440,8 +475,11 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 16),
+
                     const SectionTitle(text: 'Modelo 3D'),
+
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0),
                       child: OaeModel3DCard(
@@ -449,8 +487,11 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                         isEditable: widget.isEditable,
                       ),
                     ),
+
                     const SizedBox(height: 24),
+
                     const SectionTitle(text: 'Projetos e Documentos da OAE'),
+
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: isSmall
@@ -473,13 +514,21 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           side,
-                          const SectionTitle(
-                            text: 'Informações gerais da OAE',
-                          ),
                           Flexible(
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 12.0),
-                              child: details,
+                            child: Column(
+                              crossAxisAlignment:
+                              CrossAxisAlignment.stretch,
+                              children: [
+                                const SectionTitle(
+                                  text: 'Informações gerais da OAE',
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: 12.0,
+                                  ),
+                                  child: details,
+                                ),
+                              ],
                             ),
                           ),
                         ],

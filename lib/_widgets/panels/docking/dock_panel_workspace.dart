@@ -1,25 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_cubit.dart';
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_state.dart';
+
+import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_floating.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_group.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_layout.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_snap.dart';
 
 class DockPanelWorkspace extends StatefulWidget {
-  final Widget child;
-  final List<DockPanelData> groups;
-  final ValueChanged<List<DockPanelData>> onChanged;
-  final EdgeInsets contentPadding;
-  final double snapThickness;
-  final Color? backgroundOverlayColor;
-
-  /// Tamanho mínimo virtual da área de trabalho.
-  /// Em telas menores, a área central passa a ter scroll em vez de comprimir o conteúdo.
-  final Size contentMinSize;
-
   const DockPanelWorkspace({
     super.key,
     required this.child,
@@ -28,8 +20,21 @@ class DockPanelWorkspace extends StatefulWidget {
     this.contentPadding = EdgeInsets.zero,
     this.snapThickness = 16,
     this.backgroundOverlayColor,
-    this.contentMinSize = const Size(1400, 900),
+    this.contentMinSize = Size.zero,
   });
+
+  final Widget child;
+  final List<DockPanelData> groups;
+  final ValueChanged<List<DockPanelData>> onChanged;
+  final EdgeInsets contentPadding;
+  final double snapThickness;
+  final Color? backgroundOverlayColor;
+
+  /// Use Size.zero para mapas.
+  ///
+  /// Assim o mapa ocupa somente a área útil restante entre os docks,
+  /// sem criar canvas virtual maior que a tela.
+  final Size contentMinSize;
 
   @override
   State<DockPanelWorkspace> createState() => _DockPanelWorkspaceState();
@@ -149,8 +154,12 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   }
 
   Offset _globalToLocal(Offset globalOffset) {
-    final renderBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return globalOffset;
+    final renderBox = _stackKey.currentContext?.findRenderObject();
+
+    if (renderBox is! RenderBox) {
+      return globalOffset;
+    }
+
     return renderBox.globalToLocal(globalOffset);
   }
 
@@ -202,6 +211,7 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
         },
         onDragEnd: (details) {
           final fallbackLocal = _globalToLocal(details.offset);
+
           _cubit.endDrag(
             groupId: group.id,
             fallbackLocalPosition: fallbackLocal,
@@ -216,10 +226,63 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
     );
   }
 
+  void _syncWorkspaceSizeIfNeeded(
+      Size nextWorkspaceSize,
+      DockPanelState state,
+      ) {
+    if (state.workspaceSize == nextWorkspaceSize) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _cubit.setWorkspaceSize(nextWorkspaceSize);
+    });
+  }
+
+  bool _isWorkspaceSizeReady(
+      Size nextWorkspaceSize,
+      DockPanelState state,
+      ) {
+    if (nextWorkspaceSize.width <= 0 || nextWorkspaceSize.height <= 0) {
+      return false;
+    }
+
+    if (state.workspaceSize.width <= 0 || state.workspaceSize.height <= 0) {
+      return false;
+    }
+
+    return state.workspaceSize == nextWorkspaceSize;
+  }
+
+  Widget _buildPanelsLoadingScreen() {
+    return Positioned.fill(
+      child: ColoredBox(
+        color: Colors.white,
+        child: LoadingTreeDots(
+          size: 200,
+          centered: true,
+          variant: LoadingTreeDotsVariant.blue,
+          message: const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Text(
+              'Carregando painéis ...',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.1,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF334155),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return BlocProvider<DockPanelCubit>.value(
       value: _cubit,
       child: BlocBuilder<DockPanelCubit, DockPanelState>(
@@ -231,55 +294,61 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                 constraints.maxHeight.isFinite ? constraints.maxHeight : 0,
               );
 
-              if (state.workspaceSize != nextWorkspaceSize) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  _cubit.setWorkspaceSize(nextWorkspaceSize);
-                });
-              }
+              _syncWorkspaceSizeIfNeeded(nextWorkspaceSize, state);
 
-              return SizedBox(
+              final workspaceReady = _isWorkspaceSizeReady(
+                nextWorkspaceSize,
+                state,
+              );
+
+              return SizedBox.expand(
                 key: _stackKey,
-                width: double.infinity,
-                height: double.infinity,
                 child: Stack(
                   clipBehavior: Clip.hardEdge,
                   children: [
-                    Positioned.fill(
+                    const Positioned.fill(
                       child: ColoredBox(
-                        color: theme.scaffoldBackgroundColor,
+                        color: Colors.white,
                       ),
                     ),
-                    Positioned.fill(
-                      child: DockPanelLayout(
-                        state: state,
-                        contentPadding: widget.contentPadding,
-                        contentMinSize: widget.contentMinSize,
-                        buildGroupCard: (group, isFloating) {
-                          return _buildGroupCard(state, group, isFloating);
-                        },
-                        onSideExtentResizeStart: _cubit.startDockExtentResize,
-                        onSideExtentResizeEnd: _cubit.endDockExtentResize,
-                        onSideExtentResize: _cubit.resizeAreaExtent,
-                        onWeightResizeStart: _cubit.startDockWeightResize,
-                        onWeightResizeEnd: _cubit.endDockWeightResize,
-                        onWeightResize: (
-                            groups,
-                            leadingIndex,
-                            deltaPixels,
-                            totalPixels,
-                            ) {
-                          _cubit.resizeDockWeights(
-                            groups: groups,
-                            leadingIndex: leadingIndex,
-                            deltaPixels: deltaPixels,
-                            totalAvailablePixels: totalPixels,
-                          );
-                        },
-                        child: widget.child,
+
+                    if (workspaceReady)
+                      Positioned.fill(
+                        child: DockPanelLayout(
+                          state: state,
+                          contentPadding: widget.contentPadding,
+                          contentMinSize: widget.contentMinSize,
+                          buildGroupCard: (group, isFloating) {
+                            return _buildGroupCard(
+                              state,
+                              group,
+                              isFloating,
+                            );
+                          },
+                          onSideExtentResizeStart:
+                          _cubit.startDockExtentResize,
+                          onSideExtentResizeEnd: _cubit.endDockExtentResize,
+                          onSideExtentResize: _cubit.resizeAreaExtent,
+                          onWeightResizeStart: _cubit.startDockWeightResize,
+                          onWeightResizeEnd: _cubit.endDockWeightResize,
+                          onWeightResize: (
+                              groups,
+                              leadingIndex,
+                              deltaPixels,
+                              totalPixels,
+                              ) {
+                            _cubit.resizeDockWeights(
+                              groups: groups,
+                              leadingIndex: leadingIndex,
+                              deltaPixels: deltaPixels,
+                              totalAvailablePixels: totalPixels,
+                            );
+                          },
+                          child: widget.child,
+                        ),
                       ),
-                    ),
-                    if (state.hasDialogPanel)
+
+                    if (state.hasDialogPanel && workspaceReady)
                       Positioned.fill(
                         child: IgnorePointer(
                           child: ColoredBox(
@@ -287,21 +356,32 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                           ),
                         ),
                       ),
-                    Positioned.fill(
-                      child: DockPanelFloating(
-                        floatingGroups: state.floatingGroups,
-                        workspaceSize: state.workspaceSize,
-                        buildGroupCard: (group, isFloating) {
-                          return _buildGroupCard(state, group, isFloating);
-                        },
+
+                    if (workspaceReady)
+                      Positioned.fill(
+                        child: DockPanelFloating(
+                          floatingGroups: state.floatingGroups,
+                          workspaceSize: state.workspaceSize,
+                          buildGroupCard: (group, isFloating) {
+                            return _buildGroupCard(
+                              state,
+                              group,
+                              isFloating,
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    DockPanelSnap(
-                      visible: state.isDragging,
-                      snapArea: state.hoveredSnapArea,
-                      previewRect: state.previewRect,
-                      backgroundOverlayColor: widget.backgroundOverlayColor,
-                    ),
+
+                    if (workspaceReady)
+                      DockPanelSnap(
+                        visible: state.isDragging,
+                        snapArea: state.hoveredSnapArea,
+                        previewRect: state.previewRect,
+                        backgroundOverlayColor:
+                        widget.backgroundOverlayColor,
+                      ),
+
+                    if (!workspaceReady) _buildPanelsLoadingScreen(),
                   ],
                 ),
               );

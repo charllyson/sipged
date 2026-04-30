@@ -9,15 +9,13 @@ class NotificationHost extends StatelessWidget {
   const NotificationHost({
     super.key,
     required this.child,
-    this.cardWidth = 310,
-    this.gapRight = 20,
-    this.gapTop = 70,
-    this.verticalSpacing = 5,
+    this.gapRight = 10,
+    this.gapTop = 60,
+    this.verticalSpacing = 2,
   });
 
   final Widget child;
 
-  final double cardWidth;
   final double gapRight;
   final double gapTop;
   final double verticalSpacing;
@@ -25,6 +23,9 @@ class NotificationHost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    final cardWidth = ToastCard.defaultWidth;
+    final cardHeight = ToastCard.defaultHeight;
 
     return Stack(
       fit: StackFit.expand,
@@ -38,6 +39,11 @@ class NotificationHost extends StatelessWidget {
             if (state.visible.isEmpty) {
               return const SizedBox.shrink();
             }
+
+            final visible = state.visible.reversed.toList();
+
+            final totalHeight = visible.length * cardHeight +
+                (visible.length - 1) * verticalSpacing;
 
             return Positioned(
               top: gapTop,
@@ -60,48 +66,51 @@ class NotificationHost extends StatelessWidget {
                       data: const IconThemeData(
                         color: Colors.black54,
                       ),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minWidth: cardWidth,
-                          maxWidth: cardWidth,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                      child: SizedBox(
+                        width: cardWidth,
+                        height: totalHeight,
+                        child: Stack(
+                          clipBehavior: Clip.none,
                           children: List.generate(
-                            state.visible.length,
+                            visible.length,
                                 (index) {
-                              final notification = state.visible[index];
+                              final notification = visible[index];
 
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                  bottom: index == state.visible.length - 1
-                                      ? 0
-                                      : verticalSpacing,
+                              final notificationKey = notification.id ??
+                                  '${notification.title}_${notification.createdAt?.millisecondsSinceEpoch ?? notification.hashCode}';
+
+                              final top =
+                                  index * (cardHeight + verticalSpacing);
+
+                              return AnimatedPositioned(
+                                key: ValueKey(
+                                  'toast_position_$notificationKey',
                                 ),
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 220),
-                                  switchInCurve: Curves.easeOut,
-                                  switchOutCurve: Curves.easeIn,
-                                  child: ToastCard(
-                                    key: ValueKey(notification.id),
-                                    id: notification.id ??
-                                        '${notification.title}_${notification.createdAt?.millisecondsSinceEpoch ?? index}',
-                                    title: notification.title,
-                                    subtitle: notification.subtitle,
-                                    details: notification.details,
-                                    leadingLabel: notification.leadingLabel,
-                                    icon: notification.resolvedIcon,
-                                    accentColor:
-                                    notification.resolvedAccentColor,
-                                    backgroundColor:
-                                    notification.backgroundColor,
-                                    width: cardWidth,
-                                    onClose: () {
-                                      context
-                                          .read<NotificationCubit>()
-                                          .dismiss(notification);
-                                    },
+                                duration: const Duration(milliseconds: 260),
+                                curve: Curves.easeOutCubic,
+                                top: top,
+                                right: 0,
+                                width: cardWidth,
+                                height: cardHeight,
+                                child: ToastCard(
+                                  key: ValueKey(
+                                    'toast_card_$notificationKey',
                                   ),
+                                  id: notificationKey,
+                                  title: notification.title,
+                                  subtitle: notification.subtitle,
+                                  details: notification.details,
+                                  leadingLabel: notification.leadingLabel,
+                                  icon: notification.resolvedIcon,
+                                  accentColor:
+                                  notification.resolvedAccentColor,
+                                  backgroundColor:
+                                  notification.backgroundColor,
+                                  onClose: () {
+                                    context
+                                        .read<NotificationCubit>()
+                                        .dismiss(notification);
+                                  },
                                 ),
                               );
                             },

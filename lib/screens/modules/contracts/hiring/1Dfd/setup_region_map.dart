@@ -5,6 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
+
 import 'package:sipged/_blocs/system/location/ibge_localidade_cubit.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_data.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_repository.dart';
@@ -14,17 +17,12 @@ import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
 
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
-import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_data.dart';
+import 'package:sipged/_widgets/map/map/map_change.dart';
 
 import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tip.dart';
 
-/// Abre um dialog com mapa IBGE para selecionar múltiplos municípios.
-///
-/// [initialSelected] = municípios já vinculados a ESTA região.
-/// [lockedMunicipios] = municípios já usados em OUTRAS regiões, não podem ser selecionados aqui.
 Future<List<String>?> setupRegionMap(
     BuildContext context, {
       String title = 'Selecionar municípios da região',
@@ -76,16 +74,11 @@ class _RegionMunicipiosSelectorBodyState
     extends State<_RegionMunicipiosSelectorBody> {
   MapController? _mapController;
 
-  /// Balão exibido ao tocar em município bloqueado.
   OverlayEntry? _lockedBalloonEntry;
 
-  /// Conjunto de municípios selecionados por nome nesta região.
   late Set<String> _selectedCities;
-
-  /// Municípios bloqueados, já vinculados a outras regiões.
   late Set<String> _lockedCities;
 
-  /// Controller para UF usado pelo DropDownChange.
   late final TextEditingController _ufCtrl;
 
   @override
@@ -117,56 +110,80 @@ class _RegionMunicipiosSelectorBodyState
     _lockedBalloonEntry = null;
   }
 
-  bool _nameInSet(Set<String> set, String name) {
-    final lower = name.trim().toLowerCase();
+  String _norm(String value) {
+    return value.trim().toUpperCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
 
-    return set.any(
-          (e) => e.trim().toLowerCase() == lower,
-    );
+  bool _nameInSet(Set<String> set, String name) {
+    final target = _norm(name);
+
+    return set.any((e) => _norm(e) == target);
   }
 
   String? _findInSet(Set<String> set, String name) {
-    final lower = name.trim().toLowerCase();
+    final target = _norm(name);
 
     try {
-      return set.firstWhere(
-            (e) => e.trim().toLowerCase() == lower,
-      );
+      return set.firstWhere((e) => _norm(e) == target);
     } catch (_) {
       return null;
     }
   }
 
-  /// Garante que a seleção atual contenha apenas municípios existentes
-  /// nos polígonos carregados do estado atual.
+  String _polygonTitle(Polygon<Map<String, dynamic>> polygon) {
+    final hit = polygon.hitValue;
+
+    final value = hit?['title'] ??
+        hit?['nome'] ??
+        hit?['name'] ??
+        hit?['NM_MUN'] ??
+        hit?['processo'] ??
+        polygon.label;
+
+    return value?.toString().trim() ?? '';
+  }
+
+  List<LatLng> _geometryPointsFromPolygons(
+      List<Polygon<Map<String, dynamic>>> polygons,
+      ) {
+    if (polygons.isEmpty) return const <LatLng>[];
+
+    final points = <LatLng>[];
+
+    for (final polygon in polygons) {
+      points.addAll(polygon.points);
+
+      final holes = polygon.holePointsList ?? const <List<LatLng>>[];
+
+      for (final hole in holes) {
+        points.addAll(hole);
+      }
+    }
+
+    return points;
+  }
+
   void _syncSelectionWithPolygons(IBGELocationState state) {
     if (state.cityPolygons.isEmpty) return;
 
     final availableNames = state.cityPolygons
-        .map((p) => p.title.trim())
+        .map(_polygonTitle)
         .where((name) => name.isNotEmpty)
         .toList();
 
-    final nextSelectedCities = _selectedCities.where(
-          (name) {
-        return availableNames.any(
-              (n) => n.toLowerCase() == name.trim().toLowerCase(),
-        );
-      },
-    ).toSet();
+    final nextSelectedCities = _selectedCities.where((name) {
+      return availableNames.any((n) => _norm(n) == _norm(name));
+    }).toSet();
 
-    if (nextSelectedCities.length == _selectedCities.length) {
-      return;
-    }
+    if (nextSelectedCities.length == _selectedCities.length) return;
 
     setState(() {
       _selectedCities = nextSelectedCities;
     });
   }
 
-  /// Centro geométrico simples de um polígono usando média dos pontos.
-  LatLng? _computePolygonCenter(PolygonData poly) {
-    final pts = poly.polygon.points;
+  LatLng? _computePolygonCenter(Polygon<Map<String, dynamic>> polygon) {
+    final pts = polygon.points;
 
     if (pts.isEmpty) return null;
 
@@ -177,11 +194,17 @@ class _RegionMunicipiosSelectorBodyState
     return LatLng(lat, lon);
   }
 
-  LatLng? _computeCenter(List<PolygonData> polys) {
+  LatLng? _computeCenter(List<Polygon<Map<String, dynamic>>> polys) {
     final pts = <LatLng>[];
 
-    for (final p in polys) {
-      pts.addAll(p.polygon.points);
+    for (final polygon in polys) {
+      pts.addAll(polygon.points);
+
+      final holes = polygon.holePointsList ?? const <List<LatLng>>[];
+
+      for (final hole in holes) {
+        pts.addAll(hole);
+      }
     }
 
     if (pts.isEmpty) return null;
@@ -193,7 +216,6 @@ class _RegionMunicipiosSelectorBodyState
     return LatLng(lat, lon);
   }
 
-  /// Mostra o BalloonChange ancorado no centro do polígono bloqueado.
   void _showLockedBalloonAtPolygon(
       String regionName,
       IBGELocationState state,
@@ -204,18 +226,16 @@ class _RegionMunicipiosSelectorBodyState
     if (map == null) return;
     if (state.cityPolygons.isEmpty) return;
 
-    final poly = state.cityPolygons.firstWhere(
-          (p) {
-        return p.title.trim().toLowerCase() ==
-            regionName.trim().toLowerCase();
-      },
+    final polygon = state.cityPolygons.firstWhere(
+          (p) => _norm(_polygonTitle(p)) == _norm(regionName),
       orElse: () => state.cityPolygons.first,
     );
 
-    final center = _computePolygonCenter(poly);
+    final center = _computePolygonCenter(polygon);
     if (center == null) return;
 
     final cam = map.camera;
+
     final Offset localMapPosition = SipGedGeoMath.latLngToScreen(
       cam,
       center,
@@ -272,6 +292,105 @@ class _RegionMunicipiosSelectorBodyState
     overlayState.insert(_lockedBalloonEntry!);
   }
 
+  Polygon<Map<String, dynamic>> _colorizePolygon(
+      Polygon<Map<String, dynamic>> polygon,
+      ) {
+    final name = _polygonTitle(polygon);
+
+    final isSelected = _nameInSet(_selectedCities, name);
+    final isLocked = _nameInSet(_lockedCities, name) && !isSelected;
+
+    late final Color fill;
+    late final Color border;
+    late final double stroke;
+
+    if (isSelected) {
+      fill = const Color(0xFF5E35B1).withValues(alpha: 0.40);
+      border = const Color(0xFF311B92);
+      stroke = 2.2;
+    } else if (isLocked) {
+      fill = Colors.grey.withValues(alpha: 0.55);
+      border = Colors.grey.shade900;
+      stroke = 2.0;
+    } else {
+      fill = Colors.grey.withValues(alpha: 0.18);
+      border = Colors.grey.shade400;
+      stroke = 1.0;
+    }
+
+    final tooltipText = isLocked ? '$name (já vinculado a outra região)' : name;
+
+    final hit = Map<String, dynamic>.from(polygon.hitValue ?? {});
+    final props = Map<String, dynamic>.from(
+      (hit['properties'] is Map<String, dynamic>)
+          ? hit['properties'] as Map<String, dynamic>
+          : <String, dynamic>{},
+    );
+
+    props['tooltip'] = tooltipText;
+
+    hit['title'] = hit['title'] ?? name;
+    hit['nome'] = hit['nome'] ?? name;
+    hit['processo'] = hit['processo'] ?? name;
+    hit['properties'] = props;
+
+    return Polygon<Map<String, dynamic>>(
+      points: polygon.points,
+      holePointsList: polygon.holePointsList ?? const <List<LatLng>>[],
+      color: fill,
+      borderColor: border,
+      borderStrokeWidth: stroke,
+      label: polygon.label,
+      labelStyle: polygon.labelStyle,
+      rotateLabel: polygon.rotateLabel,
+      labelPlacement: polygon.labelPlacement,
+      hitValue: hit,
+    );
+  }
+
+  void _handlePolygonTap(
+      Polygon<Map<String, dynamic>>? polygon,
+      IBGELocationState state,
+      ) {
+    _hideLockedBalloon();
+
+    if (polygon == null) {
+      setState(() {});
+      return;
+    }
+
+    final region = _polygonTitle(polygon);
+
+    if (region.trim().isEmpty) {
+      setState(() {});
+      return;
+    }
+
+    final isLocked =
+        _nameInSet(_lockedCities, region) && !_nameInSet(_selectedCities, region);
+
+    if (isLocked) {
+      _showLockedBalloonAtPolygon(region, state);
+      return;
+    }
+
+    final selectedMatch = _findInSet(
+      _selectedCities,
+      region,
+    );
+
+    if (selectedMatch != null) {
+      setState(() {
+        _selectedCities.remove(selectedMatch);
+      });
+      return;
+    }
+
+    setState(() {
+      _selectedCities.add(region);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -306,58 +425,60 @@ class _RegionMunicipiosSelectorBodyState
         )
             .toList();
 
+        final styledPolygons = state.cityPolygons
+            .map(_colorizePolygon)
+            .toList(growable: false);
+
+        final geometryPoints = _geometryPointsFromPolygons(styledPolygons);
+
         return Column(
           children: [
             Expanded(
               child: Stack(
                 children: [
-                  MapInteractivePage<void>(
+                  MapChange(
+                    key: ValueKey(
+                      'setup-region-map-${state.selectedState?.id ?? 'none'}',
+                    ),
+
+                    features: const <FeatureData>[],
+                    layersById: const <String, LayerData>{},
+                    orderedActiveLayerIds: const <String>[],
+
+                    selectedFeatureKey: null,
+                    loading: state.isLoading,
+
+                    visualDataSignature: Object.hash(
+                      'setup-region-map',
+                      state.selectedState?.id,
+                      styledPolygons.length,
+                      _selectedCities.length,
+                      _lockedCities.length,
+                    ),
+
+                    initialCenter: const LatLng(-9.6658, -35.7353),
                     initialZoom: 7.8,
                     minZoom: 4,
                     maxZoom: 14,
-                    activeMap: true,
-                    showLegend: false,
-                    polygonsChanged: state.cityPolygons
-                        .map((p) => _colorizePolygon(p))
-                        .toList(),
-                    selectedRegionNames: _selectedCities.toList(),
-                    allowMultiSelect: true,
+
                     showSearch: true,
+                    showControls: true,
+
+                    initialGeometryPoints: geometryPoints,
+                    fitInitialGeometryOnce: geometryPoints.isNotEmpty,
+
+                    externalPolygons: styledPolygons,
+
                     onControllerReady: (ctrl) {
                       _mapController = ctrl;
                     },
-                    onRegionTap: (region) {
-                      _hideLockedBalloon();
 
-                      if (region == null) {
-                        setState(() {});
-                        return;
-                      }
+                    onCameraChanged: (_, _) {},
 
-                      final bool isLocked =
-                          _nameInSet(_lockedCities, region) &&
-                              !_nameInSet(_selectedCities, region);
+                    onFeatureTap: (_) {},
 
-                      if (isLocked) {
-                        _showLockedBalloonAtPolygon(region, state);
-                        return;
-                      }
-
-                      final String? selectedMatch = _findInSet(
-                        _selectedCities,
-                        region,
-                      );
-
-                      if (selectedMatch != null) {
-                        setState(() {
-                          _selectedCities.remove(selectedMatch);
-                        });
-                        return;
-                      }
-
-                      setState(() {
-                        _selectedCities.add(region);
-                      });
+                    onExternalPolygonTap: (polygon) {
+                      _handlePolygonTap(polygon, state);
                     },
                   ),
                   Positioned(
@@ -476,60 +597,6 @@ class _RegionMunicipiosSelectorBodyState
           ],
         );
       },
-    );
-  }
-
-  /// Interpola cor dos polígonos marcando:
-  /// - selecionados nesta região;
-  /// - já usados em outras regiões;
-  /// - disponíveis.
-  PolygonData _colorizePolygon(PolygonData p) {
-    final String name = p.title;
-
-    final bool isSelected = _nameInSet(_selectedCities, name);
-    final bool isLocked = _nameInSet(_lockedCities, name) && !isSelected;
-
-    Color fill;
-    Color border;
-    double stroke;
-
-    if (isSelected) {
-      fill = const Color(0xFF5E35B1).withValues(alpha: 0.40);
-      border = const Color(0xFF311B92);
-      stroke = 2.2;
-    } else if (isLocked) {
-      fill = Colors.grey.withValues(alpha: 0.55);
-      border = Colors.grey.shade900;
-      stroke = 2.0;
-    } else {
-      fill = Colors.grey.withValues(alpha: 0.18);
-      border = Colors.grey.shade400;
-      stroke = 1.0;
-    }
-
-    final String tooltipText = isLocked
-        ? '$name (já vinculado a outra região)'
-        : name;
-
-    final List<Map<String, dynamic>> props =
-        p.properties?.map((e) => Map<String, dynamic>.from(e)).toList() ??
-            <Map<String, dynamic>>[];
-
-    if (props.isEmpty) {
-      props.add({'tooltip': tooltipText});
-    } else {
-      props[0]['tooltip'] = tooltipText;
-    }
-
-    return PolygonData(
-      polygon: Polygon(
-        points: p.polygon.points,
-        borderColor: border,
-        borderStrokeWidth: stroke,
-        color: fill,
-      ),
-      title: p.title,
-      properties: props,
     );
   }
 }

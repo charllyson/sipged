@@ -1,13 +1,13 @@
+// lib/_blocs/modules/actives/roads/active_roads_data.dart
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
-
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_style.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_data.dart';
 
 @immutable
 class RoadViewField {
@@ -129,6 +129,7 @@ class ActiveRoadsData {
     }
 
     final data = snapshot.data() as Map<String, dynamic>?;
+
     if (data == null) {
       throw Exception('Dados estão vazios');
     }
@@ -350,42 +351,57 @@ class ActiveRoadsData {
     );
   }
 
-  String get displayRegion =>
-      regional?.trim().isNotEmpty == true
-          ? regional!.trim()
-          : (metadata?['regional']?.toString().trim() ?? '');
+  String get displayRegion {
+    if (regional?.trim().isNotEmpty == true) {
+      return regional!.trim();
+    }
 
-  String get surfaceCode =>
-      ActiveRoadsStyle.normalizeSurfaceCode(
-        stateSurface ?? surface ?? state ?? '',
-      );
+    return metadata?['regional']?.toString().trim() ?? '';
+  }
 
-  String get surfaceLabel => ActiveRoadsStyle.labelForSurface(surfaceCode);
+  String get surfaceCode {
+    return ActiveRoadsStyle.normalizeSurfaceCode(
+      stateSurface ?? surface ?? state ?? '',
+    );
+  }
 
-  bool get hasGeometry => points != null && points!.length >= 2;
+  String get surfaceLabel {
+    return ActiveRoadsStyle.labelForSurface(surfaceCode);
+  }
+
+  bool get hasGeometry {
+    return points != null && points!.length >= 2;
+  }
 
   LatLng? get startLatLng {
     final lat = double.tryParse((initialLatSegment ?? '').replaceAll(',', '.'));
-    final lng =
-    double.tryParse((initialLongSegment ?? '').replaceAll(',', '.'));
+    final lng = double.tryParse((initialLongSegment ?? '').replaceAll(',', '.'));
 
     if (lat != null && lng != null) return LatLng(lat, lng);
-    if (points != null && points!.isNotEmpty) return points!.first;
+
+    if (points != null && points!.isNotEmpty) {
+      return points!.first;
+    }
+
     return null;
   }
 
   LatLng? get endLatLng {
     final lat = double.tryParse((finalLatSegment ?? '').replaceAll(',', '.'));
-    final lng =
-    double.tryParse((finalLongSegment ?? '').replaceAll(',', '.'));
+    final lng = double.tryParse((finalLongSegment ?? '').replaceAll(',', '.'));
 
     if (lat != null && lng != null) return LatLng(lat, lng);
-    if (points != null && points!.isNotEmpty) return points!.last;
+
+    if (points != null && points!.isNotEmpty) {
+      return points!.last;
+    }
+
     return null;
   }
 
   LatLng? get centerLatLng {
     final ps = points;
+
     if (ps != null && ps.isNotEmpty) {
       double lat = 0;
       double lng = 0;
@@ -395,11 +411,15 @@ class ActiveRoadsData {
         lng += p.longitude;
       }
 
-      return LatLng(lat / ps.length, lng / ps.length);
+      return LatLng(
+        lat / ps.length,
+        lng / ps.length,
+      );
     }
 
     final a = startLatLng;
     final b = endLatLng;
+
     if (a != null && b != null) {
       return LatLng(
         (a.latitude + b.latitude) / 2,
@@ -412,6 +432,7 @@ class ActiveRoadsData {
 
   LatLng? projectOnPolyline(LatLng p) {
     final ps = points;
+
     if (ps == null || ps.length < 2) return null;
 
     final meanLat =
@@ -421,11 +442,19 @@ class ActiveRoadsData {
     final metersPerDegLng =
         111320.0 * math.cos(SipGedGeoMath.degToRad(meanLat));
 
-    Offset toMeters(LatLng ll) =>
-        Offset(ll.longitude * metersPerDegLng, ll.latitude * metersPerDegLat);
+    Offset toMeters(LatLng ll) {
+      return Offset(
+        ll.longitude * metersPerDegLng,
+        ll.latitude * metersPerDegLat,
+      );
+    }
 
-    LatLng toLatLng(Offset m) =>
-        LatLng(m.dy / metersPerDegLat, m.dx / metersPerDegLng);
+    LatLng toLatLng(Offset m) {
+      return LatLng(
+        m.dy / metersPerDegLat,
+        m.dx / metersPerDegLng,
+      );
+    }
 
     final projectedTap = toMeters(p);
 
@@ -435,6 +464,7 @@ class ActiveRoadsData {
     for (int i = 0; i < ps.length - 1; i++) {
       final a = toMeters(ps[i]);
       final b = toMeters(ps[i + 1]);
+
       final proj = _projectPointOnSegment(projectedTap, a, b);
       final dist = (proj - projectedTap).distance;
 
@@ -445,6 +475,7 @@ class ActiveRoadsData {
     }
 
     if (bestProjection == null) return null;
+
     return toLatLng(bestProjection);
   }
 
@@ -461,10 +492,13 @@ class ActiveRoadsData {
   List<RoadViewField> get detailsFields {
     String fmtNum(num? v, {int maxDecimals = 2}) {
       if (v == null) return '';
+
       var s = v.toStringAsFixed(maxDecimals);
+
       while (s.contains('.') && (s.endsWith('0') || s.endsWith('.'))) {
         s = s.substring(0, s.length - 1);
       }
+
       return s;
     }
 
@@ -541,17 +575,24 @@ class ActiveRoadsData {
       RoadViewField(label: 'Metadata', value: metadata?.toString() ?? ''),
     ];
 
-    return items.where((e) => e.value.trim().isNotEmpty).toList(growable: false);
+    return items.where((e) {
+      return e.value.trim().isNotEmpty;
+    }).toList(growable: false);
   }
 
-  double get idealDetailMapZoom => computeIdealZoom(points ?? const []);
+  double get idealDetailMapZoom {
+    return computeIdealZoom(points ?? const []);
+  }
 
-  List<PolylineData> buildDetailPolylines({
+  List<Polyline<Object>> buildDetailPolylines({
     required double zoom,
     required double centerLatitude,
   }) {
     final ps = points;
-    if (ps == null || ps.length < 2) return const [];
+
+    if (ps == null || ps.length < 2) {
+      return const <Polyline<Object>>[];
+    }
 
     return ActiveRoadsStyle.buildRoadPolylines(
       id: id ?? '',
@@ -588,6 +629,7 @@ class ActiveRoadsData {
       entry.value.sort((a, b) {
         final aKey = '${a.uf ?? ''}${a.roadCode ?? ''}'.toUpperCase();
         final bKey = '${b.uf ?? ''}${b.roadCode ?? ''}'.toUpperCase();
+
         return aKey.compareTo(bKey);
       });
     }
@@ -596,7 +638,10 @@ class ActiveRoadsData {
   }
 
   static num sumExtension(Iterable<ActiveRoadsData> items) {
-    return items.fold<num>(0, (soma, r) => soma + (r.extension ?? 0));
+    return items.fold<num>(
+      0,
+          (soma, r) => soma + (r.extension ?? 0),
+    );
   }
 
   static double computeIdealZoom(List<LatLng> pts) {
@@ -624,6 +669,7 @@ class ActiveRoadsData {
     if (delta < 0.15) return 14.0;
     if (delta < 0.50) return 13.0;
     if (delta < 1.00) return 12.0;
+
     return 11.0;
   }
 
@@ -651,6 +697,7 @@ class ActiveRoadsData {
     final mpp = 156543.03392 *
         math.cos(SipGedGeoMath.degToRad(latitude)) /
         math.pow(2.0, zoom);
+
     return mpp / 111320.0;
   }
 
@@ -660,7 +707,9 @@ class ActiveRoadsData {
         double miterLimit = 3.0,
         double densifyIfSegmentMeters = 0,
       }) {
-    if (pts.length < 2 || deslocamentoOrtogonal.abs() < 1e-12) return pts;
+    if (pts.length < 2 || deslocamentoOrtogonal.abs() < 1e-12) {
+      return pts;
+    }
 
     final latMean =
         pts.map((p) => p.latitude).reduce((a, b) => a + b) / pts.length;
@@ -670,27 +719,37 @@ class ActiveRoadsData {
     const metersPerDegLat = 111320.0;
     final metersPerDegLng = 111320.0 * cosLat;
 
-    List<_PointM> toMeters(List<LatLng> source) => source
-        .map((p) => _PointM(
-      p.longitude * metersPerDegLng,
-      p.latitude * metersPerDegLat,
-    ))
-        .toList(growable: false);
+    List<_PointM> toMeters(List<LatLng> source) {
+      return source
+          .map(
+            (p) => _PointM(
+          p.longitude * metersPerDegLng,
+          p.latitude * metersPerDegLat,
+        ),
+      )
+          .toList(growable: false);
+    }
 
-    List<LatLng> toLatLng(List<_PointM> source) => source
-        .map((p) => LatLng(
-      p.y / metersPerDegLat,
-      p.x / metersPerDegLng,
-    ))
-        .toList(growable: false);
+    List<LatLng> toLatLng(List<_PointM> source) {
+      return source
+          .map(
+            (p) => LatLng(
+          p.y / metersPerDegLat,
+          p.x / metersPerDegLng,
+        ),
+      )
+          .toList(growable: false);
+    }
 
     List<_PointM> densify(List<_PointM> src, double maxSegMeters) {
       if (maxSegMeters <= 0) return src;
 
       final out = <_PointM>[];
+
       for (int i = 0; i < src.length - 1; i++) {
         final a = src[i];
         final b = src[i + 1];
+
         out.add(a);
 
         final dx = b.x - a.x;
@@ -701,26 +760,36 @@ class ActiveRoadsData {
         if (steps > 1) {
           for (int k = 1; k < steps; k++) {
             final t = k / steps;
-            out.add(_PointM(a.x + dx * t, a.y + dy * t));
+
+            out.add(
+              _PointM(
+                a.x + dx * t,
+                a.y + dy * t,
+              ),
+            );
           }
         }
       }
 
       out.add(src.last);
+
       return out;
     }
 
     final offsetMeters = deslocamentoOrtogonal * metersPerDegLat;
 
     var meters = toMeters(pts);
+
     if (densifyIfSegmentMeters > 0) {
       meters = densify(meters, densifyIfSegmentMeters);
     }
 
     final segmentNormals = <_PointM>[];
+
     for (int i = 0; i < meters.length - 1; i++) {
       final a = meters[i];
       final b = meters[i + 1];
+
       final vx = b.x - a.x;
       final vy = b.y - a.y;
       final len = math.sqrt(vx * vx + vy * vy);
@@ -728,20 +797,34 @@ class ActiveRoadsData {
       if (len < 1e-12) {
         segmentNormals.add(const _PointM(0, 0));
       } else {
-        segmentNormals.add(_PointM(-vy / len, vx / len));
+        segmentNormals.add(
+          _PointM(
+            -vy / len,
+            vx / len,
+          ),
+        );
       }
     }
 
     final out = <_PointM>[];
+
     for (int i = 0; i < meters.length; i++) {
       late _PointM offset;
 
       if (i == 0) {
         final n = segmentNormals[0];
-        offset = _PointM(n.x * offsetMeters, n.y * offsetMeters);
+
+        offset = _PointM(
+          n.x * offsetMeters,
+          n.y * offsetMeters,
+        );
       } else if (i == meters.length - 1) {
         final n = segmentNormals[segmentNormals.length - 1];
-        offset = _PointM(n.x * offsetMeters, n.y * offsetMeters);
+
+        offset = _PointM(
+          n.x * offsetMeters,
+          n.y * offsetMeters,
+        );
       } else {
         final n1 = segmentNormals[i - 1];
         final n2 = segmentNormals[i];
@@ -763,10 +846,18 @@ class ActiveRoadsData {
         final gain = (dot.abs() < 1e-3) ? miterLimit : (1.0 / dot).abs();
         final k = math.min(gain, miterLimit);
 
-        offset = _PointM(tx * offsetMeters * k, ty * offsetMeters * k);
+        offset = _PointM(
+          tx * offsetMeters * k,
+          ty * offsetMeters * k,
+        );
       }
 
-      out.add(_PointM(meters[i].x + offset.x, meters[i].y + offset.y));
+      out.add(
+        _PointM(
+          meters[i].x + offset.x,
+          meters[i].y + offset.y,
+        ),
+      );
     }
 
     return toLatLng(out);
@@ -800,24 +891,39 @@ class _PointM {
   final double x;
   final double y;
 
-  const _PointM(this.x, this.y);
+  const _PointM(
+      this.x,
+      this.y,
+      );
 }
 
 double? _toDouble(dynamic value) {
   if (value is num) return value.toDouble();
-  if (value is String) return double.tryParse(value.replaceAll(',', '.'));
+
+  if (value is String) {
+    return double.tryParse(value.replaceAll(',', '.'));
+  }
+
   return null;
 }
 
 int? _toInt(dynamic value) {
   if (value is num) return value.toInt();
-  if (value is String) return int.tryParse(value);
+
+  if (value is String) {
+    return int.tryParse(value);
+  }
+
   return null;
 }
 
 DateTime? _parseDate(dynamic value) {
   if (value is Timestamp) return value.toDate();
-  if (value is String) return DateTime.tryParse(value);
+
+  if (value is String) {
+    return DateTime.tryParse(value);
+  }
+
   return null;
 }
 
@@ -827,7 +933,10 @@ List<LatLng>? _parsePoints(dynamic value) {
   return value
       .map<LatLng?>((e) {
     if (e is GeoPoint) {
-      return LatLng(e.latitude, e.longitude);
+      return LatLng(
+        e.latitude,
+        e.longitude,
+      );
     }
 
     if (e is Map && e['lat'] != null && e['lng'] != null) {
@@ -850,15 +959,23 @@ List<LatLng>? _parsePoints(dynamic value) {
       .toList(growable: false);
 }
 
-Offset _projectPointOnSegment(Offset p, Offset a, Offset b) {
+Offset _projectPointOnSegment(
+    Offset p,
+    Offset a,
+    Offset b,
+    ) {
   final ab = b - a;
   final ab2 = ab.dx * ab.dx + ab.dy * ab.dy;
 
   if (ab2 == 0) return a;
 
   final ap = p - a;
+
   var t = (ap.dx * ab.dx + ap.dy * ab.dy) / ab2;
   t = t.clamp(0.0, 1.0);
 
-  return Offset(a.dx + ab.dx * t, a.dy + ab.dy * t);
+  return Offset(
+    a.dx + ab.dx * t,
+    a.dy + ab.dy * t,
+  );
 }

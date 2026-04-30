@@ -26,7 +26,7 @@ import 'package:sipged/_blocs/system/panels/push/push_panel_data.dart';
 import 'package:sipged/_blocs/system/panels/push/push_panels_controller.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/map/flutter_map_new/map_cache.dart';
+import 'package:sipged/_widgets/map/map/map_cache.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_workspace.dart';
@@ -362,7 +362,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
       orderedActiveLayerIds: mapData.orderedActiveLayerIdsForMap,
       selectedFeatureKey: mapData.selectedFeatureKey,
       loading: mapData.isLoading,
-      onControllerReady: (c) => controller = c as MapController,
+      onControllerReady: (c) => controller = c,
       cursor: editorState.mapCursor,
       temporaryPointLayers: mapData.visiblePointDrafts,
       temporaryLineLayers: mapData.visibleLineDrafts,

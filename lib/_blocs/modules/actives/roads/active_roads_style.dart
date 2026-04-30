@@ -1,3 +1,4 @@
+// lib/_blocs/modules/actives/roads/active_roads_style.dart
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,7 +6,20 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_data.dart';
+
+class ActiveRoadLaneStyle {
+  const ActiveRoadLaneStyle({
+    required this.color,
+    this.defaultColor,
+    required this.strokeWidth,
+    this.isDotted = false,
+  });
+
+  final Color color;
+  final Color? defaultColor;
+  final double strokeWidth;
+  final bool isDotted;
+}
 
 class ActiveRoadsStyle {
   const ActiveRoadsStyle._();
@@ -22,8 +36,6 @@ class ActiveRoadsStyle {
     'OUTRO',
   ];
 
-  /// Paleta fixa e estável para regionais.
-  /// Evita colisão visual de hash.
   static const Map<String, Color> _regionColorMap = <String, Color>{
     'AGRESTE': Color(0xFFF57C00),
     'METROPOLITANA': Color(0xFF0F8B94),
@@ -92,28 +104,20 @@ class ActiveRoadsStyle {
     switch (normalizeSurfaceCode(code)) {
       case 'DUP':
         return const Color(0xFF2ECC71);
-
       case 'PAV':
         return const Color(0xFF2979FF);
-
       case 'EOD':
         return const Color(0xFFFF6D00);
-
       case 'EOP':
         return const Color(0xFF00B8D4);
-
       case 'EOI':
         return const Color(0xFFAA00FF);
-
       case 'IMP':
         return const Color(0xFFFFB703);
-
       case 'PLA':
         return const Color(0xFFFF4D6D);
-
       case 'LEN':
         return const Color(0xFF8D6E63);
-
       default:
         return const Color(0xFF9E9E9E);
     }
@@ -150,6 +154,7 @@ class ActiveRoadsStyle {
     };
 
     final buffer = StringBuffer();
+
     for (final rune in text.runes) {
       final char = String.fromCharCode(rune);
       buffer.write(accents[char] ?? char);
@@ -171,7 +176,6 @@ class ActiveRoadsStyle {
     final exact = _regionColorMap[key];
     if (exact != null) return exact;
 
-    // fallback seguro caso apareça alguma regional nova no futuro
     return const Color(0xFF78909C);
   }
 
@@ -192,8 +196,9 @@ class ActiveRoadsStyle {
     }
   }
 
-  static List<Color> get vsaChartPalette =>
-      List<Color>.unmodifiable(_vsaPalette);
+  static List<Color> get vsaChartPalette {
+    return List<Color>.unmodifiable(_vsaPalette);
+  }
 
   static Color colorForRegionBar({
     required String regionLabel,
@@ -203,9 +208,11 @@ class ActiveRoadsStyle {
     if (value <= 0) return Colors.grey.shade300;
 
     final base = colorForRegion(regionLabel);
+
     if (selected) {
       return Color.lerp(base, Colors.black, 0.12) ?? base;
     }
+
     return base;
   }
 
@@ -325,7 +332,22 @@ class ActiveRoadsStyle {
     return c == 'EOD';
   }
 
-  static List<PolylineData> buildRoadPolylines({
+  static Polyline<Object> _polyline({
+    required List<LatLng> points,
+    required Color color,
+    required double strokeWidth,
+    Object? hitValue,
+    bool isDotted = false,
+  }) {
+    return Polyline<Object>(
+      points: points,
+      color: color,
+      strokeWidth: strokeWidth,
+      hitValue: hitValue,
+    );
+  }
+
+  static List<Polyline<Object>> buildRoadPolylines({
     required String id,
     required String code,
     required List<List<LatLng>> segments,
@@ -335,11 +357,10 @@ class ActiveRoadsStyle {
     bool detailsMode = false,
     Color? overrideColor,
   }) {
-    if (segments.isEmpty) return const [];
+    if (segments.isEmpty) return const <Polyline<Object>>[];
 
     final normalizedCode = normalizeSurfaceCode(code);
     final statusColor = overrideColor ?? colorForSurface(normalizedCode);
-
     final isDualRoad = isDualRoadSurface(normalizedCode);
 
     final casingWidth = detailsMode
@@ -361,11 +382,10 @@ class ActiveRoadsStyle {
     final degPerPx = degreesPerPixel(centerLatitude, zoom);
     final carriagewayOffsetDeg = carriagewayOffsetPx * degPerPx;
 
-    final out = <PolylineData>[];
+    final out = <Polyline<Object>>[];
 
     void addTrack({
       required List<LatLng> centerTrack,
-      required String suffix,
       required bool dashed,
       required bool interactive,
     }) {
@@ -376,43 +396,32 @@ class ActiveRoadsStyle {
 
       if (isSelected && !detailsMode) {
         out.add(
-          PolylineData(
+          _polyline(
             points: centerTrack,
-            tag: interactive ? id : '${id}_color_$suffix',
             color: visibleColor,
-            defaultColor: statusColor,
-            strokeWidth: centerWidth,
+            strokeWidth: centerWidth + selectionHaloWidthForZoom(zoom),
+            hitValue: interactive ? id : null,
             isDotted: dashed,
-            useDashedPattern: true,
-            dashSegmentLength: 5,
-            dashGapLength: 2,
-            patternFit: PatternFit.scaleUp,
-            hitTestable: interactive,
           ),
         );
       }
 
       out.add(
-        PolylineData(
+        _polyline(
           points: centerTrack,
-          tag: '${id}_casing_$suffix',
           color: Colors.white,
-          defaultColor: Colors.white,
           strokeWidth: casingWidth,
-          isDotted: false,
-          hitTestable: false,
+          hitValue: null,
         ),
       );
 
       out.add(
-        PolylineData(
+        _polyline(
           points: centerTrack,
-          tag: interactive ? id : '${id}_color_$suffix',
           color: visibleColor,
-          defaultColor: statusColor,
           strokeWidth: centerWidth,
+          hitValue: interactive ? id : null,
           isDotted: dashed,
-          hitTestable: interactive,
         ),
       );
     }
@@ -422,14 +431,11 @@ class ActiveRoadsStyle {
 
       if (isDualRoad) {
         out.add(
-          PolylineData(
+          _polyline(
             points: seg,
-            tag: '${id}_median_white',
             color: Colors.white,
-            defaultColor: Colors.white,
             strokeWidth: medianWhiteWidth,
-            isDotted: false,
-            hitTestable: false,
+            hitValue: null,
           ),
         );
 
@@ -449,21 +455,18 @@ class ActiveRoadsStyle {
 
         addTrack(
           centerTrack: leftTrack,
-          suffix: 'dual_left',
           dashed: leftTrackDashedForDual(normalizedCode),
           interactive: false,
         );
 
         addTrack(
           centerTrack: rightTrack,
-          suffix: 'dual_right',
           dashed: rightTrackDashedForDual(normalizedCode),
           interactive: true,
         );
       } else {
         addTrack(
           centerTrack: seg,
-          suffix: 'single',
           dashed: isCentralDashed(normalizedCode),
           interactive: true,
         );
@@ -473,78 +476,57 @@ class ActiveRoadsStyle {
     return out;
   }
 
-  static List<PolylineData> styleLane(String? status, double zoom) {
+  static List<ActiveRoadLaneStyle> styleLane(String? status, double zoom) {
     final code = normalizeSurfaceCode(status);
     final color = colorForSurface(code);
 
     if (isDualRoadSurface(code)) {
       return [
-        PolylineData(
-          points: const [],
-          tag: null,
+        ActiveRoadLaneStyle(
           color: Colors.white,
           defaultColor: Colors.white,
           strokeWidth: medianWhiteWidthForZoom(zoom),
           isDotted: false,
-          hitTestable: false,
         ),
-        PolylineData(
-          points: const [],
-          tag: null,
+        ActiveRoadLaneStyle(
           color: Colors.white,
           defaultColor: Colors.white,
           strokeWidth: casingWidthForZoom(zoom),
           isDotted: false,
-          hitTestable: false,
         ),
-        PolylineData(
-          points: const [],
-          tag: null,
+        ActiveRoadLaneStyle(
           color: color,
           defaultColor: color,
           strokeWidth: centerLineWidthForZoom(zoom),
           isDotted: false,
-          hitTestable: false,
         ),
-        PolylineData(
-          points: const [],
-          tag: null,
+        ActiveRoadLaneStyle(
           color: Colors.white,
           defaultColor: Colors.white,
           strokeWidth: casingWidthForZoom(zoom),
           isDotted: false,
-          hitTestable: false,
         ),
-        PolylineData(
-          points: const [],
-          tag: null,
+        ActiveRoadLaneStyle(
           color: color,
           defaultColor: color,
           strokeWidth: centerLineWidthForZoom(zoom),
           isDotted: code == 'EOD',
-          hitTestable: false,
         ),
       ];
     }
 
     return [
-      PolylineData(
-        points: const [],
-        tag: null,
+      ActiveRoadLaneStyle(
         color: Colors.white,
         defaultColor: Colors.white,
         strokeWidth: casingWidthForZoom(zoom),
         isDotted: false,
-        hitTestable: false,
       ),
-      PolylineData(
-        points: const [],
-        tag: null,
+      ActiveRoadLaneStyle(
         color: color,
         defaultColor: color,
         strokeWidth: centerLineWidthForZoom(zoom),
         isDotted: isCentralDashed(code),
-        hitTestable: false,
       ),
     ];
   }

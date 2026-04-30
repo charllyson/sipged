@@ -1,12 +1,12 @@
+// lib/screens/modules/actives/oaes/network/maps/active_oaes_map_mapbox.dart
+
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_widgets/map/map_box/map_mapbox_layer.dart';
-import 'package:sipged/_services/map/map_box/mapbox_data.dart';
-import 'package:sipged/_widgets/map/markers/marker_data.dart';
-
-import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
+import 'package:sipged/_services/map/map_box/mapbox_data.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/map/base/mapbox/map_mapbox_layer.dart';
 
 class ActiveOaesMapMapbox extends StatelessWidget {
   const ActiveOaesMapMapbox({
@@ -16,7 +16,9 @@ class ActiveOaesMapMapbox extends StatelessWidget {
   });
 
   final ActiveOaesState state;
-  final void Function(MarkerData<ActiveOaesData> marker)? onOpenDetails;
+
+  /// Agora retorna o dado direto, sem MarkerData.
+  final void Function(ActiveOaesData data)? onOpenDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -27,21 +29,19 @@ class ActiveOaesMapMapbox extends StatelessWidget {
       );
     }
 
-    final taggedMarkers = state.filteredAll
-        .map((o) => o.toTaggedMarker())
-        .whereType<MarkerData<ActiveOaesData>>()
+    final items = state.filteredAll
+        .where((o) => o.latitude != null && o.longitude != null)
         .toList(growable: false);
 
-    if (taggedMarkers.isEmpty) {
+    if (items.isEmpty) {
       return const Center(
         child: Text('Nenhuma OAE encontrada para os filtros atuais.'),
       );
     }
 
-    final mapboxMarkers = taggedMarkers.map((m) {
-      final d = m.data;
-      final nota = d.score?.toDouble() ?? 0;
-      final Color notaColor = ActiveOaesData.getColorByNota(nota);
+    final mapboxMarkers = items.map((d) {
+      final nota = d.score?.toDouble() ?? 0.0;
+      final notaColor = ActiveOaesData.getColorByNota(nota);
 
       final red = (notaColor.r * 255).round().clamp(0, 255);
       final green = (notaColor.g * 255).round().clamp(0, 255);
@@ -53,17 +53,17 @@ class ActiveOaesMapMapbox extends StatelessWidget {
           '${blue.toRadixString(16).padLeft(2, '0')}';
 
       return MapboxData(
-        lon: m.point.longitude,
-        lat: m.point.latitude,
+        lon: d.longitude!,
+        lat: d.latitude!,
         colorHex: colorHex,
         label: d.identificationName ?? '',
         idExtra: d.id,
       );
     }).toList(growable: false);
 
-    MarkerData<ActiveOaesData>? findMarkerById(String id) {
-      for (final m in taggedMarkers) {
-        if (m.data.id == id) return m;
+    ActiveOaesData? findDataById(String id) {
+      for (final item in items) {
+        if (item.id == id) return item;
       }
       return null;
     }
@@ -79,9 +79,9 @@ class ActiveOaesMapMapbox extends StatelessWidget {
         final idExtra = evt.idExtra;
         if (idExtra == null || idExtra.isEmpty) return;
 
-        final marker = findMarkerById(idExtra);
-        if (marker != null) {
-          onOpenDetails!(marker);
+        final data = findDataById(idExtra);
+        if (data != null) {
+          onOpenDetails!(data);
         }
       },
     );

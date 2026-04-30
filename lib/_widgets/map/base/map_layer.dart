@@ -13,7 +13,9 @@ class MapLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (urlTemplate.isEmpty) return const SizedBox.shrink();
+    if (urlTemplate.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return TileLayer(
       tileProvider: tileProvider,

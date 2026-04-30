@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
-import 'package:sipged/_widgets/map/base/map_types.dart';
 
-class MapType extends StatelessWidget {
-  const MapType({
+class MyLocation extends StatelessWidget {
+  const MyLocation({
     super.key,
     required this.mapController,
-    required this.selectedMapIndex,
-    required this.onChanged,
+    required this.userLocationVN,
+    required this.searchHitVN,
+    this.onMapTap,
+    this.onMoved,
   });
 
   final MapController mapController;
-  final int selectedMapIndex;
-  final ValueChanged<int> onChanged;
+  final ValueNotifier<LatLng?> userLocationVN;
+  final ValueNotifier<LatLng?> searchHitVN;
+
+  final void Function(double lat, double lon)? onMapTap;
+  final void Function(LatLng center, double zoom)? onMoved;
 
   void _notify(
       BuildContext context,
@@ -42,45 +48,49 @@ class MapType extends StatelessWidget {
     );
   }
 
-  void _handleTap(BuildContext context) {
-    if (MapTypes.mapBase.isEmpty) return;
+  Future<void> _handleTap(BuildContext context) async {
+    final bloc = context.read<NominatimBloc>();
+    final loc = await bloc.getUserCurrentLocation();
 
-    final nextIndex = (selectedMapIndex + 1) % MapTypes.mapBase.length;
+    if (!context.mounted) return;
 
-    onChanged(nextIndex);
+    if (loc != null) {
+      const zoom = 16.0;
 
-    Future.microtask(() {
-      try {
-        final camera = mapController.camera;
-        mapController.move(camera.center, camera.zoom);
-      } catch (_) {}
-    });
+      userLocationVN.value = loc;
+
+      mapController.move(loc, zoom);
+
+      onMoved?.call(loc, zoom);
+      onMapTap?.call(loc.latitude, loc.longitude);
+
+      _notify(
+        context,
+        'Minha localização centralizada',
+        type: NotificationType.success,
+      );
+
+      return;
+    }
 
     _notify(
       context,
-      'Mapa: ${MapTypes.mapBase[nextIndex].nome}',
-      type: NotificationType.info,
+      'Não foi possível obter sua localização',
+      type: NotificationType.error,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final safeIndex =
-    selectedMapIndex >= 0 && selectedMapIndex < MapTypes.mapBase.length
-        ? selectedMapIndex
-        : 0;
-
-    final mapName = MapTypes.mapBase.isNotEmpty
-        ? MapTypes.mapBase[safeIndex].nome
-        : 'Mapa';
-
     return CircleButtonChange(
-      icon: Icons.map,
-      tooltip: 'Mapa: $mapName',
+      icon: Icons.pin_drop,
+      tooltip: 'Minha localização',
       radius: 21,
       backgroundColor: Colors.black38,
       iconColor: Colors.white,
-      onPressed: () => _handleTap(context),
+      onPressed: () async {
+        await _handleTap(context);
+      },
     );
   }
 }

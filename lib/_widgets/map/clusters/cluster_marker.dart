@@ -1,18 +1,18 @@
+// lib/_widgets/map/clusters/cluster_marker.dart
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../markers/marker_data.dart';
-
 import 'package:sipged/_widgets/overlays/balloon/balloon_body.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tip.dart';
 
-class ClusterMarker<T> {
+class ClusterMarker {
   ClusterMarker({
-    required this.tagged,
+    required this.marker,
     required this.selectedMarkerPosition,
     required this.onMarkerSelected,
     required this.markerBuilder,
@@ -31,23 +31,22 @@ class ClusterMarker<T> {
     this.inlineBalloonHeight = 10.0,
   });
 
-  final MarkerData<T> tagged;
+  final Marker marker;
   final LatLng? selectedMarkerPosition;
-  final ValueChanged<MarkerData<T>> onMarkerSelected;
+  final ValueChanged<Marker> onMarkerSelected;
 
   final Widget Function(
-      BuildContext,
-      MarkerData<T>,
+      BuildContext context,
+      Marker marker,
       bool isSelected,
       ) markerBuilder;
 
-  final String Function(T data)? titleBuilder;
-  final String Function(T data)? subTitleBuilder;
-  final void Function(LatLng, String)? onTooltipRequested;
+  final String Function(Marker marker)? titleBuilder;
+  final String Function(Marker marker)? subTitleBuilder;
+  final void Function(LatLng position, String title)? onTooltipRequested;
 
   final Alignment markerAlignment;
 
-  /// Overlay externo opcional.
   final void Function({
   required BuildContext context,
   required LatLng position,
@@ -56,7 +55,7 @@ class ClusterMarker<T> {
   VoidCallback? onClose,
   })? onShowTooltipAcima;
 
-  final void Function(BuildContext, MarkerData<T>)? onViewDetails;
+  final void Function(BuildContext context, Marker marker)? onViewDetails;
   final VoidCallback? onClearSelection;
 
   final bool inlineTooltip;
@@ -80,15 +79,13 @@ class ClusterMarker<T> {
   }
 
   Marker build(BuildContext context) {
-    final point = tagged.point;
+    final point = marker.point;
 
     const double pinW = 40.0;
     const double pinH = 60.0;
 
-    final String? title =
-        titleBuilder?.call(tagged.data) ?? tagged.properties['label']?.toString();
-
-    final String? subTitle = subTitleBuilder?.call(tagged.data);
+    final String? title = titleBuilder?.call(marker);
+    final String? subTitle = subTitleBuilder?.call(marker);
 
     final bool isSelected = selectedMarkerPosition != null &&
         _sameLatLng(point, selectedMarkerPosition!);
@@ -114,10 +111,12 @@ class ClusterMarker<T> {
     final double markerH = extraTop + pinH;
 
     return Marker(
+      key: marker.key,
       point: point,
       width: markerW,
       height: markerH,
       alignment: markerAlignment,
+      rotate: marker.rotate,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -143,11 +142,11 @@ class ClusterMarker<T> {
                   showAction: onViewDetails != null,
                   onAction: onViewDetails == null
                       ? null
-                      : () => onViewDetails!(context, tagged),
+                      : () => onViewDetails!(context, marker),
                   emptyMessage: 'Nenhuma informação encontrada.',
                   items: [
                     BalloonTileData(
-                      id: tagged.data.hashCode.toString(),
+                      id: marker.hashCode.toString(),
                       title: entries
                           .firstWhere(
                             (e) => e.key == 'title',
@@ -172,12 +171,13 @@ class ClusterMarker<T> {
                       accentColor: Colors.blue.shade800,
                       onTap: onViewDetails == null
                           ? null
-                          : () => onViewDetails!(context, tagged),
+                          : () => onViewDetails!(context, marker),
                     ),
                   ],
                 ),
               ),
             ),
+
           Positioned(
             bottom: 0,
             left: (markerW - pinW) / 2,
@@ -189,12 +189,13 @@ class ClusterMarker<T> {
                 height: pinH,
                 child: markerBuilder(
                   context,
-                  tagged,
+                  marker,
                   isSelected,
                 ),
               ),
             ),
           ),
+
           Positioned(
             bottom: 0,
             left: (markerW - pinW) / 2,
@@ -204,7 +205,16 @@ class ClusterMarker<T> {
               type: MaterialType.transparency,
               child: InkWell(
                 onTap: () {
-                  onMarkerSelected(tagged);
+                  onMarkerSelected(marker);
+
+                  final currentTitle = entries
+                      .firstWhere(
+                        (e) => e.key == 'title',
+                    orElse: () => const MapEntry('title', 'Detalhe'),
+                  )
+                      .value;
+
+                  onTooltipRequested?.call(point, currentTitle);
 
                   if (onShowTooltipAcima != null && !inlineTooltip) {
                     onShowTooltipAcima!(
@@ -213,7 +223,7 @@ class ClusterMarker<T> {
                       entries: entries,
                       onDetails: onViewDetails == null
                           ? null
-                          : () => onViewDetails!(context, tagged),
+                          : () => onViewDetails!(context, marker),
                       onClose: onClearSelection,
                     );
                   }

@@ -1,22 +1,23 @@
 // lib/screens/panels/overview-dashboard/general_dashboard_map.dart
+
+import 'package:diacritic/diacritic.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
+
 import 'package:sipged/_blocs/system/location/ibge_localidade_cubit.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_repository.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_state.dart';
 
-import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
-import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_data.dart';
+import 'package:sipged/_widgets/map/map/map_change.dart';
 
 class GeneralDashboardMap extends StatelessWidget {
-  /// MUNICÍPIOS selecionados (para destaque mais forte / filtro ativo)
   final List<String> selectedRegionNames;
-
-  /// Todos os municípios que possuem contratos (para estilo "forte")
   final List<String> strongMunicipios;
 
   final void Function(String?) onRegionTap;
@@ -33,11 +34,12 @@ class GeneralDashboardMap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<IBGELocationCubit>(
-      create: (_) => IBGELocationCubit(repository: IBGELocationRepository())
-        ..loadInitialAuto(
-          municipioNames: strongMunicipios,
-          fallbackUfCode: 27,
-        ),
+      create: (_) => IBGELocationCubit(
+        repository: IBGELocationRepository(),
+      )..loadInitialAuto(
+        municipioNames: strongMunicipios,
+        fallbackUfCode: 27,
+      ),
       child: _OverviewDashboardMapBody(
         selectedRegionNames: selectedRegionNames,
         strongMunicipios: strongMunicipios,
@@ -62,18 +64,13 @@ class _OverviewDashboardMapBody extends StatefulWidget {
   });
 
   @override
-  State<_OverviewDashboardMapBody> createState() =>
-      _OverviewDashboardMapBodyState();
+  State<_OverviewDashboardMapBody> createState() {
+    return _OverviewDashboardMapBodyState();
+  }
 }
 
 class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
     with AutomaticKeepAliveClientMixin<_OverviewDashboardMapBody> {
-  MapController? _mapController;
-
-  /// Garante que o "fit bounds" seja aplicado apenas uma vez,
-  /// para não brigar com o zoom/pan do usuário.
-  bool _hasFitToPolygonsOnce = false;
-
   @override
   bool get wantKeepAlive => true;
 
@@ -81,59 +78,63 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
   void didUpdateWidget(covariant _OverviewDashboardMapBody oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Quando a lista de municípios com contratos muda de vazia -> preenchida,
-    // chamamos novamente o loadInitialAuto para o Cubit inferir a UF certa.
-    final oldEmpty = oldWidget.strongMunicipios.isEmpty;
-    final newNotEmpty = widget.strongMunicipios.isNotEmpty;
+    final oldStrong = _normSet(oldWidget.strongMunicipios);
+    final newStrong = _normSet(widget.strongMunicipios);
 
-    if (oldEmpty && newNotEmpty) {
-      final cubit = context.read<IBGELocationCubit>();
-      cubit.loadInitialAuto(
+    if (!setEquals(oldStrong, newStrong)) {
+      context.read<IBGELocationCubit>().loadInitialAuto(
         municipioNames: widget.strongMunicipios,
+        fallbackUfCode: 27,
       );
-      _hasFitToPolygonsOnce = false;
     }
   }
 
-  /// Junta todos os pontos dos polígonos para centralizar o mapa.
-  List<LatLng> _geometryPointsFromPolygons(List<PolygonData> polys) {
+  String _norm(String s) {
+    return removeDiacritics(s)
+        .toUpperCase()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  Set<String> _normSet(List<String> xs) {
+    return xs.map(_norm).toSet();
+  }
+
+  String _polygonTitle(Polygon<Map<String, dynamic>> polygon) {
+    final hit = polygon.hitValue;
+
+    final value = hit?['title'] ??
+        hit?['nome'] ??
+        hit?['name'] ??
+        hit?['NM_MUN'] ??
+        hit?['processo'] ??
+        polygon.label;
+
+    return value?.toString().trim() ?? '';
+  }
+
+  List<LatLng> _geometryPointsFromPolygons(
+      List<Polygon<Map<String, dynamic>>> polys,
+      ) {
     if (polys.isEmpty) return const <LatLng>[];
+
     final pts = <LatLng>[];
-    for (final p in polys) {
-      pts.addAll(p.polygon.points);
+
+    for (final polygon in polys) {
+      pts.addAll(polygon.points);
+
+      final holes = polygon.holePointsList ?? const <List<LatLng>>[];
+
+      for (final hole in holes) {
+        pts.addAll(hole);
+      }
     }
+
     return pts;
   }
 
-  /// Aplica um fit-to-bounds suave, respeitando os limites do container.
-  void _fitToPolygons(List<LatLng> points) {
-    if (_mapController == null || points.isEmpty) return;
-    try {
-      final bounds = LatLngBounds.fromPoints(points);
-
-      final cameraFit = CameraFit.bounds(
-        bounds: bounds,
-        padding: const EdgeInsets.all(16),
-      );
-
-      _mapController!.fitCamera(cameraFit);
-      _hasFitToPolygonsOnce = true;
-    } catch (_) {
-      _hasFitToPolygonsOnce = true;
-    }
-  }
-
-  /// Normaliza nomes para comparação consistente
-  String _norm(String s) => s.toUpperCase().replaceAll(RegExp(r'\s+'), ' ').trim();
-
-  Set<String> _normSet(List<String> xs) => xs.map(_norm).toSet();
-
-  /// Aplica estilos:
-  /// - selecionado/filtro ativo => vermelho
-  /// - com contrato => azul
-  /// - sem contrato => cinza claro
-  List<PolygonData> _applyStrengthStyle({
-    required List<PolygonData> polys,
+  List<Polygon<Map<String, dynamic>>> _applyStrengthStyle({
+    required List<Polygon<Map<String, dynamic>>> polys,
     required List<String> strongNames,
     required List<String> selectedNames,
   }) {
@@ -142,48 +143,77 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
     final strong = _normSet(strongNames);
     final selected = _normSet(selectedNames);
 
-    // Sem dados
     const noDataFill = Color(0xFF9CA3AF);
     const noDataBorder = Color(0xFFB0B7C3);
     const noDataAlpha = 0.10;
 
-    // Com dados
     const dataFill = Color(0xFF9CA3AF);
     const dataBorder = Color(0xFFB0B7C3);
     const dataAlpha = 0.42;
 
-    // Filtro ativo / selecionado => vermelho
     const filteredFill = Color(0xFF5AA7FF);
     const filteredBorder = Color(0xFF2E78D6);
     const filteredAlpha = 0.58;
 
-    return polys.map((p) {
-      final name = _norm(p.title);
-      final isSelected = selected.contains(name);
-      final isStrong = strong.contains(name);
+    return polys.map((polygon) {
+      final name = _polygonTitle(polygon);
+      final nameNorm = _norm(name);
 
-      if (isSelected) {
-        return p.copyWith(
-          normalFillColor: filteredFill.withValues(alpha: filteredAlpha),
-          normalBorderColor: filteredBorder,
-          normalBorderWidth: 2.2,
-          selectedFillColor: filteredFill.withValues(alpha: 0.72),
-          selectedBorderColor: filteredBorder,
-          selectedBorderWidth: 2.6,
-        );
-      }
+      final isSelected = selected.contains(nameNorm);
+      final isStrong = strong.contains(nameNorm);
 
-      return p.copyWith(
-        normalFillColor: (isStrong ? dataFill : noDataFill)
-            .withValues(alpha: isStrong ? dataAlpha : noDataAlpha),
-        normalBorderColor:
-        isStrong ? dataBorder : noDataBorder.withValues(alpha: 0.75),
-        normalBorderWidth: isStrong ? 1.0 : 0.35,
-        selectedFillColor: filteredFill.withValues(alpha: 0.72),
-        selectedBorderColor: filteredBorder,
-        selectedBorderWidth: isStrong ? 2.4 : 2.2,
+      final fill = isSelected
+          ? filteredFill.withValues(alpha: filteredAlpha)
+          : (isStrong ? dataFill : noDataFill).withValues(
+        alpha: isStrong ? dataAlpha : noDataAlpha,
+      );
+
+      final border = isSelected
+          ? filteredBorder
+          : isStrong
+          ? dataBorder
+          : noDataBorder.withValues(alpha: 0.75);
+
+      final stroke = isSelected
+          ? 2.2
+          : isStrong
+          ? 1.0
+          : 0.35;
+
+      final hit = Map<String, dynamic>.from(polygon.hitValue ?? {});
+
+      hit['title'] = hit['title'] ?? name;
+      hit['nome'] = hit['nome'] ?? name;
+      hit['processo'] = hit['processo'] ?? name;
+
+      return Polygon<Map<String, dynamic>>(
+        points: polygon.points,
+        holePointsList: polygon.holePointsList ?? const <List<LatLng>>[],
+        color: fill,
+        borderColor: border,
+        borderStrokeWidth: stroke,
+        label: polygon.label,
+        labelStyle: polygon.labelStyle,
+        rotateLabel: polygon.rotateLabel,
+        labelPlacement: polygon.labelPlacement,
+        hitValue: hit,
       );
     }).toList(growable: false);
+  }
+
+  int _mapSignature({
+    required IBGELocationState state,
+    required List<Polygon<Map<String, dynamic>>> polygons,
+  }) {
+    return Object.hashAll([
+      state.isLoading,
+      state.errorMessage,
+      polygons.length,
+      Object.hashAll(widget.strongMunicipios.map(_norm)),
+      Object.hashAll(widget.selectedRegionNames.map(_norm)),
+      if (polygons.isNotEmpty) _polygonTitle(polygons.first),
+      if (polygons.length > 1) _polygonTitle(polygons.last),
+    ]);
   }
 
   @override
@@ -202,20 +232,23 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
           ),
           clipBehavior: Clip.antiAlias,
           child: BlocBuilder<IBGELocationCubit, IBGELocationState>(
-            buildWhen: (prev, curr) =>
-            prev.isLoading != curr.isLoading ||
-                prev.errorMessage != curr.errorMessage ||
-                prev.cityPolygons != curr.cityPolygons ||
-                prev.states != curr.states,
+            buildWhen: (prev, curr) {
+              return prev.isLoading != curr.isLoading ||
+                  prev.errorMessage != curr.errorMessage ||
+                  prev.cityPolygons != curr.cityPolygons ||
+                  prev.states != curr.states;
+            },
             builder: (context, state) {
               if (state.errorMessage != null &&
                   state.cityPolygons.isEmpty &&
                   state.states.isEmpty) {
                 return Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    'Erro ao carregar dados do IBGE:\n${state.errorMessage}',
-                    textAlign: TextAlign.center,
+                  padding: const EdgeInsets.all(16),
+                  child: Center(
+                    child: Text(
+                      'Erro ao carregar dados do IBGE:\n${state.errorMessage}',
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 );
               }
@@ -228,41 +261,45 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
 
               final geomPoints = _geometryPointsFromPolygons(styledPolys);
 
-              if (!_hasFitToPolygonsOnce &&
-                  _mapController != null &&
-                  geomPoints.isNotEmpty) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _fitToPolygons(geomPoints);
-                });
-              }
+              return MapChange(
+                features: const <FeatureData>[],
+                layersById: const <String, LayerData>{},
+                orderedActiveLayerIds: const <String>[],
 
-              return MapInteractivePage<void>(
-                initialGeometryPoints: geomPoints,
+                selectedFeatureKey: null,
+                loading: state.isLoading,
+
+                visualDataSignature: _mapSignature(
+                  state: state,
+                  polygons: styledPolys,
+                ),
+
+                initialCenter: const LatLng(-9.6658, -35.7353),
                 initialZoom: 7.8,
                 minZoom: 4,
                 maxZoom: 14,
-                activeMap: true,
-                showLegend: false,
-                polygonsChanged: styledPolys,
-                allowMultiSelect: false,
+
                 showSearch: false,
+                showControls: true,
 
-                // mantém a seleção lógica
-                selectedRegionNames: widget.selectedRegionNames,
+                fitInitialGeometryOnce: true,
+                initialGeometryPoints: geomPoints,
 
-                // pode manter, mas agora a cor principal vem do PolygonChangedData
-                polygonChangeColors: GeneralDashboardStyle.regionsColors,
+                externalPolygons: styledPolys,
 
-                onControllerReady: (ctrl) {
-                  _mapController = ctrl;
+                onControllerReady: (_) {},
 
-                  if (!_hasFitToPolygonsOnce && geomPoints.isNotEmpty) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _fitToPolygons(geomPoints);
-                    });
+                onFeatureTap: (_) {},
+
+                onExternalPolygonTap: (polygon) {
+                  if (polygon == null) {
+                    widget.onRegionTap(null);
+                    return;
                   }
+
+                  final title = _polygonTitle(polygon);
+                  widget.onRegionTap(title.isEmpty ? null : title);
                 },
-                onRegionTap: widget.onRegionTap,
               );
             },
           ),

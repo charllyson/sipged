@@ -1,3 +1,5 @@
+// lib/screens/modules/actives/roads/network/active_roads_map.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -6,16 +8,18 @@ import 'package:latlong2/latlong.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
-import 'package:sipged/screens/modules/actives/roads/network/road_label_circle.dart';
-import 'package:sipged/_widgets/map/clusters/cluster_layer.dart';
-import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
+
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
+
+import 'package:sipged/screens/modules/actives/roads/network/active_roads_details.dart';
+
 import 'package:sipged/_widgets/draw/shimmer/map_shimmer.dart';
+import 'package:sipged/_widgets/map/map/map_change.dart';
 
 import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tip.dart';
-
-import 'package:sipged/screens/modules/actives/roads/network/active_roads_details.dart';
 
 class ActiveRoadsMap extends StatefulWidget {
   const ActiveRoadsMap({super.key});
@@ -47,6 +51,7 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
 
       final cubit = context.read<ActiveRoadsCubit>();
       final bucket = ActiveRoadsCubit.bucketForZoom(_zoomVN.value);
+
       cubit.warmup(bucket: bucket);
     });
   }
@@ -68,6 +73,7 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
   void _hideRoadBalloon({bool clearAnchor = false}) {
     _roadBalloonEntry?.remove();
     _roadBalloonEntry = null;
+
     _roadBalloonGlobalPosition = null;
     _roadBalloonData = null;
     _roadBalloonCubit = null;
@@ -99,19 +105,19 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
 
     if (!mounted) return;
 
-    await showDialog(
+    await showDialog<void>(
       context: context,
       barrierDismissible: true,
       builder: (_) {
         return Dialog(
           backgroundColor: Colors.transparent,
           child: Container(
+            width: MediaQuery.of(context).size.width * 0.8,
+            height: MediaQuery.of(context).size.height * 0.7,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
             ),
-            height: MediaQuery.of(context).size.height * 0.7,
-            width: MediaQuery.of(context).size.width * 0.8,
             child: ActiveRoadsDetails(road: road),
           ),
         );
@@ -126,6 +132,7 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
     required ActiveRoadsCubit cubit,
   }) {
     final overlayObject = overlayState.context.findRenderObject();
+
     if (overlayObject is! RenderBox) return;
 
     _hideRoadBalloon();
@@ -205,72 +212,56 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
       valueListenable: _zoomVN,
       builder: (context, zoom, _) {
         final labelMarkers = state.buildRoadLabelMarkers(zoom: zoom);
-        final labelTagged = state.buildRoadLabelTaggedMarkers(zoom: zoom);
-        final useCluster = cubit.shouldUseCluster(zoom);
 
         return ValueListenableBuilder<double>(
           valueListenable: _centerLatVN,
           builder: (context, centerLat, _) {
-            return MapInteractivePage<ActiveRoadsData>(
-              showSearch: true,
-              searchTargetZoom: 16,
-              showSearchMarker: true,
-              activeMap: true,
-              showChangeMapType: true,
-              showMyLocation: true,
-              tappablePolylines: state.buildStyledPolylines(
-                zoom: zoom,
-                centerLatitude: centerLat,
-              ),
-              extraMarkers: useCluster ? const [] : labelMarkers,
-              taggedMarkers: useCluster ? labelTagged : const [],
-              clusterWidgetBuilder: useCluster
-                  ? (tagged, selectedMarkerPosition, onMarkerSelected) {
-                return ClusterLayer<ActiveRoadsData>(
-                  taggedMarkers: tagged,
-                  selectedMarkerPosition: selectedMarkerPosition,
-                  onMarkerSelected: onMarkerSelected,
-                  markerBuilder: (ctx, taggedMarker, isSelected) {
-                    final label =
-                        taggedMarker.properties['label']?.toString() ??
-                            '';
-                    final diameter =
-                        (taggedMarker.properties['diameter'] as double?) ??
-                            24.0;
-                    final font =
-                        (taggedMarker.properties['font'] as double?) ??
-                            10.0;
+            final polylines = state.buildStyledPolylines(
+              zoom: zoom,
+              centerLatitude: centerLat,
+            );
 
-                    return IgnorePointer(
-                      ignoring: true,
-                      child: Center(
-                        child: RoadLabelCircle(
-                          text: label,
-                          diameter: diameter,
-                          fontSize: font,
-                        ),
-                      ),
-                    );
-                  },
-                  titleBuilder: (r) {
-                    return '${r.acronym ?? ''} (${r.roadCode ?? ''})';
-                  },
-                  subTitleBuilder: (r) {
-                    return '${r.initialSegment} / ${r.finalSegment}';
-                  },
-                  inlineTooltip: true,
-                  inlineMaxWidth: 280,
-                  inlineEstimatedHeight: 170,
-                  markerAlignment: Alignment.center,
-                );
-              }
-                  : null,
-              onCameraChanged: (double z, LatLng center) {
+            return MapChange(
+              key: const ValueKey('active-roads-map'),
+
+              features: const <FeatureData>[],
+              layersById: const <String, LayerData>{},
+              orderedActiveLayerIds: const <String>[],
+
+              selectedFeatureKey: null,
+              loading: false,
+
+              visualDataSignature: Object.hash(
+                'active-roads-map',
+                state.loadStatus,
+                state.initialized,
+                state.selectedPolylineId,
+                polylines.length,
+                labelMarkers.length,
+                zoom,
+                centerLat,
+              ),
+
+              initialCenter: const LatLng(-9.6658, -35.7353),
+              initialZoom: 12,
+              minZoom: 4,
+              maxZoom: 19,
+
+              showSearch: true,
+              showControls: true,
+
+              externalPolylines: polylines,
+              externalMarkers: labelMarkers,
+
+              onControllerReady: (_) {},
+
+              onCameraChanged: (LatLng center, double z) {
                 if (_zoomVN.value != z) {
                   _zoomVN.value = z;
                 }
 
                 final lat = center.latitude;
+
                 if (_centerLatVN.value != lat) {
                   _centerLatVN.value = lat;
                 }
@@ -279,14 +270,19 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
 
                 _updateRoadBalloonPosition();
               },
-              onClearPolylineSelection: () async {
+
+              onFeatureTap: (_) {},
+
+              onClearExternalPolylineSelection: () async {
                 cubit.clearPolylineSelection();
                 _hideRoadBalloon(clearAnchor: true);
               },
-              onSelectPolyline: (polyline) async {
-                cubit.selectPolyline(polyline.tag?.toString());
+
+              onExternalPolylineTap: (Polyline<Object> polyline) async {
+                cubit.selectPolyline(polyline.hitValue?.toString());
               },
-              onShowPolylineTooltip: ({
+
+              onShowExternalPolylineTooltip: ({
                 required BuildContext context,
                 required Offset position,
                 required Object? tag,
@@ -295,9 +291,11 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
                 Offset Function(Offset p)? toGlobal,
               }) async {
                 final road = cubit.findByPolylineTag(tag);
+
                 if (road == null) return;
 
                 _anchorLatLng = road.anchorForTap(tapLatLng) ?? tapLatLng;
+
                 if (_anchorLatLng == null) return;
 
                 _lastMapController = mapController;
@@ -308,7 +306,6 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
                 );
 
                 final global = toGlobal?.call(local) ?? position;
-
                 final overlay = Overlay.of(context);
 
                 _showRoadBalloon(

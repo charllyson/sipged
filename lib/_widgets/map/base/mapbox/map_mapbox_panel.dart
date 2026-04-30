@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_services/map/map_box/mapbox_data.dart';
-import 'package:sipged/_widgets/map/map_box/map_mapbox_cube.dart';
+import 'package:sipged/_widgets/map/base/mapbox/map_mapbox_cube.dart';
 import 'package:sipged/_services/map/map_box/mapbox_3d.dart';
 
 class Mapbox3DPanel extends StatefulWidget {

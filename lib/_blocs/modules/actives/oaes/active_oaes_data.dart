@@ -1,9 +1,9 @@
 // lib/_blocs/modules/actives/oaes/active_oaes_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_widgets/map/markers/marker_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ActiveOaesData {
@@ -40,7 +40,6 @@ class ActiveOaesData {
   DateTime? deletedAt;
   String? deletedBy;
 
-  // anexos (projetos, PDFs etc.)
   List<Attachment>? attachments;
 
   ActiveOaesData({
@@ -73,25 +72,34 @@ class ActiveOaesData {
     this.attachments,
   });
 
-  // ---------- helpers ----------
+  // ===========================================================================
+  // Helpers
+  // ===========================================================================
+
   static Map<String, dynamic> _readSnapData(DocumentSnapshot snap) {
     if (snap is DocumentSnapshot<Map<String, dynamic>>) {
       return snap.data() ?? <String, dynamic>{};
     }
+
     final raw = snap.data();
-    return (raw is Map<String, dynamic>) ? raw : <String, dynamic>{};
+    return raw is Map<String, dynamic> ? raw : <String, dynamic>{};
   }
 
   static DateTime? _toDate(dynamic v) {
     if (v == null) return null;
     if (v is DateTime) return v;
     if (v is Timestamp) return v.toDate();
+
     if (v is int) {
       try {
         return DateTime.fromMillisecondsSinceEpoch(v);
-      } catch (_) {}
+      } catch (_) {
+        return null;
+      }
     }
+
     if (v is String) return DateTime.tryParse(v);
+
     return null;
   }
 
@@ -111,18 +119,27 @@ class ActiveOaesData {
 
   static List<Attachment>? _toAttachments(dynamic v) {
     if (v == null) return null;
+
     if (v is List) {
-      return v.map<Attachment>((e) {
+      return v
+          .where((e) => e != null)
+          .map<Attachment>((e) {
         if (e is Attachment) return e;
         return Attachment.fromMap(Map<String, dynamic>.from(e as Map));
-      }).toList(growable: true);
+      })
+          .toList(growable: true);
     }
+
     return null;
   }
 
-  // ---------- factories ----------
+  // ===========================================================================
+  // Factories
+  // ===========================================================================
+
   factory ActiveOaesData.fromDocument(DocumentSnapshot snap) {
     final data = _readSnapData(snap);
+
     return ActiveOaesData(
       id: snap.id,
       order: _toInt(data['order']),
@@ -134,7 +151,7 @@ class ActiveOaesData {
       extension: _toDouble(data['extension']),
       width: _toDouble(data['width']),
       area: _toDouble(data['area']),
-      structureType: data['structureType'] as String?,
+      structureType: (data['structureType'] ?? data['estructureType']) as String?,
       relatedContracts: data['relatedContracts'] as String?,
       valueIntervention: _toDouble(data['valueIntervention']),
       linearCostMedia: _toDouble(data['linearCostMedia']),
@@ -166,7 +183,7 @@ class ActiveOaesData {
       extension: _toDouble(map['extension']),
       width: _toDouble(map['width']),
       area: _toDouble(map['area']),
-      structureType: map['structureType'] as String?,
+      structureType: (map['structureType'] ?? map['estructureType']) as String?,
       relatedContracts: map['relatedContracts'] as String?,
       valueIntervention: _toDouble(map['valueIntervention']),
       linearCostMedia: _toDouble(map['linearCostMedia']),
@@ -186,7 +203,10 @@ class ActiveOaesData {
     );
   }
 
-  // ---------- clone/copy ----------
+  // ===========================================================================
+  // Clone / copyWith
+  // ===========================================================================
+
   ActiveOaesData.fromData(ActiveOaesData d) {
     id = d.id;
     order = d.order;
@@ -280,7 +300,10 @@ class ActiveOaesData {
     );
   }
 
-  // ---------- serialização ----------
+  // ===========================================================================
+  // Serialização
+  // ===========================================================================
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -314,43 +337,59 @@ class ActiveOaesData {
   }
 
   Map<String, dynamic> toFirestore() {
-    return {
-      if (order != null) 'order': order,
-      if (score != null) 'score': score,
-      if (state != null) 'state': state,
-      if (road != null) 'road': road,
-      if (region != null) 'region': region,
-      if (identificationName != null) 'identificationName': identificationName,
-      if (extension != null) 'extension': extension,
-      if (width != null) 'width': width,
-      if (area != null) 'area': area,
-      if (structureType != null) 'estructureType': structureType,
-      if (relatedContracts != null) 'relatedContracts': relatedContracts,
-      if (valueIntervention != null) 'valueIntervention': valueIntervention,
-      if (linearCostMedia != null) 'linearCostMedia': linearCostMedia,
-      if (costEstimate != null) 'costEstimate': costEstimate,
-      if (lastDateIntervention != null)
-        'lastDateIntervention': Timestamp.fromDate(lastDateIntervention!),
-      if (companyBuild != null) 'companyBuild': companyBuild,
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
-      if (altitude != null) 'altitude': altitude,
-      if (attachments != null)
-        'attachments': attachments!.map((a) => a.toMap()).toList(),
-    };
-  }
-  /// Mapa 0..5 -> cores
-  static Color getColorByNota(double nota) {
-    if (nota == 0) return Colors.green.shade700;  // Restaurada
-    if (nota == 1) return Colors.red.shade900;    // Crítica
-    if (nota == 2) return Colors.orange.shade900; // Problemática
-    if (nota == 3) return Colors.yellow.shade800; // Potencialmente problemática
-    if (nota == 4) return Colors.purple.shade400; // Sem problemas sérios
-    if (nota == 5) return Colors.blue.shade700;   // Sem problemas
-    return Colors.grey.shade400;                  // Sem nota
+    final map = <String, dynamic>{};
+
+    void put(String k, dynamic v) {
+      if (v == null) return;
+      if (v is String && v.trim().isEmpty) return;
+      map[k] = v;
+    }
+
+    put('order', order);
+    put('score', score);
+    put('state', state);
+    put('road', road);
+    put('region', region);
+    put('identificationName', identificationName);
+    put('extension', extension);
+    put('width', width);
+    put('area', area);
+    put('structureType', structureType);
+    put('relatedContracts', relatedContracts);
+    put('valueIntervention', valueIntervention);
+    put('linearCostMedia', linearCostMedia);
+    put('costEstimate', costEstimate);
+
+    if (lastDateIntervention != null) {
+      map['lastDateIntervention'] = Timestamp.fromDate(lastDateIntervention!);
+    }
+
+    put('companyBuild', companyBuild);
+    put('latitude', latitude);
+    put('longitude', longitude);
+    put('altitude', altitude);
+
+    if (attachments != null) {
+      map['attachments'] = attachments!.map((a) => a.toMap()).toList();
+    }
+
+    return map;
   }
 
-  /// Label semântico por nota
+  // ===========================================================================
+  // Status / cores
+  // ===========================================================================
+
+  static Color getColorByNota(double nota) {
+    if (nota == 0) return Colors.green.shade700;
+    if (nota == 1) return Colors.red.shade900;
+    if (nota == 2) return Colors.orange.shade900;
+    if (nota == 3) return Colors.yellow.shade800;
+    if (nota == 4) return Colors.purple.shade400;
+    if (nota == 5) return Colors.blue.shade700;
+    return Colors.grey.shade400;
+  }
+
   static String getLabelByNota(int nota) {
     switch (nota) {
       case 0:
@@ -370,28 +409,51 @@ class ActiveOaesData {
     }
   }
 
-  /// Versão segura (aceita null, clamp 0..5)
   static Color colorForScore(num? score) {
     if (score == null) return Colors.grey.shade400;
+
     final s = score.toDouble();
     if (s.isNaN) return Colors.grey.shade400;
+
     final c = s.clamp(0, 5).toDouble();
     return getColorByNota(c);
   }
 
-  /// Lista de cores paralela aos scores
-  static List<Color> colorsFromScores(List<num?> scores) =>
-      scores.map(colorForScore).toList(growable: false);
+  static List<Color> colorsFromScores(List<num?> scores) {
+    return scores.map(colorForScore).toList(growable: false);
+  }
 }
 
-// helper para Marker
+/// Helpers para uso direto com flutter_map Marker.
 extension OAEsDataExtension on ActiveOaesData {
-  MarkerData<ActiveOaesData>? toTaggedMarker() {
+  LatLng? get latLng {
     if (latitude == null || longitude == null) return null;
-    return MarkerData<ActiveOaesData>(
-      point: LatLng(latitude!, longitude!),
-      data: this,
-      properties: toMap(),
+    return LatLng(latitude!, longitude!);
+  }
+
+  Map<String, dynamic> get markerProperties {
+    return toMap();
+  }
+
+  Marker? toMarker({
+    required Widget child,
+    double width = 42,
+    double height = 42,
+    Alignment? alignment = Alignment.center,
+    bool? rotate,
+    Key? key,
+  }) {
+    final point = latLng;
+    if (point == null) return null;
+
+    return Marker(
+      key: key,
+      point: point,
+      width: width,
+      height: height,
+      alignment: alignment,
+      rotate: rotate,
+      child: child,
     );
   }
 }

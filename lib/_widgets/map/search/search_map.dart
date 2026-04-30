@@ -11,8 +11,8 @@ import 'package:sipged/_widgets/map/search/search_overlay.dart';
 import 'package:sipged/_widgets/map/search/search_suggestion.dart';
 import 'package:sipged/_widgets/map/search/search_widget.dart';
 
-class SearchMap extends StatefulWidget {
-  const SearchMap({
+class SearchMapButton extends StatefulWidget {
+  const SearchMapButton({
     super.key,
     required this.mapController,
     required this.searchHitVN,
@@ -33,10 +33,10 @@ class SearchMap extends StatefulWidget {
   final void Function(LatLng center, double zoom)? onMoved;
 
   @override
-  State<SearchMap> createState() => _SearchMapState();
+  State<SearchMapButton> createState() => _SearchMapButtonState();
 }
 
-class _SearchMapState extends State<SearchMap> {
+class _SearchMapButtonState extends State<SearchMapButton> {
   late final NominatimService _geocoder = NominatimService.nominatim(
     userAgent: 'siged-app/1.0 (org.gov.br)',
     acceptLanguage: 'pt-BR',

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'package:sipged/_services/map/map_box/mapbox_3d.dart';
-import 'package:sipged/_widgets/map/map_box/map_mapbox_panel.dart';
+import 'package:sipged/_widgets/map/base/mapbox/map_mapbox_panel.dart';
 import 'package:sipged/_services/map/map_box/mapbox_data.dart';
 import 'package:sipged/_services/map/map_box/mapbox_key_service.dart';
 

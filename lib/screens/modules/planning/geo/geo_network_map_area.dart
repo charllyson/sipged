@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
-import 'package:sipged/_widgets/map/flutter_map_new/map_change.dart';
+import 'package:sipged/_widgets/map/map/map_change.dart';
 
 class GeoNetworkMapArea extends StatelessWidget {
   const GeoNetworkMapArea({
@@ -40,31 +41,29 @@ class GeoNetworkMapArea extends StatelessWidget {
 
   final List<LatLng> distanceMeasurementPoints;
 
-  final ValueChanged<dynamic> onControllerReady;
+  final ValueChanged<MapController> onControllerReady;
   final bool Function(LatLng latLng) onBackgroundTap;
   final ValueChanged<FeatureData?> onFeatureTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: RepaintBoundary(
-        child: MapChange(
-          visualDataSignature: visualDataSignature,
-          features: features,
-          layersById: layersById,
-          orderedActiveLayerIds: orderedActiveLayerIds,
-          selectedFeatureKey: selectedFeatureKey,
-          loading: loading,
-          onControllerReady: onControllerReady,
-          onCameraChanged: (_, _) {},
-          cursor: cursor,
-          temporaryPointLayers: temporaryPointLayers,
-          temporaryLineLayers: temporaryLineLayers,
-          temporaryPolygonLayers: temporaryPolygonLayers,
-          distanceMeasurementPoints: distanceMeasurementPoints,
-          onBackgroundTap: onBackgroundTap,
-          onFeatureTap: onFeatureTap,
-        ),
+    return RepaintBoundary(
+      child: MapChange(
+        visualDataSignature: visualDataSignature,
+        features: features,
+        layersById: layersById,
+        orderedActiveLayerIds: orderedActiveLayerIds,
+        selectedFeatureKey: selectedFeatureKey,
+        loading: loading,
+        onControllerReady: onControllerReady,
+        onCameraChanged: (_, _) {},
+        cursor: cursor,
+        temporaryPointLayers: temporaryPointLayers,
+        temporaryLineLayers: temporaryLineLayers,
+        temporaryPolygonLayers: temporaryPolygonLayers,
+        distanceMeasurementPoints: distanceMeasurementPoints,
+        onBackgroundTap: onBackgroundTap,
+        onFeatureTap: onFeatureTap,
       ),
     );
   }

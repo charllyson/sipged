@@ -1,21 +1,23 @@
 // lib/screens/modules/actives/oaes/active_oaes_network_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
-import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
-import 'package:sipged/screens/modules/actives/airports/network/active_airports_panel.dart';
-import 'package:sipged/screens/modules/actives/oaes/network/active_oaes_details.dart';
-import 'package:sipged/screens/modules/actives/oaes/network/maps/active_oaes_map_mapbox.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
-import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
+
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:sipged/_widgets/map/markers/marker_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+
+import 'package:sipged/screens/modules/actives/oaes/network/active_oaes_details.dart';
+import 'package:sipged/screens/modules/actives/oaes/network/active_oaes_panel.dart';
+import 'package:sipged/screens/modules/actives/oaes/network/maps/active_oaes_map_mapbox.dart';
 
 enum _RightPanelMode { none, analytics, details }
 
@@ -33,7 +35,7 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
   _RightPanelMode _mode = _RightPanelMode.analytics;
   bool _showPanel = true;
 
-  MarkerData<ActiveOaesData>? _detailsMarker;
+  ActiveOaesData? _detailsData;
   int? _selectedSideIndex;
 
   @override
@@ -48,7 +50,9 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
     super.dispose();
   }
 
-  // ======== FILTROS E PAINEL ========
+  // ===========================================================================
+  // FILTROS / PAINEL
+  // ===========================================================================
 
   void _clearFilters() {
     _cubit.setPieFilter(null);
@@ -59,10 +63,10 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
     setState(() => _showPanel = !_showPanel);
   }
 
-  void _openDetails(MarkerData<ActiveOaesData> marker) {
+  void _openDetails(ActiveOaesData data) {
     setState(() {
       _mode = _RightPanelMode.details;
-      _detailsMarker = marker;
+      _detailsData = data;
       _selectedSideIndex = null;
       _showPanel = true;
     });
@@ -72,65 +76,74 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
     setState(() {
       _showPanel = false;
       _mode = _RightPanelMode.analytics;
-      _detailsMarker = null;
+      _detailsData = null;
       _selectedSideIndex = null;
     });
   }
 
-  // =============================================================================
-  // SIDE LISTBOX — ANEXOS (UPLOAD, RENOMEAR, EXCLUIR)
-  // =============================================================================
+  // ===========================================================================
+  // SIDE LISTBOX — ANEXOS
+  // ===========================================================================
 
-  String _attachmentsDir(ActiveOaesData d) => 'actives_oaes/${d.id}/attachments';
+  String _attachmentsDir(ActiveOaesData d) {
+    return 'actives_oaes/${d.id}/attachments';
+  }
 
-  List<Attachment> _currentAttachments() =>
-      _detailsMarker?.data.attachments ?? const <Attachment>[];
+  List<Attachment> _currentAttachments() {
+    return _detailsData?.attachments ?? const <Attachment>[];
+  }
 
   Future<void> _persistAttachments(List<Attachment> next) async {
-    final marker = _detailsMarker;
-    final d = marker?.data;
-    if (marker == null || d == null || d.id == null) return;
+    final data = _detailsData;
 
-    final updated = d.copyWith(attachments: next);
+    if (data == null || data.id == null) return;
+
+    final updated = data.copyWith(attachments: next);
+
     await _repo.upsert(updated);
 
     if (!mounted) return;
+
     setState(() {
-      _detailsMarker = MarkerData<ActiveOaesData>(
-        point: marker.point,
-        data: updated,
-        properties: updated.toMap(),
-      );
+      _detailsData = updated;
     });
   }
 
   Future<void> _onAddSideItem() async {
-    final d = _detailsMarker?.data;
-    if (d == null || d.id == null) return;
+    final data = _detailsData;
+
+    if (data == null || data.id == null) return;
 
     final att = await _repo.pickAndUploadSingle(
-      baseDir: _attachmentsDir(d),
+      baseDir: _attachmentsDir(data),
       onProgress: (_) {},
     );
+
     if (att == null) return;
 
     final next = [..._currentAttachments(), att];
+
     await _persistAttachments(next);
   }
 
   bool _isPdfAttachment(Attachment a) {
-    final ext = (a.ext).toLowerCase().trim();
+    final ext = a.ext.toLowerCase().trim();
+
     if (ext == 'pdf' || ext == '.pdf') return true;
-    final u = (a.url).toLowerCase();
-    return u.endsWith('.pdf') || u.contains('.pdf?');
+
+    final url = a.url.toLowerCase();
+
+    return url.endsWith('.pdf') || url.contains('.pdf?');
   }
 
   Future<void> _openAttachmentInline(Attachment att) async {
     if (!_isPdfAttachment(att)) {
       final uri = Uri.tryParse(att.url);
+
       if (uri != null) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
+
       return;
     }
 
@@ -158,6 +171,7 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
                 tooltip: 'Abrir em outra aba',
                 onPressed: () {
                   final uri = Uri.tryParse(att.url);
+
                   if (uri != null) {
                     launchUrl(uri, mode: LaunchMode.externalApplication);
                   }
@@ -182,13 +196,17 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
 
   Future<void> _onTapSideItem(int index) async {
     final items = _currentAttachments();
+
     if (index < 0 || index >= items.length) return;
+
     setState(() => _selectedSideIndex = index);
+
     await _openAttachmentInline(items[index]);
   }
 
   Future<void> _onDeleteSideItem(int index) async {
     final items = _currentAttachments();
+
     if (index < 0 || index >= items.length) return;
 
     final confirmed = await showWindowDialog<bool>(
@@ -229,14 +247,17 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
     if (confirmed != true) return;
 
     final path = items[index].path;
+
     if (path.isNotEmpty) {
       await _repo.deleteByPath(path);
     }
 
     final next = [...items]..removeAt(index);
+
     await _persistAttachments(next);
 
     if (!mounted) return;
+
     setState(() {
       if (_selectedSideIndex != null && _selectedSideIndex! >= next.length) {
         _selectedSideIndex = next.isEmpty ? null : next.length - 1;
@@ -244,45 +265,42 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
     });
   }
 
-  // ✅ NOVO: persistência de rename vindo do SideListBox
   Future<bool> _onRenamePersist({
     required int index,
     required Attachment oldItem,
     required Attachment newItem,
   }) async {
     final items = _currentAttachments();
+
     if (index < 0 || index >= items.length) return false;
 
     try {
-      final next = [...items]..[index] = newItem.copyWith(updatedAt: DateTime.now());
+      final next = [...items]
+        ..[index] = newItem.copyWith(updatedAt: DateTime.now());
+
       await _persistAttachments(next);
+
       return true;
     } catch (_) {
       return false;
     }
   }
 
-  // ✅ NOVO: SideListBox pode notificar lista atual (já renomeada etc.)
   void _onItemsChanged(List<dynamic> newItems) {
+    final data = _detailsData;
+
+    if (data == null) return;
+
     final next = newItems.whereType<Attachment>().toList();
 
-    final marker = _detailsMarker;
-    final d = marker?.data;
-    if (marker == null || d == null) return;
-
     setState(() {
-      final updated = d.copyWith(attachments: next);
-      _detailsMarker = MarkerData<ActiveOaesData>(
-        point: marker.point,
-        data: updated,
-        properties: updated.toMap(),
-      );
+      _detailsData = data.copyWith(attachments: next);
     });
   }
 
-  // =============================================================================
+  // ===========================================================================
   // BUILD
-  // =============================================================================
+  // ===========================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -308,6 +326,16 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
           ],
         ),
         body: BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
+          buildWhen: (previous, current) {
+            return previous.initialized != current.initialized ||
+                previous.loadStatus != current.loadStatus ||
+                previous.error != current.error ||
+                previous.all != current.all ||
+                previous.selectedPieIndexFilter !=
+                    current.selectedPieIndexFilter ||
+                previous.selectedRegionFilter != current.selectedRegionFilter ||
+                previous.regionLabels != current.regionLabels;
+          },
           builder: (context, state) {
             Widget? rightPane;
 
@@ -317,33 +345,36 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
                 break;
 
               case _RightPanelMode.analytics:
-                rightPane = ActiveOaesPanel(onClose: _closePanel);
+                rightPane = ActiveOaesPanel(
+                  onClose: _closePanel,
+                );
                 break;
 
               case _RightPanelMode.details:
-                final marker = _detailsMarker;
-                if (marker != null) {
-                  final sideItems = marker.data.attachments ?? const <Attachment>[];
+                final data = _detailsData;
+
+                if (data != null) {
+                  final sideItems = data.attachments ?? const <Attachment>[];
 
                   rightPane = ActiveOaesDetails(
-                    key: ValueKey(marker.data.id),
-                    marker: marker,
+                    key: ValueKey(data.id),
+                    data: data,
                     onClose: _closePanel,
                     sideItems: sideItems,
                     selectedSideIndex: _selectedSideIndex,
                     onAddSideItem: _onAddSideItem,
                     onTapSideItem: _onTapSideItem,
                     onDeleteSideItem: _onDeleteSideItem,
-
-                    // ✅ SideListBox novo
                     onRenamePersist: _onRenamePersist,
                     onItemsChanged: _onItemsChanged,
-
                     isEditable: true,
                   );
                 } else {
-                  rightPane = ActiveOaesPanel(onClose: _closePanel);
+                  rightPane = ActiveOaesPanel(
+                    onClose: _closePanel,
+                  );
                 }
+
                 break;
             }
 

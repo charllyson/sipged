@@ -3,12 +3,12 @@ import 'dart:math' as math;
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_style.dart';
 import 'package:sipged/_utils/geometry/sipged_poly_simplify.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_data.dart';
 import 'package:sipged/screens/modules/actives/railways/network/railway_ties.dart';
 
 enum ActiveRailwaysLoadStatus { idle, loading, success, failure }
@@ -34,10 +34,10 @@ class ActiveRailwaysState extends Equatable {
 
   final bool savingOrImporting;
 
-  /// zoom atual do mapa
+  /// Zoom atual do mapa.
   final double mapZoom;
 
-  /// Labels de região vindos do setup
+  /// Labels de região vindos do setup.
   final List<String> regionLabels;
 
   const ActiveRailwaysState({
@@ -90,38 +90,54 @@ class ActiveRailwaysState extends Equatable {
     );
   }
 
-  String _canonRegion(String? s) =>
-      ActiveRailwayData.canonRegion(s, regionLabels);
+  String _canonRegion(String? s) {
+    return ActiveRailwayData.canonRegion(s, regionLabels);
+  }
 
   int? indexOfRegionNormalized(String? label) {
     if (label == null) return null;
+
     final c = _canonRegion(label);
-    return regionLabels.indexWhere((r) => _canonRegion(r) == c);
+
+    return regionLabels.indexWhere((r) {
+      return _canonRegion(r) == c;
+    });
   }
 
-  String _statusCodeOf(ActiveRailwayData r) =>
-      ActiveRailwayData.statusCodeOf(r.status);
+  String _statusCodeOf(ActiveRailwayData r) {
+    return ActiveRailwayData.statusCodeOf(r.status);
+  }
 
-  List<String> get _statusOrder => ActiveRailwayData.statusOrder;
+  List<String> get _statusOrder {
+    return ActiveRailwayData.statusOrder;
+  }
 
-  String _labelForStatus(String code) =>
-      ActiveRailwayData.labelForStatus(code);
+  String _labelForStatus(String code) {
+    return ActiveRailwayData.labelForStatus(code);
+  }
 
   Map<String, double> get _sumExtByStatus {
-    final map = <String, double>{for (final s in _statusOrder) s: 0.0};
+    final map = <String, double>{
+      for (final s in _statusOrder) s: 0.0,
+    };
+
     for (final f in all) {
       final code = _statusCodeOf(f);
       final km = (f.extensao ?? 0.0).toDouble();
+
       map[code] = (map[code] ?? 0.0) + km;
     }
+
     return map;
   }
 
   List<({String code, Color color, String labelText, double value})>
   get _pieItems {
     final sums = _sumExtByStatus;
+
     return _statusOrder.map((code) {
       final km = sums[code] ?? 0.0;
+
       return (
       code: code,
       labelText: _labelForStatus(code),
@@ -131,26 +147,33 @@ class ActiveRailwaysState extends Equatable {
     }).toList(growable: false);
   }
 
-  List<String> get pieLabelsForChart =>
-      _pieItems.map((e) => e.labelText).toList(growable: false);
+  List<String> get pieLabelsForChart {
+    return _pieItems.map((e) => e.labelText).toList(growable: false);
+  }
 
-  List<double> get pieValuesForChart =>
-      _pieItems.map((e) => e.value).toList(growable: false);
+  List<double> get pieValuesForChart {
+    return _pieItems.map((e) => e.value).toList(growable: false);
+  }
 
-  List<Color> get pieColorsForChart =>
-      _pieItems.map((e) => e.color).toList(growable: false);
+  List<Color> get pieColorsForChart {
+    return _pieItems.map((e) => e.color).toList(growable: false);
+  }
 
-  double get pieTotal =>
-      _pieItems.fold<double>(0.0, (s, e) => s + e.value);
+  double get pieTotal {
+    return _pieItems.fold<double>(0.0, (s, e) => s + e.value);
+  }
 
   String statusCodeFromPieChartIndex(int i) {
     final items = _pieItems;
+
     if (i < 0 || i >= items.length) return 'OUTRO';
+
     return items[i].code;
   }
 
   List<double> regionSumsKm() {
     final values = <double>[];
+
     final statusFilter = selectedPieIndexFilter == null
         ? null
         : statusCodeFromPieChartIndex(selectedPieIndexFilter!);
@@ -160,10 +183,15 @@ class ActiveRailwaysState extends Equatable {
 
       final sumKm = all.where((f) {
         final regRaw = (f.municipio ?? f.uf ?? f.nome ?? '').toString();
+
         if (_canonRegion(regRaw) != labelC) return false;
+
         if (statusFilter == null) return true;
+
         return _statusCodeOf(f) == statusFilter;
-      }).fold<double>(0.0, (acc, f) => acc + (f.extensao ?? 0.0));
+      }).fold<double>(0.0, (acc, f) {
+        return acc + (f.extensao ?? 0.0);
+      });
 
       values.add(sumKm);
     }
@@ -173,18 +201,21 @@ class ActiveRailwaysState extends Equatable {
 
   List<Color> regionBarColors(int? selectedRegionIndex) {
     final values = regionSumsKm();
+
     return List<Color>.generate(values.length, (i) {
       if (values[i] == 0.0) return Colors.grey.shade300;
-      return (selectedRegionIndex != null && selectedRegionIndex == i)
+
+      return selectedRegionIndex != null && selectedRegionIndex == i
           ? Colors.orangeAccent
           : Colors.blueAccent;
     });
   }
 
-  String? get _statusFilterFromPieOrNull =>
-      selectedPieIndexFilter == null
-          ? null
-          : statusCodeFromPieChartIndex(selectedPieIndexFilter!);
+  String? get _statusFilterFromPieOrNull {
+    return selectedPieIndexFilter == null
+        ? null
+        : statusCodeFromPieChartIndex(selectedPieIndexFilter!);
+  }
 
   List<ActiveRailwayData> get filteredAll {
     final regionFilterC =
@@ -195,6 +226,7 @@ class ActiveRailwaysState extends Equatable {
     return all.where((f) {
       if (regionFilterC != null) {
         final regRaw = (f.municipio ?? f.uf ?? f.nome ?? '').toString();
+
         if (_canonRegion(regRaw) != regionFilterC) return false;
       }
 
@@ -206,26 +238,48 @@ class ActiveRailwaysState extends Equatable {
     }).toList(growable: false);
   }
 
-  List<String>? get selectedRegionNamesForMap =>
-      selectedRegionFilter == null ? null : [selectedRegionFilter!];
+  List<String>? get selectedRegionNamesForMap {
+    return selectedRegionFilter == null ? null : [selectedRegionFilter!];
+  }
 
-  List<PolylineData> buildStyledPolylines({double? zoom}) {
+  List<LatLng> _simplifyForZoom(
+      List<LatLng> seg,
+      double zoom,
+      ) {
+    return _simplifier.simplifyAdaptive(
+      seg,
+      zoom: zoom,
+      tolerancePxFar: 5.5,
+      tolerancePxMid: 3.5,
+      minAngleDeg: 18,
+      maxSegmentMeters: 120,
+      metersPerPixelFn: RailwayTies.metersPerPixel,
+    );
+  }
+
+  Polyline<Object> _buildPolyline({
+    required List<LatLng> points,
+    required Color color,
+    required double strokeWidth,
+    Object? hitValue,
+  }) {
+    return Polyline<Object>(
+      points: points,
+      color: color,
+      strokeWidth: strokeWidth,
+      hitValue: hitValue,
+    );
+  }
+
+  /// Retorna polylines nativas do flutter_map.
+  ///
+  /// O antigo `PolylineData.tag` foi substituído por `Polyline.hitValue`.
+  /// Linhas decorativas, como halos e dormentes, ficam sem `hitValue`.
+  List<Polyline<Object>> buildStyledPolylines({double? zoom}) {
     final z = zoom ?? mapZoom;
-    final List<PolylineData> lines = [];
+    final lines = <Polyline<Object>>[];
 
     final m = RailwayTies.metricsForZoom(z);
-
-    List<LatLng> simplifyForZoom(List<LatLng> seg) {
-      return _simplifier.simplifyAdaptive(
-        seg,
-        zoom: z,
-        tolerancePxFar: 5.5,
-        tolerancePxMid: 3.5,
-        minAngleDeg: 18,
-        maxSegmentMeters: 120,
-        metersPerPixelFn: RailwayTies.metersPerPixel,
-      );
-    }
 
     for (final fer in filteredAll) {
       if (fer.id == null) continue;
@@ -233,13 +287,16 @@ class ActiveRailwaysState extends Equatable {
       final tagId = fer.id!;
       final statusCode = ActiveRailwayData.statusCodeOf(fer.status);
       final estiloCamadas = ActiveRailwaysStyle.styleLane(statusCode, z);
+
       final isSelected =
           selectedPolylineId != null && selectedPolylineId == tagId;
 
       for (final rawSeg in fer.getSegments()) {
         if (rawSeg.length < 2) continue;
 
-        final seg = simplifyForZoom(rawSeg);
+        final seg = _simplifyForZoom(rawSeg, z);
+
+        if (seg.length < 2) continue;
 
         for (final entry in estiloCamadas.asMap().entries) {
           final idx = entry.key;
@@ -250,37 +307,33 @@ class ActiveRailwaysState extends Equatable {
             deslocamentoOrtogonal: (idx * 0.00003) + camada.dx,
           );
 
-          final baseStrokeWidth =
-          math.max(camada.strokeWidth, m.railStrokePx);
+          if (ptsMain.length < 2) continue;
+
+          final baseStrokeWidth = math.max(
+            camada.strokeWidth,
+            m.railStrokePx,
+          );
 
           final selectedStrokeWidth = camada.strokeWidth + 2;
 
           if (m.outlinePx > 0) {
             lines.add(
-              PolylineData(
-                isDotted: false,
+              _buildPolyline(
                 points: ptsMain,
                 color: Colors.white.withValues(alpha: 0.95),
-                defaultColor: Colors.white,
                 strokeWidth:
                 (isSelected ? selectedStrokeWidth : camada.strokeWidth) +
                     m.outlinePx * 2,
-                tag: '${tagId}_halo_$idx',
-                hitTestable: false,
               ),
             );
           }
 
           lines.add(
-            PolylineData(
-              isDotted: camada.isDotted,
+            _buildPolyline(
               points: ptsMain,
               color: isSelected ? Colors.redAccent : camada.color,
-              defaultColor: camada.defaultColor ?? camada.color,
-              strokeWidth:
-              isSelected ? selectedStrokeWidth : baseStrokeWidth,
-              tag: tagId,
-              hitTestable: true,
+              strokeWidth: isSelected ? selectedStrokeWidth : baseStrokeWidth,
+              hitValue: tagId,
             ),
           );
         }
@@ -294,6 +347,7 @@ class ActiveRailwaysState extends Equatable {
           );
 
           const maxTiesPerSeg = 220;
+
           final usable = ties.length > maxTiesPerSeg
               ? [
             for (
@@ -301,36 +355,28 @@ class ActiveRailwaysState extends Equatable {
             i < ties.length;
             i += (ties.length / maxTiesPerSeg).ceil()
             )
-              ties[i]
+              ties[i],
           ]
               : ties;
 
-          for (var i = 0; i < usable.length; i++) {
-            final t = usable[i];
+          for (final t in usable) {
+            if (t.length < 2) continue;
 
             if (m.tieHaloPx > 0) {
               lines.add(
-                PolylineData(
-                  isDotted: false,
+                _buildPolyline(
                   points: t,
                   color: Colors.white,
-                  defaultColor: Colors.white,
                   strokeWidth: m.tieStrokePx + m.tieHaloPx * 2,
-                  tag: '${tagId}_tie_halo_$i',
-                  hitTestable: false,
                 ),
               );
             }
 
             lines.add(
-              PolylineData(
-                isDotted: false,
+              _buildPolyline(
                 points: t,
                 color: Colors.black,
-                defaultColor: Colors.black,
                 strokeWidth: m.tieStrokePx,
-                tag: '${tagId}_tie_$i',
-                hitTestable: false,
               ),
             );
           }

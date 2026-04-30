@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_map/flutter_map.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
@@ -16,7 +17,6 @@ import 'package:sipged/_blocs/system/location/ibge_localidade_cubit.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_state.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_repository.dart';
 
-import 'package:sipged/_widgets/map/polygon/polygon_data.dart';
 import 'package:sipged/screens/modules/traffic/accidents/dashboard/accident_dashboard_map.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
@@ -34,18 +34,22 @@ class AccidentDashboardPage extends StatefulWidget {
 
 class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
   final LatLng _fallbackCenter = const LatLng(-9.6498, -35.7089);
+
   static const int _ufCodeAL = 27;
 
   static const double _mobilePanelRatio = 0.65;
   static const double _mobileBreakpoint = 980.0;
 
-  bool _equalsNorm(String? a, String? b) =>
-      (a ?? '').trim().toUpperCase() == (b ?? '').trim().toUpperCase();
+  bool _equalsNorm(String? a, String? b) {
+    return (a ?? '').trim().toUpperCase() == (b ?? '').trim().toUpperCase();
+  }
 
   List<AccidentsData> _filterByCity(List<AccidentsData> list, String city) {
     final c = city.trim().toUpperCase();
+
     return list.where((e) {
       final candidate = (e.city ?? e.locality ?? '').trim().toUpperCase();
+
       return candidate == c;
     }).toList();
   }
@@ -68,7 +72,10 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
       useSafeArea: true,
       child: SizedBox(
         height: (size.height * 0.78).clamp(420.0, 900.0),
-        child: ShowCityDetails(dados: dados, region: region),
+        child: ShowCityDetails(
+          dados: dados,
+          region: region,
+        ),
       ),
     );
   }
@@ -84,7 +91,9 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
 
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => AccidentsCubit()..warmup()),
+        BlocProvider(
+          create: (_) => AccidentsCubit()..warmup(),
+        ),
         BlocProvider(
           create: (_) => IBGELocationCubit(
             repository: IBGELocationRepository(),
@@ -156,7 +165,7 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
     required ThemeData theme,
     required AccidentsState accState,
     required IBGELocationState geoState,
-    required List<PolygonData> polygons,
+    required List<Polygon<Map<String, dynamic>>> polygons,
     required bool isMobile,
   }) {
     final accidentsCubit = context.read<AccidentsCubit>();
@@ -175,12 +184,14 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
           selectedRegionNames: selectedRegions,
           onRegionTap: (region) async {
             final r = (region ?? '').trim();
+
             if (r.isEmpty) {
               await accidentsCubit.toggleCity(null);
               return;
             }
 
             final alreadySelected = _equalsNorm(accState.city, r);
+
             await accidentsCubit.toggleCity(r);
 
             if (!alreadySelected) {
@@ -190,12 +201,17 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
           },
           onTapMarker: (acc) async {
             final city = (acc.city ?? acc.locality ?? '').trim();
+
             if (city.isEmpty) {
-              await _openCityDetails(region: 'Ocorrência', dados: [acc]);
+              await _openCityDetails(
+                region: 'Ocorrência',
+                dados: [acc],
+              );
               return;
             }
 
             final alreadySelected = _equalsNorm(accState.city, city);
+
             await accidentsCubit.toggleCity(city);
 
             if (!alreadySelected) {
@@ -208,7 +224,10 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
           left: 12,
           bottom: 12,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 8,
+            ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               color: theme.brightness == Brightness.dark
@@ -257,7 +276,9 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 color: Colors.red.withValues(alpha: 0.10),
-                border: Border.all(color: Colors.red.withValues(alpha: 0.20)),
+                border: Border.all(
+                  color: Colors.red.withValues(alpha: 0.20),
+                ),
               ),
               child: Text(
                 geoState.errorMessage!,
