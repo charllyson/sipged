@@ -11,6 +11,7 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_filter.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_repository.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_scope_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_state.dart';
@@ -27,6 +28,7 @@ class WorkspacePanel extends StatefulWidget {
     this.onSelectedWorkspaceItemChanged,
     this.onPanelSizeChanged,
     this.onItemsChanged,
+    this.onActiveFilterChanged,
     this.canvasMinSize = const Size(1400, 900),
   });
 
@@ -40,6 +42,11 @@ class WorkspacePanel extends StatefulWidget {
   final ValueChanged<WorkspaceData?>? onSelectedWorkspaceItemChanged;
   final ValueChanged<Size>? onPanelSizeChanged;
   final ValueChanged<List<WorkspaceData>>? onItemsChanged;
+
+  /// Notifica a tela principal quando um filtro do dashboard é ativado/removido.
+  ///
+  /// Esse callback é usado pela GeoNetworkView para aplicar o mesmo filtro no mapa.
+  final ValueChanged<WorkspaceFilter?>? onActiveFilterChanged;
 
   /// Tamanho virtual mínimo do canvas da área de trabalho.
   final Size canvasMinSize;
@@ -76,6 +83,7 @@ class WorkspacePanelState extends State<WorkspacePanel> {
       _syncSelectionFromParent();
       _notifySelection(_cubit.state);
       widget.onItemsChanged?.call(_cubit.state.items);
+      widget.onActiveFilterChanged?.call(_cubit.state.activeFilter);
     });
   }
 
@@ -95,6 +103,7 @@ class WorkspacePanelState extends State<WorkspacePanel> {
         _syncSelectionFromParent();
         _notifySelection(_cubit.state);
         widget.onItemsChanged?.call(_cubit.state.items);
+        widget.onActiveFilterChanged?.call(_cubit.state.activeFilter);
       });
       return;
     }
@@ -147,6 +156,7 @@ class WorkspacePanelState extends State<WorkspacePanel> {
     final stamp = DateTime.now().microsecondsSinceEpoch;
     final scopeId =
     widget.scope.documentId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+
     return 'workspace_item_${scopeId}_${stamp}_${_workspaceCounter++}';
   }
 
@@ -186,9 +196,11 @@ class WorkspacePanelState extends State<WorkspacePanel> {
 
     bool overlaps(Rect candidate) {
       final candidateWithGap = candidate.inflate(_autoGap / 2);
+
       for (final rect in existingRects) {
         if (rect.overlaps(candidateWithGap)) return true;
       }
+
       return false;
     }
 
@@ -352,6 +364,14 @@ class WorkspacePanelState extends State<WorkspacePanel> {
             },
             listener: (context, state) {
               _notifySelection(state);
+            },
+          ),
+          BlocListener<WorkspaceCubit, WorkspaceState>(
+            listenWhen: (previous, current) {
+              return previous.activeFilter != current.activeFilter;
+            },
+            listener: (context, state) {
+              widget.onActiveFilterChanged?.call(state.activeFilter);
             },
           ),
           BlocListener<WorkspaceCubit, WorkspaceState>(

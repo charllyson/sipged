@@ -2,13 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_widgets/menu/drawer/menu_drawer_item.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/_widgets/texts/divider_text.dart';
 import 'package:sipged/_widgets/menu/drawer/menu_drawer_sub_item.dart';
 import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/_widgets/images/logos/sisgeo_logo.dart';
+import 'package:sipged/_widgets/images/logos/sipged_logo.dart';
 
 // Cubit
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
@@ -17,6 +17,8 @@ import 'package:sipged/_blocs/system/user/user_state.dart';
 // Permissões centralizadas
 import 'package:sipged/_blocs/system/module/module_permission.dart'
 as perms;
+import 'package:sipged/screens/menus/drawer_palette.dart';
+import 'package:sipged/screens/menus/menu_sub_item.dart';
 
 class DrawerMenu extends StatefulWidget {
   final void Function(ModuleItem) onTap;
@@ -91,7 +93,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: SiGedLogo(
+          child: SipgedLogo(
             fontSize: 40,
             heightLogo: 30,
             widthLogo: 30,
@@ -184,7 +186,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
         collapsedIconColor: Colors.white,
         children: visible
             .map(
-              (s) => _SubMenuRowSimple(
+              (s) => MenuSubItem(
             label: s.label,
             onTap: () => widget.onTap(s.menuItem),
           ),
@@ -202,57 +204,3 @@ class _DrawerMenuState extends State<DrawerMenu> {
   }
 }
 
-class DrawerPalette {
-  final Color background;
-  final Color sectionTitle;
-  final Color sectionSubtitle;
-
-  const DrawerPalette({
-    required this.background,
-    required this.sectionTitle,
-    required this.sectionSubtitle,
-  });
-}
-
-class _SubMenuRowSimple extends StatefulWidget {
-  const _SubMenuRowSimple({
-    required this.label,
-    required this.onTap,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  State<_SubMenuRowSimple> createState() => _SubMenuRowSimpleState();
-}
-
-class _SubMenuRowSimpleState extends State<_SubMenuRowSimple> {
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        child: Container(
-          color: _hover ? Colors.white10 : Colors.transparent,
-          padding: const EdgeInsets.only(left: 48, right: 12),
-          height: 44,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              color: _hover ? Colors.white : Colors.white70,
-              fontSize: 14,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

@@ -19,7 +19,8 @@ import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -29,7 +30,6 @@ import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/contract_bell_notifier.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_1_identificacao.dart';
 import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_2_objeto.dart';
@@ -97,6 +97,20 @@ class _DfdPageState extends State<DfdPage>
     return _contract;
   }
 
+  String get _currentUserId {
+    return FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+  }
+
+  List<String> get _defaultPushTargets {
+    final uid = _currentUserId;
+
+    if (uid.isEmpty) {
+      return const <String>[];
+    }
+
+    return <String>[uid];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -151,7 +165,9 @@ class _DfdPageState extends State<DfdPage>
           _loadingContract = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[DfdPage] Erro ao carregar contrato $cid: $e');
+
       if (!mounted) return;
 
       setState(() {
@@ -180,15 +196,18 @@ class _DfdPageState extends State<DfdPage>
     NotificationType type = NotificationType.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
+    bool sendPush = false,
+    Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
+    final effectiveContract = _effectiveContract;
 
-    await ContractBellNotifier.show(
+    await NotificationContract.show(
       context: context,
-      contract: _effectiveContract,
+      contract: effectiveContract,
       title: title,
       subtitle: subtitle,
       details: details,
@@ -197,19 +216,31 @@ class _DfdPageState extends State<DfdPage>
       type: type,
       duration: duration,
       saveInBell: saveInBell,
+      sendPush: sendPush,
+      targetUserIds: targetUserIds,
       actorId: user?.uid,
       actorName: _currentActorName(),
-      extra: extra,
+      extra: <String, dynamic>{
+        ...extra,
+        'route': extra['route'] ?? 'contracts_hiring_dfd',
+        if ((effectiveContract.id ?? '').trim().isNotEmpty)
+          'contractId': effectiveContract.id,
+        if (effectiveContract.displaySummary.trim().isNotEmpty)
+          'contractSummary': effectiveContract.displaySummary,
+      },
     );
   }
 
-  Future<bool> _saveOnly() async {
+  Future<bool> _saveOnly({
+    bool notifySuccess = true,
+  }) async {
     if (widget.readOnly) {
       await _notify(
         title: 'DFD',
         subtitle: 'Esta etapa está em modo somente leitura.',
         type: NotificationType.info,
       );
+
       return false;
     }
 
@@ -250,17 +281,23 @@ class _DfdPageState extends State<DfdPage>
         collectionName: 'dfd',
       );
 
-      await _notify(
-        title: 'DFD atualizado',
-        subtitle: 'Alterações salvas por ${_currentActorName()}.',
-        details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
-        saveInBell: true,
-        extra: <String, dynamic>{
-          'action': 'dfd_saved',
-          'dfdId': cubit.state.dfdId,
-        },
-      );
+      if (notifySuccess) {
+        await _notify(
+          title: 'DFD atualizado',
+          subtitle: 'Alterações salvas por ${_currentActorName()}.',
+          details: _effectiveContract.displaySummary,
+          type: NotificationType.success,
+          saveInBell: true,
+          sendPush: true,
+          targetUserIds: _defaultPushTargets,
+          extra: <String, dynamic>{
+            'action': 'dfd_saved',
+            'dfdId': cubit.state.dfdId,
+            'contractId': finalContractId,
+            'route': 'contracts_hiring_dfd',
+          },
+        );
+      }
 
       return true;
     } catch (e) {
@@ -284,7 +321,9 @@ class _DfdPageState extends State<DfdPage>
     final tabController = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly();
+    final saved = await _saveOnly(
+      notifySuccess: false,
+    );
 
     if (!mounted || !saved) return;
 
@@ -301,6 +340,7 @@ class _DfdPageState extends State<DfdPage>
         subtitle: 'Documento não encontrado para aprovar.',
         type: NotificationType.error,
       );
+
       return;
     }
 
@@ -335,15 +375,26 @@ class _DfdPageState extends State<DfdPage>
         (tabController.index + 1).clamp(0, tabController.length - 1),
       );
 
+      final targets = <String>{
+        ..._defaultPushTargets,
+        _formData.solicitanteUserId?.trim() ?? '',
+        _formData.autoridadeUserId?.trim() ?? '',
+      }.where((id) => id.isNotEmpty).toList();
+
       await _notify(
         title: 'DFD aprovado',
         subtitle: 'Etapa concluída por $actorName.',
         details: _effectiveContract.displaySummary,
         type: NotificationType.success,
         saveInBell: true,
+        sendPush: true,
+        targetUserIds: targets,
         extra: <String, dynamic>{
           'action': 'dfd_approved',
           'dfdId': dfdId,
+          'contractId': contractIdForApprove,
+          'route': 'contracts_hiring_dfd',
+          'nextStage': 'etp',
         },
       );
     } catch (e) {
@@ -363,7 +414,9 @@ class _DfdPageState extends State<DfdPage>
     final dfdCubit = context.read<DfdCubit>();
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly();
+    final saved = await _saveOnly(
+      notifySuccess: false,
+    );
 
     if (!mounted || !saved) return;
 
@@ -380,6 +433,7 @@ class _DfdPageState extends State<DfdPage>
         subtitle: 'Documento não encontrado para atualizar.',
         type: NotificationType.error,
       );
+
       return;
     }
 
@@ -397,15 +451,25 @@ class _DfdPageState extends State<DfdPage>
 
       if (!mounted) return;
 
+      final targets = <String>{
+        ..._defaultPushTargets,
+        _formData.solicitanteUserId?.trim() ?? '',
+        _formData.autoridadeUserId?.trim() ?? '',
+      }.where((id) => id.isNotEmpty).toList();
+
       await _notify(
         title: 'Aprovação do DFD atualizada',
         subtitle: 'Atualizada por $actorName.',
         details: _effectiveContract.displaySummary,
         type: NotificationType.success,
         saveInBell: true,
+        sendPush: true,
+        targetUserIds: targets,
         extra: <String, dynamic>{
           'action': 'dfd_approval_updated',
           'dfdId': dfdId,
+          'contractId': contractIdForApprove,
+          'route': 'contracts_hiring_dfd',
         },
       );
     } catch (e) {
@@ -589,9 +653,9 @@ class _DfdPageState extends State<DfdPage>
                     return StageProgress(
                       title: 'Documento de Formalização de Demanda (DFD)',
                       icon: Icons.assignment_turned_in_outlined,
-                      busy: state.saving,
+                      busy: state.saving || progressState.loading,
                       approved: pstate.approved,
-                      onSave: _saveOnly,
+                      onSave: () => _saveOnly(),
                       onSaveAndNext: _saveApproveAndNext,
                       onUpdateApproved: _updateApproved,
                     );

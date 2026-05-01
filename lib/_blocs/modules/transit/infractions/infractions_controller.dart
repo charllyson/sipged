@@ -8,9 +8,9 @@ import 'package:geolocator/geolocator.dart';
 
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_bloc.dart';
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 class InfractionsController extends ChangeNotifier {
   InfractionsController({

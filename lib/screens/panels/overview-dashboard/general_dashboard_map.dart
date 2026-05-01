@@ -195,7 +195,7 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
         label: polygon.label,
         labelStyle: polygon.labelStyle,
         rotateLabel: polygon.rotateLabel,
-        labelPlacement: polygon.labelPlacement,
+        labelPlacementCalculator: polygon.labelPlacementCalculator,
         hitValue: hit,
       );
     }).toList(growable: false);

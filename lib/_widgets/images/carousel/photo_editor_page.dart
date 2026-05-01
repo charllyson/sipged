@@ -10,9 +10,9 @@ import 'package:image_editor/image_editor.dart' as ien;
 import 'package:native_exif/native_exif.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 class PhotoEditorPage extends StatefulWidget {
   final Uint8List originalBytes;
@@ -43,7 +43,7 @@ class PhotoEditorPage extends StatefulWidget {
     this.writeExif = true,
     this.exifImageDescription,
     this.exifUserComment,
-    this.exifSoftware = 'SisGeo/Flutter',
+    this.exifSoftware = 'Sipged/Flutter',
     this.exifArtist,
     this.exifCopyright,
     this.exifDateTime,

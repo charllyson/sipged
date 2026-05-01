@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -9,14 +10,14 @@ import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustmen
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_state.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
@@ -34,7 +35,7 @@ class AdjustmentMeasurement extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final contractId = contractData.id?.toString();
+    final contractId = contractData.id?.toString().trim();
 
     if (contractId == null || contractId.isEmpty) {
       return const Center(
@@ -74,6 +75,37 @@ class _AdjustmentMeasurementViewState
 
   int? _selectedSideIndex;
 
+  String get _contractId => widget.contractData.id?.trim() ?? '';
+
+  String get _contractSummary {
+    final data = widget.contractData;
+
+    final summary = data.summarySubjectContract?.trim() ?? '';
+    if (summary.isNotEmpty) return summary;
+
+    final number = data.contractNumber?.trim() ?? '';
+    if (number.isNotEmpty) return 'Contrato $number';
+
+    final process = data.processNumber?.trim() ?? '';
+    if (process.isNotEmpty) return 'Processo $process';
+
+    if (_contractId.isNotEmpty) return 'Contrato $_contractId';
+
+    return 'Contrato sem identificação';
+  }
+
+  String get _contractNumber {
+    final data = widget.contractData;
+
+    final number = data.contractNumber?.trim() ?? '';
+    if (number.isNotEmpty) return number;
+
+    final process = data.processNumber?.trim() ?? '';
+    if (process.isNotEmpty) return process;
+
+    return _contractId;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -105,22 +137,88 @@ class _AdjustmentMeasurementViewState
     super.dispose();
   }
 
-  void _notify({
+  String _resolveActorName(String? uid) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final cleanUid = uid?.trim();
+
+    if (cleanUid != null && cleanUid.isNotEmpty) {
+      final meta = widget.contractData.participantsInfo[cleanUid];
+
+      if (meta != null) {
+        final fullName = (meta['fullName'] ??
+            meta['displayName'] ??
+            meta['nameComplete'] ??
+            '')
+            .toString()
+            .trim();
+
+        if (fullName.isNotEmpty) return fullName;
+
+        final name = (meta['name'] ?? '').toString().trim();
+        final surname = (meta['surname'] ?? '').toString().trim();
+
+        final composed = [name, surname]
+            .where((item) => item.trim().isNotEmpty)
+            .join(' ')
+            .trim();
+
+        if (composed.isNotEmpty) return composed;
+
+        final email = (meta['email'] ?? '').toString().trim();
+        if (email.isNotEmpty) return email;
+      }
+    }
+
+    final displayName = currentUser?.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+
+    final email = currentUser?.email?.trim() ?? '';
+    if (email.isNotEmpty) return email;
+
+    return 'Usuário';
+  }
+
+  Future<void> _notify({
     required String title,
     String? subtitle,
     String? details,
     NotificationType type = NotificationType.info,
     Duration duration = const Duration(seconds: 4),
-  }) {
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        details: details,
-        leadingLabel: 'Reajuste',
-        type: type,
-        duration: duration,
-      ),
+    bool saveInBell = false,
+    bool sendPush = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    if (!mounted) return;
+
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
+    final actorName = _resolveActorName(currentUserId);
+
+    await NotificationContract.show(
+      context: context,
+      contract: widget.contractData,
+      title: title,
+      subtitle: subtitle,
+      details: details ?? _contractSummary,
+      leadingLabel: 'Reajuste',
+      module: 'contracts_adjustment_measurement',
+      type: type,
+      duration: duration,
+      saveInBell: saveInBell,
+      sendPush: sendPush,
+      actorId: currentUserId,
+      actorName: actorName,
+
+      // Inclui também quem executou a ação.
+      includeCurrentUser: true,
+
+      extra: <String, dynamic>{
+        'route': 'contracts_adjustment_measurement',
+        'contractId': _contractId,
+        'contractNumber': _contractNumber,
+        'contractTitle': _contractSummary,
+        'contractSummary': _contractSummary,
+        ...extra,
+      },
     );
   }
 
@@ -139,7 +237,7 @@ class _AdjustmentMeasurementViewState
     if (state.adjustments.isEmpty) return 1;
 
     final maxOrder = state.adjustments
-        .map((e) => e.order ?? 0)
+        .map((item) => item.order ?? 0)
         .fold<int>(0, (prev, curr) => math.max(prev, curr));
 
     return maxOrder + 1;
@@ -210,7 +308,7 @@ class _AdjustmentMeasurementViewState
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<AdjustmentMeasurementCubit>();
-    final contractId = widget.contractData.id?.toString();
+    final contractId = widget.contractData.id?.toString().trim();
 
     return BlocConsumer<AdjustmentMeasurementCubit, AdjustmentMeasurementState>(
       listener: (context, state) {
@@ -225,10 +323,12 @@ class _AdjustmentMeasurementViewState
         }
 
         final labels = state.adjustments
-            .map((m) => (m.order ?? 0).toString())
+            .map((item) => (item.order ?? 0).toString())
             .toList();
 
-        final values = state.adjustments.map((m) => m.value ?? 0.0).toList();
+        final values = state.adjustments
+            .map((item) => item.value ?? 0.0)
+            .toList();
 
         final total = state.adjustments.fold<double>(
           0.0,
@@ -245,18 +345,19 @@ class _AdjustmentMeasurementViewState
         final nextOrder = _computeNextOrder(state);
 
         final usedOrders = state.adjustments
-            .map((m) => m.order)
+            .map((item) => item.order)
             .whereType<int>()
             .toSet()
             .toList()
           ..sort();
 
         final orderOptions = <String>[
-          ...usedOrders.map((o) => o.toString()),
+          ...usedOrders.map((order) => order.toString()),
           if (!usedOrders.contains(nextOrder)) nextOrder.toString(),
         ];
 
-        final greyOrderItems = usedOrders.map((o) => o.toString()).toSet();
+        final greyOrderItems =
+        usedOrders.map((order) => order.toString()).toSet();
 
         final attachments = state.attachments;
 
@@ -313,7 +414,7 @@ class _AdjustmentMeasurementViewState
                               final date = _parseDate(dateCtrl.text);
 
                               if (date == null) {
-                                _notify(
+                                await _notify(
                                   title: 'Data do reajuste inválida',
                                   subtitle: 'Use o formato dd/MM/aaaa.',
                                   type: NotificationType.error,
@@ -322,7 +423,7 @@ class _AdjustmentMeasurementViewState
                               }
 
                               if (contractId == null || contractId.isEmpty) {
-                                _notify(
+                                await _notify(
                                   title: 'Contrato inválido',
                                   subtitle:
                                   'Não foi possível identificar o contrato.',
@@ -347,16 +448,33 @@ class _AdjustmentMeasurementViewState
                               try {
                                 await cubit.saveOrUpdate(data);
 
-                                _notify(
+                                final actorName = _resolveActorName(
+                                  FirebaseAuth.instance.currentUser?.uid,
+                                );
+
+                                await _notify(
                                   title: isNew
                                       ? 'Reajuste criado'
                                       : 'Reajuste atualizado',
                                   subtitle:
-                                  'Reajuste da medição ${data.order} salvo com sucesso.',
+                                  'Reajuste ${data.order ?? '-'} salvo por $actorName.',
                                   type: NotificationType.success,
+                                  saveInBell: true,
+                                  sendPush: true,
+                                  extra: <String, dynamic>{
+                                    'action': isNew
+                                        ? 'adjustment_created'
+                                        : 'adjustment_updated',
+                                    'adjustmentId': data.id,
+                                    'adjustmentOrder': data.order,
+                                    'adjustmentProcess': data.numberprocess,
+                                    'adjustmentValue': data.value,
+                                    'adjustmentDate':
+                                    data.date?.toIso8601String(),
+                                  },
                                 );
                               } catch (e) {
-                                _notify(
+                                await _notify(
                                   title: 'Erro ao salvar reajuste',
                                   subtitle: '$e',
                                   type: NotificationType.error,
@@ -393,13 +511,27 @@ class _AdjustmentMeasurementViewState
                                       : null;
                                 });
 
-                                _notify(
-                                  title: 'Arquivo anexado',
-                                  subtitle: 'Upload concluído.',
+                                final actorName = _resolveActorName(
+                                  FirebaseAuth.instance.currentUser?.uid,
+                                );
+
+                                await _notify(
+                                  title: 'Arquivo anexado ao reajuste',
+                                  subtitle:
+                                  'Upload concluído por $actorName.',
                                   type: NotificationType.success,
+                                  saveInBell: true,
+                                  sendPush: true,
+                                  extra: <String, dynamic>{
+                                    'action':
+                                    'adjustment_attachment_added',
+                                    'adjustmentId': state.selected!.id,
+                                    'adjustmentOrder':
+                                    state.selected!.order,
+                                  },
                                 );
                               } catch (e) {
-                                _notify(
+                                await _notify(
                                   title: 'Falha ao anexar arquivo',
                                   subtitle: '$e',
                                   type: NotificationType.error,
@@ -423,6 +555,8 @@ class _AdjustmentMeasurementViewState
                                 return;
                               }
 
+                              final attachment = attachments[index];
+
                               final ok = await confirmDialog(
                                 context,
                                 'Remover este arquivo?',
@@ -434,21 +568,35 @@ class _AdjustmentMeasurementViewState
                                 await cubit.deleteAttachment(
                                   contractId: contractId,
                                   adjustmentId: sel!.id!,
-                                  attachment: attachments[index],
+                                  attachment: attachment,
                                 );
 
                                 if (mounted) {
                                   setState(() => _selectedSideIndex = null);
                                 }
 
-                                _notify(
-                                  title: 'Arquivo removido',
+                                final actorName = _resolveActorName(
+                                  FirebaseAuth.instance.currentUser?.uid,
+                                );
+
+                                await _notify(
+                                  title: 'Arquivo removido do reajuste',
                                   subtitle:
-                                  'O anexo foi apagado com sucesso.',
+                                  '${attachment.label} removido por $actorName.',
                                   type: NotificationType.warning,
+                                  saveInBell: true,
+                                  sendPush: true,
+                                  extra: <String, dynamic>{
+                                    'action':
+                                    'adjustment_attachment_deleted',
+                                    'adjustmentId': sel.id,
+                                    'adjustmentOrder': sel.order,
+                                    'attachmentLabel': attachment.label,
+                                    'attachmentUrl': attachment.url,
+                                  },
                                 );
                               } catch (e) {
-                                _notify(
+                                await _notify(
                                   title: 'Erro ao remover arquivo',
                                   subtitle: '$e',
                                   type: NotificationType.error,
@@ -477,15 +625,31 @@ class _AdjustmentMeasurementViewState
                                   newItem: newItem,
                                 );
 
-                                _notify(
-                                  title: 'Anexo renomeado',
-                                  subtitle: newItem.label,
+                                final actorName = _resolveActorName(
+                                  FirebaseAuth.instance.currentUser?.uid,
+                                );
+
+                                await _notify(
+                                  title: 'Anexo de reajuste renomeado',
+                                  subtitle:
+                                  '${newItem.label} renomeado por $actorName.',
                                   type: NotificationType.success,
+                                  saveInBell: true,
+                                  sendPush: true,
+                                  extra: <String, dynamic>{
+                                    'action':
+                                    'adjustment_attachment_renamed',
+                                    'adjustmentId': sel.id,
+                                    'adjustmentOrder': sel.order,
+                                    'oldAttachmentLabel': oldItem.label,
+                                    'newAttachmentLabel': newItem.label,
+                                    'attachmentUrl': newItem.url,
+                                  },
                                 );
 
                                 return true;
                               } catch (e) {
-                                _notify(
+                                await _notify(
                                   title: 'Falha ao renomear anexo',
                                   subtitle: '$e',
                                   type: NotificationType.error,
@@ -559,20 +723,41 @@ class _AdjustmentMeasurementViewState
                               return;
                             }
 
+                            final deleted = state.adjustments.firstWhere(
+                                  (item) => item.id == id,
+                              orElse: () => AdjustmentMeasurementData(id: id),
+                            );
+
                             try {
                               await cubit.delete(
                                 contractId: contractId,
                                 adjustmentId: id,
                               );
 
-                              _notify(
+                              final actorName = _resolveActorName(
+                                FirebaseAuth.instance.currentUser?.uid,
+                              );
+
+                              await _notify(
                                 title: 'Reajuste apagado',
-                                subtitle:
-                                'O reajuste foi removido com sucesso.',
+                                subtitle: deleted.order != null
+                                    ? 'Reajuste ${deleted.order} removido por $actorName.'
+                                    : 'O reajuste foi removido por $actorName.',
                                 type: NotificationType.warning,
+                                saveInBell: true,
+                                sendPush: true,
+                                extra: <String, dynamic>{
+                                  'action': 'adjustment_deleted',
+                                  'adjustmentId': id,
+                                  'adjustmentOrder': deleted.order,
+                                  'adjustmentProcess': deleted.numberprocess,
+                                  'adjustmentValue': deleted.value,
+                                  'adjustmentDate':
+                                  deleted.date?.toIso8601String(),
+                                },
                               );
                             } catch (e) {
-                              _notify(
+                              await _notify(
                                 title: 'Erro ao apagar reajuste',
                                 subtitle: '$e',
                                 type: NotificationType.error,

@@ -7,10 +7,10 @@ import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
-import 'package:sipged/_widgets/images/logos/sisgeo_logo.dart';
+import 'package:sipged/_widgets/images/logos/sipged_logo.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/screens/common/login/forgot/forgot_password_page.dart';
 import 'package:sipged/screens/common/login/sign_in/sign_in_button.dart';
 
@@ -151,7 +151,7 @@ class _SignInState extends State<SignIn> {
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     const SizedBox(height: 8),
-                                    const SiGedLogo(),
+                                    const SipgedLogo(),
                                     const SizedBox(height: 16),
                                     _buildLoginCard(context),
                                     const Spacer(),

@@ -6,6 +6,7 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/map_layer_tree_helper.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_filter.dart';
 import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 
@@ -73,6 +74,31 @@ class MapCubit extends Cubit<MapState> {
         visible: visible,
         minimized: !visible,
         collapsed: false,
+      ),
+    );
+  }
+
+  void setWorkspaceFilter(WorkspaceFilter? filter) {
+    if (filter == null || !filter.isValid) {
+      clearWorkspaceFilter();
+      return;
+    }
+
+    if (state.workspaceFilter == filter) return;
+
+    _emitIfChanged(
+      state.copyWith(
+        workspaceFilter: filter,
+      ),
+    );
+  }
+
+  void clearWorkspaceFilter() {
+    if (state.workspaceFilter == null) return;
+
+    _emitIfChanged(
+      state.copyWith(
+        clearWorkspaceFilter: true,
       ),
     );
   }
@@ -784,6 +810,7 @@ class MapCubit extends Cubit<MapState> {
         clearActiveEditingPolygonLayerId:
         state.activeEditingPolygonLayerId == id,
         clearSelectedLayerPanelItem: state.selectedLayerPanelItemId == id,
+        clearWorkspaceFilter: state.workspaceFilter?.sourceLayerId == id,
       ),
     );
   }

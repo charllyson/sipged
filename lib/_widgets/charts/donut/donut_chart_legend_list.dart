@@ -47,17 +47,24 @@ class DonutChartLegendList extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: List.generate(labels.length, (i) {
         final value = values[i];
         final pct = total == 0 ? 0.0 : value / total * 100;
         final selected = touchedIndex == i;
 
+        final dotSize = (itemHeight * 0.22).clamp(8.0, 11.0);
+        final gap = (itemHeight * 0.20).clamp(8.0, 10.0);
+
         return InkWell(
           onTap: () => onLegendTap?.call(selected ? null : i),
           borderRadius: BorderRadius.circular(12),
           child: Container(
+            clipBehavior: Clip.antiAlias,
             height: itemHeight,
-            margin: EdgeInsets.only(bottom: i == labels.length - 1 ? 0 : spacing),
+            margin: EdgeInsets.only(
+              bottom: i == labels.length - 1 ? 0 : spacing,
+            ),
             padding: EdgeInsets.symmetric(
               horizontal: itemHeight * 0.26,
               vertical: itemHeight * 0.18,
@@ -78,15 +85,16 @@ class DonutChartLegendList extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: (itemHeight * 0.22).clamp(8.0, 11.0),
-                  height: (itemHeight * 0.22).clamp(8.0, 11.0),
+                  width: dotSize,
+                  height: dotSize,
                   decoration: BoxDecoration(
                     color: cores[i],
                     shape: BoxShape.circle,
                   ),
                 ),
-                SizedBox(width: (itemHeight * 0.20).clamp(8.0, 10.0)),
+                SizedBox(width: gap),
                 Expanded(
+                  flex: 5,
                   child: Text(
                     labels[i],
                     maxLines: 1,
@@ -98,8 +106,9 @@ class DonutChartLegendList extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(width: (itemHeight * 0.20).clamp(8.0, 10.0)),
-                Flexible(
+                SizedBox(width: gap),
+                Expanded(
+                  flex: 4,
                   child: Text(
                     '${_formatValue(value)} • ${pct.toStringAsFixed(0)}%',
                     maxLines: 1,

@@ -5,9 +5,9 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/auto_icon.dart';

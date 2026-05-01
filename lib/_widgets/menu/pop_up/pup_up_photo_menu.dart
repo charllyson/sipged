@@ -6,7 +6,7 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/user/user_permission.dart' as roles;
 import 'package:sipged/_widgets/images/photo_circle/photo_circle.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
 import 'package:sipged/admPanel/system_hub_page.dart';

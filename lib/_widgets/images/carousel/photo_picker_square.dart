@@ -6,12 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/_widgets/images/carousel/custom_camera_page.dart';
 import 'package:sipged/_widgets/images/carousel/photo_preview_page.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 class PhotoPickerSquare extends StatefulWidget {
   final bool enabled;

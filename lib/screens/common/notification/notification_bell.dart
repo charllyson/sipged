@@ -2,9 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_state.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_state.dart';
 import 'package:sipged/_widgets/badge/badge_change.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';

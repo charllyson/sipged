@@ -1027,6 +1027,8 @@ class _MapChangeState extends State<MapChange>
     if (externalPolyline != null) {
       await widget.onExternalPolylineTap?.call(externalPolyline);
 
+      if (!mounted) return;
+
       final local = _controller.camera.latLngToScreenOffset(latLng);
       final toGlobal = _toGlobalFn();
       final global = toGlobal?.call(local) ?? local;
@@ -1045,6 +1047,8 @@ class _MapChangeState extends State<MapChange>
 
     if (widget.externalPolylines.isNotEmpty) {
       await widget.onClearExternalPolylineSelection?.call();
+
+      if (!mounted) return;
     }
 
     final externalHit = _findExternalPolygonAt(latLng);
@@ -1311,7 +1315,7 @@ class _MapChangeState extends State<MapChange>
                   TileLayer(
                     key: ValueKey('tile_layer_$_safeMapIndex'),
                     urlTemplate: currentTileUrl,
-                    userAgentPackageName: 'com.openai.sipged',
+                    userAgentPackageName: 'com.openai.sisgeo',
                     panBuffer: 1,
                   ),
                 if (widget.externalPolygons.isNotEmpty)

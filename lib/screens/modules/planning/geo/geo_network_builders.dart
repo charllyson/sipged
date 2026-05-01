@@ -154,6 +154,7 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
                 onSelectedWorkspaceItemChanged: _handleWorkspaceItemSelected,
                 onPanelSizeChanged: _handleWorkspacePanelSizeChanged,
                 onItemsChanged: _handleWorkspaceItemsChangedFromPanel,
+                onActiveFilterChanged: context.read<MapCubit>().setWorkspaceFilter,
               ),
             ),
           ),

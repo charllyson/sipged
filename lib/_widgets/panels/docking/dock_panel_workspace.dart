@@ -5,7 +5,6 @@ import 'package:sipged/_blocs/system/panels/docking/dock_panel_cubit.dart';
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_state.dart';
 
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_floating.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_group.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_layout.dart';
@@ -126,9 +125,12 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   void didUpdateWidget(covariant DockPanelWorkspace oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final mustRecreateCubit =
-        oldWidget.snapThickness != widget.snapThickness ||
-            oldWidget.onChanged != widget.onChanged;
+    /// Não recrie o Cubit por mudança de callback.
+    ///
+    /// Recriar o Cubit aqui provoca um frame sem workspaceSize válido,
+    /// e isso causava a tela branca de "Carregando painéis..." ao abrir/fechar
+    /// os PushPanels ou ao trocar conteúdos.
+    final mustRecreateCubit = oldWidget.snapThickness != widget.snapThickness;
 
     if (mustRecreateCubit) {
       final oldCubit = _cubit;
@@ -203,7 +205,10 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
         onToggleFloating: () => _cubit.toggleFloating(group.id),
         onHide: () => _cubit.setGroupVisible(group.id, false),
         onMinimize: () => _cubit.setGroupVisible(group.id, false),
-        onTabSelected: (itemId) => _cubit.setGroupActiveItem(group.id, itemId),
+        onTabSelected: (itemId) => _cubit.setGroupActiveItem(
+          group.id,
+          itemId,
+        ),
         onDragStarted: () => _cubit.startDrag(group.id),
         onDragUpdate: (details) {
           final local = _globalToLocal(details.globalPosition);
@@ -230,6 +235,10 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
       Size nextWorkspaceSize,
       DockPanelState state,
       ) {
+    if (nextWorkspaceSize.width <= 0 || nextWorkspaceSize.height <= 0) {
+      return;
+    }
+
     if (state.workspaceSize == nextWorkspaceSize) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -238,47 +247,19 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
     });
   }
 
-  bool _isWorkspaceSizeReady(
+  Size _effectiveWorkspaceSize(
       Size nextWorkspaceSize,
       DockPanelState state,
       ) {
-    if (nextWorkspaceSize.width <= 0 || nextWorkspaceSize.height <= 0) {
-      return false;
+    if (nextWorkspaceSize.width > 0 && nextWorkspaceSize.height > 0) {
+      return nextWorkspaceSize;
     }
 
-    if (state.workspaceSize.width <= 0 || state.workspaceSize.height <= 0) {
-      return false;
+    if (state.workspaceSize.width > 0 && state.workspaceSize.height > 0) {
+      return state.workspaceSize;
     }
 
-    return state.workspaceSize == nextWorkspaceSize;
-  }
-
-  Widget _buildPanelsLoadingScreen() {
-    return Positioned.fill(
-      child: ColoredBox(
-        color: Colors.white,
-        child: LoadingTreeDots(
-          size: 200,
-          centered: true,
-          variant: LoadingTreeDotsVariant.blue,
-          message: const Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Text(
-              'Carregando painéis ...',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.1,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF334155),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    return Size.zero;
   }
 
   @override
@@ -296,7 +277,7 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
 
               _syncWorkspaceSizeIfNeeded(nextWorkspaceSize, state);
 
-              final workspaceReady = _isWorkspaceSizeReady(
+              final effectiveWorkspaceSize = _effectiveWorkspaceSize(
                 nextWorkspaceSize,
                 state,
               );
@@ -312,43 +293,42 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                       ),
                     ),
 
-                    if (workspaceReady)
-                      Positioned.fill(
-                        child: DockPanelLayout(
-                          state: state,
-                          contentPadding: widget.contentPadding,
-                          contentMinSize: widget.contentMinSize,
-                          buildGroupCard: (group, isFloating) {
-                            return _buildGroupCard(
-                              state,
-                              group,
-                              isFloating,
-                            );
-                          },
-                          onSideExtentResizeStart:
-                          _cubit.startDockExtentResize,
-                          onSideExtentResizeEnd: _cubit.endDockExtentResize,
-                          onSideExtentResize: _cubit.resizeAreaExtent,
-                          onWeightResizeStart: _cubit.startDockWeightResize,
-                          onWeightResizeEnd: _cubit.endDockWeightResize,
-                          onWeightResize: (
-                              groups,
-                              leadingIndex,
-                              deltaPixels,
-                              totalPixels,
-                              ) {
-                            _cubit.resizeDockWeights(
-                              groups: groups,
-                              leadingIndex: leadingIndex,
-                              deltaPixels: deltaPixels,
-                              totalAvailablePixels: totalPixels,
-                            );
-                          },
-                          child: widget.child,
-                        ),
+                    Positioned.fill(
+                      child: DockPanelLayout(
+                        state: state,
+                        contentPadding: widget.contentPadding,
+                        contentMinSize: widget.contentMinSize,
+                        buildGroupCard: (group, isFloating) {
+                          return _buildGroupCard(
+                            state,
+                            group,
+                            isFloating,
+                          );
+                        },
+                        onSideExtentResizeStart:
+                        _cubit.startDockExtentResize,
+                        onSideExtentResizeEnd: _cubit.endDockExtentResize,
+                        onSideExtentResize: _cubit.resizeAreaExtent,
+                        onWeightResizeStart: _cubit.startDockWeightResize,
+                        onWeightResizeEnd: _cubit.endDockWeightResize,
+                        onWeightResize: (
+                            groups,
+                            leadingIndex,
+                            deltaPixels,
+                            totalPixels,
+                            ) {
+                          _cubit.resizeDockWeights(
+                            groups: groups,
+                            leadingIndex: leadingIndex,
+                            deltaPixels: deltaPixels,
+                            totalAvailablePixels: totalPixels,
+                          );
+                        },
+                        child: widget.child,
                       ),
+                    ),
 
-                    if (state.hasDialogPanel && workspaceReady)
+                    if (state.hasDialogPanel)
                       Positioned.fill(
                         child: IgnorePointer(
                           child: ColoredBox(
@@ -357,11 +337,12 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                         ),
                       ),
 
-                    if (workspaceReady)
+                    if (effectiveWorkspaceSize.width > 0 &&
+                        effectiveWorkspaceSize.height > 0)
                       Positioned.fill(
                         child: DockPanelFloating(
                           floatingGroups: state.floatingGroups,
-                          workspaceSize: state.workspaceSize,
+                          workspaceSize: effectiveWorkspaceSize,
                           buildGroupCard: (group, isFloating) {
                             return _buildGroupCard(
                               state,
@@ -372,16 +353,12 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                         ),
                       ),
 
-                    if (workspaceReady)
-                      DockPanelSnap(
-                        visible: state.isDragging,
-                        snapArea: state.hoveredSnapArea,
-                        previewRect: state.previewRect,
-                        backgroundOverlayColor:
-                        widget.backgroundOverlayColor,
-                      ),
-
-                    if (!workspaceReady) _buildPanelsLoadingScreen(),
+                    DockPanelSnap(
+                      visible: state.isDragging,
+                      snapArea: state.hoveredSnapArea,
+                      previewRect: state.previewRect,
+                      backgroundOverlayColor: widget.backgroundOverlayColor,
+                    ),
                   ],
                 ),
               );

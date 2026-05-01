@@ -1,24 +1,27 @@
+// lib/screens/modules/operation/schedule/physical/horizontal/schedule_road_board.dart
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/grid/schedule_grid.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_modal_square.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_status.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/share/schedule_road_debug.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/share/type.dart';
-import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_modal_square.dart';
-
-import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 class ScheduleRoadBoard extends StatefulWidget {
   final ProcessData? contractData;
@@ -120,80 +123,42 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     return 'Usuário';
   }
 
-  String _contractId() {
-    final contract = widget.contractData;
-    if (contract == null) return '';
-
-    try {
-      final value = (contract as dynamic).id;
-      return value?.toString().trim() ?? '';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  String _contractSummary() {
-    final contract = widget.contractData;
-    if (contract == null) return 'Contrato sem identificação';
-
-    try {
-      final value = (contract as dynamic).summarySubjectContract;
-      final text = value?.toString().trim() ?? '';
-      if (text.isNotEmpty) return text;
-    } catch (_) {}
-
-    try {
-      final value = (contract as dynamic).summary;
-      final text = value?.toString().trim() ?? '';
-      if (text.isNotEmpty) return text;
-    } catch (_) {}
-
-    try {
-      final value = (contract as dynamic).object;
-      final text = value?.toString().trim() ?? '';
-      if (text.isNotEmpty) return text;
-    } catch (_) {}
-
-    final id = _contractId();
-    if (id.isNotEmpty) return 'Contrato $id';
-
-    return 'Contrato sem identificação';
-  }
-
-  Future<void> _notifyBell({
+  Future<void> _notifySchedule({
     required String title,
     String? subtitle,
     String? details,
     NotificationType type = NotificationType.info,
     Duration duration = const Duration(seconds: 4),
+    bool saveInBell = true,
+    bool sendPush = true,
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
 
-    final user = FirebaseAuth.instance.currentUser;
-    final contractId = _contractId();
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final actorId = currentUser?.uid.trim();
+    final actorName = _actorName();
 
-    await context.read<NotificationCubit>().show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        details: details ?? _contractSummary(),
-        leadingLabel: 'Cronograma',
-        type: type,
-        duration: duration,
-        persistInFirebase: true,
-        createdBy: user?.uid,
-        extra: <String, dynamic>{
-          'module': 'operation_schedule_road',
-          'contractId': contractId,
-          'contractSummary': _contractSummary(),
-          'contractTitle': _contractSummary(),
-          'actorId': user?.uid,
-          'actorName': _actorName(),
-          ...extra,
-        },
-      ),
-      saveInFirebase: true,
+    await NotificationSchedule.show(
+      context: context,
+      contract: widget.contractData,
+      title: title,
+      subtitle: subtitle,
+      details: details,
+      leadingLabel: 'Cronograma',
+      module: 'operation_schedule_road',
+      type: type,
+      duration: duration,
+      saveInBell: saveInBell,
+      sendPush: sendPush,
+      actorId: actorId,
+      actorName: actorName,
+      includeCurrentUser: true,
+      extra: <String, dynamic>{
+        'actorId': actorId,
+        'actorName': actorName,
+        ...extra,
+      },
     );
   }
 
@@ -388,10 +353,16 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     final scaffoldContext = context;
     final state = scheduleCubit.state;
 
-    final cellKey = '${e.numero}_${e.faixaIndex}';
+    if (e.faixaIndex < 0 || e.faixaIndex >= state.lanes.length) {
+      _toast(
+        'Faixa inválida para edição.',
+        type: NotificationType.error,
+      );
+      return;
+    }
 
-    final existedBefore =
-        state.execIndex[e.numero]?[e.faixaIndex] != null;
+    final cellKey = '${e.numero}_${e.faixaIndex}';
+    final existedBefore = state.execIndex[e.numero]?[e.faixaIndex] != null;
 
     setState(() {
       _selectedByEstaca = _groupSelection({cellKey});
@@ -430,7 +401,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       }
 
       final initialStatus = _statusFromString(e.status);
-      final laneLabel = state.lanes[e.faixaIndex].label;
+      final laneLabel = state.lanes[e.faixaIndex].laneLabel;
 
       final initialNameForRoad = _formatRoadName(
         laneLabel: laneLabel,
@@ -475,35 +446,31 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       if (!mounted) return;
 
       final afterState = scheduleCubit.state;
-      final existsAfter =
-          afterState.execIndex[e.numero]?[e.faixaIndex] != null;
-
+      final existsAfter = afterState.execIndex[e.numero]?[e.faixaIndex] != null;
       final wasDeleted = existedBefore && !existsAfter;
 
-      await _notifyBell(
-        title: wasDeleted
-            ? 'Registro do cronograma excluído'
-            : 'Cronograma físico atualizado',
-        subtitle: wasDeleted
-            ? 'Célula removida por ${_actorName()}.'
-            : 'Célula atualizada por ${_actorName()}.',
-        details: initialNameForRoad,
+      await _notifySchedule(
+        title: state.titleForHeader,
+        subtitle: null,
+        details: null,
         type: NotificationType.success,
+        saveInBell: true,
+        sendPush: true,
         extra: <String, dynamic>{
-          'action': wasDeleted
-              ? 'schedule_cell_deleted'
-              : 'schedule_cell_saved',
-          'contractId': _contractId(),
+          'action':
+          wasDeleted ? 'schedule_stake_deleted' : 'schedule_stake_saved',
           'serviceKey': state.currentServiceKey,
           'serviceLabel': state.titleForHeader,
           'estaca': e.numero,
           'faixaIndex': e.faixaIndex,
+          'stakeName': initialNameForRoad,
           'cellName': initialNameForRoad,
+          'source': 'schedule_road_board',
         },
       );
     } catch (err) {
       _toast(
-        'Falha ao salvar a célula: $err',
+        'Falha ao salvar a estaca: $err',
         type: NotificationType.error,
       );
     } finally {
@@ -638,7 +605,18 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       return;
     }
 
-    final laneLabel = state.lanes[_anchorFaixa ?? 0].label;
+    final laneIndex = _anchorFaixa ?? 0;
+
+    if (laneIndex < 0 || laneIndex >= state.lanes.length) {
+      _toast(
+        'Faixa inválida para edição em lote.',
+        type: NotificationType.error,
+      );
+      setState(_clearSelection);
+      return;
+    }
+
+    final laneLabel = state.lanes[laneIndex].laneLabel;
 
     final initialNameMany = _formatRoadNameForMany(
       laneLabel: laneLabel,
@@ -678,8 +656,12 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       final afterState = scheduleCubit.state;
 
       int deletedCount = 0;
+
       for (final key in existingBefore) {
         final parts = key.split('_');
+
+        if (parts.length != 2) continue;
+
         final estaca = int.tryParse(parts[0]);
         final faixa = int.tryParse(parts[1]);
 
@@ -692,25 +674,24 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
 
       final hasDeleted = deletedCount > 0;
 
-      await _notifyBell(
-        title: hasDeleted
-            ? 'Cronograma físico atualizado em lote'
-            : 'Cronograma físico atualizado em lote',
-        subtitle: hasDeleted
-            ? 'Aplicado em ${targets.length} célula(s), com $deletedCount remoção(ões), por ${_actorName()}.'
-            : 'Aplicado em ${targets.length} célula(s) por ${_actorName()}.',
-        details: initialNameMany,
+      await _notifySchedule(
+        title: state.titleForHeader,
+        subtitle: null,
+        details: null,
         type: NotificationType.success,
+        saveInBell: true,
+        sendPush: true,
         extra: <String, dynamic>{
           'action': hasDeleted
-              ? 'schedule_bulk_saved_with_deletions'
-              : 'schedule_bulk_saved',
-          'contractId': _contractId(),
+              ? 'schedule_bulk_stakes_saved_with_deletions'
+              : 'schedule_bulk_stakes_saved',
           'serviceKey': state.currentServiceKey,
           'serviceLabel': state.titleForHeader,
           'targetsCount': targets.length,
           'deletedCount': deletedCount,
+          'stakeName': initialNameMany,
           'cellName': initialNameMany,
+          'source': 'schedule_road_board',
         },
       );
     } catch (e) {

@@ -9,7 +9,7 @@ import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/map/map/map_change.dart';
 
 import '../../../../_blocs/modules/transit/infractions/infractions_bloc.dart';

@@ -8,6 +8,7 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_filter.dart';
 import 'package:sipged/_blocs/system/map/map_cubit.dart';
 import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/screens/modules/planning/geo/status/status_bar.dart';
@@ -121,6 +122,7 @@ class LayerDataMap extends Equatable {
     required this.orderedActiveLayerIdsForMap,
     required this.visibleFeatures,
     required this.selectedFeatureKey,
+    required this.workspaceFilter,
     required this.activePointLayer,
     required this.activeLineLayer,
     required this.activePolygonLayer,
@@ -140,8 +142,15 @@ class LayerDataMap extends Equatable {
   final List<String> orderedLeafIdsTopToBottom;
   final List<String> orderedActiveLayerIdsForMap;
 
+  /// Feições já filtradas conforme:
+  /// - camadas ativas;
+  /// - filtro ativo da área de trabalho, quando existir.
   final List<FeatureData> visibleFeatures;
+
   final String? selectedFeatureKey;
+
+  /// Filtro atual vindo dos widgets da Área de Trabalho.
+  final WorkspaceFilter? workspaceFilter;
 
   final LayerData? activePointLayer;
   final LayerData? activeLineLayer;
@@ -181,14 +190,20 @@ class LayerDataMap extends Equatable {
     final orderedActiveLayerIdsForMap =
     orderedLeafIdsTopToBottom.reversed.toList(growable: false);
 
-    final visibleFeatures = <FeatureData>[];
+    final allVisibleFeatures = <FeatureData>[];
 
     for (final layerId in orderedActiveLayerIdsForMap) {
       final features = featureState.featuresByLayer[layerId];
+
       if (features != null && features.isNotEmpty) {
-        visibleFeatures.addAll(features);
+        allVisibleFeatures.addAll(features);
       }
     }
+
+    final filteredVisibleFeatures = _applyWorkspaceFilterToFeatures(
+      features: allVisibleFeatures,
+      filter: mapState.workspaceFilter,
+    );
 
     final activePointLayer = mapCubit.getActiveDraftPointLayer(currentTree);
     final activeLineLayer = mapCubit.getActiveDraftLineLayer(currentTree);
@@ -221,8 +236,9 @@ class LayerDataMap extends Equatable {
       layersById: layersById,
       orderedLeafIdsTopToBottom: orderedLeafIdsTopToBottom,
       orderedActiveLayerIdsForMap: orderedActiveLayerIdsForMap,
-      visibleFeatures: visibleFeatures,
+      visibleFeatures: List<FeatureData>.unmodifiable(filteredVisibleFeatures),
       selectedFeatureKey: featureState.selected?.feature.selectionKey,
+      workspaceFilter: mapState.workspaceFilter,
       activePointLayer: activePointLayer,
       activeLineLayer: activeLineLayer,
       activePolygonLayer: activePolygonLayer,
@@ -232,6 +248,85 @@ class LayerDataMap extends Equatable {
       isLoading: isLoading,
       showFloatingStatus: showFloatingStatus,
       hasDataSignature: hasDataSignature,
+    );
+  }
+
+  static List<FeatureData> _applyWorkspaceFilterToFeatures({
+    required List<FeatureData> features,
+    required WorkspaceFilter? filter,
+  }) {
+    if (filter == null || !filter.isValid) {
+      return features;
+    }
+
+    final sourceLayerId = filter.sourceLayerId.trim();
+    final sourceField = filter.sourceField.trim();
+
+    if (sourceLayerId.isEmpty || sourceField.isEmpty) {
+      return features;
+    }
+
+    return features.where((feature) {
+      final featureLayerId = (feature.layerId ?? '').trim();
+
+      /// Mantém as outras camadas visíveis.
+      ///
+      /// O clique no gráfico filtra apenas a camada que alimenta aquele gráfico.
+      if (featureLayerId != sourceLayerId) {
+        return true;
+      }
+
+      return _featureMatchesWorkspaceFilter(
+        feature: feature,
+        filter: filter,
+      );
+    }).toList(growable: false);
+  }
+
+  static bool _featureMatchesWorkspaceFilter({
+    required FeatureData feature,
+    required WorkspaceFilter filter,
+  }) {
+    final rawValue = _featureWorkspaceFilterValue(
+      feature,
+      filter.sourceField,
+    );
+
+    final normalizedFeatureValue = _normalizeFilterValue(rawValue);
+    final normalizedFilterLabel = _normalizeFilterValue(filter.label);
+
+    return normalizedFeatureValue == normalizedFilterLabel;
+  }
+
+  static dynamic _featureWorkspaceFilterValue(
+      FeatureData feature,
+      String field,
+      ) {
+    if (feature.editedProperties.containsKey(field)) {
+      return feature.editedProperties[field];
+    }
+
+    return feature.originalProperties[field];
+  }
+
+  static String _normalizeFilterValue(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? 'Sem rótulo' : text;
+  }
+
+  Object get workspaceFilterToken {
+    final filter = workspaceFilter;
+
+    if (filter == null || !filter.isValid) {
+      return 'no_workspace_filter';
+    }
+
+    return Object.hash(
+      filter.sourceItemId,
+      filter.sourceLayerId,
+      filter.sourceField,
+      filter.label,
+      filter.value,
     );
   }
 
@@ -245,6 +340,7 @@ class LayerDataMap extends Equatable {
     orderedActiveLayerIdsForMap,
     visibleFeatures,
     selectedFeatureKey,
+    workspaceFilter,
     activePointLayer,
     activeLineLayer,
     activePolygonLayer,

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_services/firestore/cleanup/cleanup_subcollections_tile.dart';
 import 'package:sipged/_services/firestore/cleanup/selective_delete_tile.dart';
@@ -17,7 +17,7 @@ import 'package:sipged/admPanel/migrations/firebase_migration_toolkit_page.dart'
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 
 class SettingsTopicMigracoesPage extends StatefulWidget {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_filter.dart';
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 
 class MapState {
@@ -13,6 +14,7 @@ class MapState {
     this.activeEditingPointLayerId,
     this.activeEditingLineLayerId,
     this.activeEditingPolygonLayerId,
+    this.workspaceFilter,
     this.draftOwnedTemporaryLayerIds = const <String>{},
     this.draftPointLayers = const <String, List<LatLng>>{},
     this.draftLineLayers = const <String, List<LatLng>>{},
@@ -27,6 +29,15 @@ class MapState {
   final String? activeEditingPointLayerId;
   final String? activeEditingLineLayerId;
   final String? activeEditingPolygonLayerId;
+
+  /// Filtro gerado pela Área de Trabalho/CatalogPanel.
+  ///
+  /// Exemplo:
+  /// - clicou em uma barra do gráfico por município;
+  /// - workspaceFilter guarda camada, campo e rótulo;
+  /// - LayerDataMap usa esse filtro para ocultar no mapa as feições
+  ///   que não pertencem à categoria clicada.
+  final WorkspaceFilter? workspaceFilter;
 
   final Set<String> draftOwnedTemporaryLayerIds;
 
@@ -83,6 +94,8 @@ class MapState {
       hasPointDraftInProgress ||
           hasLineDraftInProgress ||
           hasPolygonDraftInProgress;
+
+  bool get hasWorkspaceFilter => workspaceFilter?.isValid == true;
 
   MouseCursor get mapCursor {
     switch (selectedToolId) {
@@ -153,6 +166,8 @@ class MapState {
     bool clearActiveEditingLineLayerId = false,
     String? activeEditingPolygonLayerId,
     bool clearActiveEditingPolygonLayerId = false,
+    WorkspaceFilter? workspaceFilter,
+    bool clearWorkspaceFilter = false,
     Set<String>? draftOwnedTemporaryLayerIds,
     Map<String, List<LatLng>>? draftPointLayers,
     Map<String, List<LatLng>>? draftLineLayers,
@@ -176,6 +191,9 @@ class MapState {
       activeEditingPolygonLayerId: clearActiveEditingPolygonLayerId
           ? null
           : activeEditingPolygonLayerId ?? this.activeEditingPolygonLayerId,
+      workspaceFilter: clearWorkspaceFilter
+          ? null
+          : workspaceFilter ?? this.workspaceFilter,
       draftOwnedTemporaryLayerIds: draftOwnedTemporaryLayerIds == null
           ? this.draftOwnedTemporaryLayerIds
           : Set<String>.unmodifiable(draftOwnedTemporaryLayerIds),
@@ -211,6 +229,7 @@ class MapState {
         other.activeEditingPointLayerId == activeEditingPointLayerId &&
         other.activeEditingLineLayerId == activeEditingLineLayerId &&
         other.activeEditingPolygonLayerId == activeEditingPolygonLayerId &&
+        other.workspaceFilter == workspaceFilter &&
         _deepEq.equals(
           other.draftOwnedTemporaryLayerIds,
           draftOwnedTemporaryLayerIds,
@@ -228,6 +247,7 @@ class MapState {
     activeEditingPointLayerId,
     activeEditingLineLayerId,
     activeEditingPolygonLayerId,
+    workspaceFilter,
     _deepEq.hash(draftOwnedTemporaryLayerIds),
     _deepEq.hash(draftPointLayers),
     _deepEq.hash(draftLineLayers),

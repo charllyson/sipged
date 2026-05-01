@@ -160,29 +160,36 @@ class DonutChartMetrics {
     if (legendPosition == DonutLegendPosition.right && hasLegend) {
       final double target = innerWidth *
           (ultraCompact
-              ? 0.44
+              ? 0.34
               : veryCompact
-              ? 0.41
+              ? 0.32
               : compact
-              ? 0.38
-              : 0.34);
+              ? 0.30
+              : medium
+              ? 0.29
+              : 0.28);
 
       final double minAllowed = ultraCompact
+          ? 104.0
+          : veryCompact
+          ? 116.0
+          : compact
+          ? 128.0
+          : 140.0;
+
+      final double minChartWidth = ultraCompact
           ? 110.0
           : veryCompact
-          ? 120.0
-          : 132.0;
+          ? 150.0
+          : compact
+          ? 190.0
+          : medium
+          ? 240.0
+          : 280.0;
 
       final double maxAllowed = math.max(
         minAllowed,
-        innerWidth *
-            (ultraCompact
-                ? 0.50
-                : veryCompact
-                ? 0.46
-                : compact
-                ? 0.42
-                : 0.38),
+        innerWidth - legendGap - minChartWidth,
       );
 
       resolvedLegendRightWidth =

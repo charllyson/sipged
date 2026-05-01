@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'package:sipged/_services/map/map_box/mapbox_html_builder.dart';

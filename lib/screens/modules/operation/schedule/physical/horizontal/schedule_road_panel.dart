@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -10,15 +11,16 @@ import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cub
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/lane/schedule_lane_edit_section.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_header.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 class ScheduleRoadPanel extends StatefulWidget {
   final ProcessData contract;
@@ -39,6 +41,18 @@ class ScheduleRoadPanel extends StatefulWidget {
 class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
   bool _importingGeometry = false;
 
+  String _actorName() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    final displayName = user?.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+
+    final email = user?.email?.trim() ?? '';
+    if (email.isNotEmpty) return email;
+
+    return 'Usuário';
+  }
+
   void _notify({
     required String title,
     String? subtitle,
@@ -55,6 +69,46 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
         type: type,
         duration: duration,
       ),
+    );
+  }
+
+  Future<void> _notifySchedule({
+    required String title,
+    String? subtitle,
+    String? details,
+    String? leadingLabel,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = true,
+    bool sendPush = true,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    if (!mounted) return;
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final actorId = currentUser?.uid.trim();
+    final actorName = _actorName();
+
+    await NotificationSchedule.show(
+      context: context,
+      contract: widget.contract,
+      title: title,
+      subtitle: subtitle,
+      details: details,
+      leadingLabel: leadingLabel ?? 'Cronograma',
+      module: 'operation_schedule_road',
+      type: type,
+      duration: duration,
+      saveInBell: saveInBell,
+      sendPush: sendPush,
+      actorId: actorId,
+      actorName: actorName,
+      includeCurrentUser: true,
+      extra: <String, dynamic>{
+        'actorId': actorId,
+        'actorName': actorName,
+        ...extra,
+      },
     );
   }
 
@@ -75,17 +129,37 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
     );
 
     if (!mounted) return;
+    if (rows == null) return;
 
-    if (rows != null) {
+    try {
       await cubit.saveLanes(rows);
 
-      _notify(
-        title: 'Faixas atualizadas',
+      await _notifySchedule(
+        title: 'Faixas do cronograma atualizadas',
+        subtitle: '${rows.length} faixa(s) configurada(s) por ${_actorName()}.',
+        details: st.summarySubjectContract ?? widget.contract.displaySummary,
         type: NotificationType.success,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
+        saveInBell: true,
+        sendPush: true,
+        extra: <String, dynamic>{
+          'action': 'schedule_lanes_updated',
+          'serviceKey': st.currentServiceKey,
+          'serviceLabel': st.titleForHeader,
+          'lanesCount': rows.length,
+          'totalEstacas': st.totalEstacas,
+          'source': 'schedule_road_panel',
+        },
       );
 
       widget.onSaved?.call();
+    } catch (e) {
+      _notify(
+        title: 'Erro ao salvar faixas',
+        subtitle: '$e',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
     }
   }
 
@@ -97,7 +171,19 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
 
     final cubit = context.read<ScheduleRoadCubit>();
 
-    final summarySubjectContract = st.summarySubjectContract ?? widget.contract.id;
+    final contractId = st.contractId ?? widget.contract.id ?? '';
+    final summarySubjectContract =
+        st.summarySubjectContract ?? widget.contract.displaySummary;
+
+    if (contractId.isEmpty) {
+      _notify(
+        title: 'Contrato inválido',
+        subtitle: 'Não foi possível identificar o contrato.',
+        type: NotificationType.error,
+        duration: const Duration(seconds: 6),
+      );
+      return;
+    }
 
     setState(() => _importingGeometry = true);
 
@@ -138,11 +224,28 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
 
       if (!mounted) return;
 
-      _notify(
-        title: 'Geometria importada com sucesso',
+      await _notifySchedule(
+        title: 'Geometria do cronograma importada',
+        subtitle: file.name.isNotEmpty
+            ? 'Arquivo ${file.name} importado por ${_actorName()}.'
+            : 'Geometria importada por ${_actorName()}.',
+        details: summarySubjectContract,
         type: NotificationType.success,
         duration: const Duration(seconds: 4),
+        saveInBell: true,
+        sendPush: true,
+        extra: <String, dynamic>{
+          'action': 'schedule_geometry_imported',
+          'contractId': contractId,
+          'serviceKey': st.currentServiceKey,
+          'serviceLabel': st.titleForHeader,
+          'fileName': file.name,
+          'totalEstacas': st.totalEstacas,
+          'source': 'schedule_road_panel',
+        },
       );
+
+      widget.onSaved?.call();
     } catch (e) {
       if (!mounted) return;
 
@@ -231,7 +334,8 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
                       OutlinedButton.icon(
                         icon: const Icon(Icons.edit_note),
                         label: const Text('Editar faixas'),
-                        onPressed: canEdit ? () => _openEditLanes(context, st) : null,
+                        onPressed:
+                        canEdit ? () => _openEditLanes(context, st) : null,
                       ),
                       FilledButton.icon(
                         icon: _importingGeometry

@@ -16,7 +16,8 @@ import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
@@ -27,7 +28,6 @@ import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dar
 import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/contract_bell_notifier.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_1_metadados.dart';
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_2_documentos.dart';
@@ -70,6 +70,16 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
   bool get _isEditable => !widget.readOnly;
 
   String get _contractId => widget.contractId.trim();
+
+  String get _currentUserId {
+    return FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+  }
+
+  List<String> get _defaultPushTargets {
+    final uid = _currentUserId;
+    if (uid.isEmpty) return const <String>[];
+    return <String>[uid];
+  }
 
   ProcessData get _effectiveContract {
     if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
@@ -150,13 +160,15 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     NotificationType type = NotificationType.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
+    bool sendPush = false,
+    Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
 
-    await ContractBellNotifier.show(
+    await NotificationContract.show(
       context: context,
       contract: _effectiveContract,
       title: title,
@@ -167,9 +179,16 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       type: type,
       duration: duration,
       saveInBell: saveInBell,
+      sendPush: sendPush,
+      targetUserIds: targetUserIds,
       actorId: user?.uid,
       actorName: _currentActorName(),
-      extra: extra,
+      extra: <String, dynamic>{
+        ...extra,
+        'route': extra['route'] ?? 'contracts_hiring_parecer',
+        'contractId': _effectiveContract.id,
+        'contractSummary': _effectiveContract.displaySummary,
+      },
     );
   }
 
@@ -217,15 +236,24 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
       if (!mounted) return false;
 
+      _progressBloc.bindToStage(
+        contractId: _contractId,
+        collectionName: 'parecer',
+      );
+
       await _notify(
         title: 'Parecer Jurídico atualizado',
         subtitle: 'Alterações salvas por ${_currentActorName()}.',
         details: _effectiveContract.displaySummary,
         type: NotificationType.success,
         saveInBell: true,
+        sendPush: true,
+        targetUserIds: _defaultPushTargets,
         extra: <String, dynamic>{
           'action': 'parecer_saved',
           'parecerId': cubit.state.parecerId,
+          'contractId': _contractId,
+          'route': 'contracts_hiring_parecer',
         },
       );
 
@@ -296,9 +324,14 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         details: _effectiveContract.displaySummary,
         type: NotificationType.success,
         saveInBell: true,
+        sendPush: true,
+        targetUserIds: _defaultPushTargets,
         extra: <String, dynamic>{
           'action': 'parecer_approved',
           'parecerId': parecerId,
+          'contractId': _contractId,
+          'route': 'contracts_hiring_parecer',
+          'nextStage': 'publicacao',
         },
       );
     } catch (e) {
@@ -352,9 +385,13 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         details: _effectiveContract.displaySummary,
         type: NotificationType.success,
         saveInBell: true,
+        sendPush: true,
+        targetUserIds: _defaultPushTargets,
         extra: <String, dynamic>{
           'action': 'parecer_approval_updated',
           'parecerId': parecerId,
+          'contractId': _contractId,
+          'route': 'contracts_hiring_parecer',
         },
       );
     } catch (e) {
@@ -418,8 +455,10 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
           builder: (context, state) {
             final pstate = context.watch<ProgressCubit>().state;
 
-            final locked =
-                state.loading || state.saving || pstate.loading || _loadingContract;
+            final locked = state.loading ||
+                state.saving ||
+                pstate.loading ||
+                _loadingContract;
 
             final msg = state.loading
                 ? 'Sincronizando os dados...'

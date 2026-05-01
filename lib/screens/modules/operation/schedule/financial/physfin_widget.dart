@@ -9,12 +9,12 @@ import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_control
 import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_data.dart';
 import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_store.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';

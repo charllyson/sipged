@@ -12,9 +12,9 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -22,7 +22,7 @@ import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'oae_map_section.dart';
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class SiGedLogo extends StatelessWidget {
+class SipgedLogo extends StatelessWidget {
   final double? fontSize;
   final double? heightLogo;
   final double? widthLogo;
@@ -8,7 +8,7 @@ class SiGedLogo extends StatelessWidget {
   /// Callback para voltar à Home dentro do MenuListPage
   final VoidCallback? onTapHome;
 
-  const SiGedLogo({
+  const SipgedLogo({
     super.key,
     this.fontSize = 80,
     this.heightLogo = 50,

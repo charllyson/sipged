@@ -131,6 +131,11 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     }
   }
 
+  void clearFilter() {
+    if (state.activeFilter == null) return;
+    emit(state.copyWith(clearActiveFilter: true));
+  }
+
   void syncExternalFeatures(Map<String, List<FeatureData>> featuresByLayer) {
     if (_sameFeaturesMap(state.featuresByLayer, featuresByLayer)) return;
 

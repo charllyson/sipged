@@ -6,9 +6,9 @@ import 'package:sipged/_blocs/modules/planning/land/property/land_property_cubit
 import 'package:sipged/_blocs/modules/planning/land/property/land_property_data.dart';
 import 'package:sipged/_blocs/modules/planning/land/property/land_property_state.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
@@ -17,7 +17,7 @@ import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LandProperty extends StatefulWidget {

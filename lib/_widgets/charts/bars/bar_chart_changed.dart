@@ -18,7 +18,18 @@ enum BarChartSortType {
 class BarChartChanged extends StatefulWidget {
   final int? selectedIndex;
   final List<int>? highlightedIndexes;
+
+  /// Mantido por compatibilidade.
+  ///
+  /// Esse callback só informa seleção.
+  /// Para permitir "clicar novamente e limpar", use [onBarSelectionChanged].
   final void Function(String label)? onBarTap;
+
+  /// Novo callback recomendado.
+  ///
+  /// - Recebe o label quando uma barra é selecionada.
+  /// - Recebe null quando a mesma barra selecionada é clicada novamente.
+  final void Function(String? label)? onBarSelectionChanged;
 
   final double? widthGraphic;
   final double? heightGraphic;
@@ -45,6 +56,7 @@ class BarChartChanged extends StatefulWidget {
     this.selectedIndex,
     this.highlightedIndexes,
     this.onBarTap,
+    this.onBarSelectionChanged,
     this.widthGraphic,
     this.heightGraphic,
     this.widthBar = 60,
@@ -258,6 +270,7 @@ class _BarChartChangedState extends State<BarChartChanged> {
 
           final bool hasFilteredSeries =
               filteredSorted != null && filteredSorted.isNotEmpty;
+
           final bool hasAnyFilteredValue =
               hasFilteredSeries && filteredSorted.whereType<double>().any((v) => v > 0);
 
@@ -283,6 +296,7 @@ class _BarChartChangedState extends State<BarChartChanged> {
 
           final double maxCalculado =
           (nonNullValues.reduce(math.max) * 1.2).ceilToDouble();
+
           final double maxY = math.max(maxCalculado, 10);
 
           return BasicCard(
@@ -349,8 +363,7 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                 tooltipMargin: 2,
                                 fitInsideVertically: true,
                                 fitInsideHorizontally: true,
-                                getTooltipItem:
-                                    (group, groupIndex, rod, rodIndex) {
+                                getTooltipItem: (group, groupIndex, rod, rodIndex) {
                                   return BarTooltipItem(
                                     fmt(rod.toY),
                                     const TextStyle(
@@ -362,12 +375,33 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                 },
                               ),
                               touchCallback: (event, response) {
-                                if (event is FlTapUpEvent && response?.spot != null) {
-                                  final index = response!.spot!.touchedBarGroupIndex;
-                                  if (index >= 0 && index < labelsSorted.length) {
-                                    widget.onBarTap?.call(labelsSorted[index]);
-                                  }
+                                if (event is! FlTapUpEvent) return;
+
+                                final spot = response?.spot;
+                                if (spot == null) return;
+
+                                final sortedIndex = spot.touchedBarGroupIndex;
+
+                                if (sortedIndex < 0 ||
+                                    sortedIndex >= labelsSorted.length ||
+                                    sortedIndex >= indices.length) {
+                                  return;
                                 }
+
+                                final tappedLabel = labelsSorted[sortedIndex];
+                                final tappedOriginalIndex = indices[sortedIndex];
+
+                                final bool tappedSameSelected =
+                                    widget.selectedIndex != null &&
+                                        widget.selectedIndex == tappedOriginalIndex;
+
+                                if (tappedSameSelected) {
+                                  widget.onBarSelectionChanged?.call(null);
+                                  return;
+                                }
+
+                                widget.onBarTap?.call(tappedLabel);
+                                widget.onBarSelectionChanged?.call(tappedLabel);
                               },
                             ),
                             titlesData: FlTitlesData(
@@ -441,6 +475,7 @@ class _BarChartChangedState extends State<BarChartChanged> {
 
                               final bool isSelected =
                                   effectiveSelectedSorted == sortedIndex;
+
                               final bool isHighlighted =
                                   highlightedSorted?.contains(sortedIndex) ?? false;
 
@@ -452,7 +487,9 @@ class _BarChartChangedState extends State<BarChartChanged> {
 
                               final bool hasSomeFilter =
                                   hasFilteredSeries && hasAnyFilteredValue;
-                              final bool isInFilter = (filteredValue ?? 0.0) > 0.0;
+
+                              final bool isInFilter =
+                                  (filteredValue ?? 0.0) > 0.0;
 
                               Color color;
                               if (toY == 0) {
@@ -481,7 +518,8 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                     width: metrics.barWidth,
                                   ),
                                 ],
-                                showingTooltipIndicators: isSelected ? [0] : [],
+                                showingTooltipIndicators:
+                                isSelected ? [0] : [],
                               );
                             }).toList(),
                           ),

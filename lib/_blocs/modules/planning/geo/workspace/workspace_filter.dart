@@ -6,7 +6,7 @@ class WorkspaceFilter {
   final String sourceLayerId;
   final String sourceField;
   final String label;
-  final double? value;
+  final dynamic value;
 
   const WorkspaceFilter({
     required this.sourceItemId,
@@ -16,23 +16,57 @@ class WorkspaceFilter {
     this.value,
   });
 
+  bool get isValid {
+    return sourceItemId.trim().isNotEmpty &&
+        sourceLayerId.trim().isNotEmpty &&
+        sourceField.trim().isNotEmpty &&
+        label.trim().isNotEmpty;
+  }
+
   WorkspaceFilter copyWith({
     String? sourceItemId,
     String? sourceLayerId,
     String? sourceField,
     String? label,
-    Object? value = _sentinel,
+    dynamic value = _workspaceFilterSentinel,
   }) {
     return WorkspaceFilter(
       sourceItemId: sourceItemId ?? this.sourceItemId,
       sourceLayerId: sourceLayerId ?? this.sourceLayerId,
       sourceField: sourceField ?? this.sourceField,
       label: label ?? this.label,
-      value: identical(value, _sentinel) ? this.value : value as double?,
+      value: identical(value, _workspaceFilterSentinel) ? this.value : value,
     );
   }
 
-  static const Object _sentinel = Object();
+  Map<String, dynamic> toMap() {
+    return {
+      'sourceItemId': sourceItemId,
+      'sourceLayerId': sourceLayerId,
+      'sourceField': sourceField,
+      'label': label,
+      'value': value,
+    };
+  }
+
+  factory WorkspaceFilter.fromMap(Map<String, dynamic>? map) {
+    if (map == null) {
+      return const WorkspaceFilter(
+        sourceItemId: '',
+        sourceLayerId: '',
+        sourceField: '',
+        label: '',
+      );
+    }
+
+    return WorkspaceFilter(
+      sourceItemId: map['sourceItemId']?.toString() ?? '',
+      sourceLayerId: map['sourceLayerId']?.toString() ?? '',
+      sourceField: map['sourceField']?.toString() ?? '',
+      label: map['label']?.toString() ?? '',
+      value: map['value'],
+    );
+  }
 
   @override
   bool operator ==(Object other) {
@@ -45,11 +79,15 @@ class WorkspaceFilter {
   }
 
   @override
-  int get hashCode => Object.hash(
-    sourceItemId,
-    sourceLayerId,
-    sourceField,
-    label,
-    value,
-  );
+  int get hashCode {
+    return Object.hash(
+      sourceItemId,
+      sourceLayerId,
+      sourceField,
+      label,
+      value,
+    );
+  }
 }
+
+const Object _workspaceFilterSentinel = Object();

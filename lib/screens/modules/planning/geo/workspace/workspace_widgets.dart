@@ -26,6 +26,7 @@ class WorkspaceWidgets extends StatelessWidget {
 
     final labels = item.resolvedLabels ?? const <String>[];
     final index = labels.indexOf(filter.label);
+
     return index >= 0 ? index : null;
   }
 
@@ -36,13 +37,16 @@ class WorkspaceWidgets extends StatelessWidget {
     final index = labels.indexOf(label);
     if (index < 0) return null;
     if (index >= values.length) return null;
+
     return values[index];
   }
 
   String? _resolveCardLabel(WorkspaceFilter? filter) {
     final base = item.resolvedLabel?.trim();
+
     final sameLayer =
         filter != null && item.sourceLayerId == filter.sourceLayerId;
+
     final isExternal =
         filter != null && filter.sourceItemId != item.id && sameLayer;
 
@@ -122,6 +126,24 @@ class WorkspaceWidgets extends StatelessWidget {
     );
   }
 
+  void _handleBarSelectionChanged(
+      BuildContext context,
+      String? label,
+      ) {
+    final cubit = context.read<WorkspaceCubit>();
+
+    if (label == null || label.trim().isEmpty) {
+      cubit.clearFilter();
+      return;
+    }
+
+    cubit.toggleBarFilter(
+      itemId: item.id,
+      label: label,
+      value: _resolveTappedValue(label),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -140,12 +162,8 @@ class WorkspaceWidgets extends StatelessWidget {
               child: RepaintBoundary(
                 child: BarChartChanged(
                   selectedIndex: selectedBarIndex,
-                  onBarTap: (label) {
-                    context.read<WorkspaceCubit>().toggleBarFilter(
-                      itemId: item.id,
-                      label: label,
-                      value: _resolveTappedValue(label),
-                    );
+                  onBarSelectionChanged: (label) {
+                    _handleBarSelectionChanged(context, label);
                   },
                   chartTitle: item.resolvedTitle,
                   labels: item.resolvedLabels ?? const <String>[],

@@ -7,7 +7,7 @@ import 'package:sipged/_utils/images/image_adapter_loader.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
 import 'package:sipged/_widgets/images/carousel/photo_item.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 class PhotoThumb extends StatefulWidget {
   final PhotoItem item;

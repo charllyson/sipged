@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 class ProgressCard extends StatelessWidget {
   const ProgressCard({

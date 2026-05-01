@@ -7,7 +7,7 @@ import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';

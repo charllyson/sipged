@@ -10,14 +10,14 @@ import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measur
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_state.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
@@ -36,9 +36,9 @@ class ReportMeasurement extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final contractId = contractData.id;
+    final contractId = contractData.id?.trim();
 
-    if (contractId == null || contractId.trim().isEmpty) {
+    if (contractId == null || contractId.isEmpty) {
       return const Center(
         child: Text(
           'Salve o contrato antes de cadastrar medições.',
@@ -89,13 +89,13 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
   String get _contractSummary {
     final data = widget.contractData;
 
-    final summary = (data.summarySubjectContract ?? '').trim();
+    final summary = data.summarySubjectContract?.trim() ?? '';
     if (summary.isNotEmpty) return summary;
 
-    final number = (data.contractNumber ?? '').trim();
+    final number = data.contractNumber?.trim() ?? '';
     if (number.isNotEmpty) return 'Contrato $number';
 
-    final process = (data.processNumber ?? '').trim();
+    final process = data.processNumber?.trim() ?? '';
     if (process.isNotEmpty) return 'Processo $process';
 
     if (_contractId.isNotEmpty) return 'Contrato $_contractId';
@@ -106,10 +106,10 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
   String get _contractNumber {
     final data = widget.contractData;
 
-    final number = (data.contractNumber ?? '').trim();
+    final number = data.contractNumber?.trim() ?? '';
     if (number.isNotEmpty) return number;
 
-    final process = (data.processNumber ?? '').trim();
+    final process = data.processNumber?.trim() ?? '';
     if (process.isNotEmpty) return process;
 
     return _contractId;
@@ -169,7 +169,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         final surname = (meta['surname'] ?? '').toString().trim();
 
         final composed = [name, surname]
-            .where((e) => e.trim().isNotEmpty)
+            .where((item) => item.trim().isNotEmpty)
             .join(' ')
             .trim();
 
@@ -189,45 +189,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     return 'Usuário';
   }
 
-  List<String> _contractNotificationRecipients({
-    required String? currentUserId,
-  }) {
-    final current = currentUserId?.trim();
-
-    final ids = <String>{};
-
-    for (final entry in widget.contractData.permissionContractId.entries) {
-      final userId = entry.key.trim();
-      if (userId.isEmpty) continue;
-
-      final perms = entry.value;
-
-      final canRead = perms['read'] == true ||
-          perms['view'] == true ||
-          perms['create'] == true ||
-          perms['edit'] == true ||
-          perms['update'] == true ||
-          perms['delete'] == true ||
-          perms['admin'] == true ||
-          perms['owner'] == true;
-
-      if (!canRead) continue;
-      if (current != null && current.isNotEmpty && userId == current) continue;
-
-      ids.add(userId);
-    }
-
-    for (final userId in widget.contractData.participantsInfo.keys) {
-      final clean = userId.trim();
-      if (clean.isEmpty) continue;
-      if (current != null && current.isNotEmpty && clean == current) continue;
-
-      ids.add(clean);
-    }
-
-    return ids.toList();
-  }
-
   Future<void> _notify({
     required String title,
     String? subtitle,
@@ -235,51 +196,40 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     NotificationType type = NotificationType.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
+    bool sendPush = false,
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    final currentUserId = currentUser?.uid.trim();
+    if (!mounted) return;
+
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
 
-    final notification = NotificationData(
+    await NotificationContract.show(
+      context: context,
+      contract: widget.contractData,
       title: title,
       subtitle: subtitle,
       details: details ?? _contractSummary,
       leadingLabel: 'Medição',
+      module: 'contracts_measurement',
       type: type,
       duration: duration,
-      persistInFirebase: saveInBell,
-      createdBy: currentUserId,
+      saveInBell: saveInBell,
+      sendPush: sendPush,
+      actorId: currentUserId,
+      actorName: actorName,
+
+      // ✅ Inclui também o usuário atual nas notificações salvas e remote.
+      includeCurrentUser: true,
+
       extra: <String, dynamic>{
-        'module': 'contracts_measurement',
+        'route': 'contracts_measurement',
         'contractId': _contractId,
         'contractNumber': _contractNumber,
-        'contractSummary': _contractSummary,
         'contractTitle': _contractSummary,
-        'actorId': currentUserId,
-        'actorName': actorName,
+        'contractSummary': _contractSummary,
         ...extra,
       },
-    );
-
-    if (!saveInBell) {
-      await context.read<NotificationCubit>().show(notification);
-      return;
-    }
-
-    final recipients = _contractNotificationRecipients(
-      currentUserId: currentUserId,
-    );
-
-    if (recipients.isEmpty) {
-      await context.read<NotificationCubit>().show(notification);
-      return;
-    }
-
-    await context.read<NotificationCubit>().showToUsers(
-      notification,
-      userIds: recipients,
-      alsoShowLocalToast: true,
     );
   }
 
@@ -358,7 +308,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
   int _nextAvailableOrder(List<ReportMeasurementData> list) {
     final existing = list
-        .map((e) => e.order ?? 0)
+        .map((item) => item.order ?? 0)
         .where((order) => order > 0)
         .toSet();
 
@@ -487,6 +437,14 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         title: 'Arquivo removido',
         subtitle: attachment.label,
         type: NotificationType.warning,
+        saveInBell: true,
+        sendPush: true,
+        extra: <String, dynamic>{
+          'action': 'measurement_attachment_deleted',
+          'measurementId': measurement.id,
+          'measurementOrder': measurement.order,
+          'attachmentLabel': attachment.label,
+        },
       );
     } catch (e) {
       await _notify(
@@ -656,6 +614,14 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   title: 'Arquivo anexado',
                                   subtitle: attachment.label,
                                   type: NotificationType.success,
+                                  saveInBell: true,
+                                  sendPush: true,
+                                  extra: <String, dynamic>{
+                                    'action': 'measurement_attachment_created',
+                                    'measurementId': measurement.id,
+                                    'measurementOrder': measurement.order,
+                                    'attachmentLabel': attachment.label,
+                                  },
                                 );
                               } catch (e) {
                                 await _notify(
@@ -718,11 +684,14 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   'Boletim ${data.order ?? '-'} salvo por $actorName.',
                                   type: NotificationType.success,
                                   saveInBell: true,
+                                  sendPush: true,
                                   extra: <String, dynamic>{
                                     'action': isNew
                                         ? 'measurement_created'
                                         : 'measurement_updated',
+                                    'measurementId': data.id,
                                     'measurementOrder': data.order,
+                                    'measurementProcess': data.numberprocess,
                                     'measurementValue': data.value,
                                     'measurementDate':
                                     data.date?.toIso8601String(),
@@ -800,6 +769,15 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   title: 'Anexo renomeado',
                                   subtitle: newItem.label,
                                   type: NotificationType.success,
+                                  saveInBell: true,
+                                  sendPush: true,
+                                  extra: <String, dynamic>{
+                                    'action': 'measurement_attachment_renamed',
+                                    'measurementId': measurement.id,
+                                    'measurementOrder': measurement.order,
+                                    'oldAttachmentLabel': oldItem.label,
+                                    'newAttachmentLabel': newItem.label,
+                                  },
                                 );
 
                                 return true;
@@ -848,7 +826,8 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
                             if (!mounted) return;
 
-                            final deletedMeasurement = measurements.firstWhere(
+                            final deletedMeasurement =
+                            measurements.firstWhere(
                                   (item) => item.id == id,
                               orElse: () => ReportMeasurementData(id: id),
                             );
@@ -872,11 +851,17 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                     : 'O boletim foi removido por $actorName.',
                                 type: NotificationType.warning,
                                 saveInBell: true,
+                                sendPush: true,
                                 extra: <String, dynamic>{
                                   'action': 'measurement_deleted',
                                   'measurementId': id,
-                                  'measurementOrder':
-                                  deletedMeasurement.order,
+                                  'measurementOrder': deletedMeasurement.order,
+                                  'measurementProcess':
+                                  deletedMeasurement.numberprocess,
+                                  'measurementValue':
+                                  deletedMeasurement.value,
+                                  'measurementDate': deletedMeasurement.date
+                                      ?.toIso8601String(),
                                 },
                               );
                             } catch (e) {

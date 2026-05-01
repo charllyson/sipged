@@ -9,9 +9,9 @@ import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart'
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
 import 'package:sipged/_blocs/system/module/module_permission.dart' as perms;
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/user/user_permission.dart' as roles;
 

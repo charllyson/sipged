@@ -18,9 +18,9 @@ import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_scope_dat
 import 'package:sipged/_blocs/system/map/map_cubit.dart';
 import 'package:sipged/_blocs/system/map/map_data.dart';
 import 'package:sipged/_blocs/system/map/map_state.dart';
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 import 'package:sipged/_blocs/system/panels/push/push_panel_data.dart';
 import 'package:sipged/_blocs/system/panels/push/push_panels_controller.dart';
@@ -325,6 +325,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
     return Object.hashAll([
       genericState.visualRevision,
       mapData.selectedFeatureKey,
+      mapData.workspaceFilterToken,
       Object.hashAll(mapData.orderedActiveLayerIdsForMap),
       Object.hashAll(
         mapData.orderedActiveLayerIdsForMap.map((layerId) {
@@ -521,6 +522,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
               _pendingCatalogPlacement = null;
             });
 
+            context.read<MapCubit>().clearWorkspaceFilter();
             if (selectedId == null || selectedId.trim().isEmpty) return;
 
             final layersCubit = context.read<LayerCubit>();

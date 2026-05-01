@@ -4,7 +4,7 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 import 'package:sipged/_services/map/map_box/mapbox_data.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/map/base/mapbox/map_mapbox_layer.dart';
 
 class ActiveOaesMapMapbox extends StatelessWidget {

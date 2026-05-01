@@ -12,7 +12,8 @@ import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
@@ -25,7 +26,6 @@ import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_data.dart';
 
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/contract_bell_notifier.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_1_identificacao_etp.dart';
 import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_2_motivacao_obj_requisitos.dart';
@@ -70,6 +70,20 @@ class _EtpPageState extends State<EtpPage>
   bool get _isEditable => !widget.readOnly;
 
   String get _contractId => widget.contractId.trim();
+
+  String get _currentUserId {
+    return FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+  }
+
+  List<String> get _defaultPushTargets {
+    final uid = _currentUserId;
+
+    if (uid.isEmpty) {
+      return const <String>[];
+    }
+
+    return <String>[uid];
+  }
 
   ProcessData get _effectiveContract {
     if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
@@ -152,13 +166,15 @@ class _EtpPageState extends State<EtpPage>
     NotificationType type = NotificationType.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
+    bool sendPush = false,
+    Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
 
-    await ContractBellNotifier.show(
+    await NotificationContract.show(
       context: context,
       contract: _effectiveContract,
       title: title,
@@ -169,9 +185,16 @@ class _EtpPageState extends State<EtpPage>
       type: type,
       duration: duration,
       saveInBell: saveInBell,
+      sendPush: sendPush,
+      targetUserIds: targetUserIds,
       actorId: user?.uid,
       actorName: _currentActorName(),
-      extra: extra,
+      extra: <String, dynamic>{
+        ...extra,
+        'route': extra['route'] ?? 'contracts_hiring_etp',
+        'contractId': _effectiveContract.id,
+        'contractSummary': _effectiveContract.displaySummary,
+      },
     );
   }
 
@@ -213,15 +236,24 @@ class _EtpPageState extends State<EtpPage>
 
       if (!mounted) return false;
 
+      _progressBloc.bindToStage(
+        contractId: _contractId,
+        collectionName: 'etp',
+      );
+
       await _notify(
         title: 'ETP atualizado',
         subtitle: 'Alterações salvas por ${_currentActorName()}.',
         details: _effectiveContract.displaySummary,
         type: NotificationType.success,
         saveInBell: true,
+        sendPush: true,
+        targetUserIds: _defaultPushTargets,
         extra: <String, dynamic>{
           'action': 'etp_saved',
           'etpId': cubit.state.etpId,
+          'contractId': _contractId,
+          'route': 'contracts_hiring_etp',
         },
       );
 
@@ -295,9 +327,14 @@ class _EtpPageState extends State<EtpPage>
         details: _effectiveContract.displaySummary,
         type: NotificationType.success,
         saveInBell: true,
+        sendPush: true,
+        targetUserIds: _defaultPushTargets,
         extra: <String, dynamic>{
           'action': 'etp_approved',
           'etpId': etpId,
+          'contractId': _contractId,
+          'route': 'contracts_hiring_etp',
+          'nextStage': 'tr',
         },
       );
     } catch (e) {
@@ -352,9 +389,13 @@ class _EtpPageState extends State<EtpPage>
         details: _effectiveContract.displaySummary,
         type: NotificationType.success,
         saveInBell: true,
+        sendPush: true,
+        targetUserIds: _defaultPushTargets,
         extra: <String, dynamic>{
           'action': 'etp_approval_updated',
           'etpId': etpId,
+          'contractId': _contractId,
+          'route': 'contracts_hiring_etp',
         },
       );
     } catch (e) {
@@ -411,8 +452,10 @@ class _EtpPageState extends State<EtpPage>
           builder: (context, state) {
             final pstate = context.watch<ProgressCubit>().state;
 
-            final locked =
-                state.loading || state.saving || pstate.loading || _loadingContract;
+            final locked = state.loading ||
+                state.saving ||
+                pstate.loading ||
+                _loadingContract;
 
             final msg = state.loading
                 ? 'Sincronizando os dados...'
@@ -518,9 +561,7 @@ class _EtpPageState extends State<EtpPage>
                         icon: Icons.description_outlined,
                         busy: state.saving,
                         approved: pstate.approved,
-                        onSave: () async {
-                          await _saveOnly();
-                        },
+                        onSave: _saveOnly,
                         onSaveAndNext: _saveApproveAndNext,
                         onUpdateApproved: _updateApproved,
                       );

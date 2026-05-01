@@ -29,16 +29,81 @@ class NotificationCubit extends Cubit<NotificationState> {
     return 'local_notification_$_localCounter';
   }
 
+  Future<void> registerPushToken({
+    required String userId,
+    required String token,
+    required String platform,
+  }) async {
+    final cleanUserId = userId.trim();
+    final cleanToken = token.trim();
+    final cleanPlatform = platform.trim();
+
+    if (cleanUserId.isEmpty || cleanToken.isEmpty) return;
+
+    try {
+      await _repository.savePushToken(
+        userId: cleanUserId,
+        token: cleanToken,
+        platform: cleanPlatform.isEmpty ? 'unknown' : cleanPlatform,
+      );
+
+      emit(
+        state.copyWith(
+          clearError: true,
+        ),
+      );
+    } catch (e) {
+      emit(
+        state.copyWith(
+          error: 'Erro ao registrar token remote: $e',
+        ),
+      );
+    }
+  }
+
+  Future<void> removeCurrentPushToken({
+    required String userId,
+    required String token,
+    String reason = 'disabled-by-client',
+  }) async {
+    final cleanUserId = userId.trim();
+    final cleanToken = token.trim();
+
+    if (cleanUserId.isEmpty || cleanToken.isEmpty) return;
+
+    try {
+      await _repository.disablePushToken(
+        userId: cleanUserId,
+        token: cleanToken,
+        reason: reason,
+      );
+
+      emit(
+        state.copyWith(
+          clearError: true,
+        ),
+      );
+    } catch (e) {
+      emit(
+        state.copyWith(
+          error: 'Erro ao remover token remote: $e',
+        ),
+      );
+    }
+  }
+
   Future<void> show(
       NotificationData data, {
         String? userId,
         bool saveInFirebase = false,
+        bool sendPush = false,
       }) async {
     final resolvedId = data.id ?? _nextLocalId();
 
     final notification = data.copyWith(
       id: resolvedId,
       createdAt: data.createdAt ?? DateTime.now(),
+      sendPush: sendPush || data.sendPush,
     );
 
     if (saveInFirebase || notification.persistInFirebase) {
@@ -48,6 +113,7 @@ class NotificationCubit extends Cubit<NotificationState> {
         await _repository.createUserNotification(
           userId: cleanUserId,
           data: notification,
+          sendPush: sendPush || notification.sendPush,
         );
       } else {
         await _repository.createGlobalNotification(
@@ -63,6 +129,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       NotificationData data, {
         required Iterable<String> userIds,
         bool alsoShowLocalToast = true,
+        bool sendPush = false,
       }) async {
     final cleanUserIds = userIds
         .map((e) => e.trim())
@@ -75,6 +142,7 @@ class NotificationCubit extends Cubit<NotificationState> {
         final localNotification = data.copyWith(
           id: data.id ?? _nextLocalId(),
           createdAt: data.createdAt ?? DateTime.now(),
+          sendPush: false,
         );
 
         _showLocal(localNotification);
@@ -89,11 +157,13 @@ class NotificationCubit extends Cubit<NotificationState> {
       id: resolvedId,
       createdAt: data.createdAt ?? DateTime.now(),
       persistInFirebase: true,
+      sendPush: sendPush || data.sendPush,
     );
 
     await _repository.createUserNotifications(
       userIds: cleanUserIds,
       data: notification,
+      sendPush: sendPush || notification.sendPush,
     );
 
     if (alsoShowLocalToast) {

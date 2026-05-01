@@ -4,8 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/contract_bell_notifier.dart';
 
+import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_utils/validates/sipged_validation.dart';
@@ -15,7 +15,7 @@ import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
@@ -68,6 +68,16 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
   bool get _isEditable => !widget.readOnly;
 
   String get _contractId => widget.contractId.trim();
+
+  String get _currentUserId {
+    return FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+  }
+
+  List<String> get _defaultPushTargets {
+    final uid = _currentUserId;
+    if (uid.isEmpty) return const <String>[];
+    return <String>[uid];
+  }
 
   ProcessData get _effectiveContract {
     final currentId = (_contract.id ?? '').trim();
@@ -157,13 +167,15 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
     NotificationType type = NotificationType.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
+    bool sendPush = false,
+    Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
 
-    await ContractBellNotifier.show(
+    await NotificationContract.show(
       context: context,
       contract: _effectiveContract,
       title: title,
@@ -174,9 +186,16 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
       type: type,
       duration: duration,
       saveInBell: saveInBell,
+      sendPush: sendPush,
+      targetUserIds: targetUserIds,
       actorId: user?.uid,
       actorName: _currentActorName(),
-      extra: extra,
+      extra: <String, dynamic>{
+        ...extra,
+        'route': extra['route'] ?? 'contracts_hiring_arquivamento',
+        'contractId': _effectiveContract.id,
+        'contractSummary': _effectiveContract.displaySummary,
+      },
     );
   }
 
@@ -227,6 +246,11 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
       if (!mounted) return false;
 
+      _progressBloc.bindToStage(
+        contractId: contractId,
+        collectionName: 'arquivamento',
+      );
+
       final actorName = _currentActorName();
 
       await _notify(
@@ -235,9 +259,13 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
         details: _effectiveContract.displaySummary,
         type: NotificationType.success,
         saveInBell: true,
+        sendPush: true,
+        targetUserIds: _defaultPushTargets,
         extra: <String, dynamic>{
           'action': 'arquivamento_saved',
           'taId': cubit.state.taId,
+          'contractId': contractId,
+          'route': 'contracts_hiring_arquivamento',
         },
       );
 
@@ -315,9 +343,13 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
         details: _effectiveContract.displaySummary,
         type: NotificationType.success,
         saveInBell: true,
+        sendPush: true,
+        targetUserIds: _defaultPushTargets,
         extra: <String, dynamic>{
           'action': 'arquivamento_approved',
           'taId': taId,
+          'contractId': contractId,
+          'route': 'contracts_hiring_arquivamento',
         },
       );
     } catch (e) {
@@ -381,9 +413,13 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
         details: _effectiveContract.displaySummary,
         type: NotificationType.success,
         saveInBell: true,
+        sendPush: true,
+        targetUserIds: _defaultPushTargets,
         extra: <String, dynamic>{
           'action': 'arquivamento_approval_updated',
           'taId': taId,
+          'contractId': contractId,
+          'route': 'contracts_hiring_arquivamento',
         },
       );
     } catch (e) {

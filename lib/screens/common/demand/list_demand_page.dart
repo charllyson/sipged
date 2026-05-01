@@ -21,7 +21,7 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/buttons/expanded_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/map/search/search_widget.dart';
 import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
@@ -413,7 +413,10 @@ class _ListDemandPageState extends State<ListDemandPage> {
     if (currentUser == null) {
       return const Scaffold(
         backgroundColor: Colors.white,
-        body: LoadingTreeDots(),
+        body: LoadingTreeDots(
+          color: Colors.blue,
+          message: Text('Carregando contratos ...'),
+        ),
       );
     }
 
@@ -458,7 +461,10 @@ class _ListDemandPageState extends State<ListDemandPage> {
                     ),
                     Expanded(
                       child: _loading && _cachedByStatus.isEmpty
-                          ? const LoadingTreeDots()
+                          ? const LoadingTreeDots(
+                        color: Colors.blue,
+                        message: Text('Carregando contratos ...'),
+                      )
                           : LayoutBuilder(
                         builder: (context, constraints) {
                           return ListView(

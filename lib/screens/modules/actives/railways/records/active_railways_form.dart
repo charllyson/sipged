@@ -6,9 +6,9 @@ import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_widgets/input/text_field_change.dart';
 

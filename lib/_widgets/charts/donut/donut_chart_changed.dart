@@ -127,6 +127,19 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
     return isSelectedProp || _touchedIndex == index;
   }
 
+  DonutLegendPosition _resolveEffectiveLegendPosition(double maxWidth) {
+    if (!_useLegend) return DonutLegendPosition.hidden;
+
+    // Em telas mais estreitas, força a legenda para baixo,
+    // evitando disputa de espaço com o gráfico.
+    if (widget.legendPosition == DonutLegendPosition.right &&
+        maxWidth < 620) {
+      return DonutLegendPosition.bottom;
+    }
+
+    return widget.legendPosition;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -168,10 +181,13 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
               ? constraints.maxHeight
               : resolvedCardHeight;
 
+          final effectiveLegendPosition =
+          _resolveEffectiveLegendPosition(maxWidth);
+
           final metrics = DonutChartMetrics.resolve(
             maxWidth: maxWidth,
             maxHeight: maxHeight,
-            legendPosition: widget.legendPosition,
+            legendPosition: effectiveLegendPosition,
             showPercentageOutside: widget.showPercentageOutside,
             hasLegend: _useLegend,
             itemCount: widget.labels.length,
@@ -192,8 +208,8 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
               ),
             );
 
-            final Widget legendShimmerBottom =
-            _useLegend && widget.legendPosition == DonutLegendPosition.bottom
+            final Widget legendShimmerBottom = _useLegend &&
+                effectiveLegendPosition == DonutLegendPosition.bottom
                 ? SizedBox(
               height: metrics.legendBottomReservedHeight,
               child: ClipRect(
@@ -223,8 +239,8 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
             )
                 : const SizedBox.shrink();
 
-            final Widget legendShimmerRight =
-            _useLegend && widget.legendPosition == DonutLegendPosition.right
+            final Widget legendShimmerRight = _useLegend &&
+                effectiveLegendPosition == DonutLegendPosition.right
                 ? SizedBox(
               width: metrics.legendRightWidth,
               height: metrics.chartHeight,
@@ -250,17 +266,20 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
             )
                 : const SizedBox.shrink();
 
-            final content = widget.legendPosition == DonutLegendPosition.right
+            final content =
+            effectiveLegendPosition == DonutLegendPosition.right
                 ? Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(
-                  width: metrics.chartWidth,
-                  height: metrics.chartHeight,
+                Expanded(
                   child: Center(child: chartShimmer),
                 ),
                 if (_useLegend) SizedBox(width: metrics.legendGap),
-                if (_useLegend) legendShimmerRight,
+                if (_useLegend)
+                  SizedBox(
+                    width: metrics.legendRightWidth,
+                    child: legendShimmerRight,
+                  ),
               ],
             )
                 : Column(
@@ -271,7 +290,8 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
                     child: Center(child: chartShimmer),
                   ),
                 ),
-                if (_useLegend) SizedBox(height: metrics.chartLegendGap),
+                if (_useLegend)
+                  SizedBox(height: metrics.chartLegendGap),
                 if (_useLegend) legendShimmerBottom,
               ],
             );
@@ -462,17 +482,19 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
             ),
           );
 
-          final content = widget.legendPosition == DonutLegendPosition.right
+          final content = effectiveLegendPosition == DonutLegendPosition.right
               ? Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(
-                width: metrics.chartWidth,
-                height: metrics.chartHeight,
+              Expanded(
                 child: Center(child: chart),
               ),
               if (_useLegend) SizedBox(width: metrics.legendGap),
-              if (_useLegend) legendRight,
+              if (_useLegend)
+                SizedBox(
+                  width: metrics.legendRightWidth,
+                  child: legendRight,
+                ),
             ],
           )
               : Column(

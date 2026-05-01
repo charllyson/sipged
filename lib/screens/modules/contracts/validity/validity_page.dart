@@ -8,18 +8,16 @@ import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
+import 'package:sipged/_services/pdf/pdf_preview.dart';
+import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/timeline/timeline_class.dart';
-import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
-import 'package:sipged/_services/pdf/pdf_preview.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
-
-import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'validity_form_section.dart';
 import 'validity_table_section.dart';
@@ -35,9 +33,19 @@ class ValidityPage extends StatelessWidget {
   String get _contractId => contractData.id?.trim() ?? '';
 
   String get _contractTitle {
+    final summary = contractData.summarySubjectContract?.trim() ?? '';
+    if (summary.isNotEmpty) return summary;
+
+    final number = contractData.contractNumber?.trim() ?? '';
+    if (number.isNotEmpty) return 'Contrato $number';
+
+    final process = contractData.processNumber?.trim() ?? '';
+    if (process.isNotEmpty) return 'Processo $process';
+
     final id = _contractId;
-    if (id.isEmpty) return 'Contrato sem identificação';
-    return 'Contrato $id';
+    if (id.isNotEmpty) return 'Contrato $id';
+
+    return 'Contrato sem identificação';
   }
 
   String _suggestLabelFromName(ValidityData v, String original) {
@@ -113,10 +121,7 @@ class ValidityPage extends StatelessWidget {
           perms['owner'] == true;
 
       if (!canRead) continue;
-
-      if (current != null && current.isNotEmpty && userId == current) {
-        continue;
-      }
+      if (current != null && current.isNotEmpty && userId == current) continue;
 
       ids.add(userId);
     }
@@ -124,10 +129,7 @@ class ValidityPage extends StatelessWidget {
     for (final userId in contractData.participantsInfo.keys) {
       final clean = userId.trim();
       if (clean.isEmpty) continue;
-
-      if (current != null && current.isNotEmpty && clean == current) {
-        continue;
-      }
+      if (current != null && current.isNotEmpty && clean == current) continue;
 
       ids.add(clean);
     }
@@ -136,57 +138,47 @@ class ValidityPage extends StatelessWidget {
   }
 
   Future<void> _notify({
-    required NotificationCubit notificationCubit,
+    required BuildContext context,
     required String title,
     String? subtitle,
     String? details,
     NotificationType type = NotificationType.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
+    bool sendPush = false,
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    final currentUserId = currentUser?.uid.trim();
+    if (!context.mounted) return;
+
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
-
-    final notification = NotificationData(
-      title: title,
-      subtitle: subtitle,
-      details: details ?? _contractTitle,
-      leadingLabel: 'Validade',
-      type: type,
-      duration: duration,
-      persistInFirebase: saveInBell,
-      createdBy: currentUserId,
-      extra: <String, dynamic>{
-        'module': 'contracts_validity',
-        'contractId': _contractId,
-        'contractTitle': _contractTitle,
-        'contractSummary': _contractTitle,
-        'actorId': currentUserId,
-        'actorName': actorName,
-        ...extra,
-      },
-    );
-
-    if (!saveInBell) {
-      await notificationCubit.show(notification);
-      return;
-    }
 
     final recipients = _contractNotificationRecipients(
       currentUserId: currentUserId,
     );
 
-    if (recipients.isEmpty) {
-      await notificationCubit.show(notification);
-      return;
-    }
-
-    await notificationCubit.showToUsers(
-      notification,
-      userIds: recipients,
-      alsoShowLocalToast: true,
+    await NotificationContract.show(
+      context: context,
+      contract: contractData,
+      title: title,
+      subtitle: subtitle,
+      details: details ?? _contractTitle,
+      leadingLabel: 'Validade',
+      module: 'contracts_validity',
+      type: type,
+      duration: duration,
+      saveInBell: saveInBell,
+      sendPush: sendPush,
+      actorId: currentUserId,
+      actorName: actorName,
+      targetUserIds: recipients,
+      extra: <String, dynamic>{
+        'route': 'contracts_validity',
+        'contractId': _contractId,
+        'contractTitle': _contractTitle,
+        'contractSummary': _contractTitle,
+        ...extra,
+      },
     );
   }
 
@@ -207,7 +199,6 @@ class ValidityPage extends StatelessWidget {
       child: BlocBuilder<ValidityCubit, ValidityState>(
         builder: (context, state) {
           final cubit = context.read<ValidityCubit>();
-          final notificationCubit = context.read<NotificationCubit>();
 
           final isBusy = state.isLoading || state.isSaving;
           const bool isEditable = true;
@@ -217,7 +208,7 @@ class ValidityPage extends StatelessWidget {
 
             if (v == null) {
               await _notify(
-                notificationCubit: notificationCubit,
+                context: context,
                 title: 'Salve a validade primeiro',
                 subtitle: 'Depois você poderá anexar arquivos.',
                 type: NotificationType.info,
@@ -234,6 +225,7 @@ class ValidityPage extends StatelessWidget {
               final suggestion = _suggestLabelFromName(v, originalName);
               final label = await askLabelDialog(context, suggestion);
 
+              if (!context.mounted) return;
               if (label == null) return;
 
               await cubit.addAttachmentFromBytes(
@@ -242,15 +234,27 @@ class ValidityPage extends StatelessWidget {
                 customLabel: label,
               );
 
+              if (!context.mounted) return;
+
               await _notify(
-                notificationCubit: notificationCubit,
+                context: context,
                 title: 'Arquivo anexado',
                 subtitle: label,
                 type: NotificationType.success,
+                saveInBell: true,
+                sendPush: true,
+                extra: <String, dynamic>{
+                  'action': 'validity_attachment_created',
+                  'validityId': v.id,
+                  'orderNumber': v.orderNumber,
+                  'attachmentLabel': label,
+                },
               );
             } catch (e) {
+              if (!context.mounted) return;
+
               await _notify(
-                notificationCubit: notificationCubit,
+                context: context,
                 title: 'Erro ao anexar arquivo',
                 subtitle: '$e',
                 type: NotificationType.error,
@@ -266,6 +270,7 @@ class ValidityPage extends StatelessWidget {
             final url = att.url;
 
             if (url.isEmpty) return;
+            if (!context.mounted) return;
 
             await showDialog<void>(
               context: context,
@@ -280,6 +285,7 @@ class ValidityPage extends StatelessWidget {
           Future<void> handleDeleteAttachment(int index) async {
             if (index < 0 || index >= state.attachments.length) return;
 
+            final selected = state.selectedValidity;
             final attachment = state.attachments[index];
 
             final ok = await confirmDialog(
@@ -287,21 +293,184 @@ class ValidityPage extends StatelessWidget {
               'Deseja remover este arquivo?',
             );
 
+            if (!context.mounted) return;
             if (!ok) return;
 
             try {
               await cubit.deleteAttachmentAt(index);
 
+              if (!context.mounted) return;
+
               await _notify(
-                notificationCubit: notificationCubit,
+                context: context,
                 title: 'Arquivo removido',
                 subtitle: attachment.label,
                 type: NotificationType.warning,
+                saveInBell: true,
+                sendPush: true,
+                extra: <String, dynamic>{
+                  'action': 'validity_attachment_deleted',
+                  'validityId': selected?.id,
+                  'orderNumber': selected?.orderNumber,
+                  'attachmentLabel': attachment.label,
+                },
               );
             } catch (e) {
+              if (!context.mounted) return;
+
               await _notify(
-                notificationCubit: notificationCubit,
+                context: context,
                 title: 'Erro ao remover arquivo',
+                subtitle: '$e',
+                type: NotificationType.error,
+                duration: const Duration(seconds: 6),
+              );
+            }
+          }
+
+          Future<void> handleSaveOrUpdate() async {
+            final selectedBeforeSave = state.selectedValidity;
+            final isNew = selectedBeforeSave?.id == null;
+
+            final ok = await confirmDialog(
+              context,
+              'Deseja salvar esta validade?',
+            );
+
+            if (!context.mounted) return;
+            if (!ok) return;
+
+            try {
+              await cubit.saveSelected();
+
+              if (!context.mounted) return;
+
+              final actorName = _resolveActorName(
+                FirebaseAuth.instance.currentUser?.uid,
+              );
+
+              await _notify(
+                context: context,
+                title: isNew ? 'Validade criada' : 'Validade atualizada',
+                subtitle: isNew
+                    ? 'Ordem salva por $actorName.'
+                    : 'Ordem atualizada por $actorName.',
+                type: NotificationType.success,
+                saveInBell: true,
+                sendPush: true,
+                extra: <String, dynamic>{
+                  'action': isNew ? 'validity_created' : 'validity_updated',
+                  'validityId': selectedBeforeSave?.id,
+                  'orderNumber': selectedBeforeSave?.orderNumber,
+                  'orderType': selectedBeforeSave?.ordertype,
+                  'orderDate': selectedBeforeSave?.orderdate?.toIso8601String(),
+                },
+              );
+            } catch (e) {
+              if (!context.mounted) return;
+
+              await _notify(
+                context: context,
+                title: 'Erro ao salvar validade',
+                subtitle: '$e',
+                type: NotificationType.error,
+                duration: const Duration(seconds: 6),
+              );
+            }
+          }
+
+          Future<bool> handleRenamePersistAttachment({
+            required int index,
+            required Attachment oldItem,
+            required Attachment newItem,
+          }) async {
+            final selected = state.selectedValidity;
+
+            try {
+              await cubit.renameAttachment(
+                index,
+                newItem.label,
+              );
+
+              if (!context.mounted) return false;
+
+              await _notify(
+                context: context,
+                title: 'Anexo renomeado',
+                subtitle: newItem.label,
+                type: NotificationType.success,
+                saveInBell: true,
+                sendPush: true,
+                extra: <String, dynamic>{
+                  'action': 'validity_attachment_renamed',
+                  'validityId': selected?.id,
+                  'orderNumber': selected?.orderNumber,
+                  'oldAttachmentLabel': oldItem.label,
+                  'newAttachmentLabel': newItem.label,
+                },
+              );
+
+              return true;
+            } catch (e) {
+              if (!context.mounted) return false;
+
+              await _notify(
+                context: context,
+                title: 'Falha ao renomear anexo',
+                subtitle: '$e',
+                type: NotificationType.error,
+                duration: const Duration(seconds: 6),
+              );
+
+              return false;
+            }
+          }
+
+          Future<void> handleDeleteValidity(String id) async {
+            final ok = await confirmDialog(
+              context,
+              'Deseja apagar esta validade?',
+            );
+
+            if (!context.mounted) return;
+            if (!ok) return;
+
+            final deleted = state.validities.firstWhere(
+                  (item) => item.id == id,
+              orElse: () => ValidityData(id: id),
+            );
+
+            try {
+              await cubit.deleteValidity(id);
+
+              if (!context.mounted) return;
+
+              final actorName = _resolveActorName(
+                FirebaseAuth.instance.currentUser?.uid,
+              );
+
+              await _notify(
+                context: context,
+                title: 'Validade apagada',
+                subtitle:
+                'Ordem ${deleted.orderNumber ?? '-'} removida por $actorName.',
+                type: NotificationType.warning,
+                saveInBell: true,
+                sendPush: true,
+                extra: <String, dynamic>{
+                  'action': 'validity_deleted',
+                  'validityId': id,
+                  'orderNumber': deleted.orderNumber,
+                  'orderType': deleted.ordertype,
+                  'orderDate': deleted.orderdate?.toIso8601String(),
+                },
+              );
+            } catch (e) {
+              if (!context.mounted) return;
+
+              await _notify(
+                context: context,
+                title: 'Erro ao apagar validade',
                 subtitle: '$e',
                 type: NotificationType.error,
                 duration: const Duration(seconds: 6),
@@ -332,88 +501,12 @@ class ValidityPage extends StatelessWidget {
                             onChangedOrderType: cubit.updateOrderType,
                             onChangedOrderDate: cubit.updateOrderDate,
                             onClear: cubit.createNewValidity,
-                            onSaveOrUpdate: () async {
-                              final selected = state.selectedValidity;
-                              final isNew = selected?.id == null;
-
-                              final ok = await confirmDialog(
-                                context,
-                                'Deseja salvar esta validade?',
-                              );
-
-                              if (!ok) return;
-
-                              try {
-                                await cubit.saveSelected();
-
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
-                                );
-
-                                await _notify(
-                                  notificationCubit: notificationCubit,
-                                  title: isNew
-                                      ? 'Validade criada'
-                                      : 'Validade atualizada',
-                                  subtitle: isNew
-                                      ? 'Ordem salva por $actorName.'
-                                      : 'Ordem atualizada por $actorName.',
-                                  type: NotificationType.success,
-                                  saveInBell: true,
-                                  extra: <String, dynamic>{
-                                    'action': isNew
-                                        ? 'validity_created'
-                                        : 'validity_updated',
-                                    'orderNumber': selected?.orderNumber,
-                                    'orderType': selected?.ordertype,
-                                    'orderDate':
-                                    selected?.orderdate?.toIso8601String(),
-                                  },
-                                );
-                              } catch (e) {
-                                await _notify(
-                                  notificationCubit: notificationCubit,
-                                  title: 'Erro ao salvar validade',
-                                  subtitle: '$e',
-                                  type: NotificationType.error,
-                                  duration: const Duration(seconds: 6),
-                                );
-                              }
-                            },
+                            onSaveOrUpdate: handleSaveOrUpdate,
                             onAddAttachment: handleAddAttachment,
                             onDeleteAttachment: handleDeleteAttachment,
                             onTapAttachment: handleOpenAttachment,
-                            onRenamePersistAttachment: ({
-                              required int index,
-                              required Attachment oldItem,
-                              required Attachment newItem,
-                            }) async {
-                              try {
-                                await cubit.renameAttachment(
-                                  index,
-                                  newItem.label,
-                                );
-
-                                await _notify(
-                                  notificationCubit: notificationCubit,
-                                  title: 'Anexo renomeado',
-                                  subtitle: newItem.label,
-                                  type: NotificationType.success,
-                                );
-
-                                return true;
-                              } catch (e) {
-                                await _notify(
-                                  notificationCubit: notificationCubit,
-                                  title: 'Falha ao renomear anexo',
-                                  subtitle: '$e',
-                                  type: NotificationType.error,
-                                  duration: const Duration(seconds: 6),
-                                );
-
-                                return false;
-                              }
-                            },
+                            onRenamePersistAttachment:
+                            handleRenamePersistAttachment,
                           ),
                           const SectionTitle(
                             text: 'Validades cadastradas no sistema',
@@ -422,52 +515,7 @@ class ValidityPage extends StatelessWidget {
                             validities: state.validities,
                             selectedItem: state.selectedValidity,
                             onTapItem: cubit.selectValidity,
-                            onDelete: (id) async {
-                              final ok = await confirmDialog(
-                                context,
-                                'Deseja apagar esta validade?',
-                              );
-
-                              if (!ok) return;
-
-                              final deleted = state.validities.firstWhere(
-                                    (item) => item.id == id,
-                                orElse: () => ValidityData(id: id),
-                              );
-
-                              try {
-                                await cubit.deleteValidity(id);
-
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
-                                );
-
-                                await _notify(
-                                  notificationCubit: notificationCubit,
-                                  title: 'Validade apagada',
-                                  subtitle:
-                                  'Ordem ${deleted.orderNumber ?? '-'} removida por $actorName.',
-                                  type: NotificationType.warning,
-                                  saveInBell: true,
-                                  extra: <String, dynamic>{
-                                    'action': 'validity_deleted',
-                                    'validityId': id,
-                                    'orderNumber': deleted.orderNumber,
-                                    'orderType': deleted.ordertype,
-                                    'orderDate':
-                                    deleted.orderdate?.toIso8601String(),
-                                  },
-                                );
-                              } catch (e) {
-                                await _notify(
-                                  notificationCubit: notificationCubit,
-                                  title: 'Erro ao apagar validade',
-                                  subtitle: '$e',
-                                  type: NotificationType.error,
-                                  duration: const Duration(seconds: 6),
-                                );
-                              }
-                            },
+                            onDelete: handleDeleteValidity,
                           ),
                         ],
                       ),

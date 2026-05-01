@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -8,7 +9,7 @@ import 'package:sipged/screens/modules/contracts/measurement/create/launcher_pdf
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
@@ -17,9 +18,8 @@ import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_data.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
 import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
@@ -74,6 +74,40 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
 
   Timer? _debounceSave;
 
+  bool _hasPendingMeasurementChanges = false;
+  DateTime? _lastPushNotificationAt;
+
+  String get _contractId => widget.contractData.id?.trim() ?? '';
+
+  String get _contractSummary {
+    final data = widget.contractData;
+
+    final summary = data.summarySubjectContract?.trim() ?? '';
+    if (summary.isNotEmpty) return summary;
+
+    final number = data.contractNumber?.trim() ?? '';
+    if (number.isNotEmpty) return 'Contrato $number';
+
+    final process = data.processNumber?.trim() ?? '';
+    if (process.isNotEmpty) return 'Processo $process';
+
+    if (_contractId.isNotEmpty) return 'Contrato $_contractId';
+
+    return 'Contrato sem identificação';
+  }
+
+  String get _contractNumber {
+    final data = widget.contractData;
+
+    final number = data.contractNumber?.trim() ?? '';
+    if (number.isNotEmpty) return number;
+
+    final process = data.processNumber?.trim() ?? '';
+    if (process.isNotEmpty) return process;
+
+    return _contractId;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -87,40 +121,232 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     super.dispose();
   }
 
-  void _notifyWarning(String message) {
+  String _resolveActorName(String? uid) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final cleanUid = uid?.trim();
+
+    if (cleanUid != null && cleanUid.isNotEmpty) {
+      final meta = widget.contractData.participantsInfo[cleanUid];
+
+      if (meta != null) {
+        final fullName = (meta['fullName'] ??
+            meta['displayName'] ??
+            meta['nameComplete'] ??
+            '')
+            .toString()
+            .trim();
+
+        if (fullName.isNotEmpty) return fullName;
+
+        final name = (meta['name'] ?? '').toString().trim();
+        final surname = (meta['surname'] ?? '').toString().trim();
+
+        final composed = [name, surname]
+            .where((item) => item.trim().isNotEmpty)
+            .join(' ')
+            .trim();
+
+        if (composed.isNotEmpty) return composed;
+
+        final email = (meta['email'] ?? '').toString().trim();
+        if (email.isNotEmpty) return email;
+      }
+    }
+
+    final displayName = currentUser?.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty) return displayName;
+
+    final email = currentUser?.email?.trim() ?? '';
+    if (email.isNotEmpty) return email;
+
+    return 'Usuário';
+  }
+
+  List<String> _contractNotificationRecipients({
+    required String? currentUserId,
+  }) {
+    final current = currentUserId?.trim();
+    final ids = <String>{};
+
+    for (final entry in widget.contractData.permissionContractId.entries) {
+      final userId = entry.key.trim();
+      if (userId.isEmpty) continue;
+
+      final perms = entry.value;
+
+      final canRead = perms['read'] == true ||
+          perms['view'] == true ||
+          perms['create'] == true ||
+          perms['edit'] == true ||
+          perms['update'] == true ||
+          perms['delete'] == true ||
+          perms['admin'] == true ||
+          perms['owner'] == true;
+
+      if (!canRead) continue;
+      if (current != null && current.isNotEmpty && userId == current) continue;
+
+      ids.add(userId);
+    }
+
+    for (final userId in widget.contractData.participantsInfo.keys) {
+      final clean = userId.trim();
+      if (clean.isEmpty) continue;
+      if (current != null && current.isNotEmpty && clean == current) continue;
+
+      ids.add(clean);
+    }
+
+    return ids.toList();
+  }
+
+  Future<void> _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    bool sendPush = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: 'Atenção',
-        subtitle: message,
-        type: NotificationType.warning,
-        leadingLabel: 'Medição',
-      ),
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
+    final actorName = _resolveActorName(currentUserId);
+
+    final recipients = _contractNotificationRecipients(
+      currentUserId: currentUserId,
+    );
+
+    await NotificationContract.show(
+      context: context,
+      contract: widget.contractData,
+      title: title,
+      subtitle: subtitle,
+      details: details ?? _contractSummary,
+      leadingLabel: 'Boletim',
+      module: 'contracts_measurement_report',
+      type: type,
+      duration: duration,
+      saveInBell: saveInBell,
+      sendPush: sendPush,
+      actorId: currentUserId,
+      actorName: actorName,
+      targetUserIds: recipients,
+      extra: <String, dynamic>{
+        'route': 'contracts_measurement_report',
+        'contractId': _contractId,
+        'contractNumber': _contractNumber,
+        'contractTitle': _contractSummary,
+        'contractSummary': _contractSummary,
+        'measurementId': widget.measurement?.id,
+        'measurementOrder': widget.measurement?.order,
+        'measurementProcess': widget.measurement?.numberprocess,
+        ...extra,
+      },
     );
   }
 
-  void _notifyError(String message) {
+  Future<void> _notifyMeasurementReportChangedIfNeeded() async {
+    if (!_hasPendingMeasurementChanges) return;
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: 'Erro',
-        subtitle: message,
-        type: NotificationType.error,
-        leadingLabel: 'Medição',
-      ),
+    final measurement = widget.measurement;
+
+    if (measurement == null || measurement.id == null || measurement.id!.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now();
+
+    if (_lastPushNotificationAt != null) {
+      final diff = now.difference(_lastPushNotificationAt!);
+
+      if (diff.inSeconds < 30) {
+        return;
+      }
+    }
+
+    _lastPushNotificationAt = now;
+    _hasPendingMeasurementChanges = false;
+
+    final actorName = _resolveActorName(
+      FirebaseAuth.instance.currentUser?.uid,
+    );
+
+    await _notify(
+      title: 'Boletim de medição atualizado',
+      subtitle: 'Boletim ${measurement.order ?? '-'} alterado por $actorName.',
+      type: NotificationType.success,
+      saveInBell: true,
+      sendPush: true,
+      extra: <String, dynamic>{
+        'action': 'measurement_report_updated',
+        'measurementId': measurement.id,
+        'measurementOrder': measurement.order,
+        'measurementValue': measurement.value,
+        'measurementDate': measurement.date?.toIso8601String(),
+      },
+    );
+  }
+
+  Future<void> _notifyPdfPreviewGenerated() async {
+    final measurement = widget.measurement;
+
+    if (measurement == null || measurement.id == null || measurement.id!.isEmpty) {
+      return;
+    }
+
+    final actorName = _resolveActorName(
+      FirebaseAuth.instance.currentUser?.uid,
+    );
+
+    await _notify(
+      title: 'PDF do boletim gerado',
+      subtitle: 'Boletim ${measurement.order ?? '-'} pré-visualizado por $actorName.',
+      type: NotificationType.info,
+      saveInBell: true,
+      sendPush: true,
+      extra: <String, dynamic>{
+        'action': 'measurement_report_pdf_previewed',
+        'measurementId': measurement.id,
+        'measurementOrder': measurement.order,
+      },
+    );
+  }
+
+  Future<void> _notifyWarning(String message) async {
+    await _notify(
+      title: 'Atenção',
+      subtitle: message,
+      type: NotificationType.warning,
+      saveInBell: false,
+      sendPush: false,
+    );
+  }
+
+  Future<void> _notifyError(String message) async {
+    await _notify(
+      title: 'Erro',
+      subtitle: message,
+      type: NotificationType.error,
+      saveInBell: false,
+      sendPush: false,
+      duration: const Duration(seconds: 6),
     );
   }
 
   void _onControllerChanged() {
     if (!_ctrl.hasData || _idxQtyPeriod < 0) return;
 
+    bool changed = false;
+
     for (int r = 1; r < _ctrl.tableData.length; r++) {
       final row = _ctrl.tableData[r];
       final itemId = row.isNotEmpty ? row[0].toString() : null;
 
-      if (itemId == null) continue;
+      if (itemId == null || itemId.trim().isEmpty) continue;
 
       _validateAndClampPeriodIfNeeded(r);
 
@@ -132,7 +358,12 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       if (last == null || (period - last).abs() > 1e-9) {
         _persistMeasurementItem(itemId, prev: prev, period: period);
         _lastSavedPeriod[itemId] = period;
+        changed = true;
       }
+    }
+
+    if (changed) {
+      _hasPendingMeasurementChanges = true;
     }
 
     _scheduleSaveBreakdown();
@@ -151,7 +382,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     final accum = prev + period;
 
     final rowIndex = _ctrl.tableData.indexWhere(
-          (r) => r.isNotEmpty && r[0] == budgetItemId,
+          (row) => row.isNotEmpty && row[0] == budgetItemId,
     );
 
     final qtdContrato = _qtdContratoRowRobusto(rowIndex);
@@ -194,16 +425,19 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     final cId = widget.contractData.id;
     final mId = widget.measurement?.id;
 
-    if (cId == null || mId == null) return;
+    if (cId == null || cId.trim().isEmpty) return;
+    if (mId == null || mId.trim().isEmpty) return;
 
     MagicAdapter.buildDomainFromController(controller: _ctrl);
+
+    await _notifyMeasurementReportChangedIfNeeded();
   }
 
   void _scheduleSaveBreakdown() {
     _debounceSave?.cancel();
 
-    _debounceSave = Timer(const Duration(milliseconds: 600), () {
-      _saveBreakdownFromController();
+    _debounceSave = Timer(const Duration(milliseconds: 900), () async {
+      await _saveBreakdownFromController();
     });
   }
 
@@ -211,7 +445,8 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     final cId = widget.contractData.id;
     final mId = widget.measurement?.id;
 
-    if (cId == null || mId == null) return;
+    if (cId == null || cId.trim().isEmpty) return;
+    if (mId == null || mId.trim().isEmpty) return;
 
     _ctrl.sumByKey(_kValPeriod);
   }
@@ -227,7 +462,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     try {
       final contractId = widget.contractData.id;
 
-      if (contractId == null || contractId.isEmpty) {
+      if (contractId == null || contractId.trim().isEmpty) {
         throw Exception('Contrato sem ID');
       }
 
@@ -254,7 +489,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       _ctrl.addListener(_onControllerChanged);
     } catch (e) {
       _error = 'Falha ao carregar dados: $e';
-      _notifyError(_error!);
+      await _notifyError(_error!);
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -262,11 +497,12 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     }
   }
 
-  double _parseBR(String s) => _ctrl.parseBR(s) ?? 0.0;
+  double _parseBR(String value) => _ctrl.parseBR(value) ?? 0.0;
 
   int _findHeaderIndexLoose(List<String> candidates) {
-    String norm(String s) {
-      final up = s.toUpperCase().trim();
+    String norm(String value) {
+      final up = value.toUpperCase().trim();
+
       const from = 'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ';
       const to = 'AAAAAEEEEIIIIOOOOOUUUUC';
 
@@ -284,21 +520,21 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     final headersNorm = _ctrl.headers.map(norm).toList();
     final candsNorm = candidates.map(norm).toList();
 
-    for (final c in candsNorm) {
-      final i = headersNorm.indexOf(c);
+    for (final candidate in candsNorm) {
+      final index = headersNorm.indexOf(candidate);
 
-      if (i >= 0) return i;
+      if (index >= 0) return index;
     }
 
     for (int i = 0; i < headersNorm.length; i++) {
-      for (final c in candsNorm) {
-        if (headersNorm[i].contains(c)) return i;
+      for (final candidate in candsNorm) {
+        if (headersNorm[i].contains(candidate)) return i;
       }
     }
 
     for (int i = 0; i < headersNorm.length; i++) {
-      for (final c in candsNorm) {
-        if (c.contains(headersNorm[i])) return i;
+      for (final candidate in candsNorm) {
+        if (candidate.contains(headersNorm[i])) return i;
       }
     }
 
@@ -352,6 +588,11 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
 
   void _validateAndClampPeriodIfNeeded(int row) {
     if (_idxQtyPeriod < 0) return;
+    if (_idxQtyPrev < 0) return;
+
+    if (row < 0 || row >= _ctrl.tableData.length) return;
+    if (_idxQtyPeriod >= _ctrl.tableData[row].length) return;
+    if (_idxQtyPrev >= _ctrl.tableData[row].length) return;
 
     final qtyStr = _ctrl.tableData[row][_idxQtyPeriod];
     final qty = _parseBR(qtyStr);
@@ -415,9 +656,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
           row >= 0 &&
           row < _ctrl.tableData.length &&
           _idxPU < _ctrl.tableData[row].length) {
-        final v = _parseBR(_ctrl.tableData[row][_idxPU]);
+        final value = _parseBR(_ctrl.tableData[row][_idxPU]);
 
-        if (v > 0) return v.toDouble();
+        if (value > 0) return value.toDouble();
       }
 
       return 0.0;
@@ -440,7 +681,12 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         group: 'QUANTIDADE',
         normalizeOnCommit: (raw) {
           final d = _ctrl.parseBR(raw) ?? 0.0;
-          return _ctrl.formatNumberBR(d, decimals: 2, trimZeros: true);
+
+          return _ctrl.formatNumberBR(
+            d,
+            decimals: 2,
+            trimZeros: true,
+          );
         },
       ),
       bc.ColumnMeta(
@@ -470,11 +716,11 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         editable: false,
         group: 'QUANTIDADE',
         compute: (row, values, ctrl) {
-          final period =
-              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
+          final accum =
+              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyAccum)]) ?? 0.0;
 
           final qtdC = _qtdContratoRowRobusto(row);
-          final saldo = qtdC - period;
+          final saldo = qtdC - accum;
 
           return ctrl.formatNumberBR(
             saldo,
@@ -541,10 +787,10 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
           final pu = unitPriceRow(row);
           final qtdContrato = _qtdContratoRowRobusto(row);
 
-          final periodQty =
-              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
+          final accumQty =
+              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyAccum)]) ?? 0.0;
 
-          final saldoVal = (qtdContrato - periodQty) * pu;
+          final saldoVal = (qtdContrato - accumQty) * pu;
 
           return ctrl.formatMoneyBR(saldoVal);
         },
@@ -645,8 +891,12 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
                   bytes,
                   fileName: 'Boletim_Medicao.pdf',
                 );
+
+                await _notifyPdfPreviewGenerated();
               } catch (e) {
-                _notifyError('Falha ao gerar pré-visualização do PDF: $e');
+                await _notifyError(
+                  'Falha ao gerar pré-visualização do PDF: $e',
+                );
               }
             },
             icon: const Icon(
@@ -664,7 +914,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
               return SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: 24),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight,
+                  ),
                   child: Column(
                     children: [
                       Padding(

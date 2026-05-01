@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ import 'gate_page.dart';
 
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
 import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
+import 'package:sipged/_services/notification/push_notification_service.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
@@ -26,8 +28,8 @@ import 'package:sipged/_blocs/system/login/login_repository.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_repository.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_repository.dart';
 
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
@@ -163,6 +165,18 @@ Future<void> bootstrapAndRunApp() async {
       await _loadEnvIfNeeded();
       await initializeDateFormatting('pt_BR');
       await _initFirebase();
+
+      // ✅ IMPORTANTE:
+      // O handler de background precisa ser registrado depois do Firebase.initializeApp()
+      // e antes do runApp().
+      //
+      // No Web o background remote usa service worker, então não registramos aqui.
+      if (!kIsWeb) {
+        FirebaseMessaging.onBackgroundMessage(
+          sipgedFirebaseMessagingBackgroundHandler,
+        );
+      }
+
       await _connectToEmulatorsIfNeeded();
 
       Provider.debugCheckInvalidValueType = null;

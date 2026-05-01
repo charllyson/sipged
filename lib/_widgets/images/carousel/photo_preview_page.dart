@@ -14,12 +14,12 @@ import 'package:latlong2/latlong.dart' as ll;
 import 'package:native_exif/native_exif.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_widgets/images/carousel/photo_editor_page.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 class PhotoPreviewPage extends StatefulWidget {
   final Uint8List originalBytes;

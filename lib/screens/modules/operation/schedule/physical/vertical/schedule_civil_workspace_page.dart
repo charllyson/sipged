@@ -19,9 +19,9 @@ import 'package:sipged/screens/modules/operation/schedule/physical/vertical/sche
 
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 
-import 'package:sipged/_blocs/system/notification/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'schedule_civil_panel.dart';
 
@@ -56,22 +56,75 @@ class _ScheduleCivilWorkspacePageState
   static const double kBottomPanelHeight = 380.0;
   static const double kBreakpoint = 980.0;
 
-  void _togglePanel() => setState(() => _panelOpen = !_panelOpen);
+  void _togglePanel() {
+    if (!mounted) return;
+
+    setState(() => _panelOpen = !_panelOpen);
+  }
+
+  void _notify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    bool sendPush = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) {
+    if (!mounted) return;
+
+    final cleanTitle = title.trim();
+    final cleanSubtitle = subtitle?.trim();
+    final cleanDetails = details?.trim();
+    final cleanContractId = widget.contractId.trim();
+    final cleanModule = 'operation_schedule_civil';
+
+    context.read<NotificationCubit>().show(
+      NotificationData(
+        title: cleanTitle.isEmpty ? 'Cronograma civil' : cleanTitle,
+        subtitle: cleanSubtitle?.isNotEmpty == true ? cleanSubtitle : null,
+        details: cleanDetails?.isNotEmpty == true
+            ? cleanDetails
+            : widget.title,
+        leadingLabel: 'Civil',
+        type: type,
+        duration: duration,
+        persistInFirebase: saveInBell,
+        sendPush: sendPush,
+        extra: <String, dynamic>{
+          'module': cleanModule,
+          'route': cleanModule,
+          'contractId': cleanContractId,
+          'contractTitle': widget.title,
+          'contractSummary': widget.title,
+          'source': 'schedule_civil_workspace_page',
+          'sendPush': sendPush,
+          ...extra,
+        },
+      ),
+      saveInFirebase: saveInBell,
+      sendPush: sendPush,
+    );
+  }
 
   void _notifyDxfSent({
     required int lines,
     required int totalVertices,
   }) {
-    if (!mounted) return;
-
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: 'DXF enviado ao mapa',
-        subtitle: '$lines linha(s), $totalVertices vértice(s)',
-        leadingLabel: 'Civil',
-        type: NotificationType.success,
-        duration: const Duration(seconds: 3),
-      ),
+    _notify(
+      title: 'DXF enviado ao mapa',
+      subtitle: '$lines linha(s), $totalVertices vértice(s)',
+      details: widget.title,
+      type: NotificationType.success,
+      duration: const Duration(seconds: 3),
+      saveInBell: true,
+      sendPush: false,
+      extra: <String, dynamic>{
+        'action': 'civil_dxf_sent_to_map',
+        'lines': lines,
+        'totalVertices': totalVertices,
+      },
     );
   }
 
@@ -93,6 +146,11 @@ class _ScheduleCivilWorkspacePageState
             padding: EdgeInsets.only(left: 12.0),
             child: CircleButtonChange(),
           ),
+          titleWidgets: [
+            Text(
+              widget.title.trim().isEmpty ? 'Cronograma civil' : widget.title,
+            ),
+          ],
           actions: [
             IconButton(
               tooltip: _panelOpen ? 'Ocultar painel' : 'Mostrar painel',
@@ -116,7 +174,7 @@ class _ScheduleCivilWorkspacePageState
                     title: widget.title,
                     controller: ctrl,
                     initialPdfBytes: widget.initialPdfBytes,
-                    pageNumber: 1,
+                    pageNumber: widget.pageNumber,
                     allowPickNewPdf: widget.allowPickNewPdf,
                     onPolylinesReady: (lines) {
                       final total = lines.fold<int>(

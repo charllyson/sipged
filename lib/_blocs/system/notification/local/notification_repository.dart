@@ -18,13 +18,58 @@ class NotificationRepository {
         .collection('notifications');
   }
 
+  CollectionReference<Map<String, dynamic>> _userPushTokensRef(
+      String userId,
+      ) {
+    return _firestore.collection('users').doc(userId).collection('pushTokens');
+  }
+
   CollectionReference<Map<String, dynamic>> _globalNotificationsRef() {
     return _firestore.collection('notifications');
+  }
+
+  Future<void> savePushToken({
+    required String userId,
+    required String token,
+    required String platform,
+  }) async {
+    final cleanUserId = userId.trim();
+    final cleanToken = token.trim();
+    final cleanPlatform = platform.trim().isEmpty ? 'unknown' : platform.trim();
+
+    if (cleanUserId.isEmpty || cleanToken.isEmpty) return;
+
+    await _userPushTokensRef(cleanUserId).doc(cleanToken).set({
+      'token': cleanToken,
+      'platform': cleanPlatform,
+      'enabled': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'lastSeenAt': FieldValue.serverTimestamp(),
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> disablePushToken({
+    required String userId,
+    required String token,
+    String reason = 'disabled-by-client',
+  }) async {
+    final cleanUserId = userId.trim();
+    final cleanToken = token.trim();
+
+    if (cleanUserId.isEmpty || cleanToken.isEmpty) return;
+
+    await _userPushTokensRef(cleanUserId).doc(cleanToken).set({
+      'enabled': false,
+      'disabledAt': FieldValue.serverTimestamp(),
+      'disabledReason': reason,
+    }, SetOptions(merge: true));
   }
 
   Future<String> createUserNotification({
     required String userId,
     required NotificationData data,
+    bool sendPush = false,
   }) async {
     final cleanUserId = userId.trim();
 
@@ -32,13 +77,23 @@ class NotificationRepository {
       throw Exception('ID do usuário não informado para criar notificação.');
     }
 
-    final doc = await _userNotificationsRef(cleanUserId).add(data.toMap());
+    final notification = data.copyWith(
+      sendPush: sendPush || data.sendPush,
+      persistInFirebase: true,
+    );
+
+    final doc = await _userNotificationsRef(cleanUserId).add({
+      ...notification.toMap(),
+      'recipientUserId': cleanUserId,
+    });
+
     return doc.id;
   }
 
   Future<List<String>> createUserNotifications({
     required List<String> userIds,
     required NotificationData data,
+    bool sendPush = false,
   }) async {
     final cleanUserIds = userIds
         .map((e) => e.trim())
@@ -50,6 +105,12 @@ class NotificationRepository {
       return <String>[];
     }
 
+    final notification = data.copyWith(
+      sendPush: sendPush || data.sendPush,
+      persistInFirebase: true,
+    );
+
+    final baseMap = notification.toMap();
     final createdIds = <String>[];
 
     WriteBatch batch = _firestore.batch();
@@ -57,9 +118,13 @@ class NotificationRepository {
 
     for (final userId in cleanUserIds) {
       final ref = _userNotificationsRef(userId).doc();
-      batch.set(ref, data.toMap());
-      createdIds.add(ref.id);
 
+      batch.set(ref, {
+        ...baseMap,
+        'recipientUserId': userId,
+      });
+
+      createdIds.add(ref.id);
       count++;
 
       if (count >= 450) {
@@ -140,6 +205,7 @@ class NotificationRepository {
       items.sort((a, b) {
         final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
         final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
         return bDate.compareTo(aDate);
       });
 

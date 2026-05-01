@@ -295,7 +295,8 @@ class IBGELocationService {
     try {
       final body = await _getTextProxy(path);
 
-      final parsed = await compute<Map<String, dynamic>, List<Map<String, dynamic>>>(
+      final parsed =
+      await compute<Map<String, dynamic>, List<Map<String, dynamic>>>(
         _parseGeoJsonToPolygonPayloadsCompute,
         {
           'body': body,
@@ -365,8 +366,8 @@ class IBGELocationService {
     return Polygon<Map<String, dynamic>>(
       points: points,
       holePointsList: holes,
-      color: Colors.blue.withOpacity(0.20),
-      borderColor: Colors.blue.withOpacity(0.75),
+      color: Colors.blue.withValues(alpha: 0.20),
+      borderColor: Colors.blue.withValues(alpha: 0.75),
       borderStrokeWidth: 1,
       label: titleNome,
       hitValue: {

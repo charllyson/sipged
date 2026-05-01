@@ -93,7 +93,7 @@ String buildMapboxHtml(
         });
 
         marker.addTo(map);
-        flutterMarkers.push(marker);
+        flutterMarkers.remote(marker);
       });
     }
 
