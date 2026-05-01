@@ -136,23 +136,6 @@ class NotificationSchedule {
       extra: resolvedExtra,
     );
 
-    if (kDebugMode) {
-      debugPrint('================ SCHEDULE BELL NOTIFIER ================');
-      debugPrint('title: ${notification.title}');
-      debugPrint('subtitle: ${notification.subtitle}');
-      debugPrint('details: ${notification.details}');
-      debugPrint('saveInBell: $saveInBell');
-      debugPrint('sendPush: $sendPush');
-      debugPrint('actorId: $resolvedActorId');
-      debugPrint('actorName: $resolvedActorName');
-      debugPrint('recipients: $recipients');
-      debugPrint('includeCurrentUser: $includeCurrentUser');
-      debugPrint('contractId: $resolvedContractId');
-      debugPrint('module: $cleanModule');
-      debugPrint('extra: $resolvedExtra');
-      debugPrint('========================================================');
-    }
-
     if (!saveInBell) {
       await cubit.show(
         notification,

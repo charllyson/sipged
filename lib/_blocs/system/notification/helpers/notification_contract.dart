@@ -91,20 +91,6 @@ class NotificationContract {
       extra: resolvedExtra,
     );
 
-    if (kDebugMode) {
-      debugPrint('================ CONTRACT BELL NOTIFIER ================');
-      debugPrint('title: $title');
-      debugPrint('subtitle: $subtitle');
-      debugPrint('saveInBell: $saveInBell');
-      debugPrint('sendPush: $sendPush');
-      debugPrint('actorId: $resolvedActorId');
-      debugPrint('actorName: $resolvedActorName');
-      debugPrint('recipients: $recipients');
-      debugPrint('contractId: $contractId');
-      debugPrint('module: $module');
-      debugPrint('========================================================');
-    }
-
     if (!saveInBell) {
       await cubit.show(
         notification,

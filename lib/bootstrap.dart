@@ -20,7 +20,7 @@ import 'gate_page.dart';
 
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
 import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
-import 'package:sipged/_services/notification/push_notification_service.dart';
+import 'package:sipged/_blocs/system/notification/remote/notification_push.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_cubit.dart';

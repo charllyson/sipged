@@ -13,13 +13,13 @@ import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
-import 'package:sipged/_services/notification/push_notification_service.dart';
+import 'package:sipged/_blocs/system/notification/remote/notification_push.dart';
 
 import 'package:sipged/_utils/theme/app_theme.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/screens/common/login/sign_in/sign_in.dart';
-import 'package:sipged/screens/common/notification/notification_host.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_host.dart';
 import 'package:sipged/screens/common/setup/initial_setup_page.dart';
 import 'package:sipged/screens/menus/menu_list_page.dart';
 
@@ -85,7 +85,7 @@ class _GatePageState extends State<GatePage> {
 
     final notificationCubit = context.read<NotificationCubit>();
 
-    await PushNotificationService.instance.initialize(
+    await NotificationPush.instance.initialize(
       userId: cleanUid,
       notificationCubit: notificationCubit,
       onMessageOpened: _handlePushOpened,

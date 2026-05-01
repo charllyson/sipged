@@ -21,10 +21,10 @@ Future<void> sipgedFirebaseMessagingBackgroundHandler(
   debugPrint('[Push Background] data=${message.data}');
 }
 
-class PushNotificationService {
-  PushNotificationService._();
+class NotificationPush {
+  NotificationPush._();
 
-  static final PushNotificationService instance = PushNotificationService._();
+  static final NotificationPush instance = NotificationPush._();
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
 
