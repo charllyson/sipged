@@ -1,76 +1,68 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
+  <base href="$FLUTTER_BASE_HREF">
+
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-  <meta name="flutter-web-renderer" content="html">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="flutter-web-renderer" content="html" />
+
   <title>SIPGED</title>
-  <!-- Open Graph (WhatsApp/Facebook) -->
+  <meta name="description" content="Sistema Integrado de Planejamento e Gestão de Dados" />
+
+  <!-- Open Graph / WhatsApp / Facebook -->
   <meta property="og:title" content="SIPGED" />
   <meta property="og:description" content="Sistema Integrado de Planejamento e Gestão de Dados" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://sisgeo.charllyson.com/" />
-  <meta property="og:image" content="https://sisgeo.charllyson.com/assets/assets/logos/sipged/siged.png" />
-  <!-- Recomendações extras de imagem -->
+  <meta property="og:image" content="https://sisgeo.charllyson.com/assets/assets/logos/sipged/sipged.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
 
-  <!-- Twitter Card (opcional, ajuda em outros clientes) -->
+  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="SIPGED" />
-  <meta name="twitter:description" content="Sistema Integrado de Gestão de Dados" />
+  <meta name="twitter:description" content="Sistema Integrado de Planejamento e Gestão de Dados" />
   <meta name="twitter:image" content="https://sisgeo.charllyson.com/assets/assets/logos/sipged/sipged.png" />
 
-  <!-- Favicon / PWA (não gera preview, mas mantém ícone do site no navegador) -->
-  <link rel="icon" type="image/png" href="favicon_sisged.png" />
+  <!-- PWA / Ícones -->
+  <link rel="icon" type="image/png" href="assets/logos/sipged/sipged.png" />
   <link rel="apple-touch-icon" href="icons/Icon-192.png" />
   <link rel="manifest" href="manifest.json" />
+
   <!-- Material Icons -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Material+Icons" />
 
-  <!-- PWA -->
-  <link rel="icon" type="image/png" href="favicon_sisged.png" />
-  <link rel="apple-touch-icon" href="icons/Icon-192.png" />
-  <link rel="manifest" href="manifest.json" />
-
-  <!-- heic2any deve estar carregado ANTES do Flutter -->
+  <!-- Conversão HEIC antes do Flutter -->
   <script src="https://unpkg.com/heic2any/dist/heic2any.min.js"></script>
-
-  <!-- Firebase compat -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
-
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDZh7jcJNO0XEW2eCXecWq3MdTvRFPzHJk",
-      authDomain: "sisgeoderal.firebaseapp.com",
-      databaseURL: "https://sisgeoderal-default-rtdb.firebaseio.com",
-      projectId: "sisgeoderal",
-      storageBucket: "sisgeoderal.appspot.com",
-      messagingSenderId: "769410863294",
-      appId: "1:769410863294:web:a51d56dfd32369dd4b0eef",
-      measurementId: "G-EJBDWKRPQ8"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    firebase.analytics();
-  </script>
 </head>
-<body>
-  <script src='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs' type='module'></script>
-  <script type='module'>
-  var { pdfjsLib } = globalThis;
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.mjs';
 
-  var pdfRenderOptions = {
-    cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/cmaps/',
-    cMapPacked: true,
+<body>
+<!-- PDF.js -->
+<script
+        src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs"
+        type="module">
+</script>
+
+<script type="module">
+  var { pdfjsLib } = globalThis;
+
+  if (pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.mjs';
+
+    window.pdfRenderOptions = {
+      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/cmaps/',
+      cMapPacked: true,
+    };
   }
-  </script>
-<!-- Loader do Flutter (já injeta main.dart.js) -->
-<script src="main.dart.js" defer></script>
+</script>
+
+<!--
+  O arquivo flutter_bootstrap.js é gerado pelo Flutter no build web.
+  O Android Studio pode marcar como "Cannot resolve file" antes do build.
+-->
+<!--suppress HtmlUnknownTarget -->
+<script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
