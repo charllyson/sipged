@@ -1,4 +1,3 @@
-import 'package:datetime_picker_formfield/datetime_picker_formfield.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -29,6 +28,7 @@ class DateFieldChange extends StatelessWidget {
   });
 
   final DateFormat format = DateFormat('dd/MM/yyyy');
+
   final Stream<String>? stream;
   final TextEditingController? controller;
   final String? hint;
@@ -50,15 +50,74 @@ class DateFieldChange extends StatelessWidget {
   final DateTime? lastDate;
   final double? width;
 
+  DateTime? _parseDate(String value) {
+    if (value.trim().isEmpty) return null;
+
+    try {
+      return format.parseStrict(value.trim());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final TextEditingController? activeController = controller;
+
+    final DateTime base =
+        _parseDate(activeController?.text ?? '') ??
+            initialValue ??
+            DateTime.now();
+
+    final ThemeData theme = Theme.of(context);
+
+    final ThemeData customTheme = theme.copyWith(
+      colorScheme: theme.colorScheme.copyWith(
+        surface: Colors.white,
+        primary: Colors.deepPurple,
+        onPrimary: Colors.white,
+        onSurface: Colors.black,
+      ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: Colors.white,
+      ),
+    );
+
+    final DateTime? selectedDate = await showDatePicker(
+      context: context,
+      initialDate: base,
+      firstDate: firstDate ?? DateTime(DateTime.now().year - 100),
+      lastDate: lastDate ?? DateTime(DateTime.now().year + 100),
+      builder: (context, child) {
+        return Theme(
+          data: customTheme,
+          child: child!,
+        );
+      },
+    );
+
+    if (selectedDate == null) return;
+
+    final String text = format.format(selectedDate);
+
+    activeController?.value = activeController.value.copyWith(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+      composing: TextRange.empty,
+    );
+
+    onChanged?.call(selectedDate);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (controller != null &&
         initialValue != null &&
         controller!.text.isEmpty) {
-      final txt = format.format(initialValue!);
+      final String text = format.format(initialValue!);
+
       controller!.value = controller!.value.copyWith(
-        text: txt,
-        selection: TextSelection.collapsed(offset: txt.length),
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
         composing: TextRange.empty,
       );
     }
@@ -68,47 +127,23 @@ class DateFieldChange extends StatelessWidget {
       builder: (context, snapshot) {
         return SizedBox(
           width: width ?? 100,
-          child: DateTimeField(
-            format: format,
-            initialValue: initialValue,
-            onShowPicker: (context, currentValue) async {
-              final DateTime base =
-                  currentValue ?? initialValue ?? DateTime.now();
-
-              final theme = Theme.of(context);
-              final customTheme = theme.copyWith(
-                // cor de fundo do diálogo
-                colorScheme: theme.colorScheme.copyWith(
-                  surface: Colors.white,
-                  // cor principal (círculo do dia selecionado, botões OK/Cancelar)
-                  primary: Colors.deepPurple, // ou Colors.blue, etc.
-                  onPrimary: Colors.white,
-                  onSurface: Colors.black,
-                ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
-              );
-
-              final DateTime? time = await showDatePicker(
-                context: context,
-                initialDate: base,
-                firstDate: firstDate ?? DateTime(DateTime.now().year - 100),
-                lastDate: lastDate ?? DateTime(DateTime.now().year + 100),
-                builder: (context, child) {
-                  return Theme(
-                    data: customTheme,
-                    child: child!,
-                  );
-                },
-              );
-              return time;
-            },
-            onSaved: onSaved,
-            validator: validator,
+          child: TextFormField(
             controller: controller,
             obscureText: obscure,
-            keyboardType: textInputType,
+            keyboardType: textInputType ?? TextInputType.datetime,
             inputFormatters: inputFormatters,
-            onChanged: onChanged,
             enabled: enabled ?? true,
+            readOnly: true,
+            style: TextStyle(
+              color: valueColor ?? Colors.black,
+            ),
+            onTap: enabled == false ? null : () => _selectDate(context),
+            validator: (_) {
+              return validator?.call(_parseDate(controller?.text ?? ''));
+            },
+            onSaved: (_) {
+              onSaved?.call(_parseDate(controller?.text ?? ''));
+            },
             decoration: InputDecoration(
               labelStyle: const TextStyle(color: Colors.grey),
               filled: true,
@@ -116,7 +151,11 @@ class DateFieldChange extends StatelessWidget {
               labelText: labelText,
               hintText: hint,
               prefixIcon: prefix,
-              suffixIcon: suffix,
+              suffixIcon: suffix ??
+                  const Icon(
+                    Icons.calendar_month_rounded,
+                    color: Colors.grey,
+                  ),
               disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10.0),
                 borderSide: const BorderSide(color: Colors.grey),
@@ -144,4 +183,3 @@ class DateFieldChange extends StatelessWidget {
     );
   }
 }
-

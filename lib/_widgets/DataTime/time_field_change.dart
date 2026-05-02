@@ -1,4 +1,3 @@
-import 'package:datetime_picker_formfield/datetime_picker_formfield.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -25,16 +24,15 @@ class TimeFieldChange extends StatelessWidget {
     this.hour,
   });
 
-  final DateFormat? format = DateFormat(
-    'HH:mm',
-  );
+  final DateFormat format = DateFormat('HH:mm');
+
   final Stream<String>? stream;
   final TextEditingController? controller;
   final String? hint;
   final DateTime? initialValue;
   final Widget? prefix;
   final Widget? suffix;
-  final bool? obscure;
+  final bool obscure;
   final TextInputType? textInputType;
   final List<TextInputFormatter>? inputFormat;
   final String? Function(DateTime?)? validator;
@@ -42,41 +40,100 @@ class TimeFieldChange extends StatelessWidget {
   final Function(DateTime?)? onSaved;
   final bool enabled;
   final Color? valueColor;
-  late final int? hour;
-  late final int? min;
+  final int? hour;
+  final int? min;
   final String? labelText;
+
+  DateTime? _parseTime(String value) {
+    if (value.trim().isEmpty) return null;
+
+    try {
+      final DateTime parsed = format.parseStrict(value.trim());
+
+      return DateTime(
+        0,
+        1,
+        1,
+        parsed.hour,
+        parsed.minute,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _selectTime(BuildContext context) async {
+    final DateTime base =
+        _parseTime(controller?.text ?? '') ??
+            initialValue ??
+            DateTime(
+              0,
+              1,
+              1,
+              hour ?? 8,
+              min ?? 0,
+            );
+
+    final TimeOfDay? selectedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(base),
+    );
+
+    if (selectedTime == null) return;
+
+    final DateTime selectedDateTime = DateTime(
+      0,
+      1,
+      1,
+      selectedTime.hour,
+      selectedTime.minute,
+    );
+
+    final String text = format.format(selectedDateTime);
+
+    controller?.value = controller!.value.copyWith(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+      composing: TextRange.empty,
+    );
+
+    onChanged?.call(selectedDateTime);
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (controller != null &&
+        initialValue != null &&
+        controller!.text.isEmpty) {
+      final String text = format.format(initialValue!);
+
+      controller!.value = controller!.value.copyWith(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+        composing: TextRange.empty,
+      );
+    }
+
     return StreamBuilder<String>(
       stream: stream,
       builder: (context, snapshot) {
-        return DateTimeField(
-          format: format!,
-          onShowPicker: (context, currentValue) async {
-            final time = await showTimePicker(
-              context: context,
-              initialTime: TimeOfDay.fromDateTime(
-                currentValue ?? DateTime(
-                  0,
-                  1,
-                  1,
-                  8,
-                  0,
-                ),
-              ),
-            );
-            return DateTimeField.convert(time);
-          },
-          onSaved: onSaved,
-          initialValue: initialValue,
-          validator: validator,
+        return TextFormField(
           controller: controller,
-          obscureText: obscure!,
-          keyboardType: textInputType,
+          obscureText: obscure,
+          keyboardType: textInputType ?? TextInputType.datetime,
           inputFormatters: inputFormat,
-          onChanged: onChanged,
           enabled: enabled,
+          readOnly: true,
+          style: TextStyle(
+            color: valueColor ?? Colors.black,
+          ),
+          onTap: enabled ? () => _selectTime(context) : null,
+          validator: (_) {
+            return validator?.call(_parseTime(controller?.text ?? ''));
+          },
+          onSaved: (_) {
+            onSaved?.call(_parseTime(controller?.text ?? ''));
+          },
           decoration: InputDecoration(
             labelStyle: const TextStyle(color: Colors.grey),
             filled: true,
@@ -84,7 +141,11 @@ class TimeFieldChange extends StatelessWidget {
             labelText: labelText,
             hintText: hint,
             prefixIcon: prefix,
-            suffixIcon: suffix,
+            suffixIcon: suffix ??
+                const Icon(
+                  Icons.access_time_rounded,
+                  color: Colors.grey,
+                ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10.0),
               borderSide: const BorderSide(color: Colors.grey),

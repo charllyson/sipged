@@ -35,9 +35,14 @@ class NotificationBell extends StatefulWidget {
   State<NotificationBell> createState() => _NotificationBellState();
 }
 
-class _NotificationBellState extends State<NotificationBell> {
+class _NotificationBellState extends State<NotificationBell>
+    with WidgetsBindingObserver {
   String? _watchingUserId;
   OverlayEntry? _overlayEntry;
+
+  final ValueNotifier<int> _positionTick = ValueNotifier<int>(0);
+
+  ScrollPosition? _scrollPosition;
 
   static const double _menuTopGap = 0;
   static const double _screenMargin = 8;
@@ -64,9 +69,17 @@ class _NotificationBellState extends State<NotificationBell> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
     _startWatchingIfNeeded();
+    _attachToNearestScrollPosition();
   }
 
   @override
@@ -83,12 +96,43 @@ class _NotificationBellState extends State<NotificationBell> {
     }
 
     _startWatchingIfNeeded();
+    _attachToNearestScrollPosition();
+  }
+
+  @override
+  void didChangeMetrics() {
+    _requestBalloonPositionUpdate();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _detachFromScrollPosition();
     _removeOverlay();
+    _positionTick.dispose();
     super.dispose();
+  }
+
+  void _attachToNearestScrollPosition() {
+    final scrollableState = Scrollable.maybeOf(context);
+    final nextPosition = scrollableState?.position;
+
+    if (identical(_scrollPosition, nextPosition)) return;
+
+    _detachFromScrollPosition();
+
+    _scrollPosition = nextPosition;
+    _scrollPosition?.addListener(_requestBalloonPositionUpdate);
+  }
+
+  void _detachFromScrollPosition() {
+    _scrollPosition?.removeListener(_requestBalloonPositionUpdate);
+    _scrollPosition = null;
+  }
+
+  void _requestBalloonPositionUpdate() {
+    if (_overlayEntry == null) return;
+    _positionTick.value++;
   }
 
   void _startWatchingIfNeeded() {
@@ -123,11 +167,13 @@ class _NotificationBellState extends State<NotificationBell> {
     final targetObject = context.findRenderObject();
 
     if (targetObject is! RenderBox) return;
+    if (!targetObject.attached) return;
 
     final overlayState = Overlay.of(context);
     final overlayObject = overlayState.context.findRenderObject();
 
     if (overlayObject is! RenderBox) return;
+    if (!overlayObject.attached) return;
 
     final cubit = context.read<NotificationBellCubit>();
     final resolvedUserId = _resolvedUserId;
@@ -168,6 +214,7 @@ class _NotificationBellState extends State<NotificationBell> {
                   return BalloonChange(
                     targetBox: targetObject,
                     overlayBox: overlayObject,
+                    rebuildListenable: _positionTick,
                     width: widget.menuWidth,
                     maxHeight: widget.maxMenuHeight,
                     topGap: _menuTopGap,
@@ -205,6 +252,10 @@ class _NotificationBellState extends State<NotificationBell> {
     );
 
     overlayState.insert(_overlayEntry!);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestBalloonPositionUpdate();
+    });
   }
 
   List<BalloonTileData> _buildBalloonItems({

@@ -30,16 +30,78 @@ class PopUpPhotoMenu extends StatefulWidget {
   State<PopUpPhotoMenu> createState() => _PopUpPhotoMenuState();
 }
 
-class _PopUpPhotoMenuState extends State<PopUpPhotoMenu> {
+class _PopUpPhotoMenuState extends State<PopUpPhotoMenu>
+    with WidgetsBindingObserver {
   OverlayEntry? _overlayEntry;
+
+  final ValueNotifier<int> _positionTick = ValueNotifier<int>(0);
+
+  ScrollPosition? _scrollPosition;
 
   static const double _menuTopGap = 0;
   static const double _screenMargin = 8;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _attachToNearestScrollPosition();
+  }
+
+  @override
+  void didUpdateWidget(covariant PopUpPhotoMenu oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final changedLayout = oldWidget.photoSize != widget.photoSize ||
+        oldWidget.menuWidth != widget.menuWidth ||
+        oldWidget.maxMenuHeight != widget.maxMenuHeight;
+
+    if (changedLayout) {
+      _removeOverlay();
+    }
+
+    _attachToNearestScrollPosition();
+  }
+
+  @override
+  void didChangeMetrics() {
+    _requestBalloonPositionUpdate();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _detachFromScrollPosition();
     _removeOverlay();
+    _positionTick.dispose();
     super.dispose();
+  }
+
+  void _attachToNearestScrollPosition() {
+    final scrollableState = Scrollable.maybeOf(context);
+    final nextPosition = scrollableState?.position;
+
+    if (identical(_scrollPosition, nextPosition)) return;
+
+    _detachFromScrollPosition();
+
+    _scrollPosition = nextPosition;
+    _scrollPosition?.addListener(_requestBalloonPositionUpdate);
+  }
+
+  void _detachFromScrollPosition() {
+    _scrollPosition?.removeListener(_requestBalloonPositionUpdate);
+    _scrollPosition = null;
+  }
+
+  void _requestBalloonPositionUpdate() {
+    if (_overlayEntry == null) return;
+    _positionTick.value++;
   }
 
   void _toggleMenu(UserData userData) {
@@ -57,14 +119,16 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu> {
   }
 
   void _openOverlay(UserData userData) {
-    final renderObject = context.findRenderObject();
+    final targetObject = context.findRenderObject();
 
-    if (renderObject is! RenderBox) return;
+    if (targetObject is! RenderBox) return;
+    if (!targetObject.attached) return;
 
     final overlayState = Overlay.of(context);
     final overlayObject = overlayState.context.findRenderObject();
 
     if (overlayObject is! RenderBox) return;
+    if (!overlayObject.attached) return;
 
     _overlayEntry = OverlayEntry(
       builder: (overlayContext) {
@@ -78,8 +142,9 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu> {
               ),
             ),
             BalloonChange(
-              targetBox: renderObject,
+              targetBox: targetObject,
               overlayBox: overlayObject,
+              rebuildListenable: _positionTick,
               width: widget.menuWidth,
               maxHeight: widget.maxMenuHeight,
               topGap: _menuTopGap,
@@ -95,6 +160,10 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu> {
     );
 
     overlayState.insert(_overlayEntry!);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestBalloonPositionUpdate();
+    });
   }
 
   List<BalloonTileData> _buildItems(UserData userData) {

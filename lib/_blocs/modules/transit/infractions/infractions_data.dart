@@ -1,7 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+// lib/_blocs/modules/transit/infractions/infractions_data.dart
 
-class InfractionsData extends ChangeNotifier {
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class InfractionsData {
   String? id;
   String? contractId;
 
@@ -47,134 +48,189 @@ class InfractionsData extends ChangeNotifier {
     this.deletedBy,
   });
 
-  // ------------ Helpers ------------
-  static DateTime? _asDate(dynamic v) {
-    if (v == null) return null;
-    if (v is Timestamp) return v.toDate();
-    if (v is DateTime) return v;
+  static DateTime? _asDate(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
 
-    if (v is int) {
-      // epoch em segundos (10 dígitos) ou milissegundos
-      final s = v.toString();
-      return DateTime.fromMillisecondsSinceEpoch(s.length <= 10 ? v * 1000 : v);
+    if (value is int) {
+      final String raw = value.toString();
+      return DateTime.fromMillisecondsSinceEpoch(
+        raw.length <= 10 ? value * 1000 : value,
+      );
     }
 
-    if (v is String) {
-      final s = v.trim();
-      // dd/MM/yyyy [HH:mm[:ss]]
-      final m = RegExp(
+    if (value is String) {
+      final String raw = value.trim();
+      if (raw.isEmpty) return null;
+
+      final matchBr = RegExp(
         r'^(\d{2})/(\d{2})/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$',
-      ).firstMatch(s);
-      if (m != null) {
-        final d = int.parse(m.group(1)!);
-        final mo = int.parse(m.group(2)!);
-        final y = int.parse(m.group(3)!);
-        final hh = int.tryParse(m.group(4) ?? '0') ?? 0;
-        final mm = int.tryParse(m.group(5) ?? '0') ?? 0;
-        final ss = int.tryParse(m.group(6) ?? '0') ?? 0;
-        return DateTime(y, mo, d, hh, mm, ss);
+      ).firstMatch(raw);
+
+      if (matchBr != null) {
+        final int day = int.parse(matchBr.group(1)!);
+        final int month = int.parse(matchBr.group(2)!);
+        final int year = int.parse(matchBr.group(3)!);
+        final int hour = int.tryParse(matchBr.group(4) ?? '0') ?? 0;
+        final int minute = int.tryParse(matchBr.group(5) ?? '0') ?? 0;
+        final int second = int.tryParse(matchBr.group(6) ?? '0') ?? 0;
+
+        return DateTime(year, month, day, hour, minute, second);
       }
-      // ISO
-      final iso = DateTime.tryParse(s);
-      if (iso != null) return iso;
+
+      return DateTime.tryParse(raw);
     }
+
     return null;
   }
 
   static DateTime? _readDate(Map<String, dynamic> data) {
-    for (final key in const ['dateInfraction', 'datainfraction', 'dataInfraction']) {
-      final dt = _asDate(data[key]);
-      if (dt != null) return dt;
+    for (final key in const <String>[
+      'dateInfraction',
+      'datainfraction',
+      'dataInfraction',
+    ]) {
+      final DateTime? date = _asDate(data[key]);
+      if (date != null) return date;
     }
+
     return null;
   }
 
-  static int? _asInt(dynamic v) {
-    if (v == null) return null;
-    if (v is num) return v.toInt();
-    return int.tryParse(v.toString());
+  static int? _asInt(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toInt();
+
+    return int.tryParse(value.toString().trim());
   }
 
-  static double? _asDouble(dynamic v) {
-    if (v == null) return null;
-    if (v is num) return v.toDouble();
-    final s = v.toString().replaceAll('.', '').replaceAll(',', '.');
-    return double.tryParse(s);
+  static double? _asDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+
+    final String raw = value.toString().trim();
+
+    if (raw.isEmpty) return null;
+
+    final String normalized = raw.contains(',')
+        ? raw.replaceAll('.', '').replaceAll(',', '.')
+        : raw;
+
+    return double.tryParse(normalized);
   }
 
-  // ------------ Factories ------------
-  factory InfractionsData.fromDocument({required DocumentSnapshot snapshot}) {
-    if (!snapshot.exists) throw Exception('Infração não encontrada');
+  factory InfractionsData.fromDocument({
+    required DocumentSnapshot snapshot,
+  }) {
+    if (!snapshot.exists) {
+      throw Exception('Infração não encontrada');
+    }
+
     final data = snapshot.data() as Map<String, dynamic>?;
 
-    if (data == null) throw Exception('Dados vazios');
+    if (data == null) {
+      throw Exception('Dados vazios');
+    }
 
-    return InfractionsData(
+    return InfractionsData.fromMap(
+      data,
       id: snapshot.id,
-      contractId: data['contractId'],
-      orderInfraction: _asInt(data['orderInfraction']),
-      aitNumber: data['aitNumber'],
-      dateInfraction: _readDate(data),
-      codeInfraction: data['codeInfraction'],
-      descriptionInfraction: data['descriptionInfraction'],
-      organCode: data['organCode'],
-      organAuthority: data['organAuthority'],
-      addressInfraction: data['addressInfraction'],
-      bairro: data['Bairro'],
-      latitude: _asDouble(data['latitude']),
-      longitude: _asDouble(data['longitude']),
-      createdAt: _asDate(data['createdAt']),
-      createdBy: data['createdBy'],
-      updatedAt: _asDate(data['updatedAt']),
-      updatedBy: data['updatedBy'],
-      deletedAt: _asDate(data['deletedAt']),
-      deletedBy: data['deletedBy'],
     );
   }
 
-  factory InfractionsData.fromMap(Map<String, dynamic> map, {String? id}) {
+  factory InfractionsData.fromMap(
+      Map<String, dynamic> map, {
+        String? id,
+      }) {
     return InfractionsData(
-      id: id ?? map['id'],
-      contractId: map['contractId'],
+      id: id ?? map['id'] as String?,
+      contractId: map['contractId'] as String?,
       orderInfraction: _asInt(map['orderInfraction']),
-      aitNumber: map['aitNumber'],
+      aitNumber: map['aitNumber'] as String?,
       dateInfraction: _readDate(map),
-      codeInfraction: map['codeInfraction'],
-      descriptionInfraction: map['descriptionInfraction'],
-      organCode: map['organCode'],
-      organAuthority: map['organAuthority'],
-      addressInfraction: map['addressInfraction'],
-      bairro: map['Bairro'],
+      codeInfraction: map['codeInfraction'] as String?,
+      descriptionInfraction: map['descriptionInfraction'] as String?,
+      organCode: map['organCode'] as String?,
+      organAuthority: map['organAuthority'] as String?,
+      addressInfraction: map['addressInfraction'] as String?,
+      bairro: (map['Bairro'] ?? map['bairro']) as String?,
       latitude: _asDouble(map['latitude']),
       longitude: _asDouble(map['longitude']),
       createdAt: _asDate(map['createdAt']),
-      createdBy: map['createdBy'],
+      createdBy: map['createdBy'] as String?,
       updatedAt: _asDate(map['updatedAt']),
-      updatedBy: map['updatedBy'],
+      updatedBy: map['updatedBy'] as String?,
       deletedAt: _asDate(map['deletedAt']),
-      deletedBy: map['deletedBy'],
+      deletedBy: map['deletedBy'] as String?,
     );
   }
 
-  // ------------ Serialization ------------
   Map<String, dynamic> toJson() {
     return {
       'id': id ?? '',
       'contractId': contractId ?? '',
       'orderInfraction': orderInfraction ?? 0,
       'aitNumber': aitNumber ?? '',
-      // grava sempre como Timestamp pra manter consistência
-      'dateInfraction': dateInfraction != null ? Timestamp.fromDate(dateInfraction!) : null,
+      'dateInfraction': dateInfraction != null
+          ? Timestamp.fromDate(dateInfraction!)
+          : null,
       'codeInfraction': codeInfraction ?? '',
       'descriptionInfraction': descriptionInfraction ?? '',
       'organCode': organCode ?? '',
       'organAuthority': organAuthority ?? '',
       'addressInfraction': addressInfraction ?? '',
       'Bairro': bairro ?? '',
+      'bairro': bairro ?? '',
       'latitude': latitude,
       'longitude': longitude,
     };
   }
 
   Map<String, dynamic> toMap() => toJson();
+
+  InfractionsData copyWith({
+    String? id,
+    String? contractId,
+    int? orderInfraction,
+    String? aitNumber,
+    DateTime? dateInfraction,
+    String? codeInfraction,
+    String? descriptionInfraction,
+    String? organCode,
+    String? organAuthority,
+    String? addressInfraction,
+    String? bairro,
+    double? latitude,
+    double? longitude,
+    DateTime? createdAt,
+    String? createdBy,
+    DateTime? updatedAt,
+    String? updatedBy,
+    DateTime? deletedAt,
+    String? deletedBy,
+  }) {
+    return InfractionsData(
+      id: id ?? this.id,
+      contractId: contractId ?? this.contractId,
+      orderInfraction: orderInfraction ?? this.orderInfraction,
+      aitNumber: aitNumber ?? this.aitNumber,
+      dateInfraction: dateInfraction ?? this.dateInfraction,
+      codeInfraction: codeInfraction ?? this.codeInfraction,
+      descriptionInfraction:
+      descriptionInfraction ?? this.descriptionInfraction,
+      organCode: organCode ?? this.organCode,
+      organAuthority: organAuthority ?? this.organAuthority,
+      addressInfraction: addressInfraction ?? this.addressInfraction,
+      bairro: bairro ?? this.bairro,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      createdAt: createdAt ?? this.createdAt,
+      createdBy: createdBy ?? this.createdBy,
+      updatedAt: updatedAt ?? this.updatedAt,
+      updatedBy: updatedBy ?? this.updatedBy,
+      deletedAt: deletedAt ?? this.deletedAt,
+      deletedBy: deletedBy ?? this.deletedBy,
+    );
+  }
 }

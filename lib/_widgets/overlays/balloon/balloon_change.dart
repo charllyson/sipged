@@ -1,3 +1,5 @@
+// lib/_widgets/overlays/balloon/balloon_change.dart
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/overlays/balloon/balloon_body.dart';
@@ -5,13 +7,27 @@ import 'package:sipged/_widgets/overlays/balloon/balloon_painter.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tip.dart';
 
-class BalloonChange extends StatelessWidget {
+class BalloonChange extends StatefulWidget {
   const BalloonChange({
     super.key,
     this.targetBox,
     required this.overlayBox,
     this.localAnchor,
     this.globalAnchor,
+
+    /// Recalcula a posição global da âncora sempre que o balloon rebuildar.
+    ///
+    /// Ideal para mapa, zoom, pan, scroll manual, gráficos e canvas.
+    this.globalAnchorBuilder,
+
+    /// Quando informado, o BalloonChange escuta esse listenable e atualiza
+    /// internamente a posição.
+    ///
+    /// Exemplo:
+    /// final ValueNotifier<int> balloonTick = ValueNotifier(0);
+    /// balloonTick.value++;
+    this.rebuildListenable,
+
     required this.width,
     required this.maxHeight,
     this.title,
@@ -32,8 +48,11 @@ class BalloonChange extends StatelessWidget {
     this.tipHorizontalMargin = 20,
     this.tipVerticalMargin = 20,
   }) : assert(
-  targetBox != null || localAnchor != null || globalAnchor != null,
-  'Informe targetBox, localAnchor ou globalAnchor para posicionar o BalloonChange.',
+  targetBox != null ||
+      localAnchor != null ||
+      globalAnchor != null ||
+      globalAnchorBuilder != null,
+  'Informe targetBox, localAnchor, globalAnchor ou globalAnchorBuilder para posicionar o BalloonChange.',
   );
 
   final RenderBox? targetBox;
@@ -41,6 +60,9 @@ class BalloonChange extends StatelessWidget {
 
   final Offset? localAnchor;
   final Offset? globalAnchor;
+
+  final Offset? Function()? globalAnchorBuilder;
+  final Listenable? rebuildListenable;
 
   final double width;
   final double maxHeight;
@@ -74,8 +96,44 @@ class BalloonChange extends StatelessWidget {
   final double tipVerticalMargin;
 
   @override
+  State<BalloonChange> createState() => _BalloonChangeState();
+}
+
+class _BalloonChangeState extends State<BalloonChange> {
+  @override
+  void initState() {
+    super.initState();
+    widget.rebuildListenable?.addListener(_handleRebuildRequested);
+  }
+
+  @override
+  void didUpdateWidget(covariant BalloonChange oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.rebuildListenable != widget.rebuildListenable) {
+      oldWidget.rebuildListenable?.removeListener(_handleRebuildRequested);
+      widget.rebuildListenable?.addListener(_handleRebuildRequested);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.rebuildListenable?.removeListener(_handleRebuildRequested);
+    super.dispose();
+  }
+
+  void _handleRebuildRequested() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     final position = _calculatePosition();
+
+    if (position == null) {
+      return const SizedBox.shrink();
+    }
 
     return Positioned(
       left: position.left,
@@ -84,64 +142,71 @@ class BalloonChange extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: BalloonBody(
-          width: width,
-          maxHeight: maxHeight,
-          tipSide: tipSide,
+          width: widget.width,
+          maxHeight: widget.maxHeight,
+          tipSide: widget.tipSide,
           tipCenterX: position.tipCenterX,
           tipCenterY: position.tipCenterY,
-          title: title,
-          headerIcon: headerIcon,
-          actionLabel: actionLabel,
-          showAction: showAction,
-          onAction: onAction,
-          loading: loading,
-          error: error,
-          emptyIcon: emptyIcon,
-          emptyMessage: emptyMessage,
-          items: items,
+          title: widget.title,
+          headerIcon: widget.headerIcon,
+          actionLabel: widget.actionLabel,
+          showAction: widget.showAction,
+          onAction: widget.onAction,
+          loading: widget.loading,
+          error: widget.error,
+          emptyIcon: widget.emptyIcon,
+          emptyMessage: widget.emptyMessage,
+          items: widget.items,
         ),
       ),
     );
   }
 
-  BalloonPosition _calculatePosition() {
-    final target = targetBox;
+  BalloonPosition? _calculatePosition() {
+    final target = widget.targetBox;
 
-    if (target != null) {
+    if (target != null && target.attached) {
       return BalloonPopup.calculatePosition(
         targetBox: target,
-        overlayBox: overlayBox,
-        balloonWidth: width,
-        maxHeight: maxHeight,
-        tipSide: tipSide,
-        topGap: topGap,
-        screenMargin: screenMargin,
-        tipWidth: tipWidth,
-        tipHeight: tipHeight,
-        tipHorizontalMargin: tipHorizontalMargin,
-        tipVerticalMargin: tipVerticalMargin,
+        overlayBox: widget.overlayBox,
+        balloonWidth: widget.width,
+        maxHeight: widget.maxHeight,
+        tipSide: widget.tipSide,
+        topGap: widget.topGap,
+        screenMargin: widget.screenMargin,
+        tipWidth: widget.tipWidth,
+        tipHeight: widget.tipHeight,
+        tipHorizontalMargin: widget.tipHorizontalMargin,
+        tipVerticalMargin: widget.tipVerticalMargin,
       );
     }
 
-    final overlaySize = overlayBox.size;
+    final overlaySize = widget.overlayBox.size;
 
-    final Offset anchor = localAnchor ??
-        overlayBox.globalToLocal(
-          globalAnchor!,
-        );
+    final Offset? resolvedGlobalAnchor =
+        widget.globalAnchorBuilder?.call() ?? widget.globalAnchor;
+
+    final Offset? anchor = widget.localAnchor ??
+        (resolvedGlobalAnchor == null
+            ? null
+            : widget.overlayBox.globalToLocal(resolvedGlobalAnchor));
+
+    if (anchor == null) {
+      return null;
+    }
 
     return BalloonPopup.calculatePositionFromLocalPoint(
       anchor: anchor,
       overlaySize: overlaySize,
-      balloonWidth: width,
-      maxHeight: maxHeight,
-      tipSide: tipSide,
-      topGap: topGap,
-      screenMargin: screenMargin,
-      tipWidth: tipWidth,
-      tipHeight: tipHeight,
-      tipHorizontalMargin: tipHorizontalMargin,
-      tipVerticalMargin: tipVerticalMargin,
+      balloonWidth: widget.width,
+      maxHeight: widget.maxHeight,
+      tipSide: widget.tipSide,
+      topGap: widget.topGap,
+      screenMargin: widget.screenMargin,
+      tipWidth: widget.tipWidth,
+      tipHeight: widget.tipHeight,
+      tipHorizontalMargin: widget.tipHorizontalMargin,
+      tipVerticalMargin: widget.tipVerticalMargin,
     );
   }
 }

@@ -76,6 +76,12 @@ class _RegionMunicipiosSelectorBodyState
 
   OverlayEntry? _lockedBalloonEntry;
 
+  final ValueNotifier<int> _lockedBalloonTick = ValueNotifier<int>(0);
+
+  String? _lockedBalloonRegionName;
+  IBGELocationState? _lockedBalloonState;
+  MapController? _lockedBalloonMapController;
+
   late Set<String> _selectedCities;
   late Set<String> _lockedCities;
 
@@ -101,6 +107,7 @@ class _RegionMunicipiosSelectorBodyState
   @override
   void dispose() {
     _hideLockedBalloon();
+    _lockedBalloonTick.dispose();
     _ufCtrl.dispose();
     super.dispose();
   }
@@ -108,6 +115,10 @@ class _RegionMunicipiosSelectorBodyState
   void _hideLockedBalloon() {
     _lockedBalloonEntry?.remove();
     _lockedBalloonEntry = null;
+
+    _lockedBalloonRegionName = null;
+    _lockedBalloonState = null;
+    _lockedBalloonMapController = null;
   }
 
   String _norm(String value) {
@@ -216,6 +227,44 @@ class _RegionMunicipiosSelectorBodyState
     return LatLng(lat, lon);
   }
 
+  Offset? _currentLockedBalloonGlobalAnchor() {
+    final regionName = _lockedBalloonRegionName;
+    final state = _lockedBalloonState;
+    final map = _lockedBalloonMapController ?? _mapController;
+
+    if (regionName == null || state == null || map == null) {
+      return null;
+    }
+
+    if (state.cityPolygons.isEmpty) {
+      return null;
+    }
+
+    final polygon = state.cityPolygons.firstWhere(
+          (p) => _norm(_polygonTitle(p)) == _norm(regionName),
+      orElse: () => state.cityPolygons.first,
+    );
+
+    final center = _computePolygonCenter(polygon);
+
+    if (center == null) {
+      return null;
+    }
+
+    final localMapPosition = SipGedGeoMath.latLngToScreen(
+      map.camera,
+      center,
+    );
+
+    final renderObj = context.findRenderObject();
+
+    if (renderObj is! RenderBox || !renderObj.attached) {
+      return null;
+    }
+
+    return renderObj.localToGlobal(localMapPosition);
+  }
+
   void _showLockedBalloonAtPolygon(
       String regionName,
       IBGELocationState state,
@@ -226,30 +275,15 @@ class _RegionMunicipiosSelectorBodyState
     if (map == null) return;
     if (state.cityPolygons.isEmpty) return;
 
-    final polygon = state.cityPolygons.firstWhere(
-          (p) => _norm(_polygonTitle(p)) == _norm(regionName),
-      orElse: () => state.cityPolygons.first,
-    );
-
-    final center = _computePolygonCenter(polygon);
-    if (center == null) return;
-
-    final cam = map.camera;
-
-    final Offset localMapPosition = SipGedGeoMath.latLngToScreen(
-      cam,
-      center,
-    );
-
-    final renderObj = context.findRenderObject();
-    if (renderObj is! RenderBox) return;
-
-    final Offset globalPosition = renderObj.localToGlobal(localMapPosition);
-
     final overlayObject = overlayState.context.findRenderObject();
+
     if (overlayObject is! RenderBox) return;
 
     _hideLockedBalloon();
+
+    _lockedBalloonRegionName = regionName;
+    _lockedBalloonState = state;
+    _lockedBalloonMapController = map;
 
     _lockedBalloonEntry = OverlayEntry(
       builder: (_) {
@@ -264,7 +298,8 @@ class _RegionMunicipiosSelectorBodyState
             ),
             BalloonChange(
               overlayBox: overlayObject,
-              globalAnchor: globalPosition,
+              globalAnchorBuilder: _currentLockedBalloonGlobalAnchor,
+              rebuildListenable: _lockedBalloonTick,
               width: 280,
               maxHeight: 180,
               topGap: 8,
@@ -416,6 +451,11 @@ class _RegionMunicipiosSelectorBodyState
           }
         }
 
+        if (_lockedBalloonEntry != null) {
+          _lockedBalloonState = state;
+          _lockedBalloonTick.value++;
+        }
+
         _syncSelectionWithPolygons(state);
       },
       builder: (context, state) {
@@ -440,14 +480,11 @@ class _RegionMunicipiosSelectorBodyState
                     key: ValueKey(
                       'setup-region-map-${state.selectedState?.id ?? 'none'}',
                     ),
-
                     features: const <FeatureData>[],
                     layersById: const <String, LayerData>{},
                     orderedActiveLayerIds: const <String>[],
-
                     selectedFeatureKey: null,
                     loading: state.isLoading,
-
                     visualDataSignature: Object.hash(
                       'setup-region-map',
                       state.selectedState?.id,
@@ -455,28 +492,24 @@ class _RegionMunicipiosSelectorBodyState
                       _selectedCities.length,
                       _lockedCities.length,
                     ),
-
                     initialCenter: const LatLng(-9.6658, -35.7353),
                     initialZoom: 7.8,
                     minZoom: 4,
                     maxZoom: 14,
-
                     showSearch: true,
                     showControls: true,
-
                     initialGeometryPoints: geometryPoints,
                     fitInitialGeometryOnce: geometryPoints.isNotEmpty,
-
                     externalPolygons: styledPolygons,
-
                     onControllerReady: (ctrl) {
                       _mapController = ctrl;
                     },
-
-                    onCameraChanged: (_, _) {},
-
+                    onCameraChanged: (_, _) {
+                      if (_lockedBalloonEntry != null) {
+                        _lockedBalloonTick.value++;
+                      }
+                    },
                     onFeatureTap: (_) {},
-
                     onExternalPolygonTap: (polygon) {
                       _handlePolygonTap(polygon, state);
                     },

@@ -1,8 +1,11 @@
+// lib/_widgets/map/search/search_map_button.dart
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_services/map/map_box/service/nominatim_service.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_cubit.dart';
 import 'package:sipged/_widgets/map/search/search_overlay.dart';
 import 'package:sipged/_widgets/map/search/search_suggestion.dart';
 import 'package:sipged/_widgets/map/search/search_widget.dart';
@@ -33,34 +36,27 @@ class SearchMapButton extends StatefulWidget {
 }
 
 class _SearchMapButtonState extends State<SearchMapButton> {
-  late final NominatimService _geocoder = NominatimService.nominatim(
-    userAgent: 'siged-app/1.0 (org.gov.br)',
-    acceptLanguage: 'pt-BR',
-    countryCodes: 'br',
-    limit: 1,
-  );
-
   LatLng? _parseLatLng(String raw) {
-    final q = raw.trim();
+    final String q = raw.trim();
 
     if (q.isEmpty) return null;
 
-    final normalized = q
+    final String normalized = q
         .replaceAll(';', ',')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
 
-    final parts = normalized.contains(',')
+    final List<String> parts = normalized.contains(',')
         ? normalized.split(',')
         : normalized.split(' ');
 
     if (parts.length < 2) return null;
 
-    final latText = parts[0].trim().replaceAll(',', '.');
-    final lonText = parts[1].trim().replaceAll(',', '.');
+    final String latText = parts[0].trim().replaceAll(',', '.');
+    final String lonText = parts[1].trim().replaceAll(',', '.');
 
-    final lat = double.tryParse(latText);
-    final lon = double.tryParse(lonText);
+    final double? lat = double.tryParse(latText);
+    final double? lon = double.tryParse(lonText);
 
     if (lat == null || lon == null) return null;
 
@@ -71,22 +67,33 @@ class _SearchMapButtonState extends State<SearchMapButton> {
   }
 
   Future<List<SearchSuggestion<dynamic>>> _fetchAddressSuggestions(
-      String q,
+      String query,
       ) async {
-    if (q.trim().length < 3) return const [];
+    final String q = query.trim();
 
-    final results = await _geocoder.search(q, limit: 8);
+    if (q.length < 3) return const <SearchSuggestion<dynamic>>[];
 
-    return results
-        .map(
-          (r) => SearchSuggestion.address(
-        id: r.id,
-        title: r.title,
-        subtitle: r.city ?? r.state ?? r.country,
-        point: r.point,
-      ),
-    )
-        .toList(growable: false);
+    try {
+      final cubit = context.read<NominatimCubit>();
+
+      final results = await cubit.search(
+        q,
+        limit: 8,
+      );
+
+      return results
+          .map(
+            (result) => SearchSuggestion.address(
+          id: result.id,
+          title: result.title,
+          subtitle: result.city ?? result.state ?? result.country,
+          point: result.point,
+        ),
+      )
+          .toList(growable: false);
+    } catch (_) {
+      return const <SearchSuggestion<dynamic>>[];
+    }
   }
 
   void _onSuggestionTap(
@@ -104,24 +111,38 @@ class _SearchMapButtonState extends State<SearchMapButton> {
   }
 
   Future<void> _onSearch(String text) async {
-    final q = text.trim();
+    final String q = text.trim();
 
     if (q.isEmpty) return;
 
-    final parsed = _parseLatLng(q);
+    final LatLng? parsed = _parseLatLng(q);
 
     if (parsed != null) {
       _goTo(parsed);
-      widget.onMapTap?.call(parsed.latitude, parsed.longitude);
+
+      widget.onMapTap?.call(
+        parsed.latitude,
+        parsed.longitude,
+      );
+
       return;
     }
 
     try {
-      final hit = await _geocoder.geocode(q);
+      final cubit = context.read<NominatimCubit>();
+
+      final LatLng? hit = await cubit.getCoordinates(q);
+
+      if (!mounted) return;
 
       if (hit != null) {
         _goTo(hit);
-        widget.onMapTap?.call(hit.latitude, hit.longitude);
+
+        widget.onMapTap?.call(
+          hit.latitude,
+          hit.longitude,
+        );
+
         return;
       }
     } catch (_) {}
@@ -135,7 +156,10 @@ class _SearchMapButtonState extends State<SearchMapButton> {
       widget.searchTargetZoom,
     );
 
-    widget.onMoved?.call(point, widget.searchTargetZoom);
+    widget.onMoved?.call(
+      point,
+      widget.searchTargetZoom,
+    );
   }
 
   @override
@@ -149,7 +173,12 @@ class _SearchMapButtonState extends State<SearchMapButton> {
     return SearchWidget(
       onSearch: _onSearch,
       fetchSuggestions: _fetchAddressSuggestions,
-      onSuggestionTap: (s) => _onSuggestionTap(s, _onSearch),
+      onSuggestionTap: (suggestion) {
+        _onSuggestionTap(
+          suggestion,
+          _onSearch,
+        );
+      },
       tooltip: 'Buscar endereço',
       backgroundColor: Colors.black38,
       iconColor: Colors.white,

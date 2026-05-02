@@ -14,19 +14,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:sipged/_blocs/system/notification/bell/notification_bell_cubit.dart';
 
-import '_blocs/system/notification/preferences/notification_preferences_cubit.dart';
 import 'firebase_options_flavors.dart';
 import 'gate_page.dart';
 
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
-import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
+
+import 'package:sipged/_services/map/map_box/service/nominatim_cubit.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_geocoder.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_repository.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_push.dart';
+import 'package:sipged/_blocs/system/notification/bell/notification_bell_cubit.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
-import 'package:sipged/_blocs/system/notification/remote/notification_remote_repository.dart';
+import 'package:sipged/_blocs/system/notification/preferences/notification_preferences_cubit.dart';
 import 'package:sipged/_blocs/system/notification/remote/notification_remote_cubit.dart';
+import 'package:sipged/_blocs/system/notification/remote/notification_remote_repository.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
@@ -90,18 +93,12 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_repository.dart';
 
-import 'package:sipged/_blocs/modules/financial/payments/adjustment/payment_adjustment_bloc.dart';
-import 'package:sipged/_blocs/modules/financial/payments/report/payment_reports_bloc.dart';
-import 'package:sipged/_blocs/modules/financial/payments/report/payments_report_storage_bloc.dart';
-import 'package:sipged/_blocs/modules/financial/payments/revision/payment_revision_bloc.dart';
-
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
-import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_store.dart';
 
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
-import 'package:sipged/_blocs/modules/transit/infractions/infractions_bloc.dart';
-import 'package:sipged/_blocs/modules/transit/infractions/infractions_controller.dart';
+import 'package:sipged/_blocs/modules/transit/infractions/infractions_cubit.dart';
+import 'package:sipged/_blocs/modules/transit/infractions/infractions_repository.dart';
 
 Future<void> _loadEnvIfNeeded() async {
   final shouldLoadEnv = !kIsWeb || !kReleaseMode;
@@ -198,19 +195,17 @@ Future<void> bootstrapAndRunApp() async {
                 repository: ctx.read<LoginRepository>(),
               ),
             ),
-            /// PREFERENCIAS DAS NOTIFICAÇÕES
-            BlocProvider(
+
+            BlocProvider<NotificationPreferencesCubit>(
               create: (_) => NotificationPreferencesCubit(),
             ),
 
-            /// TOAST LOCAL
             BlocProvider<NotificationLocalCubit>(
               create: (_) => NotificationLocalCubit(
                 maxVisible: 4,
               ),
             ),
 
-            /// NOTIFICAÇÕES REMOTAS / SINO / HISTÓRICO / TOKEN PUSH
             RepositoryProvider<NotificationRemoteRepository>(
               create: (_) => NotificationRemoteRepository(),
             ),
@@ -226,9 +221,25 @@ Future<void> bootstrapAndRunApp() async {
               ),
             ),
 
-            Provider<NominatimBloc>(
-              create: (_) => NominatimBloc(),
-              dispose: (_, b) => b.dispose(),
+            RepositoryProvider<NominatimRepository>(
+              create: (_) {
+                const userAgent = 'sipged/1.0';
+
+                return NominatimRepository(
+                  userAgent: userAgent,
+                  service: const NominatimGeocoder(
+                    userAgent: userAgent,
+                    acceptLanguage: 'pt-BR',
+                    countryCodes: 'br',
+                    defaultLimit: 8,
+                  ),
+                );
+              },
+            ),
+            BlocProvider<NominatimCubit>(
+              create: (ctx) => NominatimCubit(
+                repository: ctx.read<NominatimRepository>(),
+              ),
             ),
 
             RepositoryProvider<UserRepository>(
@@ -260,23 +271,13 @@ Future<void> bootstrapAndRunApp() async {
               create: (_) => AccidentsCubit(),
             ),
 
-            Provider<InfractionsBloc>(
-              create: (_) => InfractionsBloc(),
-              dispose: (_, b) => b.dispose(),
+            RepositoryProvider<InfractionsRepository>(
+              create: (_) => InfractionsRepository(),
             ),
-            ChangeNotifierProxyProvider<InfractionsBloc, InfractionsController>(
-              create: (ctx) => InfractionsController(
-                bloc: ctx.read<InfractionsBloc>(),
+            BlocProvider<InfractionsCubit>(
+              create: (ctx) => InfractionsCubit(
+                repository: ctx.read<InfractionsRepository>(),
               ),
-              update: (_, iBloc, ctrl) {
-                final controller = ctrl ??
-                    InfractionsController(
-                      bloc: iBloc,
-                    );
-
-                controller.updateDeps(iBloc);
-                return controller;
-              },
             ),
 
             BlocProvider<ReportMeasurementCubit>(
@@ -373,23 +374,6 @@ Future<void> bootstrapAndRunApp() async {
               ),
             ),
 
-            Provider<PaymentReportBloc>(
-              create: (_) => PaymentReportBloc(),
-              dispose: (_, bloc) => bloc.dispose(),
-            ),
-            Provider<PaymentsReportStorageBloc>(
-              create: (_) => PaymentsReportStorageBloc(),
-              dispose: (_, bloc) => bloc.dispose(),
-            ),
-            Provider<PaymentRevisionBloc>(
-              create: (_) => PaymentRevisionBloc(),
-              dispose: (_, bloc) => bloc.dispose(),
-            ),
-            Provider<PaymentAdjustmentBloc>(
-              create: (_) => PaymentAdjustmentBloc(),
-              dispose: (_, bloc) => bloc.dispose(),
-            ),
-
             RepositoryProvider<EtpRepository>(
               create: (_) => EtpRepository(),
             ),
@@ -460,10 +444,6 @@ Future<void> bootstrapAndRunApp() async {
               create: (ctx) => TermoArquivamentoCubit(
                 ctx.read<TermoArquivamentoRepository>(),
               ),
-            ),
-
-            ChangeNotifierProvider<PhysicsFinanceStore>(
-              create: (_) => PhysicsFinanceStore(),
             ),
           ],
           builder: (context, _) {

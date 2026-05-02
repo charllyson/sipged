@@ -1,9 +1,11 @@
+// lib/_widgets/map/my_location/my_location.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_cubit.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 
 class MyLocation extends StatelessWidget {
@@ -24,14 +26,14 @@ class MyLocation extends StatelessWidget {
   final void Function(LatLng center, double zoom)? onMoved;
 
   Future<void> _handleTap(BuildContext context) async {
-    final bloc = context.read<NominatimBloc>();
-    final loc = await bloc.getUserCurrentLocation();
+    final cubit = context.read<NominatimCubit>();
+
+    final loc = await cubit.getUserCurrentLocation();
 
     if (!context.mounted) return;
-
     if (loc == null) return;
 
-    const zoom = 16.0;
+    const double zoom = 16.0;
 
     userLocationVN.value = loc;
     searchHitVN.value = loc;
@@ -39,7 +41,10 @@ class MyLocation extends StatelessWidget {
     mapController.move(loc, zoom);
 
     onMoved?.call(loc, zoom);
-    onMapTap?.call(loc.latitude, loc.longitude);
+    onMapTap?.call(
+      loc.latitude,
+      loc.longitude,
+    );
   }
 
   @override

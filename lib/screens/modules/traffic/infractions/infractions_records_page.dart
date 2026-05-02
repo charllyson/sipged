@@ -1,20 +1,23 @@
+// lib/screens/modules/transit/infractions/infractions_records_page.dart
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:provider/provider.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 
-import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_blocs/modules/transit/infractions/infractions_cubit.dart';
+import 'package:sipged/_blocs/modules/transit/infractions/infractions_repository.dart';
+import 'package:sipged/_blocs/modules/transit/infractions/infractions_state.dart';
+
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/map/map/map_change.dart';
-
-import '../../../../_blocs/modules/transit/infractions/infractions_bloc.dart';
-import '../../../../_widgets/draw/background/background_change.dart';
-import '../../../../_blocs/modules/transit/infractions/infractions_controller.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'infractions_form_section.dart';
 import 'infractions_selector_dates_section.dart';
@@ -24,60 +27,68 @@ class InfractionsRecordsPage extends StatefulWidget {
   const InfractionsRecordsPage({super.key});
 
   @override
-  State<InfractionsRecordsPage> createState() => _InfractionsRecordsPageState();
+  State<InfractionsRecordsPage> createState() =>
+      _InfractionsRecordsPageState();
 }
 
 class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
-  late final InfractionsController c = InfractionsController(
-    bloc: InfractionsBloc(),
-  );
+  late final InfractionsCubit _cubit;
 
   double? _formHeight;
+
   static const double _minDeskHeight = 420;
 
   @override
   void initState() {
     super.initState();
 
+    _cubit = InfractionsCubit(
+      repository: InfractionsRepository(),
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      c.postFrameInit(context);
+      _cubit.postFrameInit();
     });
   }
 
-  Future<void> _handleSave(InfractionsController ctrl) async {
-    final ok = await confirmDialog(
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
+
+  Future<void> _handleSave(InfractionsCubit cubit) async {
+    final bool ok = await confirmDialog(
       context,
       'Deseja salvar esta infração?',
     );
 
-    if (!mounted) return;
-    if (!ok) return;
+    if (!mounted || !ok) return;
 
-    await ctrl.saveOrUpdate(context);
+    await cubit.saveOrUpdate();
   }
 
   Future<void> _handleDelete(
-      InfractionsController ctrl,
+      InfractionsCubit cubit,
       String id,
       ) async {
-    final ok = await confirmDialog(
+    final bool ok = await confirmDialog(
       context,
       'Deseja apagar esta infração?',
     );
 
-    if (!mounted) return;
-    if (!ok) return;
+    if (!mounted || !ok) return;
 
-    await ctrl.deleteInfraction(context, id);
+    await cubit.deleteInfraction(id);
   }
 
   Future<void> _handleApplyDateFilter(
-      InfractionsController ctrl, {
+      InfractionsCubit cubit, {
         required int? year,
         required int? month,
       }) async {
-    await ctrl.applyDateFilter(
+    await cubit.applyDateFilter(
       year: year,
       month: month,
       resetToFirstPage: true,
@@ -87,8 +98,8 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: c,
+    return BlocProvider<InfractionsCubit>.value(
+      value: _cubit,
       child: Scaffold(
         backgroundColor: Colors.white,
         body: Stack(
@@ -97,8 +108,10 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
             Column(
               children: [
                 Expanded(
-                  child: Consumer<InfractionsController>(
-                    builder: (_, ctrl, _) {
+                  child: BlocBuilder<InfractionsCubit, InfractionsState>(
+                    builder: (context, state) {
+                      final cubit = context.read<InfractionsCubit>();
+
                       return SingleChildScrollView(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,8 +126,8 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                               ),
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
-                                  final maxW = constraints.maxWidth;
-                                  final isSmall = maxW <= 900;
+                                  final double maxW = constraints.maxWidth;
+                                  final bool isSmall = maxW <= 900;
 
                                   final double leftWidth =
                                   isSmall ? maxW : (maxW - 12) / 2;
@@ -129,28 +142,28 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                       children: [
                                         InfractionsFormSection(
                                           itemsPerLineOverride: 1,
-                                          isEditable: ctrl.isEditable,
-                                          formValidated: ctrl.formValidated,
+                                          isEditable: state.isEditable,
+                                          formValidated: state.formValidated,
                                           currentInfractionId:
-                                          ctrl.currentInfractionId,
-                                          orderCtrl: ctrl.orderCtrl,
-                                          aitNumberCtrl: ctrl.aitNumberCtrl,
-                                          dateCtrl: ctrl.dateCtrl,
-                                          timeCtrl: ctrl.timeCtrl,
-                                          codeCtrl: ctrl.codeCtrl,
+                                          state.currentInfractionId,
+                                          orderCtrl: cubit.orderCtrl,
+                                          aitNumberCtrl: cubit.aitNumberCtrl,
+                                          dateCtrl: cubit.dateCtrl,
+                                          timeCtrl: cubit.timeCtrl,
+                                          codeCtrl: cubit.codeCtrl,
                                           descriptionCtrl:
-                                          ctrl.descriptionCtrl,
-                                          organCodeCtrl: ctrl.organCodeCtrl,
+                                          cubit.descriptionCtrl,
+                                          organCodeCtrl: cubit.organCodeCtrl,
                                           organAuthorityCtrl:
-                                          ctrl.organAuthorityCtrl,
-                                          addressCtrl: ctrl.addressCtrl,
-                                          bairroCtrl: ctrl.bairroCtrl,
-                                          latitudeCtrl: ctrl.latitudeCtrl,
-                                          longitudeCtrl: ctrl.longitudeCtrl,
-                                          onSave: () => _handleSave(ctrl),
-                                          onClear: ctrl.createNew,
-                                          onGetLocation: () =>
-                                              ctrl.fillFromUserLocation(context),
+                                          cubit.organAuthorityCtrl,
+                                          addressCtrl: cubit.addressCtrl,
+                                          bairroCtrl: cubit.bairroCtrl,
+                                          latitudeCtrl: cubit.latitudeCtrl,
+                                          longitudeCtrl: cubit.longitudeCtrl,
+                                          onSave: () => _handleSave(cubit),
+                                          onClear: cubit.createNew,
+                                          onGetLocation:
+                                          cubit.fillFromUserLocation,
                                         ),
                                         const SizedBox(height: 12),
                                         SizedBox(
@@ -182,11 +195,12 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                         width: leftWidth,
                                         child: _SizeReporter(
                                           onSize: (size) {
-                                            final h = size.height;
+                                            final double height = size.height;
 
-                                            if (_formHeight != h && mounted) {
+                                            if (_formHeight != height &&
+                                                mounted) {
                                               setState(() {
-                                                _formHeight = h;
+                                                _formHeight = height;
                                               });
                                             }
                                           },
@@ -195,34 +209,34 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                             BorderRadius.circular(8),
                                             child: InfractionsFormSection(
                                               itemsPerLineOverride: 2,
-                                              isEditable: ctrl.isEditable,
+                                              isEditable: state.isEditable,
                                               formValidated:
-                                              ctrl.formValidated,
+                                              state.formValidated,
                                               currentInfractionId:
-                                              ctrl.currentInfractionId,
-                                              orderCtrl: ctrl.orderCtrl,
+                                              state.currentInfractionId,
+                                              orderCtrl: cubit.orderCtrl,
                                               aitNumberCtrl:
-                                              ctrl.aitNumberCtrl,
-                                              dateCtrl: ctrl.dateCtrl,
-                                              timeCtrl: ctrl.timeCtrl,
-                                              codeCtrl: ctrl.codeCtrl,
+                                              cubit.aitNumberCtrl,
+                                              dateCtrl: cubit.dateCtrl,
+                                              timeCtrl: cubit.timeCtrl,
+                                              codeCtrl: cubit.codeCtrl,
                                               descriptionCtrl:
-                                              ctrl.descriptionCtrl,
+                                              cubit.descriptionCtrl,
                                               organCodeCtrl:
-                                              ctrl.organCodeCtrl,
+                                              cubit.organCodeCtrl,
                                               organAuthorityCtrl:
-                                              ctrl.organAuthorityCtrl,
-                                              addressCtrl: ctrl.addressCtrl,
-                                              bairroCtrl: ctrl.bairroCtrl,
-                                              latitudeCtrl: ctrl.latitudeCtrl,
+                                              cubit.organAuthorityCtrl,
+                                              addressCtrl: cubit.addressCtrl,
+                                              bairroCtrl: cubit.bairroCtrl,
+                                              latitudeCtrl:
+                                              cubit.latitudeCtrl,
                                               longitudeCtrl:
-                                              ctrl.longitudeCtrl,
-                                              onSave: () => _handleSave(ctrl),
-                                              onClear: ctrl.createNew,
-                                              onGetLocation: () =>
-                                                  ctrl.fillFromUserLocation(
-                                                    context,
-                                                  ),
+                                              cubit.longitudeCtrl,
+                                              onSave: () =>
+                                                  _handleSave(cubit),
+                                              onClear: cubit.createNew,
+                                              onGetLocation:
+                                              cubit.fillFromUserLocation,
                                             ),
                                           ),
                                         ),
@@ -253,27 +267,27 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                 horizontal: 12.0,
                               ),
                               child: InfractionsSelectorDatesSection(
-                                allInfractions: ctrl.selectorUniverseAll,
-                                initialYear: ctrl.selectedYear,
-                                initialMonth: ctrl.selectedMonth,
+                                allInfractions: state.selectorUniverseAll,
+                                initialYear: state.selectedYear,
+                                initialMonth: state.selectedMonth,
                                 onSelectionChanged: (res) async {
-                                  final y = res.selectedYear;
-                                  final m = res.selectedMonth;
+                                  final int? year = res.selectedYear;
+                                  final int? month = res.selectedMonth;
 
-                                  if (y == ctrl.selectedYear &&
-                                      m == ctrl.selectedMonth) {
+                                  if (year == state.selectedYear &&
+                                      month == state.selectedMonth) {
                                     return;
                                   }
 
                                   await _handleApplyDateFilter(
-                                    ctrl,
-                                    year: y,
-                                    month: m,
+                                    cubit,
+                                    year: year,
+                                    month: month,
                                   );
                                 },
                               ),
                             ),
-                            if (ctrl.pageItems.isEmpty)
+                            if (state.pageItems.isEmpty)
                               const Padding(
                                 padding: EdgeInsets.all(16.0),
                                 child: Text('Nenhuma infração encontrada'),
@@ -283,16 +297,14 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                 text: 'Infrações cadastradas no sistema',
                               ),
                               InfractionsTableSection(
-                                listData: ctrl.pageItems,
-                                selectedItem: ctrl.selectedInfraction,
+                                listData: state.pageItems,
+                                selectedItem: state.selectedInfraction,
                                 onTapItem: (item) {
-                                  final idx = ctrl.pageItems.indexOf(item);
-
-                                  if (idx != -1) {
-                                    ctrl.selectFromTable(item, idx);
-                                  }
+                                  cubit.selectFromTable(item);
                                 },
-                                onDelete: (id) => _handleDelete(ctrl, id),
+                                onDelete: (id) {
+                                  _handleDelete(cubit, id);
+                                },
                               ),
                             ],
                             const SizedBox(height: 12),
@@ -305,9 +317,13 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                 const FootBar(),
               ],
             ),
-            Consumer<InfractionsController>(
-              builder: (_, ctrl, _) {
-                if (!ctrl.isSaving) {
+            BlocBuilder<InfractionsCubit, InfractionsState>(
+              buildWhen: (previous, current) {
+                return previous.isSaving != current.isSaving ||
+                    previous.loading != current.loading;
+              },
+              builder: (context, state) {
+                if (!state.isSaving && !state.loading) {
                   return const SizedBox.shrink();
                 }
 
@@ -338,28 +354,20 @@ class _InfractionsMapPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return MapChange(
       key: const ValueKey('infractions-map-preview'),
-
       features: const <FeatureData>[],
       layersById: const <String, LayerData>{},
       orderedActiveLayerIds: const <String>[],
-
       selectedFeatureKey: null,
       loading: false,
-
       visualDataSignature: 'infractions-map-preview',
-
       initialCenter: const LatLng(-9.6658, -35.7353),
       initialZoom: 9,
       minZoom: 4,
       maxZoom: 19,
-
       showSearch: false,
       showControls: true,
-
       onControllerReady: (_) {},
-
       onCameraChanged: (_, _) {},
-
       onFeatureTap: (_) {},
     );
   }
@@ -386,7 +394,7 @@ class _SizeReporterState extends State<_SizeReporter> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      final size = context.size;
+      final Size? size = context.size;
 
       if (size != null && size != _old) {
         _old = size;

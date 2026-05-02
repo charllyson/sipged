@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/ia/ai_chat_sheet.dart';
 import 'package:sipged/_widgets/ia/ai_futuristic_button.dart';
@@ -35,7 +34,6 @@ class _FootBarState extends State<FootBar> {
 
   @override
   Widget build(BuildContext context) {
-    final systemBloc = NominatimBloc();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final textStyle = TextStyle(
@@ -110,7 +108,7 @@ class _FootBarState extends State<FootBar> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 72),
                       child: FutureBuilder<int>(
-                        future: systemBloc.getBuildNumber(),
+                        future: null,
                         builder: (context, snapshot) {
                           final buildText = snapshot.hasData
                               ? ' • Build nº ${snapshot.data}'

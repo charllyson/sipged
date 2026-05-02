@@ -1,4 +1,3 @@
-import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -263,9 +262,6 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                                   color: Colors.green,
                                 ),
                                 keyboardType: TextInputType.number,
-                                inputFormatters: [
-                                  CpfInputFormatter(),
-                                ],
                               ),
                               DateFieldChange(
                                 validator: validateDateToBirthday,

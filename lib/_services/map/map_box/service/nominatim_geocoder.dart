@@ -1,92 +1,130 @@
-
+// lib/_services/map/map_box/service/nominatim_geocoder.dart
 
 import 'dart:convert';
 
-import 'package:extended_image/extended_image.dart' as http;
+import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_services/map/map_box/service/nominatim_data.dart';
-import 'package:sipged/_services/map/map_box/service/nominatim_service.dart';
+
+import 'nominatim_data.dart';
+import 'nominatim_service.dart';
 
 class NominatimGeocoder implements NominatimService {
   final String baseUrl;
   final String userAgent;
   final String acceptLanguage;
   final String countryCodes;
-  final int limit;
+  final int defaultLimit;
 
-  NominatimGeocoder({
-    required this.baseUrl,
+  const NominatimGeocoder({
+    this.baseUrl = 'https://nominatim.openstreetmap.org',
     required this.userAgent,
-    required this.acceptLanguage,
-    required this.countryCodes,
-    required this.limit,
+    this.acceptLanguage = 'pt-BR',
+    this.countryCodes = 'br',
+    this.defaultLimit = 6,
   });
 
-  @override
-  Future<LatLng?> geocode(String query) async {
-    final uri = Uri.parse('$baseUrl/search').replace(queryParameters: {
-      'q': query,
-      'format': 'jsonv2',
-      'limit': '$limit',
-      if (acceptLanguage.isNotEmpty) 'accept-language': acceptLanguage,
-      if (countryCodes.isNotEmpty) 'countrycodes': countryCodes,
-    });
-
-    final res = await http.get(uri, headers: {
-      'User-Agent': userAgent, // **OBRIGATÓRIO** no Nominatim
-    });
-
-    if (res.statusCode != 200) return null;
-    final data = json.decode(res.body);
-    if (data is List && data.isNotEmpty) {
-      final item = data.first;
-      final lat = double.tryParse(item['lat']?.toString() ?? '');
-      final lon = double.tryParse(item['lon']?.toString() ?? '');
-      if (lat != null && lon != null) return LatLng(lat, lon);
-    }
-    return null;
+  Map<String, String> get _headers {
+    return {
+      'User-Agent': userAgent,
+      'Accept': 'application/json',
+    };
   }
 
   @override
-  Future<List<NominatimData>> search(String query, {int limit = 6}) async {
-    final uri = Uri.parse('$baseUrl/search').replace(queryParameters: {
-      'q': query,
-      'format': 'jsonv2',
-      'addressdetails': '1',
-      'limit': '$limit',
-      if (acceptLanguage.isNotEmpty) 'accept-language': acceptLanguage,
-      if (countryCodes.isNotEmpty) 'countrycodes': countryCodes,
-    });
+  Future<LatLng?> geocode(String query) async {
+    final text = query.trim();
 
-    final res = await http.get(uri, headers: {
-      'User-Agent': userAgent, // **OBRIGATÓRIO**
-    });
+    if (text.isEmpty) return null;
 
-    if (res.statusCode != 200) return const [];
+    final uri = Uri.parse('$baseUrl/search').replace(
+      queryParameters: {
+        'q': text,
+        'format': 'jsonv2',
+        'limit': '1',
+        if (acceptLanguage.isNotEmpty) 'accept-language': acceptLanguage,
+        if (countryCodes.isNotEmpty) 'countrycodes': countryCodes,
+      },
+    );
 
-    final data = json.decode(res.body);
-    if (data is! List) return const [];
+    final response = await http.get(
+      uri,
+      headers: _headers,
+    );
 
-    final out = <NominatimData>[];
-    for (final m in data) {
-      final lat = double.tryParse(m['lat']?.toString() ?? '');
-      final lon = double.tryParse(m['lon']?.toString() ?? '');
+    if (response.statusCode != 200) return null;
+
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is! List || decoded.isEmpty) return null;
+
+    final first = decoded.first;
+
+    final lat = double.tryParse(first['lat']?.toString() ?? '');
+    final lon = double.tryParse(first['lon']?.toString() ?? '');
+
+    if (lat == null || lon == null) return null;
+
+    return LatLng(lat, lon);
+  }
+
+  @override
+  Future<List<NominatimData>> search(
+      String query, {
+        int limit = 6,
+      }) async {
+    final text = query.trim();
+
+    if (text.isEmpty) return const <NominatimData>[];
+
+    final uri = Uri.parse('$baseUrl/search').replace(
+      queryParameters: {
+        'q': text,
+        'format': 'jsonv2',
+        'addressdetails': '1',
+        'limit': '${limit > 0 ? limit : defaultLimit}',
+        if (acceptLanguage.isNotEmpty) 'accept-language': acceptLanguage,
+        if (countryCodes.isNotEmpty) 'countrycodes': countryCodes,
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) return const <NominatimData>[];
+
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is! List) return const <NominatimData>[];
+
+    final output = <NominatimData>[];
+
+    for (final item in decoded) {
+      if (item is! Map) continue;
+
+      final lat = double.tryParse(item['lat']?.toString() ?? '');
+      final lon = double.tryParse(item['lon']?.toString() ?? '');
+
       if (lat == null || lon == null) continue;
 
-      final addr = (m['address'] is Map) ? (m['address'] as Map) : null;
-      out.add(
+      final address = item['address'] is Map ? item['address'] as Map : null;
+
+      output.add(
         NominatimData(
-          id: (m['place_id'] ?? m['osm_id'] ?? m['display_name']).toString(),
-          title: (m['display_name']?.toString() ?? 'Sem nome'),
+          id: (item['place_id'] ?? item['osm_id'] ?? item['display_name'])
+              .toString(),
+          title: item['display_name']?.toString() ?? 'Sem nome',
           point: LatLng(lat, lon),
-          city: addr?['city']?.toString() ??
-              addr?['town']?.toString() ??
-              addr?['village']?.toString(),
-          state: addr?['state']?.toString(),
-          country: addr?['country']?.toString(),
+          city: address?['city']?.toString() ??
+              address?['town']?.toString() ??
+              address?['village']?.toString(),
+          state: address?['state']?.toString(),
+          country: address?['country']?.toString(),
         ),
       );
     }
-    return out;
+
+    return output;
   }
 }

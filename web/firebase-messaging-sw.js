@@ -1,5 +1,3 @@
-// web/firebase-messaging-sw.js
-
 /* eslint-disable no-undef */
 /* eslint-disable no-restricted-globals */
 
@@ -14,6 +12,8 @@ const firebaseConfig = {
     messagingSenderId: '769410863294',
     appId: '1:769410863294:web:a51d56dfd32369dd4b0eef',
 };
+
+const SIPGED_ICON = '/assets/logos/sipged/sipged.png';
 
 try {
     firebase.initializeApp(firebaseConfig);
@@ -38,11 +38,24 @@ try {
         data.details ||
         'Você recebeu uma nova notificação.';
 
+        const icon =
+        notification.icon ||
+        data.icon ||
+        SIPGED_ICON;
+
         const options = {
             body: body,
-            icon: '/icons/Icon-192.png',
-            badge: '/icons/Icon-192.png',
-            data: data,
+            icon: icon,
+            badge: SIPGED_ICON,
+            image: data.image || undefined,
+            data: {
+                ...data,
+                route: data.route || '',
+                module: data.module || '',
+                contractId: data.contractId || '',
+                processId: data.processId || '',
+                notificationId: data.notificationId || '',
+            },
         };
 
         self.registration.showNotification(title, options);
@@ -56,6 +69,7 @@ try {
             : {};
 
         const route = data.route || '';
+        const module = data.module || '';
         const contractId = data.contractId || '';
         const processId = data.processId || '';
         const notificationId = data.notificationId || '';
@@ -64,6 +78,10 @@ try {
 
         if (route) {
             url.searchParams.set('route', route);
+        }
+
+        if (module) {
+            url.searchParams.set('module', module);
         }
 
         if (contractId) {
@@ -87,7 +105,13 @@ try {
                     const client = clientList[i];
 
                     if ('focus' in client) {
-                        return client.focus();
+                        client.focus();
+
+                        if ('navigate' in client) {
+                            return client.navigate(url.toString());
+                        }
+
+                        return client;
                     }
                 }
 

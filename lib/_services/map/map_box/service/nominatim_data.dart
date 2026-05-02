@@ -1,10 +1,10 @@
+// lib/_services/map/map_box/service/nominatim_data.dart
 
 import 'package:latlong2/latlong.dart';
 
-/// Sugestão rica (para search)
 class NominatimData {
   final String id;
-  final String title;      // display_name / place_name
+  final String title;
   final LatLng point;
   final String? city;
   final String? state;

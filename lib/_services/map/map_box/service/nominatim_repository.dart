@@ -1,89 +1,185 @@
-
+// lib/_services/map/map_box/service/nominatim_repository.dart
 
 import 'dart:convert';
 
-import 'package:extended_image/extended_image.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_services/map/map_box/service/nominatim_data.dart';
-import 'package:sipged/_services/map/map_box/service/nominatim_service.dart';
 
-class NominatimRepository implements NominatimService {
-  final String baseUrl;
-  final String accessToken;
-  final String language;
-  final int limit;
+import 'nominatim_data.dart';
+import 'nominatim_service.dart';
 
+class NominatimRepository {
   NominatimRepository({
-    required this.baseUrl,
-    required this.accessToken,
-    required this.language,
-    required this.limit,
-  });
+    required NominatimService service,
+    required String userAgent,
+    FirebaseFirestore? firestore,
+    String systemDocId = 'info',
+    String reverseBaseUrl = 'https://nominatim.openstreetmap.org',
+  })  : _service = service,
+        _userAgent = userAgent,
+        _firestore = firestore ?? FirebaseFirestore.instance,
+        _systemDocId = systemDocId,
+        _reverseBaseUrl = reverseBaseUrl;
 
-  @override
-  Future<LatLng?> geocode(String query) async {
-    final encoded = Uri.encodeComponent(query);
-    final uri = Uri.parse(
-      '$baseUrl/geocoding/v5/mapbox.places/$encoded.json'
-          '?access_token=$accessToken'
-          '&language=$language'
-          '&limit=$limit',
-    );
+  final NominatimService _service;
+  final String _userAgent;
+  final FirebaseFirestore _firestore;
+  final String _systemDocId;
+  final String _reverseBaseUrl;
 
-    final res = await http.get(uri);
-    if (res.statusCode != 200) return null;
-
-    final data = json.decode(res.body);
-    final feats = data['features'];
-    if (feats is List && feats.isNotEmpty) {
-      final first = feats.first;
-      final coords = first['geometry']?['coordinates'];
-      if (coords is List && coords.length >= 2) {
-        final lon = (coords[0] as num).toDouble();
-        final lat = (coords[1] as num).toDouble();
-        return LatLng(lat, lon);
-      }
+  LocationSettings _locationSettings({
+    LocationAccuracy accuracy = LocationAccuracy.high,
+    Duration? timeLimit,
+  }) {
+    if (kIsWeb) {
+      return WebSettings(
+        accuracy: accuracy,
+        timeLimit: timeLimit,
+      );
     }
-    return null;
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return AndroidSettings(
+          accuracy: accuracy,
+          timeLimit: timeLimit,
+          distanceFilter: 0,
+          forceLocationManager: false,
+        );
+
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return AppleSettings(
+          accuracy: accuracy,
+          timeLimit: timeLimit,
+          distanceFilter: 0,
+          pauseLocationUpdatesAutomatically: false,
+        );
+
+      default:
+        return LocationSettings(
+          accuracy: accuracy,
+          timeLimit: timeLimit,
+        );
+    }
   }
 
-  @override
-  Future<List<NominatimData>> search(String query, {int limit = 6}) async {
-    final encoded = Uri.encodeComponent(query);
-    final uri = Uri.parse(
-      '$baseUrl/geocoding/v5/mapbox.places/$encoded.json'
-          '?access_token=$accessToken'
-          '&language=$language'
-          '&limit=$limit',
+  Future<Placemark?> getPlaceMarkAdapted(LatLng coords) async {
+    if (kIsWeb) {
+      final uri = Uri.parse('$_reverseBaseUrl/reverse').replace(
+        queryParameters: {
+          'lat': coords.latitude.toString(),
+          'lon': coords.longitude.toString(),
+          'format': 'jsonv2',
+          'addressdetails': '1',
+          'accept-language': 'pt-BR',
+        },
+      );
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'User-Agent': _userAgent,
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode != 200) return null;
+
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is! Map) return null;
+
+      final address = decoded['address'];
+
+      if (address is! Map) return null;
+
+      return Placemark(
+        street: address['road']?.toString() ?? '',
+        subLocality: address['suburb']?.toString() ??
+            address['neighbourhood']?.toString() ??
+            '',
+        locality: address['city']?.toString() ??
+            address['town']?.toString() ??
+            address['village']?.toString() ??
+            '',
+        postalCode: address['postcode']?.toString() ?? '',
+        administrativeArea: address['state']?.toString() ?? '',
+        country: address['country']?.toString() ?? '',
+        isoCountryCode:
+        (address['country_code']?.toString() ?? '').toUpperCase(),
+        subAdministrativeArea: address['county']?.toString() ?? '',
+        thoroughfare: address['neighbourhood']?.toString() ?? '',
+        subThoroughfare: '',
+        name: decoded['name']?.toString() ??
+            decoded['display_name']?.toString() ??
+            '',
+      );
+    }
+
+    final placeMarks = await placemarkFromCoordinates(
+      coords.latitude,
+      coords.longitude,
     );
 
-    final res = await http.get(uri);
-    if (res.statusCode != 200) return const [];
+    return placeMarks.isNotEmpty ? placeMarks.first : null;
+  }
 
-    final data = json.decode(res.body);
-    final feats = data['features'];
-    if (feats is! List) return const [];
+  Future<LatLng?> getCoordinates(String address) {
+    return _service.geocode(address);
+  }
 
-    final out = <NominatimData>[];
-    for (final f in feats) {
-      final placeName = f['place_name']?.toString() ?? f['text']?.toString() ?? 'Sem nome';
-      final coords = f['geometry']?['coordinates'];
-      if (coords is List && coords.length >= 2) {
-        final lon = (coords[0] as num).toDouble();
-        final lat = (coords[1] as num).toDouble();
-        out.add(
-          NominatimData(
-            id: (f['id'] ?? placeName).toString(),
-            title: placeName,
-            point: LatLng(lat, lon),
-            // Mapbox traz contexto em "context" – opcional parse fino
-            city: null,
-            state: null,
-            country: null,
-          ),
-        );
+  Future<List<NominatimData>> search(
+      String query, {
+        int limit = 6,
+      }) {
+    return _service.search(
+      query,
+      limit: limit,
+    );
+  }
+
+  Future<LatLng?> getUserCurrentLocation() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) return null;
+
+    var permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+
+      if (permission == LocationPermission.denied) {
+        return null;
       }
     }
-    return out;
+
+    if (permission == LocationPermission.deniedForever) {
+      return null;
+    }
+
+    final position = await Geolocator.getCurrentPosition(
+      locationSettings: _locationSettings(
+        accuracy: LocationAccuracy.high,
+      ),
+    );
+
+    return LatLng(
+      position.latitude,
+      position.longitude,
+    );
+  }
+
+  Future<int> getBuildNumber() async {
+    final docSnapshot = await _firestore
+        .collection('system')
+        .doc(_systemDocId)
+        .get();
+
+    return (docSnapshot.data()?['buildNumber'] as num?)?.toInt() ?? 0;
   }
 }

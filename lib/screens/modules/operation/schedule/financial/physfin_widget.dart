@@ -1,13 +1,20 @@
+// lib/screens/modules/operation/schedule/financial/physfin_widget.dart
+
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
-import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_controller.dart';
 
-import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_data.dart';
-import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_store.dart';
+import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_repository.dart';
+import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_state.dart';
+
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
@@ -15,18 +22,16 @@ import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
 import 'banner_tip.dart';
 import 'busy_overlay.dart';
 import 'card_wrapper.dart';
-import 'physfin_table.dart';
+import 'measure_text.dart';
+import 'percent_dialog.dart';
 import 'physfin_models.dart';
+import 'physfin_table.dart';
 
-void _unawaited(Future<void> f) {}
+void _unawaited(Future<void> future) {}
 
 class PhysFinWidget extends StatefulWidget {
   final ProcessData contractData;
@@ -46,25 +51,24 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
   final NumberFormat _brl = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
   final Map<String, List<double>> _percentGrid = <String, List<double>>{};
-  final Map<int, Map<String, List<double>>> _gridByTerm = {};
-  final Map<int, String> _termAdditiveId = {};
+
+  late final PhysicsFinanceCubit _physicsFinanceCubit;
 
   bool _saving = false;
-  bool _termsLoaded = false;
-  bool _loadingAdds = false;
-
-  List<AdditivesData> _orderedAdds = <AdditivesData>[];
-  PhysicsFinanceStore? _physStore;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+  void initState() {
+    super.initState();
 
-    try {
-      _physStore = context.read<PhysicsFinanceStore>();
-    } catch (_) {
-      _physStore = null;
-    }
+    _physicsFinanceCubit = PhysicsFinanceCubit(
+      repository: PhysicsFinanceRepository(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _physicsFinanceCubit.close();
+    super.dispose();
   }
 
   void _notify({
@@ -89,7 +93,11 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
   }
 
   Future<void> _notifySaved({String? detail}) async {
-    if (mounted) setState(() => _saving = true);
+    if (mounted) {
+      setState(() {
+        _saving = true;
+      });
+    }
 
     try {
       await Future<void>.delayed(const Duration(milliseconds: 300));
@@ -102,24 +110,47 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
         type: NotificationStatus.success,
       );
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
     }
   }
 
   Future<void> _notifySavedLite({String? detail}) async {
     _notify(
       title: 'Planejamento físico-financeiro',
-      subtitle: detail?.isNotEmpty == true ? detail! : 'Distribuição atualizada.',
+      subtitle:
+      detail?.isNotEmpty == true ? detail! : 'Distribuição atualizada.',
       type: NotificationStatus.success,
     );
+  }
+
+  String _titleCase(String value) {
+    final String text = value.trim();
+
+    if (text.isEmpty) return text;
+
+    return text
+        .split(RegExp(r'\s+'))
+        .map(
+          (part) => part.isEmpty
+          ? part
+          : '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+    )
+        .join(' ');
   }
 
   int _sumExtraExecutionDays(List<AdditivesData> orderedAdds) {
     int sum = 0;
 
-    for (final a in orderedAdds) {
-      final d = a.additiveValidityExecutionDays ?? 0;
-      if (d > 0) sum += d;
+    for (final additive in orderedAdds) {
+      final int days = additive.additiveValidityExecutionDays ?? 0;
+
+      if (days > 0) {
+        sum += days;
+      }
     }
 
     return sum;
@@ -128,7 +159,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
   List<int> _extendPeriods(List<int> base, int extraDays) {
     if (extraDays <= 0 || base.isEmpty) return base;
 
-    final out = List<int>.from(base);
+    final List<int> output = List<int>.from(base);
 
     final int step = base.length >= 2
         ? (base.last - base[base.length - 2]).abs()
@@ -139,210 +170,340 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
     while (acc < extraDays) {
       last += step;
-      out.add(last);
+      output.add(last);
       acc += step;
     }
 
-    return out;
+    return output;
   }
 
-  Map<String, List<double>> _ensureTermGridByRows(
-      int termOrder,
-      List<PhysFinRow> rows,
-      int periods,
-      ) {
-    final map = _gridByTerm.putIfAbsent(
-      termOrder,
-          () => <String, List<double>>{},
+  List<int> _daysFromContract(ProcessData contract) {
+    final int maxDays = contract.initialValidityExecution ?? 0;
+
+    if (maxDays <= 0) {
+      return List<int>.generate(12, (index) => (index + 1) * 30);
+    }
+
+    final int count = (maxDays / 30).ceil();
+
+    final List<int> base = List<int>.generate(
+      count,
+          (index) => (index + 1) * 30,
     );
 
-    for (final r in rows) {
-      final itemId = r.item.toString();
-
-      map.putIfAbsent(
-        itemId,
-            () => List<double>.filled(periods, 0.0),
-      );
-
-      if (map[itemId]!.length != periods) {
-        final cur = map[itemId]!;
-
-        if (cur.length > periods) {
-          map[itemId] = List<double>.from(cur.take(periods));
-        } else {
-          map[itemId] = [
-            ...cur,
-            ...List<double>.filled(periods - cur.length, 0.0),
-          ];
-        }
-      }
-    }
-
-    return map;
-  }
-
-  List<double> _getPercentsForItem(String itemId, {required int termOrder}) {
-    final g = _gridByTerm[termOrder];
-
-    if (g == null) return const <double>[];
-
-    return g[itemId] ?? const <double>[];
-  }
-
-  Future<void> _warmupAllTerms({
-    required int periods,
-    required List<AdditivesData> additives,
-  }) async {
-    final physStore = _physStore;
-    final contractId = widget.contractData.id ?? '';
-
-    if (physStore == null || contractId.isEmpty) return;
-
-    _termAdditiveId.clear();
-
-    for (final a in additives) {
-      final ord = a.additiveOrder ?? 0;
-
-      if (ord > 0 && (a.id?.isNotEmpty ?? false)) {
-        _termAdditiveId[ord] = a.id!;
-      }
-    }
-
-    for (final entry in _termAdditiveId.entries) {
-      final termOrder = entry.key;
-      final additiveId = entry.value;
-
-      final sched = await physStore.getForTerm(
-        contractId: contractId,
-        additiveId: additiveId,
-        termOrder: termOrder,
-      );
-
-      if (sched != null) {
-        final Map<String, List<double>> m = {};
-
-        sched.grid.forEach((k, v) {
-          final lst = v.map((e) => (e as num).toDouble()).toList();
-
-          m[k] = lst.length == periods
-              ? lst
-              : lst.length > periods
-              ? List<double>.from(lst.take(periods))
-              : [
-            ...lst,
-            ...List<double>.filled(periods - lst.length, 0.0),
-          ];
-        });
-
-        _gridByTerm[termOrder] = m;
+    if (base.last != maxDays) {
+      if (base.last > maxDays) {
+        base[base.length - 1] = maxDays;
       } else {
-        _gridByTerm.putIfAbsent(termOrder, () => <String, List<double>>{});
+        base.add(maxDays);
+      }
+    }
+
+    return base;
+  }
+
+  void _syncLocalGrid({
+    required Map<String, List<double>> stateGrid,
+    required List<dynamic> services,
+    required int periods,
+    required Map<String, List<double>> localGrid,
+  }) {
+    for (final service in services) {
+      final String key = service.key as String;
+
+      final List<double> saved = (stateGrid[key] ?? const <double>[])
+          .map((value) => (value as num).toDouble())
+          .toList();
+
+      final List<double> normalized = saved.length == periods
+          ? List<double>.from(saved)
+          : saved.length > periods
+          ? List<double>.from(saved.take(periods))
+          : <double>[
+        ...saved,
+        ...List<double>.filled(periods - saved.length, 0.0),
+      ];
+
+      if (!localGrid.containsKey(key)) {
+        localGrid[key] = List<double>.from(normalized);
+      } else if (localGrid[key]!.length != periods) {
+        localGrid[key] = List<double>.from(normalized);
       }
     }
   }
 
-  Future<void> _persistTermGrid({
-    required int termOrder,
-    required List<int> periods,
-  }) async {
-    final physStore = _physStore;
-    final contractId = widget.contractData.id ?? '';
+  List<PhysFinRow> _buildRows({
+    required List<dynamic> services,
+    required Map<String, double> serviceTotals,
+    required Map<String, List<double>> localGrid,
+    required int periods,
+  }) {
+    final List<PhysFinRow> rows = <PhysFinRow>[];
 
-    if (physStore == null || contractId.isEmpty) return;
+    for (int index = 0; index < services.length; index++) {
+      final service = services[index];
 
-    final additiveId = _termAdditiveId[termOrder];
-    final grid = _gridByTerm[termOrder];
+      final String key = service.key as String;
+      final String labelRaw = (service.labelText as String?) ?? '';
+      final String label = labelRaw.isNotEmpty ? labelRaw : key;
 
-    if (additiveId == null || grid == null) return;
+      final double value = (serviceTotals[key] ?? 0.0).toDouble();
 
-    await physStore.upsert(
-      contractId: contractId,
-      additiveId: additiveId,
-      schedule: PhysicsFinanceData(
-        id: PhysicsFinanceData.docIdForTerm(termOrder),
-        contractId: contractId,
-        additiveId: additiveId,
-        termOrder: termOrder,
-        periods: periods,
-        grid: grid,
-      ),
+      final List<double> percents =
+          localGrid[key] ?? List<double>.filled(periods, 0.0);
+
+      rows.add(
+        PhysFinRow(
+          key: key,
+          item: index + 1,
+          descricao: label.toUpperCase(),
+          valor: value,
+          percent: percents,
+        ),
+      );
+    }
+
+    return rows;
+  }
+
+  PhysFinTotals _computeTotals({
+    required List<PhysFinRow> rows,
+    required int periods,
+  }) {
+    final List<double> parciais = List<double>.filled(periods, 0.0);
+
+    double totalGeral = 0.0;
+
+    for (final row in rows) {
+      totalGeral += row.valor;
+
+      for (int index = 0; index < periods; index++) {
+        final double percent =
+        index < row.percent.length ? row.percent[index] : 0.0;
+
+        parciais[index] += row.valor * (percent / 100.0);
+      }
+    }
+
+    final List<double> acumulados = List<double>.filled(periods, 0.0);
+
+    double acc = 0.0;
+
+    for (int index = 0; index < periods; index++) {
+      acc += parciais[index];
+      acumulados[index] = acc;
+    }
+
+    return PhysFinTotals(
+      parciais: parciais,
+      acumulados: acumulados,
+      totalGeral: totalGeral,
+    );
+  }
+
+  PhysFinTotals _computeTotalsChrono({
+    required List<PhysFinRow> rows,
+    required int periods,
+    required List<int?> termOrders,
+    required List<double> Function(
+        String serviceKey, {
+        int? termOrder,
+        }) getPercentFor,
+  }) {
+    final List<double> parciais = List<double>.filled(periods, 0.0);
+
+    double totalGeral = 0.0;
+
+    for (final row in rows) {
+      totalGeral += row.valor;
+
+      for (int colIndex = 0; colIndex < periods; colIndex++) {
+        double somaPct = 0.0;
+
+        for (final termOrder in termOrders) {
+          final List<double> percents = getPercentFor(
+            row.key,
+            termOrder: termOrder,
+          );
+
+          final double percent =
+          colIndex < percents.length ? percents[colIndex] : 0.0;
+
+          somaPct += percent;
+        }
+
+        parciais[colIndex] += row.valor * (somaPct / 100.0);
+      }
+    }
+
+    final List<double> acumulados = List<double>.filled(periods, 0.0);
+
+    double acc = 0.0;
+
+    for (int index = 0; index < periods; index++) {
+      acc += parciais[index];
+      acumulados[index] = acc;
+    }
+
+    return PhysFinTotals(
+      parciais: parciais,
+      acumulados: acumulados,
+      totalGeral: totalGeral,
+    );
+  }
+
+  PhysFinMeasured _measureWidths({
+    required BuildContext context,
+    required List<PhysFinRow> rows,
+    required double totalGeral,
+  }) {
+    final NumberFormat money = NumberFormat.simpleCurrency(locale: 'pt_BR');
+
+    final double measuredValueColWidth = PhysFinMeasure.measureMaxTextWidth(
+      context: context,
+      strings: <String>[
+        ...rows.map((row) => money.format(row.valor)),
+        money.format(totalGeral),
+      ],
+      style: const TextStyle(fontSize: 14),
+      padding: 8 + 18,
+      safety: 14,
+    );
+
+    final double measuredDescWidth = PhysFinMeasure.measureMaxTextWidth(
+      context: context,
+      strings: rows.map((row) => row.descricao).toList(),
+      style: const TextStyle(fontSize: 14),
+      padding: 24,
+      safety: 4,
+    );
+
+    return PhysFinMeasured(
+      descColWidth: math.min(400.0, measuredDescWidth),
+      valueColWidth: measuredValueColWidth,
+    );
+  }
+
+  PhysFinWidths _resolveColumnWidths({
+    required BuildContext context,
+    required bool preferFit,
+    required int nCols,
+    required double viewportWidth,
+    required double paddingsHorizontal,
+    required double measuredDescWidth,
+    required double measuredValueWidth,
+    double? extraColWidth,
+  }) {
+    const double kItemColWidth = 72.0;
+    const double kPercentBarVisualWidth = 72.0;
+
+    final String longestMoney = NumberFormat.simpleCurrency(locale: 'pt_BR')
+        .format(999999999.99);
+
+    final double moneyCellNeeded = PhysFinMeasure.measureMaxTextWidth(
+      context: context,
+      strings: <String>[longestMoney],
+      style: const TextStyle(fontSize: 12),
+      padding: 12.0,
+      safety: 0.0,
+    );
+
+    final double minPercentColWidthDefault =
+        math.max(72.0, moneyCellNeeded) + 16.0;
+
+    final double extraWidth =
+    extraColWidth != null && extraColWidth > 0.0 ? extraColWidth : 0.0;
+
+    double percentCol;
+    double barVisual = kPercentBarVisualWidth;
+
+    if (preferFit) {
+      final double baseWidth = viewportWidth -
+          (
+              measuredDescWidth +
+                  extraWidth +
+                  kItemColWidth +
+                  measuredValueWidth +
+                  paddingsHorizontal
+          );
+
+      final double candidate = nCols == 0 ? 100.0 : baseWidth / nCols;
+
+      percentCol = candidate.clamp(56.0, 220.0).toDouble();
+      barVisual = math.min(kPercentBarVisualWidth, percentCol - 12.0);
+    } else {
+      percentCol = math.max(110.0, minPercentColWidthDefault);
+      barVisual = kPercentBarVisualWidth;
+    }
+
+    return PhysFinWidths(
+      itemCol: kItemColWidth,
+      descCol: measuredDescWidth,
+      extraCol: extraWidth > 0.0 ? extraWidth : null,
+      percentCol: percentCol,
+      valueCol: measuredValueWidth,
+      barVisual: barVisual,
+    );
+  }
+
+  Future<double?> _pickPercentDialog({
+    required BuildContext context,
+    required double current,
+    required double alreadyAllocatedPercent,
+    required double serviceTotalReais,
+  }) {
+    return showPhysFinPercentDialog(
+      context: context,
+      current: current,
+      alreadyAllocatedPercent: alreadyAllocatedPercent,
+      serviceTotalReais: serviceTotalReais,
     );
   }
 
   Future<void> _bootstrapTerms({
+    required String contractId,
     required int periods,
   }) async {
     if (!widget.chronogramMode) return;
-
-    final contractId = widget.contractData.id ?? '';
-
     if (contractId.isEmpty) return;
-    if (_termsLoaded) return;
 
-    if (mounted) {
-      setState(() {
-        _loadingAdds = true;
-      });
-    }
-
-    try {
-      final repo = AdditivesRepository();
-      final adds = await repo.ensureForContract(contractId);
-
-      final ordered = List<AdditivesData>.from(adds)
-        ..sort(
-              (a, b) => (a.additiveOrder ?? 0).compareTo(b.additiveOrder ?? 0),
-        );
-
-      _orderedAdds = ordered;
-
-      await _warmupAllTerms(
-        periods: periods,
-        additives: ordered,
-      );
-
-      if (mounted) {
-        setState(() {
-          _termsLoaded = true;
-          _loadingAdds = false;
-        });
-      }
-    } catch (e) {
-      _notify(
-        title: 'Erro ao carregar termos',
-        subtitle: '$e',
-        type: NotificationStatus.error,
-        duration: const Duration(seconds: 6),
-      );
-
-      if (mounted) {
-        setState(() {
-          _orderedAdds = <AdditivesData>[];
-          _termsLoaded = true;
-          _loadingAdds = false;
-        });
-      }
-    }
+    await _physicsFinanceCubit.loadTerms(
+      contractId: contractId,
+      periods: periods,
+    );
   }
 
-  String _titleCase(String s) {
-    final t = s.trim();
+  List<double> _getPercentsForItem(
+      PhysicsFinanceState financeState,
+      String itemId, {
+        required int termOrder,
+      }) {
+    return financeState.gridByTerm[termOrder]?[itemId] ?? const <double>[];
+  }
 
-    if (t.isEmpty) return t;
-
-    return t
-        .split(RegExp(r'\s+'))
-        .map(
-          (p) => p.isEmpty
-          ? p
-          : '${p[0].toUpperCase()}${p.substring(1).toLowerCase()}',
-    )
-        .join(' ');
+  void _ensureTermGridByRows({
+    required int termOrder,
+    required List<PhysFinRow> rows,
+    required int periods,
+  }) {
+    _physicsFinanceCubit.ensureTermGridRows(
+      termOrder: termOrder,
+      itemIds: rows.map((row) => row.item.toString()),
+      periods: periods,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<PhysicsFinanceCubit>.value(
+      value: _physicsFinanceCubit,
+      child: _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     const double kCardMarginH = 40.0;
+
     const EdgeInsets kCardPadding = EdgeInsets.only(
       left: 10,
       right: 10,
@@ -350,348 +511,377 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
       bottom: 10,
     );
 
-    final scheduleRoadCubit = context.read<ScheduleRoadCubit>();
-
-    final List<AdditivesData> orderedAdds = _orderedAdds;
-    final int termosQt = orderedAdds.length;
-
-    final List<String> termLabels = <String>[
-      'Contratado',
-      ...List<String>.generate(termosQt, (i) => '${i + 1}º Termo'),
-    ];
-
-    final List<String?> termSubLabels = <String?>[
-      '',
-      ...orderedAdds.map((a) => _titleCase(a.typeOfAdditive ?? '')),
-    ];
+    final ScheduleRoadCubit scheduleRoadCubit =
+    context.read<ScheduleRoadCubit>();
 
     return Scaffold(
       body: Stack(
         children: [
           const BackgroundChange(),
           BlocBuilder<ScheduleRoadCubit, ScheduleRoadState>(
-            buildWhen: (a, b) =>
-            a.services != b.services ||
-                a.serviceTotals != b.serviceTotals ||
-                a.loadingServices != b.loadingServices ||
-                a.physfinGrid != b.physfinGrid ||
-                a.physfinPeriods != b.physfinPeriods,
-            builder: (context, state) {
-              final List<int> baseDays = state.physfinPeriods.isNotEmpty
-                  ? List<int>.from(state.physfinPeriods)
-                  : PhysicsFinanceController.daysFromContract(
-                widget.contractData,
-              );
-
-              final int extraDays = widget.chronogramMode
-                  ? _sumExtraExecutionDays(orderedAdds)
-                  : 0;
-
-              final List<int> dias = widget.chronogramMode
-                  ? _extendPeriods(baseDays, extraDays)
-                  : baseDays;
-
-              final services = state.services
-                  .where((s) => s.key != 'geral')
-                  .toList();
-
-              if (!state.loadingServices && services.isEmpty) {
-                return const Center(
-                  child: Text(
-                    'Nenhum serviço encontrado no orçamento.\n'
-                        'Verifique a aba Orçamento (grupos/itens).',
-                    textAlign: TextAlign.center,
-                  ),
-                );
-              }
-
-              PhysicsFinanceController.syncLocalGrid(
-                stateGrid: state.physfinGrid,
-                services: services,
-                periods: dias.length,
-                localGrid: _percentGrid,
-              );
-
-              _unawaited(_bootstrapTerms(periods: dias.length));
-
-              final String contractId = widget.contractData.id ?? '';
-              final bool waitingStore = widget.chronogramMode &&
-                  (contractId.isEmpty || !_termsLoaded || _loadingAdds);
-
-              if (waitingStore) {
-                return const Center(
-                  child: LoadingTreeDots(size: 110),
-                );
-              }
-
-              final List<PhysFinRow> dados =
-              PhysicsFinanceController.buildRows(
-                services: services,
-                serviceTotals: state.serviceTotals,
-                localGrid: _percentGrid,
-                periods: dias.length,
-              );
-
-              if (widget.chronogramMode) {
-                for (final entry in _termAdditiveId.keys) {
-                  _ensureTermGridByRows(entry, dados, dias.length);
-                }
-              }
-
-              final PhysFinTotals totals = widget.chronogramMode
-                  ? PhysicsFinanceController.computeTotalsChrono(
-                rows: dados,
-                periods: dias.length,
-                termOrders: List<int?>.generate(
-                  termLabels.length,
-                      (i) => i == 0 ? null : i,
-                ),
-                getPercentFor: (serviceKeyOrItemId, {int? termOrder}) {
-                  if (termOrder == null) {
-                    return _percentGrid[serviceKeyOrItemId] ??
-                        const <double>[];
-                  }
-
-                  return _getPercentsForItem(
-                    serviceKeyOrItemId,
-                    termOrder: termOrder,
+            buildWhen: (previous, current) {
+              return previous.services != current.services ||
+                  previous.serviceTotals != current.serviceTotals ||
+                  previous.loadingServices != current.loadingServices ||
+                  previous.physfinGrid != current.physfinGrid ||
+                  previous.physfinPeriods != current.physfinPeriods;
+            },
+            builder: (context, roadState) {
+              return BlocConsumer<PhysicsFinanceCubit, PhysicsFinanceState>(
+                listenWhen: (previous, current) {
+                  return previous.errorMessage != current.errorMessage &&
+                      current.errorMessage != null &&
+                      current.errorMessage!.isNotEmpty;
+                },
+                listener: (context, financeState) {
+                  _notify(
+                    title: 'Erro no físico-financeiro',
+                    subtitle: financeState.errorMessage,
+                    type: NotificationStatus.error,
+                    duration: const Duration(seconds: 6),
                   );
                 },
-              )
-                  : PhysicsFinanceController.computeTotals(
-                rows: dados,
-                periods: dias.length,
-              );
+                builder: (context, financeState) {
+                  final List<AdditivesData> orderedAdds =
+                      financeState.additives;
 
-              final PhysFinMeasured measured =
-              PhysicsFinanceController.measureWidths(
-                context: context,
-                rows: dados,
-                totalGeral: totals.totalGeral,
-              );
+                  final int termosQt = orderedAdds.length;
 
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  const double kExtraCol = 120.0;
-                  final double contentViewport =
-                      constraints.maxWidth - kCardMarginH;
+                  final List<String> termLabels = <String>[
+                    'Contratado',
+                    ...List<String>.generate(
+                      termosQt,
+                          (index) => '${index + 1}º Termo',
+                    ),
+                  ];
 
-                  final bool preferFit = !widget.chronogramMode &&
-                      constraints.maxWidth >= 1280 &&
-                      (dias.isEmpty || dias.last <= 365);
+                  final List<String?> termSubLabels = <String?>[
+                    '',
+                    ...orderedAdds.map(
+                          (additive) => _titleCase(
+                        additive.typeOfAdditive ?? '',
+                      ),
+                    ),
+                  ];
 
-                  final PhysFinWidths widths =
-                  PhysicsFinanceController.resolveColumnWidths(
-                    context: context,
-                    preferFit: preferFit,
-                    nCols: dias.length,
-                    viewportWidth: contentViewport,
-                    paddingsHorizontal: kCardPadding.horizontal,
-                    measuredDescWidth: measured.descColWidth,
-                    measuredValueWidth: measured.valueColWidth,
-                    extraColWidth:
-                    widget.chronogramMode ? kExtraCol : null,
+                  final List<int> baseDays = roadState.physfinPeriods.isNotEmpty
+                      ? List<int>.from(roadState.physfinPeriods)
+                      : _daysFromContract(widget.contractData);
+
+                  final int extraDays = widget.chronogramMode
+                      ? _sumExtraExecutionDays(orderedAdds)
+                      : 0;
+
+                  final List<int> dias = widget.chronogramMode
+                      ? _extendPeriods(baseDays, extraDays)
+                      : baseDays;
+
+                  final services = roadState.services
+                      .where((service) => service.key != 'geral')
+                      .toList();
+
+                  if (!roadState.loadingServices && services.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'Nenhum serviço encontrado no orçamento.\n'
+                            'Verifique a aba Orçamento (grupos/itens).',
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  }
+
+                  _syncLocalGrid(
+                    stateGrid: roadState.physfinGrid,
+                    services: services,
+                    periods: dias.length,
+                    localGrid: _percentGrid,
                   );
 
-                  final double tableWidth = widths.itemCol +
-                      widths.descCol +
-                      (widths.extraCol ?? 0.0) +
-                      dias.length * widths.percentCol +
-                      widths.valueCol;
+                  _unawaited(
+                    _bootstrapTerms(
+                      contractId: widget.contractData.id ?? '',
+                      periods: dias.length,
+                    ),
+                  );
 
-                  final double contentWidth =
-                      tableWidth + kCardPadding.horizontal;
+                  final String contractId = widget.contractData.id ?? '';
 
-                  final table = PhysFinTable(
-                    chronogramMode: widget.chronogramMode,
-                    termLabels: termLabels,
-                    termSubLabels: termSubLabels,
-                    additives: orderedAdds,
-                    days: dias,
-                    rows: dados,
-                    totals: totals,
-                    widths: widths,
-                    money: _brl,
+                  final bool waitingTerms = widget.chronogramMode &&
+                      (
+                          contractId.isEmpty ||
+                              !financeState.termsLoaded ||
+                              financeState.isLoading
+                      );
+
+                  if (waitingTerms) {
+                    return const Center(
+                      child: LoadingTreeDots(size: 110),
+                    );
+                  }
+
+                  final List<PhysFinRow> dados = _buildRows(
+                    services: services,
+                    serviceTotals: roadState.serviceTotals,
                     localGrid: _percentGrid,
-                    getPercentFor: (key, {int? termOrder}) {
+                    periods: dias.length,
+                  );
+
+                  if (widget.chronogramMode) {
+                    for (final int termOrder
+                    in financeState.termAdditiveId.keys) {
+                      _ensureTermGridByRows(
+                        termOrder: termOrder,
+                        rows: dados,
+                        periods: dias.length,
+                      );
+                    }
+                  }
+
+                  final PhysFinTotals totals = widget.chronogramMode
+                      ? _computeTotalsChrono(
+                    rows: dados,
+                    periods: dias.length,
+                    termOrders: List<int?>.generate(
+                      termLabels.length,
+                          (index) => index == 0 ? null : index,
+                    ),
+                    getPercentFor: (
+                        serviceKeyOrItemId, {
+                          int? termOrder,
+                        }) {
                       if (termOrder == null) {
-                        return _percentGrid[key] ?? const <double>[];
+                        return _percentGrid[serviceKeyOrItemId] ??
+                            const <double>[];
                       }
 
                       return _getPercentsForItem(
-                        key,
+                        financeState,
+                        serviceKeyOrItemId,
                         termOrder: termOrder,
                       );
                     },
-                    onPickPercent: (
-                        serviceKey,
-                        colIndex,
-                        current,
-                        alreadyAllocated,
-                        serviceTotal,
-                        ) async {
-                      final picked =
-                      await PhysicsFinanceController.pickPercentDialog(
-                        context: context,
-                        current: current,
-                        alreadyAllocatedPercent: alreadyAllocated,
-                        serviceTotalReais: serviceTotal,
-                      );
-
-                      if (picked == null) return;
-
-                      if (mounted) {
-                        setState(() {
-                          _percentGrid[serviceKey]![colIndex] = picked;
-                        });
-                      }
-
-                      await scheduleRoadCubit.updatePhysFinGrid(
-                        periods: dias,
-                        grid: _percentGrid,
-                      );
-
-                      await _notifySaved(
-                        detail: 'Período atualizado: ${colIndex + 1}',
-                      );
-                    },
-                    onPickPercentForTerm: (
-                        itemId,
-                        colIndex,
-                        current,
-                        alreadyAllocated,
-                        serviceTotal, {
-                          required int termOrder,
-                        }) async {
-                      final picked =
-                      await PhysicsFinanceController.pickPercentDialog(
-                        context: context,
-                        current: current,
-                        alreadyAllocatedPercent: alreadyAllocated,
-                        serviceTotalReais: serviceTotal,
-                      );
-
-                      if (picked == null) return;
-
-                      if (mounted) {
-                        setState(() {
-                          _ensureTermGridByRows(
-                            termOrder,
-                            dados,
-                            dias.length,
-                          );
-
-                          final grid = _gridByTerm[termOrder]!;
-
-                          final row = grid.putIfAbsent(
-                            itemId,
-                                () => List<double>.filled(dias.length, 0.0),
-                          );
-
-                          row[colIndex] = picked;
-                        });
-                      }
-
-                      await _persistTermGrid(
-                        termOrder: termOrder,
-                        periods: dias,
-                      );
-
-                      await _notifySavedLite(
-                        detail:
-                        'Período atualizado (Termo $termOrder): ${colIndex + 1}',
-                      );
-                    },
-                    pickBarColors: ({int? termOrder}) {
-                      if (!widget.chronogramMode) {
-                        return (
-                        fill: AdditivesData.contractedColor,
-                        track: AdditivesData.trackColor,
-                        disabled: false,
-                        );
-                      }
-
-                      if (termOrder == null) {
-                        return (
-                        fill: const Color(0xFFBDBDBD),
-                        track: AdditivesData.trackColor,
-                        disabled: true,
-                        );
-                      }
-
-                      final c = AdditivesData.colorForOrder(termOrder);
-
-                      return (
-                      fill: c,
-                      track: AdditivesData.trackColor,
-                      disabled: false,
-                      );
-                    },
-                  );
-
-                  final card = PhysFinCardWrapper(
-                    padding: kCardPadding,
-                    child: table,
-                  );
-
-                  final tableRegion =
-                  contentWidth > (constraints.maxWidth - kCardMarginH)
-                      ? SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: kCardMarginH / 2,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minWidth: contentWidth,
-                      ),
-                      child: card,
-                    ),
                   )
-                      : Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: kCardMarginH / 2,
-                    ),
-                    child: card,
+                      : _computeTotals(
+                    rows: dados,
+                    periods: dias.length,
                   );
 
-                  final banner = PhysFinBannerTip(
-                    text: widget.chronogramMode
-                        ? 'Edite os percentuais nas linhas dos Termos. “Contratado” está desativado.'
-                        : 'Clique nas barras para alterar os percentuais de cada período.',
+                  final PhysFinMeasured measured = _measureWidths(
+                    context: context,
+                    rows: dados,
+                    totalGeral: totals.totalGeral,
                   );
 
-                  final verticalScroll = SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 18),
-                        banner,
-                        const SizedBox(height: 6),
-                        tableRegion,
-                      ],
-                    ),
-                  );
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      const double kExtraCol = 120.0;
 
-                  final bool isBusy =
-                      (state.loadingServices && services.isEmpty) || _saving;
+                      final double contentViewport =
+                          constraints.maxWidth - kCardMarginH;
 
-                  return Stack(
-                    children: [
-                      verticalScroll,
-                      if (isBusy)
-                        const PhysFinBusyOverlay(
-                          saving: false,
-                          textWhenBusy: 'Carregando planejamento...',
-                          textWhenSaving: 'Salvando planejamento...',
+                      final bool preferFit = !widget.chronogramMode &&
+                          constraints.maxWidth >= 1280 &&
+                          (dias.isEmpty || dias.last <= 365);
+
+                      final PhysFinWidths widths = _resolveColumnWidths(
+                        context: context,
+                        preferFit: preferFit,
+                        nCols: dias.length,
+                        viewportWidth: contentViewport,
+                        paddingsHorizontal: kCardPadding.horizontal,
+                        measuredDescWidth: measured.descColWidth,
+                        measuredValueWidth: measured.valueColWidth,
+                        extraColWidth:
+                        widget.chronogramMode ? kExtraCol : null,
+                      );
+
+                      final double tableWidth = widths.itemCol +
+                          widths.descCol +
+                          (widths.extraCol ?? 0.0) +
+                          dias.length * widths.percentCol +
+                          widths.valueCol;
+
+                      final double contentWidth =
+                          tableWidth + kCardPadding.horizontal;
+
+                      final table = PhysFinTable(
+                        chronogramMode: widget.chronogramMode,
+                        termLabels: termLabels,
+                        termSubLabels: termSubLabels,
+                        additives: orderedAdds,
+                        days: dias,
+                        rows: dados,
+                        totals: totals,
+                        widths: widths,
+                        money: _brl,
+                        localGrid: _percentGrid,
+                        getPercentFor: (
+                            key, {
+                              int? termOrder,
+                            }) {
+                          if (termOrder == null) {
+                            return _percentGrid[key] ?? const <double>[];
+                          }
+
+                          return _getPercentsForItem(
+                            financeState,
+                            key,
+                            termOrder: termOrder,
+                          );
+                        },
+                        onPickPercent: (
+                            serviceKey,
+                            colIndex,
+                            current,
+                            alreadyAllocated,
+                            serviceTotal,
+                            ) async {
+                          final double? picked = await _pickPercentDialog(
+                            context: context,
+                            current: current,
+                            alreadyAllocatedPercent: alreadyAllocated,
+                            serviceTotalReais: serviceTotal,
+                          );
+
+                          if (picked == null) return;
+
+                          if (mounted) {
+                            setState(() {
+                              _percentGrid[serviceKey]![colIndex] = picked;
+                            });
+                          }
+
+                          await scheduleRoadCubit.updatePhysFinGrid(
+                            periods: dias,
+                            grid: _percentGrid,
+                          );
+
+                          await _notifySaved(
+                            detail: 'Período atualizado: ${colIndex + 1}',
+                          );
+                        },
+                        onPickPercentForTerm: (
+                            itemId,
+                            colIndex,
+                            current,
+                            alreadyAllocated,
+                            serviceTotal, {
+                              required int termOrder,
+                            }) async {
+                          final double? picked = await _pickPercentDialog(
+                            context: context,
+                            current: current,
+                            alreadyAllocatedPercent: alreadyAllocated,
+                            serviceTotalReais: serviceTotal,
+                          );
+
+                          if (picked == null) return;
+
+                          await _physicsFinanceCubit.updatePercentForTerm(
+                            contractId: widget.contractData.id ?? '',
+                            termOrder: termOrder,
+                            itemId: itemId,
+                            colIndex: colIndex,
+                            value: picked,
+                            periods: dias,
+                          );
+
+                          await _notifySavedLite(
+                            detail:
+                            'Período atualizado (Termo $termOrder): ${colIndex + 1}',
+                          );
+                        },
+                        pickBarColors: ({int? termOrder}) {
+                          if (!widget.chronogramMode) {
+                            return (
+                            fill: AdditivesData.contractedColor,
+                            track: AdditivesData.trackColor,
+                            disabled: false,
+                            );
+                          }
+
+                          if (termOrder == null) {
+                            return (
+                            fill: const Color(0xFFBDBDBD),
+                            track: AdditivesData.trackColor,
+                            disabled: true,
+                            );
+                          }
+
+                          final Color color =
+                          AdditivesData.colorForOrder(termOrder);
+
+                          return (
+                          fill: color,
+                          track: AdditivesData.trackColor,
+                          disabled: false,
+                          );
+                        },
+                      );
+
+                      final card = PhysFinCardWrapper(
+                        padding: kCardPadding,
+                        child: table,
+                      );
+
+                      final Widget tableRegion =
+                      contentWidth > constraints.maxWidth - kCardMarginH
+                          ? SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: kCardMarginH / 2,
                         ),
-                      if (_saving)
-                        const PhysFinBusyOverlay(
-                          saving: true,
-                          textWhenBusy: 'Carregando planejamento...',
-                          textWhenSaving: 'Salvando planejamento...',
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minWidth: contentWidth,
+                          ),
+                          child: card,
                         ),
-                    ],
+                      )
+                          : Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: kCardMarginH / 2,
+                        ),
+                        child: card,
+                      );
+
+                      final banner = PhysFinBannerTip(
+                        text: widget.chronogramMode
+                            ? 'Edite os percentuais nas linhas dos Termos. “Contratado” está desativado.'
+                            : 'Clique nas barras para alterar os percentuais de cada período.',
+                      );
+
+                      final verticalScroll = SingleChildScrollView(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 18),
+                            banner,
+                            const SizedBox(height: 6),
+                            tableRegion,
+                          ],
+                        ),
+                      );
+
+                      final bool isBusy =
+                          (
+                              roadState.loadingServices && services.isEmpty
+                          ) ||
+                              _saving ||
+                              financeState.isSaving;
+
+                      return Stack(
+                        children: [
+                          verticalScroll,
+                          if (isBusy)
+                            PhysFinBusyOverlay(
+                              saving: _saving || financeState.isSaving,
+                              textWhenBusy: 'Carregando planejamento...',
+                              textWhenSaving: 'Salvando planejamento...',
+                            ),
+                        ],
+                      );
+                    },
                   );
                 },
               );

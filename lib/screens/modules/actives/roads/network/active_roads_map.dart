@@ -32,12 +32,13 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
   final ValueNotifier<double> _zoomVN = ValueNotifier<double>(12.0);
   final ValueNotifier<double> _centerLatVN = ValueNotifier<double>(-9.65);
 
+  final ValueNotifier<int> _roadBalloonTick = ValueNotifier<int>(0);
+
   LatLng? _anchorLatLng;
   MapController? _lastMapController;
   Offset Function(Offset local)? _toGlobal;
 
   OverlayEntry? _roadBalloonEntry;
-  Offset? _roadBalloonGlobalPosition;
   ActiveRoadsData? _roadBalloonData;
   ActiveRoadsCubit? _roadBalloonCubit;
   RenderBox? _roadBalloonOverlayBox;
@@ -59,6 +60,7 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
   @override
   void dispose() {
     _hideRoadBalloon(clearAnchor: true);
+    _roadBalloonTick.dispose();
     _zoomVN.dispose();
     _centerLatVN.dispose();
     super.dispose();
@@ -74,7 +76,6 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
     _roadBalloonEntry?.remove();
     _roadBalloonEntry = null;
 
-    _roadBalloonGlobalPosition = null;
     _roadBalloonData = null;
     _roadBalloonCubit = null;
     _roadBalloonOverlayBox = null;
@@ -92,12 +93,21 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
       return;
     }
 
+    _roadBalloonTick.value++;
+  }
+
+  Offset? _currentRoadBalloonGlobalAnchor() {
+    if (_anchorLatLng == null ||
+        _lastMapController == null ||
+        _toGlobal == null) {
+      return null;
+    }
+
     final local = _lastMapController!.camera.latLngToScreenOffset(
       _anchorLatLng!,
     );
 
-    _roadBalloonGlobalPosition = _toGlobal!(local);
-    _roadBalloonEntry?.markNeedsBuild();
+    return _toGlobal!(local);
   }
 
   Future<void> _showRoadDetails(ActiveRoadsData road) async {
@@ -127,7 +137,6 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
 
   void _showRoadBalloon({
     required OverlayState overlayState,
-    required Offset position,
     required ActiveRoadsData road,
     required ActiveRoadsCubit cubit,
   }) {
@@ -137,20 +146,17 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
 
     _hideRoadBalloon();
 
-    _roadBalloonGlobalPosition = position;
     _roadBalloonData = road;
     _roadBalloonCubit = cubit;
     _roadBalloonOverlayBox = overlayObject;
 
     _roadBalloonEntry = OverlayEntry(
       builder: (_) {
-        final currentPosition = _roadBalloonGlobalPosition;
         final currentRoad = _roadBalloonData;
         final currentCubit = _roadBalloonCubit;
         final currentOverlayBox = _roadBalloonOverlayBox;
 
-        if (currentPosition == null ||
-            currentRoad == null ||
+        if (currentRoad == null ||
             currentCubit == null ||
             currentOverlayBox == null) {
           return const SizedBox.shrink();
@@ -167,7 +173,8 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
             ),
             BalloonChange(
               overlayBox: currentOverlayBox,
-              globalAnchor: currentPosition,
+              globalAnchorBuilder: _currentRoadBalloonGlobalAnchor,
+              rebuildListenable: _roadBalloonTick,
               width: 320,
               maxHeight: 138,
               topGap: 0,
@@ -223,14 +230,11 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
 
             return MapChange(
               key: const ValueKey('active-roads-map'),
-
               features: const <FeatureData>[],
               layersById: const <String, LayerData>{},
               orderedActiveLayerIds: const <String>[],
-
               selectedFeatureKey: null,
               loading: false,
-
               visualDataSignature: Object.hash(
                 'active-roads-map',
                 state.loadStatus,
@@ -241,20 +245,15 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
                 zoom,
                 centerLat,
               ),
-
               initialCenter: const LatLng(-9.6658, -35.7353),
               initialZoom: 12,
               minZoom: 4,
               maxZoom: 19,
-
               showSearch: true,
               showControls: true,
-
               externalPolylines: polylines,
               externalMarkers: labelMarkers,
-
               onControllerReady: (_) {},
-
               onCameraChanged: (LatLng center, double z) {
                 if (_zoomVN.value != z) {
                   _zoomVN.value = z;
@@ -270,18 +269,14 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
 
                 _updateRoadBalloonPosition();
               },
-
               onFeatureTap: (_) {},
-
               onClearExternalPolylineSelection: () async {
                 cubit.clearPolylineSelection();
                 _hideRoadBalloon(clearAnchor: true);
               },
-
               onExternalPolylineTap: (Polyline<Object> polyline) async {
                 cubit.selectPolyline(polyline.hitValue?.toString());
               },
-
               onShowExternalPolylineTooltip: ({
                 required BuildContext context,
                 required Offset position,
@@ -301,19 +296,15 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
                 _lastMapController = mapController;
                 _toGlobal = toGlobal;
 
-                final local = mapController.camera.latLngToScreenOffset(
-                  _anchorLatLng!,
-                );
-
-                final global = toGlobal?.call(local) ?? position;
                 final overlay = Overlay.of(context);
 
                 _showRoadBalloon(
                   overlayState: overlay,
-                  position: global,
                   road: road,
                   cubit: cubit,
                 );
+
+                _roadBalloonTick.value++;
               },
             );
           },

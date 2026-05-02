@@ -1,7 +1,5 @@
 // lib/screens/modules/actives/railways/network/active_railways_map.dart
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -36,18 +34,20 @@ class ActiveRailwaysMap extends StatefulWidget {
 }
 
 class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
+  final ValueNotifier<int> _railwayBalloonTick = ValueNotifier<int>(0);
+
   LatLng? _anchorLatLng;
   MapController? _lastMapController;
   Offset Function(Offset local)? _toGlobal;
 
   OverlayEntry? _railwayBalloonEntry;
-  Offset? _railwayBalloonGlobalPosition;
   ActiveRailwayData? _railwayBalloonData;
   RenderBox? _railwayBalloonOverlayBox;
 
   @override
   void dispose() {
     _hideRailwayBalloon(clearAnchor: true);
+    _railwayBalloonTick.dispose();
     super.dispose();
   }
 
@@ -61,7 +61,6 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
     _railwayBalloonEntry?.remove();
     _railwayBalloonEntry = null;
 
-    _railwayBalloonGlobalPosition = null;
     _railwayBalloonData = null;
     _railwayBalloonOverlayBox = null;
 
@@ -78,12 +77,21 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
       return;
     }
 
+    _railwayBalloonTick.value++;
+  }
+
+  Offset? _currentRailwayBalloonGlobalAnchor() {
+    if (_anchorLatLng == null ||
+        _lastMapController == null ||
+        _toGlobal == null) {
+      return null;
+    }
+
     final local = _lastMapController!.camera.latLngToScreenOffset(
       _anchorLatLng!,
     );
 
-    _railwayBalloonGlobalPosition = _toGlobal!(local);
-    _railwayBalloonEntry?.markNeedsBuild();
+    return _toGlobal!(local);
   }
 
   Future<void> _showRailwayDetails(ActiveRailwayData fer) async {
@@ -120,7 +128,6 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
 
   void _showRailwayBalloon({
     required OverlayState overlayState,
-    required Offset position,
     required ActiveRailwayData railway,
   }) {
     final overlayObject = overlayState.context.findRenderObject();
@@ -129,19 +136,15 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
 
     _hideRailwayBalloon();
 
-    _railwayBalloonGlobalPosition = position;
     _railwayBalloonData = railway;
     _railwayBalloonOverlayBox = overlayObject;
 
     _railwayBalloonEntry = OverlayEntry(
       builder: (_) {
-        final currentPosition = _railwayBalloonGlobalPosition;
         final currentRailway = _railwayBalloonData;
         final currentOverlayBox = _railwayBalloonOverlayBox;
 
-        if (currentPosition == null ||
-            currentRailway == null ||
-            currentOverlayBox == null) {
+        if (currentRailway == null || currentOverlayBox == null) {
           return const SizedBox.shrink();
         }
 
@@ -159,7 +162,8 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
             ),
             BalloonChange(
               overlayBox: currentOverlayBox,
-              globalAnchor: currentPosition,
+              globalAnchorBuilder: _currentRailwayBalloonGlobalAnchor,
+              rebuildListenable: _railwayBalloonTick,
               width: 320,
               maxHeight: 210,
               topGap: 8,
@@ -216,33 +220,26 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
 
     return MapChange(
       key: const ValueKey('active-railways-map'),
-
       features: const <FeatureData>[],
       layersById: const <String, LayerData>{},
       orderedActiveLayerIds: const <String>[],
-
       selectedFeatureKey: null,
       loading: false,
-
       visualDataSignature: Object.hash(
         'active-railways',
         widget.state.mapZoom,
         widget.state.filteredAll.length,
         widget.state.all.length,
       ),
-
       initialCenter: const LatLng(-9.6658, -35.7353),
       initialZoom: widget.state.mapZoom <= 0 ? 7.8 : widget.state.mapZoom,
       minZoom: 4,
       maxZoom: 18,
-
       showSearch: true,
       showControls: true,
-
       externalPolylines: widget.state.buildStyledPolylines(
         zoom: widget.state.mapZoom,
       ),
-
       onControllerReady: (controller) {
         final railwaysCubit = context.read<ActiveRailwaysCubit>();
 
@@ -253,28 +250,23 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
           railwaysCubit.setMapZoom(z);
         });
       },
-
       onCameraChanged: (center, zoom) {
         final railwaysCubit = context.read<ActiveRailwaysCubit>();
         railwaysCubit.setMapZoom(zoom);
 
         _updateRailwayBalloonPosition();
       },
-
       onFeatureTap: (_) {},
-
       onClearExternalPolylineSelection: () async {
         final railwaysCubit = context.read<ActiveRailwaysCubit>();
         railwaysCubit.selectPolyline(null);
 
         _hideRailwayBalloon(clearAnchor: true);
       },
-
       onExternalPolylineTap: (polyline) async {
         final railwaysCubit = context.read<ActiveRailwaysCubit>();
         railwaysCubit.selectPolyline(polyline.hitValue?.toString());
       },
-
       onShowExternalPolylineTooltip: ({
         required BuildContext context,
         required Offset position,
@@ -293,18 +285,14 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
         _lastMapController = mapController;
         _toGlobal = toGlobal;
 
-        final local = mapController.camera.latLngToScreenOffset(
-          _anchorLatLng!,
-        );
-
-        final global = toGlobal?.call(local) ?? position;
         final overlay = Overlay.of(context);
 
         _showRailwayBalloon(
           overlayState: overlay,
-          position: global,
           railway: fer,
         );
+
+        _railwayBalloonTick.value++;
       },
     );
   }
