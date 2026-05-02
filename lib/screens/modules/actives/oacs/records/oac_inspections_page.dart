@@ -9,9 +9,9 @@ import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_state.dart';
@@ -63,11 +63,11 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
   void _notifySuccess(String message) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: 'Sucesso',
         subtitle: message,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         leadingLabel: 'Inspeção',
       ),
     );
@@ -76,11 +76,11 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
   void _notifyError(String message) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: 'Erro',
         subtitle: message,
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         leadingLabel: 'Inspeção',
       ),
     );

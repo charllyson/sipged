@@ -11,15 +11,16 @@ import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/dialog/windows/window_dialog.dart';
+
 import 'package:sipged/screens/common/setup/initial_setup_form.dart';
 import 'package:sipged/screens/common/setup/initial_setup_header.dart';
 import 'package:sipged/screens/modules/contracts/hiring/1Dfd/setup_region_map.dart';
@@ -69,6 +70,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
   String? _existingLogoUrl;
   String? _existingLogoPath;
+
   bool _removeCurrentLogo = false;
   bool _saving = false;
   bool _hydratedFromState = false;
@@ -93,12 +95,15 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       context.read<SetupCubit>().loadSystemSetup();
     });
   }
 
   void _refresh() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -113,6 +118,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     _empresaFantasiaCtrl.dispose();
     _empresaNomeCtrl.dispose();
     _empresaCnpjCtrl.dispose();
+
     _newUnitCtrl.dispose();
     _newRoadCtrl.dispose();
     _newRegionCtrl.dispose();
@@ -130,8 +136,10 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     _empresaFantasiaCtrl.text = company.fantasyName ?? '';
     _empresaNomeCtrl.text = company.companyName ?? company.label;
     _empresaCnpjCtrl.text = company.cnpj ?? company.cnpjCompanyContracted ?? '';
+
     _existingLogoUrl = company.logoUrl;
     _existingLogoPath = company.logoPath;
+
     _logoBytes = null;
     _logoFileName = null;
     _logoContentType = null;
@@ -201,6 +209,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     if (saved == null) {
       final msg =
           setup.state.error ?? 'Falha ao salvar configurações do sistema.';
+
       _error(msg);
       return;
     }
@@ -227,12 +236,16 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     setState(() => _saving = false);
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: 'Erro',
         subtitle: msg,
-        type: NotificationType.error,
+        status: NotificationStatus.error,
         leadingLabel: 'Sistema',
+        extra: const <String, dynamic>{
+          'module': 'initial_setup',
+          'source': 'initial_setup_page',
+        },
       ),
     );
   }
@@ -240,12 +253,16 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
   void _success(String msg) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: 'Sucesso',
         subtitle: msg,
-        type: NotificationType.success,
+        status: NotificationStatus.success,
         leadingLabel: 'Sistema',
+        extra: const <String, dynamic>{
+          'module': 'initial_setup',
+          'source': 'initial_setup_page',
+        },
       ),
     );
   }
@@ -338,6 +355,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
   Future<void> _saveUnit() async {
     final name = _newUnitCtrl.text.trim();
+
     if (name.isEmpty) return;
 
     final cubit = context.read<SetupCubit>();
@@ -387,6 +405,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
   Future<void> _saveRoad() async {
     final name = _newRoadCtrl.text.trim();
+
     if (name.isEmpty) return;
 
     final cubit = context.read<SetupCubit>();
@@ -436,6 +455,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
   Future<void> _saveRegion() async {
     final name = _newRegionCtrl.text.trim();
+
     if (name.isEmpty) return;
 
     final cubit = context.read<SetupCubit>();
@@ -505,6 +525,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
   Future<void> _saveFunding() async {
     final name = _newFundingCtrl.text.trim();
+
     if (name.isEmpty) return;
 
     final cubit = context.read<SetupCubit>();
@@ -554,6 +575,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
   Future<void> _saveProgram() async {
     final name = _newProgramCtrl.text.trim();
+
     if (name.isEmpty) return;
 
     final cubit = context.read<SetupCubit>();
@@ -603,6 +625,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
   Future<void> _saveExpenseNature() async {
     final name = _newExpenseNatureCtrl.text.trim();
+
     if (name.isEmpty) return;
 
     final cubit = context.read<SetupCubit>();
@@ -686,7 +709,9 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
               ),
             )
                 : const Icon(Icons.check),
-            label: Text(pageMode ? 'Salvar configurações' : 'Salvar e entrar'),
+            label: Text(
+              pageMode ? 'Salvar configurações' : 'Salvar e entrar',
+            ),
           ),
         ],
       ),
@@ -866,10 +891,15 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
         Center(
           child: LayoutBuilder(
             builder: (_, constraints) {
-              final width = (constraints.maxWidth * 0.9).clamp(680.0, 1200.0);
+              final width = (constraints.maxWidth * 0.9).clamp(
+                680.0,
+                1200.0,
+              );
 
-              final dialogHeight =
-              (constraints.maxHeight * 0.9).clamp(400.0, 800.0);
+              final dialogHeight = (constraints.maxHeight * 0.9).clamp(
+                400.0,
+                800.0,
+              );
 
               return WindowDialog(
                 width: width,

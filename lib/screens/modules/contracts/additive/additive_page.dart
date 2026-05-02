@@ -7,9 +7,9 @@ import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_state.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_additive.dart';
 
-import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
@@ -124,6 +124,7 @@ class _AdditivePageState extends State<AdditivePage> {
     _valueCtrl.dispose();
     _addDaysExecCtrl.dispose();
     _addDaysContractCtrl.dispose();
+
     _cubit.close();
 
     super.dispose();
@@ -170,11 +171,43 @@ class _AdditivePageState extends State<AdditivePage> {
     return 'Usuário';
   }
 
+  DateTime? _parseDateTimeFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    final iso = DateTime.tryParse(text);
+
+    if (iso != null) {
+      return iso;
+    }
+
+    final parts = text.split('/');
+
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+
+    return null;
+  }
+
   Future<void> _notify({
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -185,7 +218,7 @@ class _AdditivePageState extends State<AdditivePage> {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
 
-    await NotificationContract.show(
+    await NotificationAdditive.show(
       context: context,
       contract: widget.contractData,
       title: title,
@@ -193,15 +226,24 @@ class _AdditivePageState extends State<AdditivePage> {
       details: details ?? _contractSummary,
       leadingLabel: 'Aditivo',
       module: 'contracts_additives',
-      type: type,
+      status: type,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
       actorId: currentUserId,
       actorName: actorName,
       includeCurrentUser: true,
+
+      additiveId: extra['additiveId']?.toString(),
+      additiveNumber: extra['additiveNumber']?.toString() ??
+          extra['additiveProcess']?.toString(),
+      additiveOrder: extra['additiveOrder']?.toString(),
+      additiveType: extra['additiveType']?.toString(),
+      additiveDate: _parseDateTimeFromExtra(extra['additiveDate']),
+
       extra: <String, dynamic>{
         'route': 'contracts_additives',
+        'module': 'contracts_additives',
         'contractId': _contractId,
         'contractNumber': _contractNumber,
         'contractTitle': _contractSummary,
@@ -221,9 +263,8 @@ class _AdditivePageState extends State<AdditivePage> {
         : '';
     _typeCtrl.text = a.typeOfAdditive ?? '';
 
-    _valueCtrl.text = a.additiveValue != null
-        ? SipGedFormatMoney.brlNoSymbol(a.additiveValue)
-        : '';
+    _valueCtrl.text =
+    a.additiveValue != null ? SipGedFormatMoney.brlNoSymbol(a.additiveValue) : '';
 
     _addDaysExecCtrl.text = a.additiveValidityExecutionDays?.toString() ?? '';
     _addDaysContractCtrl.text = a.additiveValidityContractDays?.toString() ?? '';
@@ -265,46 +306,57 @@ class _AdditivePageState extends State<AdditivePage> {
   }
 
   Future<void> _save() async {
-    final selectedBeforeSave = _cubit.state.selected;
-    final isNew = selectedBeforeSave?.id == null;
+    try {
+      final result = await _cubit.saveOrUpdate(
+        orderText: _orderCtrl.text,
+        dateText: _dateCtrl.text,
+        valueText: _valueCtrl.text,
+        addDaysExecText: _addDaysExecCtrl.text,
+        addDaysContractText: _addDaysContractCtrl.text,
+        processText: _processCtrl.text,
+        typeText: _typeCtrl.text,
+      );
 
-    await _cubit.saveOrUpdate(
-      orderText: _orderCtrl.text,
-      dateText: _dateCtrl.text,
-      valueText: _valueCtrl.text,
-      addDaysExecText: _addDaysExecCtrl.text,
-      addDaysContractText: _addDaysContractCtrl.text,
-      processText: _processCtrl.text,
-      typeText: _typeCtrl.text,
-    );
+      final actorName = _resolveActorName(
+        FirebaseAuth.instance.currentUser?.uid,
+      );
 
-    final selectedAfterSave = _cubit.state.selected;
-    final actorName = _resolveActorName(
-      FirebaseAuth.instance.currentUser?.uid,
-    );
-
-    await _notify(
-      title: isNew ? 'Aditivo criado' : 'Aditivo atualizado',
-      subtitle: isNew
-          ? 'Aditivo ${_orderCtrl.text.trim()} salvo por $actorName.'
-          : 'Aditivo ${_orderCtrl.text.trim()} atualizado por $actorName.',
-      type: NotificationType.success,
-      saveInBell: true,
-      sendPush: true,
-      extra: <String, dynamic>{
-        'action': isNew ? 'additive_created' : 'additive_updated',
-        'additiveId': selectedAfterSave?.id ?? selectedBeforeSave?.id,
-        'additiveOrder': int.tryParse(_orderCtrl.text.trim()),
-        'additiveProcess': _processCtrl.text.trim(),
-        'additiveType': _typeCtrl.text.trim(),
-        'additiveValue': SipGedFormatMoney.parseBrl(_valueCtrl.text),
-        'additiveDate': _dateCtrl.text.trim(),
-        'additiveValidityExecutionDays':
-        int.tryParse(_addDaysExecCtrl.text.trim()),
-        'additiveValidityContractDays':
-        int.tryParse(_addDaysContractCtrl.text.trim()),
-      },
-    );
+      await _notify(
+        title: result.created ? 'Aditivo criado' : 'Aditivo atualizado',
+        subtitle: result.created
+            ? 'Aditivo ${_orderCtrl.text.trim()} salvo por $actorName.'
+            : 'Aditivo ${_orderCtrl.text.trim()} atualizado por $actorName.',
+        type: NotificationStatus.success,
+        saveInBell: true,
+        sendPush: true,
+        extra: <String, dynamic>{
+          'action': result.created ? 'additive_created' : 'additive_updated',
+          'additiveId': result.additiveId,
+          'additiveOrder': result.order,
+          'additiveProcess': _processCtrl.text.trim(),
+          'additiveType': _typeCtrl.text.trim(),
+          'additiveValue': SipGedFormatMoney.parseBrl(_valueCtrl.text),
+          'additiveDate': _dateCtrl.text.trim(),
+          'additiveValidityExecutionDays':
+          int.tryParse(_addDaysExecCtrl.text.trim()),
+          'additiveValidityContractDays':
+          int.tryParse(_addDaysContractCtrl.text.trim()),
+        },
+      );
+    } catch (e) {
+      await _notify(
+        title: 'Erro ao salvar aditivo',
+        subtitle: e.toString(),
+        type: NotificationStatus.error,
+        duration: const Duration(seconds: 6),
+        saveInBell: false,
+        sendPush: false,
+        extra: <String, dynamic>{
+          'action': 'additive_save_error',
+          'error': e.toString(),
+        },
+      );
+    }
   }
 
   void _applyInitialNextOrderOnce(AdditivesState state) {
@@ -344,64 +396,91 @@ class _AdditivePageState extends State<AdditivePage> {
   }
 
   Future<void> _addAttachment() async {
-    final selectedBeforeUpload = _cubit.state.selected;
+    try {
+      final result = await _cubit.addAttachmentWithPicker(context);
 
-    await _cubit.addAttachmentWithPicker(context);
+      final actorName = _resolveActorName(
+        FirebaseAuth.instance.currentUser?.uid,
+      );
 
-    final selectedAfterUpload = _cubit.state.selected;
-    final actorName = _resolveActorName(
-      FirebaseAuth.instance.currentUser?.uid,
-    );
-
-    await _notify(
-      title: 'Arquivo anexado ao aditivo',
-      subtitle: 'Upload concluído por $actorName.',
-      type: NotificationType.success,
-      saveInBell: true,
-      sendPush: true,
-      extra: <String, dynamic>{
-        'action': 'additive_attachment_added',
-        'additiveId': selectedAfterUpload?.id ?? selectedBeforeUpload?.id,
-        'additiveOrder': selectedAfterUpload?.additiveOrder ??
-            selectedBeforeUpload?.additiveOrder,
-      },
-    );
+      await _notify(
+        title: 'Arquivo anexado ao aditivo',
+        subtitle: '${result.attachment.label} enviado por $actorName.',
+        type: NotificationStatus.success,
+        saveInBell: true,
+        sendPush: true,
+        extra: <String, dynamic>{
+          'action': 'additive_attachment_added',
+          'additiveId': result.additiveId,
+          'additiveOrder': result.additiveOrder,
+          'attachmentId': result.attachment.id,
+          'attachmentLabel': result.attachment.label,
+          'attachmentUrl': result.attachment.url,
+          'attachmentPath': result.attachment.path,
+        },
+      );
+    } catch (e) {
+      await _notify(
+        title: 'Erro ao anexar arquivo',
+        subtitle: e.toString(),
+        type: NotificationStatus.error,
+        duration: const Duration(seconds: 6),
+        saveInBell: false,
+        sendPush: false,
+        extra: <String, dynamic>{
+          'action': 'additive_attachment_add_error',
+          'error': e.toString(),
+        },
+      );
+    }
   }
 
   Future<void> _deleteAttachment(int index) async {
-    final state = _cubit.state;
+    try {
+      final result = await _cubit.deleteAttachment(index);
 
-    if (index < 0 || index >= state.sideAttachments.length) return;
+      if (!mounted) return;
 
-    final selected = state.selected;
-    final attachment = state.sideAttachments[index];
+      setState(() {
+        _selectedAttachmentIndex = null;
+      });
 
-    await _cubit.deleteAttachment(index);
+      final actorName = _resolveActorName(
+        FirebaseAuth.instance.currentUser?.uid,
+      );
 
-    if (!mounted) return;
-
-    setState(() {
-      _selectedAttachmentIndex = null;
-    });
-
-    final actorName = _resolveActorName(
-      FirebaseAuth.instance.currentUser?.uid,
-    );
-
-    await _notify(
-      title: 'Arquivo removido do aditivo',
-      subtitle: '${attachment.label} removido por $actorName.',
-      type: NotificationType.warning,
-      saveInBell: true,
-      sendPush: true,
-      extra: <String, dynamic>{
-        'action': 'additive_attachment_deleted',
-        'additiveId': selected?.id,
-        'additiveOrder': selected?.additiveOrder,
-        'attachmentLabel': attachment.label,
-        'attachmentUrl': attachment.url,
-      },
-    );
+      await _notify(
+        title: 'Arquivo removido do aditivo',
+        subtitle: result.attachment != null
+            ? '${result.attachment!.label} removido por $actorName.'
+            : 'Arquivo removido por $actorName.',
+        type: NotificationStatus.warning,
+        saveInBell: true,
+        sendPush: true,
+        extra: <String, dynamic>{
+          'action': 'additive_attachment_deleted',
+          'additiveId': result.additiveId,
+          'additiveOrder': result.additiveOrder,
+          'attachmentId': result.attachment?.id,
+          'attachmentLabel': result.attachment?.label,
+          'attachmentUrl': result.attachment?.url,
+          'attachmentPath': result.attachment?.path,
+        },
+      );
+    } catch (e) {
+      await _notify(
+        title: 'Erro ao remover arquivo',
+        subtitle: e.toString(),
+        type: NotificationStatus.error,
+        duration: const Duration(seconds: 6),
+        saveInBell: false,
+        sendPush: false,
+        extra: <String, dynamic>{
+          'action': 'additive_attachment_delete_error',
+          'error': e.toString(),
+        },
+      );
+    }
   }
 
   Future<bool> _renameAttachment({
@@ -410,7 +489,7 @@ class _AdditivePageState extends State<AdditivePage> {
     required Attachment newItem,
   }) async {
     try {
-      await _cubit.renameAttachment(
+      final result = await _cubit.renameAttachment(
         index: index,
         newLabel: newItem.label,
       );
@@ -421,17 +500,20 @@ class _AdditivePageState extends State<AdditivePage> {
 
       await _notify(
         title: 'Anexo de aditivo renomeado',
-        subtitle: '${newItem.label} renomeado por $actorName.',
-        type: NotificationType.success,
+        subtitle: '${result.newAttachment.label} renomeado por $actorName.',
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
           'action': 'additive_attachment_renamed',
-          'oldAttachmentLabel': oldItem.label,
-          'newAttachmentLabel': newItem.label,
-          'attachmentUrl': newItem.url,
-          'additiveId': _cubit.state.selected?.id,
-          'additiveOrder': _cubit.state.selected?.additiveOrder,
+          'additiveId': result.additiveId,
+          'additiveOrder': result.additiveOrder,
+          'oldAttachmentId': result.oldAttachment.id,
+          'oldAttachmentLabel': result.oldAttachment.label,
+          'newAttachmentId': result.newAttachment.id,
+          'newAttachmentLabel': result.newAttachment.label,
+          'attachmentUrl': result.newAttachment.url,
+          'attachmentPath': result.newAttachment.path,
         },
       );
 
@@ -439,9 +521,15 @@ class _AdditivePageState extends State<AdditivePage> {
     } catch (e) {
       await _notify(
         title: 'Falha ao renomear anexo',
-        subtitle: '$e',
-        type: NotificationType.error,
+        subtitle: e.toString(),
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
+        saveInBell: false,
+        sendPush: false,
+        extra: <String, dynamic>{
+          'action': 'additive_attachment_rename_error',
+          'error': e.toString(),
+        },
       );
 
       return false;
@@ -449,34 +537,49 @@ class _AdditivePageState extends State<AdditivePage> {
   }
 
   Future<void> _deleteAdditive(AdditivesData a) async {
-    _cubit.selectAdditive(a);
+    try {
+      _cubit.selectAdditive(a);
 
-    await _cubit.deleteSelectedAdditive();
+      final result = await _cubit.deleteSelectedAdditive();
 
-    final actorName = _resolveActorName(
-      FirebaseAuth.instance.currentUser?.uid,
-    );
+      final actorName = _resolveActorName(
+        FirebaseAuth.instance.currentUser?.uid,
+      );
 
-    await _notify(
-      title: 'Aditivo apagado',
-      subtitle: a.additiveOrder != null
-          ? 'Aditivo ${a.additiveOrder} removido por $actorName.'
-          : 'O aditivo foi removido por $actorName.',
-      type: NotificationType.warning,
-      saveInBell: true,
-      sendPush: true,
-      extra: <String, dynamic>{
-        'action': 'additive_deleted',
-        'additiveId': a.id,
-        'additiveOrder': a.additiveOrder,
-        'additiveProcess': a.additiveNumberProcess,
-        'additiveType': a.typeOfAdditive,
-        'additiveValue': a.additiveValue,
-        'additiveDate': a.additiveDate?.toIso8601String(),
-        'additiveValidityExecutionDays': a.additiveValidityExecutionDays,
-        'additiveValidityContractDays': a.additiveValidityContractDays,
-      },
-    );
+      await _notify(
+        title: 'Aditivo apagado',
+        subtitle: result.order != null
+            ? 'Aditivo ${result.order} removido por $actorName.'
+            : 'O aditivo foi removido por $actorName.',
+        type: NotificationStatus.warning,
+        saveInBell: true,
+        sendPush: true,
+        extra: <String, dynamic>{
+          'action': 'additive_deleted',
+          'additiveId': result.additiveId,
+          'additiveOrder': result.order,
+          'additiveProcess': result.process,
+          'additiveType': result.type,
+          'additiveValue': result.value,
+          'additiveDate': result.date?.toIso8601String(),
+          'additiveValidityExecutionDays': result.validityExecutionDays,
+          'additiveValidityContractDays': result.validityContractDays,
+        },
+      );
+    } catch (e) {
+      await _notify(
+        title: 'Erro ao apagar aditivo',
+        subtitle: e.toString(),
+        type: NotificationStatus.error,
+        duration: const Duration(seconds: 6),
+        saveInBell: false,
+        sendPush: false,
+        extra: <String, dynamic>{
+          'action': 'additive_delete_error',
+          'error': e.toString(),
+        },
+      );
+    }
   }
 
   @override
@@ -642,6 +745,7 @@ class _AdditivePageState extends State<AdditivePage> {
                                       _cubit.reloadAttachments();
 
                                       final sel = _cubit.state.selected;
+
                                       if (sel?.additiveOrder != null) {
                                         _orderCtrl.text =
                                             sel!.additiveOrder.toString();

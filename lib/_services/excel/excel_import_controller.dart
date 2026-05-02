@@ -3,11 +3,6 @@ import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'excel_preview_dialog.dart';
 
@@ -17,27 +12,6 @@ class ImportExcelController {
     required String path,
     required void Function()? onFinished,
   }) async {
-    final notificationCubit = context.read<NotificationCubit>();
-
-    void notify(
-        String title, {
-          NotificationType type = NotificationType.info,
-          String? subtitle,
-        }) {
-      notificationCubit.show(
-        NotificationData(
-          title: title,
-          subtitle: subtitle,
-          leadingLabel: 'Importação',
-          type: type,
-          extra: const <String, dynamic>{
-            'module': 'excel_import',
-          },
-        ),
-        saveInFirebase: false,
-      );
-    }
-
     try {
       final FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -46,10 +20,7 @@ class ImportExcelController {
       );
 
       if (result == null) {
-        notify(
-          'Importação cancelada',
-          type: NotificationType.warning,
-        );
+        debugPrint('[ImportExcelController] Importação cancelada pelo usuário.');
         return;
       }
 
@@ -59,9 +30,8 @@ class ImportExcelController {
           (file.path == null ? null : await File(file.path!).readAsBytes());
 
       if (bytes == null) {
-        notify(
-          'Não foi possível ler o arquivo selecionado.',
-          type: NotificationType.error,
+        debugPrint(
+          '[ImportExcelController] Não foi possível ler o arquivo selecionado.',
         );
         return;
       }
@@ -69,9 +39,8 @@ class ImportExcelController {
       final excel = Excel.decodeBytes(bytes);
 
       if (excel.tables.isEmpty) {
-        notify(
-          'Planilha vazia ou inválida.',
-          type: NotificationType.warning,
+        debugPrint(
+          '[ImportExcelController] Planilha vazia ou inválida.',
         );
         return;
       }
@@ -79,9 +48,8 @@ class ImportExcelController {
       final sheet = excel.tables[excel.tables.keys.first];
 
       if (sheet == null || sheet.rows.isEmpty) {
-        notify(
-          'Planilha vazia ou inválida.',
-          type: NotificationType.warning,
+        debugPrint(
+          '[ImportExcelController] Planilha vazia ou inválida.',
         );
         return;
       }
@@ -110,9 +78,8 @@ class ImportExcelController {
       }).toList();
 
       if (jsonData.isEmpty) {
-        notify(
-          'Nenhum dado encontrado na planilha.',
-          type: NotificationType.warning,
+        debugPrint(
+          '[ImportExcelController] Nenhum dado encontrado na planilha.',
         );
         return;
       }
@@ -129,12 +96,9 @@ class ImportExcelController {
           );
         },
       );
-    } catch (e) {
-      notify(
-        'Erro ao importar',
-        type: NotificationType.error,
-        subtitle: '$e',
-      );
+    } catch (e, s) {
+      debugPrint('[ImportExcelController] Erro ao importar: $e');
+      debugPrintStack(stackTrace: s);
     }
   }
 
@@ -165,7 +129,9 @@ class ImportExcelController {
         }
       }
 
-      final dateBrMatch = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(str);
+      final dateBrMatch = RegExp(
+        r'^(\d{2})/(\d{2})/(\d{4})$',
+      ).firstMatch(str);
 
       if (dateBrMatch != null) {
         try {

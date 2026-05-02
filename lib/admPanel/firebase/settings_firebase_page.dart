@@ -1,26 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
-
-import 'package:sipged/_services/firestore/cleanup/cleanup_subcollections_tile.dart';
-import 'package:sipged/_services/firestore/cleanup/selective_delete_tile.dart';
-import 'package:sipged/_services/firestore/explorer/firestore_explorer_page.dart';
-import 'package:sipged/_services/firestore/migrate/migrate_doc_for_sub_collection.dart';
-import 'package:sipged/_services/firestore/migrate/migration.dart';
-import 'package:sipged/_services/firestore/firebase_utils.dart';
+import 'package:sipged/admPanel/firebase/firebase_utils.dart';
 import 'package:sipged/_services/excel/excel_import_controller.dart';
 
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
+import 'package:sipged/admPanel/firebase/firestore_explorer_page.dart';
+import 'package:sipged/admPanel/firebase/migrate_doc_for_sub_collection.dart';
 import 'package:sipged/admPanel/firebase/section_header.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/tiles/tile_widget.dart';
+import 'package:sipged/admPanel/firebase/selective_delete_tile.dart';
 
 import '../../_widgets/buttons/circle_button_change.dart';
 import '../../_widgets/menu/upBar/up_bar.dart';
+import 'cleanup_subcollections_tile.dart';
+import 'migration.dart';
 
 class SettingsFirebasePage extends StatefulWidget {
   const SettingsFirebasePage({super.key});
@@ -30,33 +25,32 @@ class SettingsFirebasePage extends StatefulWidget {
 }
 
 class _SettingsFirebasePageState extends State<SettingsFirebasePage> {
-  void _notify({
-    required String title,
-    String? subtitle,
-    NotificationType type = NotificationType.info,
-    Duration duration = const Duration(seconds: 4),
-  }) {
+  void _showMessage(
+      String message, {
+        Color? backgroundColor,
+        Duration duration = const Duration(seconds: 4),
+      }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Firebase',
-        type: type,
-        duration: duration,
-        extra: const <String, dynamic>{
-          'module': 'settings_firebase',
-        },
-      ),
-      saveInFirebase: false,
-    );
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          duration: duration,
+        ),
+      );
   }
 
   void _closeLoadingIfMounted() {
     if (!mounted) return;
 
     final navigator = Navigator.of(context, rootNavigator: true);
+
     if (navigator.canPop()) {
       navigator.pop();
     }
@@ -77,18 +71,17 @@ class _SettingsFirebasePageState extends State<SettingsFirebasePage> {
         context: context,
         path: path,
         onFinished: () {
-          _notify(
-            title: 'Importação finalizada!',
-            type: NotificationType.success,
+          _showMessage(
+            'Importação finalizada!',
+            backgroundColor: Colors.green.shade700,
             duration: const Duration(seconds: 4),
           );
         },
       );
     } catch (e) {
-      _notify(
-        title: 'Erro na importação',
-        subtitle: '$e',
-        type: NotificationType.error,
+      _showMessage(
+        'Erro na importação: $e',
+        backgroundColor: Colors.red.shade700,
         duration: const Duration(seconds: 6),
       );
     } finally {
@@ -102,16 +95,15 @@ class _SettingsFirebasePageState extends State<SettingsFirebasePage> {
     try {
       await migrarAcidentesPorAno();
 
-      _notify(
-        title: 'Migração concluída com sucesso!',
-        type: NotificationType.success,
+      _showMessage(
+        'Migração concluída com sucesso!',
+        backgroundColor: Colors.green.shade700,
         duration: const Duration(seconds: 4),
       );
     } catch (e) {
-      _notify(
-        title: 'Erro na migração',
-        subtitle: '$e',
-        type: NotificationType.error,
+      _showMessage(
+        'Erro na migração: $e',
+        backgroundColor: Colors.red.shade700,
         duration: const Duration(seconds: 6),
       );
     } finally {
@@ -134,18 +126,17 @@ class _SettingsFirebasePageState extends State<SettingsFirebasePage> {
         context: context,
         path: path,
         onFinished: () {
-          _notify(
-            title: 'Coleção deletada!',
-            type: NotificationType.success,
+          _showMessage(
+            'Coleção deletada!',
+            backgroundColor: Colors.green.shade700,
             duration: const Duration(seconds: 4),
           );
         },
       );
     } catch (e) {
-      _notify(
-        title: 'Erro ao deletar',
-        subtitle: '$e',
-        type: NotificationType.error,
+      _showMessage(
+        'Erro ao deletar: $e',
+        backgroundColor: Colors.red.shade700,
         duration: const Duration(seconds: 6),
       );
     } finally {
@@ -317,6 +308,7 @@ Future<String?> _askPath(BuildContext context, {String? hint}) async {
           ElevatedButton(
             onPressed: () {
               final path = controller.text.trim();
+
               if (path.isNotEmpty) {
                 Navigator.of(dialogContext).pop(path);
               }

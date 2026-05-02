@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 import 'package:exif/exif.dart' as exif;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:geolocator/geolocator.dart';
 import 'package:image/image.dart' as im;
@@ -13,10 +12,6 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:native_exif/native_exif.dart';
 import 'package:path_provider/path_provider.dart';
-
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_widgets/images/carousel/photo_editor_page.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
@@ -93,6 +88,14 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
     }
   }
 
+  void _debugError(String message, Object error, StackTrace? stackTrace) {
+    debugPrint('[PhotoPreviewPage] $message: $error');
+
+    if (stackTrace != null) {
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
   LocationSettings _bestLocationSettings({
     LocationAccuracy accuracy = LocationAccuracy.high,
     Duration? timeLimit,
@@ -125,31 +128,6 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
     return LocationSettings(
       accuracy: accuracy,
       timeLimit: timeLimit,
-    );
-  }
-
-  void _notify(
-      String title, {
-        NotificationType type = NotificationType.info,
-        String? subtitle,
-        String? id,
-        Duration duration = const Duration(seconds: 5),
-      }) {
-    if (!mounted) return;
-
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        id: id,
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Fotos',
-        type: type,
-        duration: duration,
-        extra: const <String, dynamic>{
-          'module': 'photo_preview',
-        },
-      ),
-      saveInFirebase: false,
     );
   }
 
@@ -190,20 +168,15 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       });
 
       unawaited(_resolveAddressAndCoords(token));
-    } catch (e) {
+    } catch (e, s) {
       if (!mounted || token != _prepareToken) return;
+
+      _debugError('Falha ao preparar pré-visualização', e, s);
 
       setState(() {
         _previewBytes = null;
         _preparing = false;
       });
-
-      _notify(
-        'Falha ao preparar pré-visualização',
-        type: NotificationType.error,
-        subtitle: '$e',
-        duration: const Duration(seconds: 6),
-      );
     }
   }
 
@@ -295,8 +268,10 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
         _city = widget.overlayMunicipio;
         _state = widget.overlayUF;
       });
-    } catch (_) {
+    } catch (e, s) {
       if (!mounted || token != _prepareToken) return;
+
+      _debugError('Falha ao resolver endereço/coordenadas', e, s);
 
       setState(() {
         _street = widget.overlayLogradouro;
@@ -497,13 +472,8 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       if (!mounted) return;
 
       Navigator.of(context).pop<Uint8List>(withExif);
-    } catch (e) {
-      _notify(
-        'Falha ao finalizar',
-        type: NotificationType.error,
-        subtitle: '$e',
-        duration: const Duration(seconds: 6),
-      );
+    } catch (e, s) {
+      _debugError('Falha ao finalizar foto', e, s);
     } finally {
       if (mounted) {
         setState(() => _busy = false);

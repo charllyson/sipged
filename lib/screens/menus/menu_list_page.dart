@@ -21,9 +21,9 @@ import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_rep
 
 import 'package:sipged/_blocs/system/module/module_data.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -36,7 +36,6 @@ import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/screens/common/demand/list_demand_page.dart';
 import 'package:sipged/screens/common/home/home_page.dart';
 import 'package:sipged/screens/menus/drawer_button.dart';
-
 import 'package:sipged/screens/menus/drawer_menu.dart';
 
 import 'package:sipged/screens/modules/actives/airports/network/active_airports_network_page.dart';
@@ -50,7 +49,7 @@ import 'package:sipged/screens/modules/actives/roads/records/active_roads_record
 
 import 'package:sipged/screens/modules/contracts/additive/tab_bar_additive_page.dart';
 import 'package:sipged/screens/modules/contracts/apostilles/tab_bar_apostilles_page.dart';
-import 'package:sipged/screens/modules/contracts/budget/hiring_budget_page.dart';
+import 'package:sipged/screens/modules/contracts/budget/budget_page.dart';
 import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 import 'package:sipged/screens/modules/contracts/measurement/tab_bar_measurement_page.dart';
 import 'package:sipged/screens/modules/contracts/validity/validity_tab_bar.dart';
@@ -93,17 +92,23 @@ class _MenuListPageState extends State<MenuListPage> {
     String? subtitle,
     String? details,
     String? leadingLabel,
-    NotificationType type = NotificationType.info,
+    NotificationStatus status = NotificationStatus.info,
     Duration duration = const Duration(seconds: 5),
   }) {
-    context.read<NotificationCubit>().show(
+    if (!mounted) return;
+
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
         details: details,
         leadingLabel: leadingLabel,
-        type: type,
+        status: status,
         duration: duration,
+        extra: const <String, dynamic>{
+          'module': 'menu',
+          'source': 'menu_list_page',
+        },
       ),
     );
   }
@@ -171,7 +176,7 @@ class _MenuListPageState extends State<MenuListPage> {
         title: 'Contrato sem ID',
         subtitle: 'Não foi possível abrir o cronograma.',
         leadingLabel: 'Contratos',
-        type: NotificationType.error,
+        status: NotificationStatus.error,
       );
       return;
     }
@@ -196,7 +201,7 @@ class _MenuListPageState extends State<MenuListPage> {
         subtitle: 'Cadastre o tipo no DFD para abrir o cronograma.',
         details: resumoContrato,
         leadingLabel: 'DFD',
-        type: NotificationType.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 7),
       );
       return;
@@ -264,7 +269,7 @@ class _MenuListPageState extends State<MenuListPage> {
       _showNotification(
         title: 'Cronograma para OAEs ainda não disponível.',
         leadingLabel: 'OAE',
-        type: NotificationType.warning,
+        status: NotificationStatus.warning,
       );
       return;
     }
@@ -273,7 +278,7 @@ class _MenuListPageState extends State<MenuListPage> {
       title: 'Tipo de obra não suportado',
       subtitle: 'Tipo lido no DFD: $tipoObra',
       leadingLabel: 'DFD',
-      type: NotificationType.error,
+      status: NotificationStatus.error,
     );
   }
 
@@ -306,7 +311,7 @@ class _MenuListPageState extends State<MenuListPage> {
         title: 'Contrato sem ID',
         subtitle: emptyIdMessage,
         leadingLabel: 'Contratos',
-        type: NotificationType.error,
+        status: NotificationStatus.error,
       );
       return;
     }
@@ -436,7 +441,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => HiringBudgetPage(contractData: contract),
+                builder: (_) => BudgetPage(contractData: contract),
               ),
             );
           },

@@ -6,9 +6,9 @@ import 'package:sipged/_blocs/modules/planning/land/payment/land_payment_cubit.d
 import 'package:sipged/_blocs/modules/planning/land/payment/land_payment_data.dart';
 import 'package:sipged/_blocs/modules/planning/land/payment/land_payment_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
@@ -106,11 +106,11 @@ class _LandPaymentState extends State<LandPayment> {
   void _notifySuccess(String message) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: 'Sucesso',
         subtitle: message,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         leadingLabel: 'Pagamento',
       ),
     );
@@ -119,11 +119,11 @@ class _LandPaymentState extends State<LandPayment> {
   void _notifyError(String message) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: 'Erro',
         subtitle: message,
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         leadingLabel: 'Pagamento',
       ),
     );

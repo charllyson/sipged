@@ -9,10 +9,10 @@ import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cub
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
@@ -96,12 +96,12 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
 
   void _toast(
       String msg, {
-        NotificationType type = NotificationType.info,
+        NotificationStatus type = NotificationStatus.info,
         Duration duration = const Duration(seconds: 8),
       }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: msg,
         leadingLabel: 'Cronograma',
@@ -127,7 +127,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = true,
     bool sendPush = true,
@@ -139,9 +139,11 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     final actorId = currentUser?.uid.trim();
     final actorName = _actorName();
 
+    final contract = widget.contractData ?? ProcessData.empty();
+
     await NotificationSchedule.show(
       context: context,
-      contract: widget.contractData,
+      contract: contract,
       title: title,
       subtitle: subtitle,
       details: details,
@@ -155,8 +157,14 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       actorName: actorName,
       includeCurrentUser: true,
       extra: <String, dynamic>{
+        'module': 'operation_schedule_road',
+        'route': 'operation_schedule_road',
+        'source': 'schedule_road_board',
         'actorId': actorId,
         'actorName': actorName,
+        if ((contract.id ?? '').trim().isNotEmpty) 'contractId': contract.id,
+        if (contract.displaySummary.trim().isNotEmpty)
+          'contractSummary': contract.displaySummary,
         ...extra,
       },
     );
@@ -291,7 +299,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
         if (state.error != null) {
           _toast(
             'Erro: ${state.error}',
-            type: NotificationType.error,
+            type: NotificationStatus.error,
             duration: const Duration(seconds: 5),
           );
         }
@@ -356,7 +364,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     if (e.faixaIndex < 0 || e.faixaIndex >= state.lanes.length) {
       _toast(
         'Faixa inválida para edição.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
       return;
     }
@@ -453,7 +461,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
         title: state.titleForHeader,
         subtitle: null,
         details: null,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -471,7 +479,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     } catch (err) {
       _toast(
         'Falha ao salvar a estaca: $err',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
     } finally {
       _modalOpen = false;
@@ -610,7 +618,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     if (laneIndex < 0 || laneIndex >= state.lanes.length) {
       _toast(
         'Faixa inválida para edição em lote.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
       setState(_clearSelection);
       return;
@@ -678,7 +686,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
         title: state.titleForHeader,
         subtitle: null,
         details: null,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -697,7 +705,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     } catch (e) {
       _toast(
         'Falha no lote: $e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
     } finally {
       _modalOpen = false;

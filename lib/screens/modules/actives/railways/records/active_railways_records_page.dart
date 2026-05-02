@@ -5,9 +5,9 @@ import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
@@ -53,10 +53,10 @@ class _ActiveRailwaysRecordsPageState extends State<ActiveRailwaysRecordsPage> {
   void _showNotification({
     required String title,
     String? subtitle,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
   }) {
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -123,7 +123,7 @@ class _ActiveRailwaysRecordsPageState extends State<ActiveRailwaysRecordsPage> {
                   _showNotification(
                     title: 'Falha ao carregar ferrovias',
                     subtitle: error,
-                    type: NotificationType.error,
+                    type: NotificationStatus.error,
                     duration: const Duration(seconds: 6),
                   );
                 });
@@ -176,7 +176,7 @@ class _ActiveRailwaysRecordsPageState extends State<ActiveRailwaysRecordsPage> {
                                 _showNotification(
                                   title: 'Editando registro',
                                   subtitle: rotulo,
-                                  type: NotificationType.info,
+                                  type: NotificationStatus.info,
                                   duration: const Duration(seconds: 3),
                                 );
                               },
@@ -190,7 +190,7 @@ class _ActiveRailwaysRecordsPageState extends State<ActiveRailwaysRecordsPage> {
                                 _showNotification(
                                   title: 'Solicitando exclusão...',
                                   subtitle: 'Registro enviado para exclusão.',
-                                  type: NotificationType.warning,
+                                  type: NotificationStatus.warning,
                                   duration: const Duration(seconds: 3),
                                 );
                               },

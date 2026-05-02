@@ -16,11 +16,11 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
     final text = message.trim();
     if (text.isEmpty) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: 'Aviso',
         subtitle: text,
-        type: NotificationType.info,
+        type: NotificationStatus.info,
       ),
     );
   }

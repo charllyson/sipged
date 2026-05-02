@@ -3,9 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
@@ -94,22 +95,22 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   void _notify(
       String title, {
         String? subtitle,
-        NotificationType type = NotificationType.info,
+        NotificationStatus status = NotificationStatus.info,
       }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
         leadingLabel: 'Login',
-        type: type,
+        status: status,
         duration: const Duration(seconds: 4),
         extra: const <String, dynamic>{
           'module': 'forgot_password',
+          'source': 'forgot_password_page',
         },
       ),
-      saveInFirebase: false,
     );
   }
 
@@ -128,7 +129,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       _notify(
         'Informe um e-mail válido',
         subtitle: 'Ex: usuario@dominio.com',
-        type: NotificationType.error,
+        status: NotificationStatus.error,
       );
 
       _emailFocus.requestFocus();
@@ -145,7 +146,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       _notify(
         'Link de redefinição enviado',
         subtitle: 'Verifique sua caixa de entrada e spam.',
-        type: NotificationType.success,
+        status: NotificationStatus.success,
       );
 
       Navigator.of(context).pop();
@@ -154,8 +155,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
       _notify(
         'Não foi possível enviar o link',
-        subtitle: '$e',
-        type: NotificationType.error,
+        subtitle: e.toString(),
+        status: NotificationStatus.error,
       );
     } finally {
       if (mounted) {

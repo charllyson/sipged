@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/_services/map/map_box/service/nominatim_service.dart';
 import 'package:sipged/_widgets/map/search/search_overlay.dart';
 import 'package:sipged/_widgets/map/search/search_suggestion.dart';
@@ -43,29 +39,6 @@ class _SearchMapButtonState extends State<SearchMapButton> {
     countryCodes: 'br',
     limit: 1,
   );
-
-  void _notify(
-      String title, {
-        NotificationType type = NotificationType.info,
-        String? subtitle,
-        Duration duration = const Duration(seconds: 4),
-      }) {
-    if (!mounted) return;
-
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Mapa',
-        type: type,
-        duration: duration,
-        extra: const <String, dynamic>{
-          'module': 'map_interactive',
-        },
-      ),
-      saveInFirebase: false,
-    );
-  }
 
   LatLng? _parseLatLng(String raw) {
     final q = raw.trim();
@@ -152,12 +125,6 @@ class _SearchMapButtonState extends State<SearchMapButton> {
         return;
       }
     } catch (_) {}
-
-    _notify(
-      'Não encontrado',
-      subtitle: 'Tente “lat, lng” ou refine a busca.',
-      type: NotificationType.warning,
-    );
   }
 
   void _goTo(LatLng point) {

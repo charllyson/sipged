@@ -17,9 +17,9 @@ import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cub
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.dart';
 
 import 'package:sipged/_widgets/draw/shimmer/map_shimmer.dart';
@@ -99,12 +99,12 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
   void _toast(
       String msg, {
-        NotificationType type = NotificationType.info,
+        NotificationStatus type = NotificationStatus.info,
         Duration duration = const Duration(seconds: 8),
       }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: msg,
         leadingLabel: 'Mapa',
@@ -131,7 +131,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     String? subtitle,
     String? details,
     String? leadingLabel,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = true,
     bool sendPush = true,
@@ -176,7 +176,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     if (contractId.isEmpty) {
       _toast(
         'Contrato inválido para importar geometria.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
       return;
     }
@@ -221,7 +221,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         subtitle: 'Geometria atualizada por ${_actorName()}.',
         details: st.summarySubjectContract ?? widget.contractData.displaySummary,
         leadingLabel: 'Mapa',
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -237,7 +237,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
       _toast(
         'Erro ao importar geometria: $e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
     } finally {
       if (mounted) setState(() => _importingGeometry = false);
@@ -730,7 +730,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     if (faixaIndex < 0 || faixaIndex >= st.lanes.length) {
       _toast(
         'Faixa inválida para edição.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
       return;
     }
@@ -842,7 +842,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         title: st.titleForHeader,
         subtitle: null,
         details: null,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -863,7 +863,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
       _toast(
         'Falha ao salvar a estaca: $e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
     } finally {
       _modalOpen = false;
@@ -922,7 +922,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     if (laneIndex < 0 || laneIndex >= st.lanes.length) {
       _toast(
         'Faixa inválida para edição em lote.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
       return;
     }
@@ -989,7 +989,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         title: st.titleForHeader,
         subtitle: null,
         details: null,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -1010,7 +1010,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
       _toast(
         'Falha no lote: $e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
     } finally {
       _modalOpen = false;

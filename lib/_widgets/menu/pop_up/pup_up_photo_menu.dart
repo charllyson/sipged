@@ -10,7 +10,7 @@ import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
 import 'package:sipged/admPanel/system_hub_page.dart';
-import 'package:sipged/screens/common/profile/profile_page.dart';
+import 'package:sipged/screens/common/profile/user_profile_page.dart';
 
 class PopUpPhotoMenu extends StatefulWidget {
   const PopUpPhotoMenu({

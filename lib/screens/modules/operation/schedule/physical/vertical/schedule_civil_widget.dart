@@ -12,9 +12,9 @@ import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_b
 import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
 import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_services/files/dxf/dxf_controller.dart';
 import 'package:sipged/_services/files/dxf/dxf_empty_hint.dart';
@@ -101,12 +101,12 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
   void _notify({
     required String title,
     String? subtitle,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
   }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -452,7 +452,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
 
       _notify(
         title: 'Polígono salvo.',
-        type: NotificationType.success,
+        type: NotificationStatus.success,
       );
     } catch (e) {
       _polygonIdByIndex.remove(index);
@@ -460,7 +460,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       _notify(
         title: 'Falha ao salvar polígono',
         subtitle: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     } finally {
@@ -1231,7 +1231,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
 
                     _notify(
                       title: 'Área apagada.',
-                      type: NotificationType.warning,
+                      type: NotificationStatus.warning,
                     );
                   },
                 ),
@@ -1263,7 +1263,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
           _notify(
             title: 'Erro',
             subtitle: st.error,
-            type: NotificationType.error,
+            type: NotificationStatus.error,
             duration: const Duration(seconds: 6),
           );
         }

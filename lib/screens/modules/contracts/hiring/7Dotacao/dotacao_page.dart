@@ -14,8 +14,8 @@ import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
-import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
@@ -157,7 +157,7 @@ class _DotacaoPageState extends State<DotacaoPage>
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -168,7 +168,7 @@ class _DotacaoPageState extends State<DotacaoPage>
 
     final user = FirebaseAuth.instance.currentUser;
 
-    await NotificationContract.show(
+    await NotificationHiring.show(
       context: context,
       contract: _effectiveContract,
       title: title,
@@ -197,7 +197,7 @@ class _DotacaoPageState extends State<DotacaoPage>
       await _notify(
         title: 'Dotação',
         subtitle: 'Esta etapa está em modo somente leitura.',
-        type: NotificationType.info,
+        type: NotificationStatus.info,
       );
       return false;
     }
@@ -219,7 +219,7 @@ class _DotacaoPageState extends State<DotacaoPage>
           title: 'Dotação',
           subtitle: 'Erro ao salvar.',
           details: err,
-          type: NotificationType.error,
+          type: NotificationStatus.error,
           duration: const Duration(seconds: 6),
         );
 
@@ -239,7 +239,7 @@ class _DotacaoPageState extends State<DotacaoPage>
         title: 'Dotação atualizada',
         subtitle: 'Alterações salvas por ${_currentActorName()}.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -259,7 +259,7 @@ class _DotacaoPageState extends State<DotacaoPage>
         title: 'Dotação',
         subtitle: 'Erro ao salvar.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
 
@@ -283,7 +283,7 @@ class _DotacaoPageState extends State<DotacaoPage>
       await _notify(
         title: 'Dotação',
         subtitle: 'Documento não encontrado para aprovar.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
 
       return;
@@ -320,7 +320,7 @@ class _DotacaoPageState extends State<DotacaoPage>
         title: 'Dotação aprovada',
         subtitle: 'Etapa concluída por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -339,7 +339,7 @@ class _DotacaoPageState extends State<DotacaoPage>
         title: 'Dotação',
         subtitle: 'Erro ao aprovar.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -359,7 +359,7 @@ class _DotacaoPageState extends State<DotacaoPage>
       await _notify(
         title: 'Dotação',
         subtitle: 'Documento não encontrado para atualizar.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
 
       return;
@@ -383,7 +383,7 @@ class _DotacaoPageState extends State<DotacaoPage>
         title: 'Aprovação da Dotação atualizada',
         subtitle: 'Atualizada por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -401,7 +401,7 @@ class _DotacaoPageState extends State<DotacaoPage>
         title: 'Dotação',
         subtitle: 'Erro ao atualizar aprovação.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }

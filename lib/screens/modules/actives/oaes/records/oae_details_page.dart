@@ -12,9 +12,9 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -106,11 +106,11 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
     required String title,
     String? subtitle,
     String? details,
-    required NotificationType type,
+    required NotificationStatus type,
   }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -192,7 +192,7 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
     _notify(
       title: 'Coordenada selecionada',
       subtitle: 'Latitude e longitude atualizadas pelo mapa.',
-      type: NotificationType.info,
+      type: NotificationStatus.info,
     );
   }
 
@@ -201,7 +201,7 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
       _notify(
         title: 'Formulário incompleto',
         subtitle: 'Verifique os campos obrigatórios antes de salvar.',
-        type: NotificationType.warning,
+        type: NotificationStatus.warning,
       );
       return;
     }
@@ -248,7 +248,7 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
       subtitle: data.id == null
           ? 'A obra de arte especial foi cadastrada com sucesso.'
           : 'Os dados da obra de arte especial foram atualizados.',
-      type: NotificationType.success,
+      type: NotificationStatus.success,
     );
   }
 

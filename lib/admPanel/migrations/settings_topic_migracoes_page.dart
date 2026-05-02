@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
-
-import 'package:sipged/_services/firestore/cleanup/cleanup_subcollections_tile.dart';
-import 'package:sipged/_services/firestore/cleanup/selective_delete_tile.dart';
-import 'package:sipged/_services/firestore/migrate/migrate_doc_for_sub_collection.dart';
-import 'package:sipged/_services/firestore/migrate/migration.dart';
-import 'package:sipged/_services/firestore/firebase_utils.dart';
+import 'package:sipged/admPanel/firebase/cleanup_subcollections_tile.dart';
+import 'package:sipged/admPanel/firebase/firebase_utils.dart';
 
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/tiles/tile_widget.dart';
+import 'package:sipged/admPanel/firebase/migrate_doc_for_sub_collection.dart';
+import 'package:sipged/admPanel/firebase/migration.dart';
+import 'package:sipged/admPanel/firebase/selective_delete_tile.dart';
 import 'package:sipged/admPanel/migrations/firebase_migration_toolkit_page.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
@@ -30,27 +25,89 @@ class SettingsTopicMigracoesPage extends StatefulWidget {
 
 class _SettingsTopicMigracoesPageState
     extends State<SettingsTopicMigracoesPage> {
-  void _notify({
-    required String title,
-    String? subtitle,
-    NotificationType type = NotificationType.info,
-    Duration duration = const Duration(seconds: 4),
-  }) {
+  void _showMessage(
+      String message, {
+        Color? backgroundColor,
+        Duration duration = const Duration(seconds: 4),
+      }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Firebase',
-        type: type,
-        duration: duration,
-        extra: const <String, dynamic>{
-          'module': 'settings_topic_migracoes',
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          duration: duration,
+        ),
+      );
+  }
+
+  void _closeLoadingIfMounted() {
+    if (!mounted) return;
+
+    final navigator = Navigator.of(context, rootNavigator: true);
+
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
+  }
+
+  Future<void> _handleMigrarAcidentesPorAno() async {
+    _loading(context);
+
+    try {
+      await migrarAcidentesPorAno();
+
+      _showMessage(
+        'Migração concluída com sucesso!',
+        backgroundColor: Colors.green.shade700,
+        duration: const Duration(seconds: 4),
+      );
+    } catch (e) {
+      _showMessage(
+        'Erro na migração: $e',
+        backgroundColor: Colors.red.shade700,
+        duration: const Duration(seconds: 6),
+      );
+    } finally {
+      _closeLoadingIfMounted();
+    }
+  }
+
+  Future<void> _handleDeleteCollection() async {
+    final path = await _askPath(context);
+
+    if (!mounted || path == null || path.isEmpty) {
+      return;
+    }
+
+    _loading(context);
+
+    try {
+      await FirebaseUtils.deleteCollectionCompletamente(
+        context: context,
+        path: path,
+        onFinished: () {
+          _showMessage(
+            'Coleção deletada!',
+            backgroundColor: Colors.green.shade700,
+            duration: const Duration(seconds: 4),
+          );
         },
-      ),
-      saveInFirebase: false,
-    );
+      );
+    } catch (e) {
+      _showMessage(
+        'Erro ao deletar: $e',
+        backgroundColor: Colors.red.shade700,
+        duration: const Duration(seconds: 6),
+      );
+    } finally {
+      _closeLoadingIfMounted();
+    }
   }
 
   @override
@@ -100,30 +157,7 @@ class _SettingsTopicMigracoesPageState
                     title: 'Migrar documentos para subcoleção (custom)',
                     subtitle: 'Executa rotina migrarAcidentesPorAno()',
                     leading: Icons.merge_type_outlined,
-                    onTap: () async {
-                      _loading(context);
-
-                      try {
-                        await migrarAcidentesPorAno();
-
-                        _notify(
-                          title: 'Migração concluída com sucesso!',
-                          type: NotificationType.success,
-                          duration: const Duration(seconds: 4),
-                        );
-                      } catch (e) {
-                        _notify(
-                          title: 'Erro na migração',
-                          subtitle: '$e',
-                          type: NotificationType.error,
-                          duration: const Duration(seconds: 6),
-                        );
-                      } finally {
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                        }
-                      }
-                    },
+                    onTap: _handleMigrarAcidentesPorAno,
                   ),
                   TileWidget(
                     title: 'Migrar coleções (widget)',
@@ -157,40 +191,7 @@ class _SettingsTopicMigracoesPageState
                     title: 'Apagar coleção inteira',
                     subtitle: 'Operação irreversível — cuidado!',
                     leading: Icons.delete_forever_rounded,
-                    onTap: () async {
-                      final path = await _askPath(context);
-
-                      if (!context.mounted || path == null || path.isEmpty) {
-                        return;
-                      }
-
-                      _loading(context);
-
-                      try {
-                        await FirebaseUtils.deleteCollectionCompletamente(
-                          context: context,
-                          path: path,
-                          onFinished: () {
-                            _notify(
-                              title: 'Coleção deletada!',
-                              type: NotificationType.success,
-                              duration: const Duration(seconds: 4),
-                            );
-                          },
-                        );
-                      } catch (e) {
-                        _notify(
-                          title: 'Erro ao deletar',
-                          subtitle: '$e',
-                          type: NotificationType.error,
-                          duration: const Duration(seconds: 6),
-                        );
-                      } finally {
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                        }
-                      }
-                    },
+                    onTap: _handleDeleteCollection,
                   ),
                 ],
               ),
@@ -270,6 +271,7 @@ void _loading(BuildContext context) {
   showDialog<void>(
     context: context,
     barrierDismissible: false,
+    useRootNavigator: true,
     builder: (_) => const Material(
       color: Colors.black26,
       child: Center(

@@ -2,12 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/_widgets/map/base/map_data.dart';
 import 'package:sipged/_widgets/map/base/map_types.dart';
 
@@ -131,30 +127,6 @@ class _MapTypeButtonState extends State<MapTypeButton> {
     _setExpanded(!_isExpanded);
   }
 
-  void _notify(
-      BuildContext context,
-      String title, {
-        NotificationType type = NotificationType.info,
-        String? subtitle,
-        Duration duration = const Duration(seconds: 3),
-      }) {
-    try {
-      context.read<NotificationCubit>().show(
-        NotificationData(
-          title: title,
-          subtitle: subtitle,
-          leadingLabel: 'Mapa',
-          type: type,
-          duration: duration,
-          extra: const <String, dynamic>{
-            'module': 'map_interactive',
-          },
-        ),
-        saveInFirebase: false,
-      );
-    } catch (_) {}
-  }
-
   void _forceMapRefresh() {
     Future.microtask(() {
       try {
@@ -164,20 +136,12 @@ class _MapTypeButtonState extends State<MapTypeButton> {
     });
   }
 
-  void _selectMap(BuildContext context, int index) {
+  void _selectMap(int index) {
     if (index < 0 || index >= MapTypes.mapBase.length) return;
 
     final item = MapTypes.mapBase[index];
 
-    if (!item.enabled) {
-      _notify(
-        context,
-        'Mapa indisponível',
-        subtitle: item.nome,
-        type: NotificationType.warning,
-      );
-      return;
-    }
+    if (!item.enabled) return;
 
     if (index == _safeIndex) {
       return;
@@ -185,13 +149,6 @@ class _MapTypeButtonState extends State<MapTypeButton> {
 
     widget.onChanged(index);
     _forceMapRefresh();
-
-    _notify(
-      context,
-      'Mapa: ${item.nome}',
-      subtitle: item.description.trim().isEmpty ? null : item.description,
-      type: NotificationType.info,
-    );
   }
 
   double _calculateExpandedWidth(double screenWidth) {
@@ -261,15 +218,15 @@ class _MapTypeButtonState extends State<MapTypeButton> {
               ),
             ),
             child: _isExpanded
-                ? _buildExpandedList(context)
-                : _buildCollapsedTile(context),
+                ? _buildExpandedList()
+                : _buildCollapsedTile(),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCollapsedTile(BuildContext context) {
+  Widget _buildCollapsedTile() {
     final item = MapTypes.mapBase[_safeIndex];
 
     return Center(
@@ -285,7 +242,7 @@ class _MapTypeButtonState extends State<MapTypeButton> {
     );
   }
 
-  Widget _buildExpandedList(BuildContext context) {
+  Widget _buildExpandedList() {
     return ScrollConfiguration(
       behavior: const _NoGlowScrollBehavior(),
       child: ListView.separated(
@@ -308,7 +265,7 @@ class _MapTypeButtonState extends State<MapTypeButton> {
             width: _tileSize,
             height: _tileSize,
             showSelectedBadge: selected,
-            onTap: () => _selectMap(context, index),
+            onTap: () => _selectMap(index),
           );
         },
       ),

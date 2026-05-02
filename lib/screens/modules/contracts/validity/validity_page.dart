@@ -8,8 +8,8 @@ import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
 
-import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_validity.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_services/pdf/pdf_preview.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
@@ -137,12 +137,54 @@ class ValidityPage extends StatelessWidget {
     return ids.toList();
   }
 
+  DateTime? _parseDateTimeFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    final iso = DateTime.tryParse(text);
+
+    if (iso != null) {
+      return iso;
+    }
+
+    final parts = text.split('/');
+
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+
+    return null;
+  }
+
+  int? _parseIntFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is int) return value;
+
+    if (value is num) return value.toInt();
+
+    return int.tryParse(value.toString().trim());
+  }
+
   Future<void> _notify({
     required BuildContext context,
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -157,7 +199,7 @@ class ValidityPage extends StatelessWidget {
       currentUserId: currentUserId,
     );
 
-    await NotificationContract.show(
+    await NotificationValidity.show(
       context: context,
       contract: contractData,
       title: title,
@@ -165,15 +207,36 @@ class ValidityPage extends StatelessWidget {
       details: details ?? _contractTitle,
       leadingLabel: 'Validade',
       module: 'contracts_validity',
-      type: type,
+      status: type,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
       actorId: currentUserId,
       actorName: actorName,
       targetUserIds: recipients,
+      includeCurrentUser: true,
+
+      validityId: extra['validityId']?.toString(),
+      validityOrder: extra['orderNumber']?.toString() ??
+          extra['validityOrder']?.toString(),
+      validityStartDate: _parseDateTimeFromExtra(
+        extra['validityStartDate'] ??
+            extra['orderDate'] ??
+            extra['validityDate'],
+      ),
+      validityEndDate: _parseDateTimeFromExtra(
+        extra['validityEndDate'],
+      ),
+      contractValidityDays: _parseIntFromExtra(
+        extra['contractValidityDays'],
+      ),
+      executionValidityDays: _parseIntFromExtra(
+        extra['executionValidityDays'],
+      ),
+
       extra: <String, dynamic>{
         'route': 'contracts_validity',
+        'module': 'contracts_validity',
         'contractId': _contractId,
         'contractTitle': _contractTitle,
         'contractSummary': _contractTitle,
@@ -211,7 +274,7 @@ class ValidityPage extends StatelessWidget {
                 context: context,
                 title: 'Salve a validade primeiro',
                 subtitle: 'Depois você poderá anexar arquivos.',
-                type: NotificationType.info,
+                type: NotificationStatus.info,
               );
               return;
             }
@@ -240,7 +303,7 @@ class ValidityPage extends StatelessWidget {
                 context: context,
                 title: 'Arquivo anexado',
                 subtitle: label,
-                type: NotificationType.success,
+                type: NotificationStatus.success,
                 saveInBell: true,
                 sendPush: true,
                 extra: <String, dynamic>{
@@ -257,7 +320,7 @@ class ValidityPage extends StatelessWidget {
                 context: context,
                 title: 'Erro ao anexar arquivo',
                 subtitle: '$e',
-                type: NotificationType.error,
+                type: NotificationStatus.error,
                 duration: const Duration(seconds: 6),
               );
             }
@@ -305,7 +368,7 @@ class ValidityPage extends StatelessWidget {
                 context: context,
                 title: 'Arquivo removido',
                 subtitle: attachment.label,
-                type: NotificationType.warning,
+                type: NotificationStatus.warning,
                 saveInBell: true,
                 sendPush: true,
                 extra: <String, dynamic>{
@@ -322,7 +385,7 @@ class ValidityPage extends StatelessWidget {
                 context: context,
                 title: 'Erro ao remover arquivo',
                 subtitle: '$e',
-                type: NotificationType.error,
+                type: NotificationStatus.error,
                 duration: const Duration(seconds: 6),
               );
             }
@@ -355,7 +418,7 @@ class ValidityPage extends StatelessWidget {
                 subtitle: isNew
                     ? 'Ordem salva por $actorName.'
                     : 'Ordem atualizada por $actorName.',
-                type: NotificationType.success,
+                type: NotificationStatus.success,
                 saveInBell: true,
                 sendPush: true,
                 extra: <String, dynamic>{
@@ -373,7 +436,7 @@ class ValidityPage extends StatelessWidget {
                 context: context,
                 title: 'Erro ao salvar validade',
                 subtitle: '$e',
-                type: NotificationType.error,
+                type: NotificationStatus.error,
                 duration: const Duration(seconds: 6),
               );
             }
@@ -398,7 +461,7 @@ class ValidityPage extends StatelessWidget {
                 context: context,
                 title: 'Anexo renomeado',
                 subtitle: newItem.label,
-                type: NotificationType.success,
+                type: NotificationStatus.success,
                 saveInBell: true,
                 sendPush: true,
                 extra: <String, dynamic>{
@@ -418,7 +481,7 @@ class ValidityPage extends StatelessWidget {
                 context: context,
                 title: 'Falha ao renomear anexo',
                 subtitle: '$e',
-                type: NotificationType.error,
+                type: NotificationStatus.error,
                 duration: const Duration(seconds: 6),
               );
 
@@ -454,7 +517,7 @@ class ValidityPage extends StatelessWidget {
                 title: 'Validade apagada',
                 subtitle:
                 'Ordem ${deleted.orderNumber ?? '-'} removida por $actorName.',
-                type: NotificationType.warning,
+                type: NotificationStatus.warning,
                 saveInBell: true,
                 sendPush: true,
                 extra: <String, dynamic>{
@@ -472,7 +535,7 @@ class ValidityPage extends StatelessWidget {
                 context: context,
                 title: 'Erro ao apagar validade',
                 subtitle: '$e',
-                type: NotificationType.error,
+                type: NotificationStatus.error,
                 duration: const Duration(seconds: 6),
               );
             }

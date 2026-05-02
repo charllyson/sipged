@@ -30,7 +30,7 @@ class SwitchChange extends StatefulWidget {
     this.colorOff = Colors.red,
     this.iconOff = Icons.remove_circle_outline,
     this.iconOn = Icons.done,
-    this.animationDuration = const Duration(milliseconds: 1),
+    this.animationDuration = const Duration(milliseconds: 180),
     this.onTap,
     this.onDoubleTap,
     this.onSwipe,
@@ -53,9 +53,13 @@ class _SwitchChangeState extends State<SwitchChange>
   void initState() {
     super.initState();
 
+    turnState = widget.value;
+    value = turnState ? 1.0 : 0.0;
+
     animationController = AnimationController(
       vsync: this,
       duration: widget.animationDuration,
+      value: value,
     );
 
     animation = CurvedAnimation(
@@ -65,26 +69,29 @@ class _SwitchChangeState extends State<SwitchChange>
 
     animationController.addListener(() {
       if (!mounted) return;
+
       setState(() {
         value = animation.value;
       });
     });
 
-    turnState = widget.value;
-    _determine();
+    /// Importante:
+    /// Não chamar onChanged no initState.
+    /// Isso evita setState no widget pai durante o build.
+    _determine(notify: false, animate: false);
   }
 
   @override
   void didUpdateWidget(covariant SwitchChange oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    if (oldWidget.animationDuration != widget.animationDuration) {
+      animationController.duration = widget.animationDuration;
+    }
+
     if (oldWidget.value != widget.value) {
       turnState = widget.value;
       _determine(notify: false);
-    }
-
-    if (oldWidget.animationDuration != widget.animationDuration) {
-      animationController.duration = widget.animationDuration;
     }
   }
 
@@ -96,10 +103,14 @@ class _SwitchChangeState extends State<SwitchChange>
 
   @override
   Widget build(BuildContext context) {
-    final Color? transitionColor =
-    Color.lerp(widget.colorOff, widget.colorOn, value);
+    final transitionColor = Color.lerp(
+      widget.colorOff,
+      widget.colorOn,
+      value,
+    );
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onDoubleTap: () {
         _action();
         widget.onDoubleTap?.call();
@@ -212,15 +223,21 @@ class _SwitchChangeState extends State<SwitchChange>
   void _determine({
     bool changeState = false,
     bool notify = true,
+    bool animate = true,
   }) {
     if (changeState) {
       turnState = !turnState;
     }
 
-    if (turnState) {
-      animationController.forward();
+    if (animate) {
+      if (turnState) {
+        animationController.forward();
+      } else {
+        animationController.reverse();
+      }
     } else {
-      animationController.reverse();
+      animationController.value = turnState ? 1.0 : 0.0;
+      value = animationController.value;
     }
 
     if (notify) {

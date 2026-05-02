@@ -12,8 +12,8 @@ import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
-import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
@@ -160,7 +160,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -171,7 +171,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
 
     final user = FirebaseAuth.instance.currentUser;
 
-    await NotificationContract.show(
+    await NotificationHiring.show(
       context: context,
       contract: _effectiveContract,
       title: title,
@@ -251,7 +251,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
       await _notify(
         title: 'Edital',
         subtitle: 'Esta etapa está em modo somente leitura.',
-        type: NotificationType.info,
+        type: NotificationStatus.info,
       );
       return false;
     }
@@ -262,7 +262,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
       await _notify(
         title: 'Validação do Edital',
         subtitle: quick,
-        type: NotificationType.warning,
+        type: NotificationStatus.warning,
       );
 
       return false;
@@ -285,7 +285,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
           title: 'Edital',
           subtitle: 'Erro ao salvar.',
           details: err,
-          type: NotificationType.error,
+          type: NotificationStatus.error,
           duration: const Duration(seconds: 6),
         );
 
@@ -305,7 +305,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         title: 'Edital atualizado',
         subtitle: 'Alterações salvas por ${_currentActorName()}.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -325,7 +325,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         title: 'Edital',
         subtitle: 'Erro ao salvar.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
 
@@ -349,7 +349,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
       await _notify(
         title: 'Edital',
         subtitle: 'Documento não encontrado para aprovar.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
 
       return;
@@ -386,7 +386,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         title: 'Edital aprovado',
         subtitle: 'Etapa concluída por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -405,7 +405,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         title: 'Edital',
         subtitle: 'Erro ao aprovar a etapa.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -425,7 +425,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
       await _notify(
         title: 'Edital',
         subtitle: 'Documento não encontrado para atualizar.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
 
       return;
@@ -449,7 +449,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         title: 'Aprovação do Edital atualizada',
         subtitle: 'Atualizada por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -467,7 +467,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         title: 'Edital',
         subtitle: 'Erro ao atualizar aprovação.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }

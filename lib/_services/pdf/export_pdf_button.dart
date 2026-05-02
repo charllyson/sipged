@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:printing/printing.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 class ExportPdfButton extends StatefulWidget {
@@ -33,11 +33,11 @@ class _ExportPdfButtonState extends State<ExportPdfButton> {
   void _notifyError(String message) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: 'Erro ao exportar',
         subtitle: message,
-        type: NotificationType.error,
+        status: NotificationStatus.error,
         leadingLabel: 'PDF',
       ),
     );
@@ -58,17 +58,14 @@ class _ExportPdfButtonState extends State<ExportPdfButton> {
           bytes: bytes,
           filename: widget.fileName,
         );
-      } else if (info.canPrint) {
-        await Printing.layoutPdf(
-          onLayout: (format) async => await widget.onBuildPdfBytes(),
-          name: widget.fileName,
-        );
-      } else {
-        await Printing.layoutPdf(
-          onLayout: (format) async => await widget.onBuildPdfBytes(),
-          name: widget.fileName,
-        );
+
+        return;
       }
+
+      await Printing.layoutPdf(
+        onLayout: (_) async => widget.onBuildPdfBytes(),
+        name: widget.fileName,
+      );
     } catch (e) {
       _notifyError('Falha ao exportar PDF: $e');
     } finally {

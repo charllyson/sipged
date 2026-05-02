@@ -8,9 +8,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_widgets/DataTime/selector/selector_dates.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
@@ -113,11 +113,11 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
   void _notifySuccess(String message) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: 'Sucesso',
         subtitle: message,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         leadingLabel: 'OAE',
       ),
     );
@@ -126,11 +126,11 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
   void _notifyError(String message) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: 'Erro',
         subtitle: message,
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         leadingLabel: 'OAE',
       ),
     );

@@ -8,26 +8,16 @@ import 'package:geolocator/geolocator.dart';
 
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_bloc.dart';
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 class InfractionsController extends ChangeNotifier {
   InfractionsController({
     required InfractionsBloc bloc,
-    NotificationCubit? notificationCubit,
-  })  : _bloc = bloc,
-        _notificationCubit = notificationCubit;
+  }) : _bloc = bloc;
 
   InfractionsBloc _bloc;
-  NotificationCubit? _notificationCubit;
 
-  void updateDeps(
-      InfractionsBloc bloc, {
-        NotificationCubit? notificationCubit,
-      }) {
+  void updateDeps(InfractionsBloc bloc) {
     _bloc = bloc;
-    _notificationCubit = notificationCubit ?? _notificationCubit;
   }
 
   bool initRan = false;
@@ -140,6 +130,9 @@ class InfractionsController extends ChangeNotifier {
 
       _attachValidation();
       _safeNotify();
+    } catch (e, s) {
+      debugPrint('[InfractionsController] Erro no postFrameInit: $e');
+      debugPrintStack(stackTrace: s);
     } finally {
       _setLoading(false);
     }
@@ -263,6 +256,9 @@ class InfractionsController extends ChangeNotifier {
         dateCtrl.text = _formatDateUI(now);
         timeCtrl.text = _formatTimeUI(now);
       }
+    } catch (e, s) {
+      debugPrint('[InfractionsController] Erro ao aplicar filtro: $e');
+      debugPrintStack(stackTrace: s);
     } finally {
       isFiltering = false;
       _safeNotify();
@@ -393,10 +389,8 @@ class InfractionsController extends ChangeNotifier {
       final targetYear = data.dateInfraction?.year;
 
       if (targetYear == null) {
-        _notify(
-          'Informe a data da infração',
-          type: NotificationType.warning,
-          subtitle: 'Não foi possível determinar o ano.',
+        debugPrint(
+          '[InfractionsController] Não foi possível salvar. Ano da infração ausente.',
         );
         return;
       }
@@ -415,18 +409,10 @@ class InfractionsController extends ChangeNotifier {
         source: 'save',
       );
 
-      _notify(
-        'Infração salva com sucesso',
-        type: NotificationType.success,
-      );
-
       await createNew();
-    } catch (e) {
-      _notify(
-        'Erro ao salvar',
-        type: NotificationType.error,
-        subtitle: '$e',
-      );
+    } catch (e, s) {
+      debugPrint('[InfractionsController] Erro ao salvar infração: $e');
+      debugPrintStack(stackTrace: s);
     } finally {
       isSaving = false;
       _safeNotify();
@@ -446,10 +432,8 @@ class InfractionsController extends ChangeNotifier {
       final targetYear = item.dateInfraction?.year ?? selectedYear;
 
       if (targetYear == null) {
-        _notify(
-          'Não foi possível determinar o ano do registro',
-          type: NotificationType.warning,
-          subtitle: 'Exclusão não executada.',
+        debugPrint(
+          '[InfractionsController] Não foi possível excluir. Ano do registro ausente.',
         );
         return;
       }
@@ -468,20 +452,12 @@ class InfractionsController extends ChangeNotifier {
         source: 'delete',
       );
 
-      _notify(
-        'Infração removida',
-        type: NotificationType.success,
-      );
-
       if (currentInfractionId == id) {
         await createNew();
       }
-    } catch (e) {
-      _notify(
-        'Erro ao remover',
-        type: NotificationType.error,
-        subtitle: '$e',
-      );
+    } catch (e, s) {
+      debugPrint('[InfractionsController] Erro ao remover infração: $e');
+      debugPrintStack(stackTrace: s);
     } finally {
       isSaving = false;
       _safeNotify();
@@ -630,36 +606,6 @@ class InfractionsController extends ChangeNotifier {
     return t.isEmpty ? null : t;
   }
 
-  void _notify(
-      String title, {
-        NotificationType type = NotificationType.info,
-        String? subtitle,
-        String? id,
-      }) {
-    final cubit = _notificationCubit;
-    if (cubit == null) return;
-
-    if (id != null) {
-      cubit.dismissById(id);
-    }
-
-    unawaited(
-      cubit.show(
-        NotificationData(
-          id: id,
-          title: title,
-          subtitle: subtitle?.trim().isNotEmpty == true ? subtitle : null,
-          leadingLabel: 'Infração',
-          type: type,
-          extra: const <String, dynamic>{
-            'module': 'infractions',
-          },
-        ),
-        saveInFirebase: false,
-      ),
-    );
-  }
-
   Future<void> fillFromUserLocation(BuildContext context) async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -668,18 +614,14 @@ class InfractionsController extends ChangeNotifier {
         permission = await Geolocator.requestPermission();
 
         if (permission == LocationPermission.denied) {
-          _notify(
-            'Permissão de localização negada.',
-            type: NotificationType.warning,
-          );
+          debugPrint('[InfractionsController] Permissão de localização negada.');
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        _notify(
-          'Permissão de localização negada permanentemente.',
-          type: NotificationType.warning,
+        debugPrint(
+          '[InfractionsController] Permissão de localização negada permanentemente.',
         );
         return;
       }
@@ -705,20 +647,16 @@ class InfractionsController extends ChangeNotifier {
           if ((p.street ?? '').isNotEmpty) p.street!,
           if ((p.subLocality ?? '').isNotEmpty) p.subLocality!,
           if ((p.locality ?? '').isNotEmpty) p.locality!,
-          if ((p.administrativeArea ?? '').isNotEmpty)
-            p.administrativeArea!,
+          if ((p.administrativeArea ?? '').isNotEmpty) p.administrativeArea!,
         ].join(', ');
 
         bairroCtrl.text = p.subLocality ?? '';
       }
 
       _safeNotify();
-    } catch (e) {
-      _notify(
-        'Falha ao obter localização',
-        type: NotificationType.error,
-        subtitle: '$e',
-      );
+    } catch (e, s) {
+      debugPrint('[InfractionsController] Falha ao obter localização: $e');
+      debugPrintStack(stackTrace: s);
     }
   }
 

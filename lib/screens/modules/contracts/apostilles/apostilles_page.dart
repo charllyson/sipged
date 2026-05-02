@@ -4,12 +4,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_state.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_apostilles.dart';
 
-import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
@@ -113,6 +114,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
     _processCtrl.dispose();
     _dateCtrl.dispose();
     _valueCtrl.dispose();
+
     _cubit.close();
 
     super.dispose();
@@ -159,11 +161,43 @@ class _ApostillesPageState extends State<ApostillesPage> {
     return 'Usuário';
   }
 
+  DateTime? _parseDateTimeFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    final iso = DateTime.tryParse(text);
+
+    if (iso != null) {
+      return iso;
+    }
+
+    final parts = text.split('/');
+
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+
+    return null;
+  }
+
   Future<void> _notify({
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -174,7 +208,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
 
-    await NotificationContract.show(
+    await NotificationApostilles.show(
       context: context,
       contract: widget.contractData,
       title: title,
@@ -182,15 +216,24 @@ class _ApostillesPageState extends State<ApostillesPage> {
       details: details ?? _contractSummary,
       leadingLabel: 'Apostilamento',
       module: 'contracts_apostilles',
-      type: type,
+      status: type,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
       actorId: currentUserId,
       actorName: actorName,
       includeCurrentUser: true,
+
+      apostilleId: extra['apostilleId']?.toString(),
+      apostilleNumber: extra['apostilleNumber']?.toString() ??
+          extra['apostilleProcess']?.toString(),
+      apostilleOrder: extra['apostilleOrder']?.toString(),
+      apostilleType: extra['apostilleType']?.toString(),
+      apostilleDate: _parseDateTimeFromExtra(extra['apostilleDate']),
+
       extra: <String, dynamic>{
         'route': 'contracts_apostilles',
+        'module': 'contracts_apostilles',
         'contractId': _contractId,
         'contractNumber': _contractNumber,
         'contractTitle': _contractSummary,
@@ -200,7 +243,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
     );
   }
 
-  void _fillForm(dynamic a) {
+  void _fillForm(ApostillesData a) {
     _lastFilledId = a.id;
 
     _orderCtrl.text = (a.apostilleOrder ?? '').toString();
@@ -242,38 +285,52 @@ class _ApostillesPageState extends State<ApostillesPage> {
   }
 
   Future<void> _save() async {
-    final selectedBeforeSave = _cubit.state.selected;
-    final isNew = selectedBeforeSave?.id == null;
+    try {
+      final result = await _cubit.saveOrUpdate(
+        orderText: _orderCtrl.text,
+        processText: _processCtrl.text,
+        dateText: _dateCtrl.text,
+        valueText: _valueCtrl.text,
+      );
 
-    await _cubit.saveOrUpdate(
-      orderText: _orderCtrl.text,
-      processText: _processCtrl.text,
-      dateText: _dateCtrl.text,
-      valueText: _valueCtrl.text,
-    );
+      final actorName = _resolveActorName(
+        FirebaseAuth.instance.currentUser?.uid,
+      );
 
-    final selectedAfterSave = _cubit.state.selected;
-    final actorName = _resolveActorName(
-      FirebaseAuth.instance.currentUser?.uid,
-    );
-
-    await _notify(
-      title: isNew ? 'Apostilamento criado' : 'Apostilamento atualizado',
-      subtitle: isNew
-          ? 'Apostilamento ${_orderCtrl.text.trim()} salvo por $actorName.'
-          : 'Apostilamento ${_orderCtrl.text.trim()} atualizado por $actorName.',
-      type: NotificationType.success,
-      saveInBell: true,
-      sendPush: true,
-      extra: <String, dynamic>{
-        'action': isNew ? 'apostille_created' : 'apostille_updated',
-        'apostilleId': selectedAfterSave?.id ?? selectedBeforeSave?.id,
-        'apostilleOrder': int.tryParse(_orderCtrl.text.trim()),
-        'apostilleProcess': _processCtrl.text.trim(),
-        'apostilleValue': SipGedFormatMoney.parseBrl(_valueCtrl.text),
-        'apostilleDate': _dateCtrl.text.trim(),
-      },
-    );
+      await _notify(
+        title: result.created
+            ? 'Apostilamento criado'
+            : 'Apostilamento atualizado',
+        subtitle: result.created
+            ? 'Apostilamento ${_orderCtrl.text.trim()} salvo por $actorName.'
+            : 'Apostilamento ${_orderCtrl.text.trim()} atualizado por $actorName.',
+        type: NotificationStatus.success,
+        saveInBell: true,
+        sendPush: true,
+        extra: <String, dynamic>{
+          'action':
+          result.created ? 'apostille_created' : 'apostille_updated',
+          'apostilleId': result.apostilleId,
+          'apostilleOrder': result.order,
+          'apostilleProcess': _processCtrl.text.trim(),
+          'apostilleValue': SipGedFormatMoney.parseBrl(_valueCtrl.text),
+          'apostilleDate': _dateCtrl.text.trim(),
+        },
+      );
+    } catch (e) {
+      await _notify(
+        title: 'Erro ao salvar apostilamento',
+        subtitle: e.toString(),
+        type: NotificationStatus.error,
+        duration: const Duration(seconds: 6),
+        saveInBell: false,
+        sendPush: false,
+        extra: <String, dynamic>{
+          'action': 'apostille_save_error',
+          'error': e.toString(),
+        },
+      );
+    }
   }
 
   void _applyInitialNextOrderOnce(ApostillesState state) {
@@ -303,7 +360,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
     required Attachment newItem,
   }) async {
     try {
-      await _cubit.renameAttachment(
+      final result = await _cubit.renameAttachment(
         index: index,
         newLabel: newItem.label,
       );
@@ -314,17 +371,20 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
       await _notify(
         title: 'Anexo de apostilamento renomeado',
-        subtitle: '${newItem.label} renomeado por $actorName.',
-        type: NotificationType.success,
+        subtitle: '${result.newAttachment.label} renomeado por $actorName.',
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
           'action': 'apostille_attachment_renamed',
-          'oldAttachmentLabel': oldItem.label,
-          'newAttachmentLabel': newItem.label,
-          'attachmentUrl': newItem.url,
-          'apostilleId': _cubit.state.selected?.id,
-          'apostilleOrder': _cubit.state.selected?.apostilleOrder,
+          'apostilleId': result.apostilleId,
+          'apostilleOrder': result.apostilleOrder,
+          'oldAttachmentId': result.oldAttachment.id,
+          'oldAttachmentLabel': result.oldAttachment.label,
+          'newAttachmentId': result.newAttachment.id,
+          'newAttachmentLabel': result.newAttachment.label,
+          'attachmentUrl': result.newAttachment.url,
+          'attachmentPath': result.newAttachment.path,
         },
       );
 
@@ -332,9 +392,15 @@ class _ApostillesPageState extends State<ApostillesPage> {
     } catch (e) {
       await _notify(
         title: 'Falha ao renomear anexo',
-        subtitle: '$e',
-        type: NotificationType.error,
+        subtitle: e.toString(),
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
+        saveInBell: false,
+        sendPush: false,
+        extra: <String, dynamic>{
+          'action': 'apostille_attachment_rename_error',
+          'error': e.toString(),
+        },
       );
 
       return false;
@@ -355,92 +421,134 @@ class _ApostillesPageState extends State<ApostillesPage> {
   }
 
   Future<void> _addAttachment() async {
-    final selectedBeforeUpload = _cubit.state.selected;
+    try {
+      final result = await _cubit.addAttachmentWithPicker(context);
 
-    await _cubit.addAttachmentWithPicker(context);
+      final actorName = _resolveActorName(
+        FirebaseAuth.instance.currentUser?.uid,
+      );
 
-    final selectedAfterUpload = _cubit.state.selected;
-    final actorName = _resolveActorName(
-      FirebaseAuth.instance.currentUser?.uid,
-    );
-
-    await _notify(
-      title: 'Arquivo anexado ao apostilamento',
-      subtitle: 'Upload concluído por $actorName.',
-      type: NotificationType.success,
-      saveInBell: true,
-      sendPush: true,
-      extra: <String, dynamic>{
-        'action': 'apostille_attachment_added',
-        'apostilleId': selectedAfterUpload?.id ?? selectedBeforeUpload?.id,
-        'apostilleOrder': selectedAfterUpload?.apostilleOrder ??
-            selectedBeforeUpload?.apostilleOrder,
-      },
-    );
+      await _notify(
+        title: 'Arquivo anexado ao apostilamento',
+        subtitle: '${result.attachment.label} enviado por $actorName.',
+        type: NotificationStatus.success,
+        saveInBell: true,
+        sendPush: true,
+        extra: <String, dynamic>{
+          'action': 'apostille_attachment_added',
+          'apostilleId': result.apostilleId,
+          'apostilleOrder': result.apostilleOrder,
+          'attachmentId': result.attachment.id,
+          'attachmentLabel': result.attachment.label,
+          'attachmentUrl': result.attachment.url,
+          'attachmentPath': result.attachment.path,
+        },
+      );
+    } catch (e) {
+      await _notify(
+        title: 'Erro ao anexar arquivo',
+        subtitle: e.toString(),
+        type: NotificationStatus.error,
+        duration: const Duration(seconds: 6),
+        saveInBell: false,
+        sendPush: false,
+        extra: <String, dynamic>{
+          'action': 'apostille_attachment_add_error',
+          'error': e.toString(),
+        },
+      );
+    }
   }
 
   Future<void> _deleteAttachment(int index) async {
-    final state = _cubit.state;
+    try {
+      final result = await _cubit.deleteAttachment(index);
 
-    if (index < 0 || index >= state.sideAttachments.length) return;
+      if (!mounted) return;
 
-    final selected = state.selected;
-    final attachment = state.sideAttachments[index];
+      setState(() {
+        _selectedAttachmentIndex = null;
+      });
 
-    await _cubit.deleteAttachment(index);
+      final actorName = _resolveActorName(
+        FirebaseAuth.instance.currentUser?.uid,
+      );
 
-    if (!mounted) return;
-
-    setState(() {
-      _selectedAttachmentIndex = null;
-    });
-
-    final actorName = _resolveActorName(
-      FirebaseAuth.instance.currentUser?.uid,
-    );
-
-    await _notify(
-      title: 'Arquivo removido do apostilamento',
-      subtitle: '${attachment.label} removido por $actorName.',
-      type: NotificationType.warning,
-      saveInBell: true,
-      sendPush: true,
-      extra: <String, dynamic>{
-        'action': 'apostille_attachment_deleted',
-        'apostilleId': selected?.id,
-        'apostilleOrder': selected?.apostilleOrder,
-        'attachmentLabel': attachment.label,
-        'attachmentUrl': attachment.url,
-      },
-    );
+      await _notify(
+        title: 'Arquivo removido do apostilamento',
+        subtitle: result.attachment != null
+            ? '${result.attachment!.label} removido por $actorName.'
+            : 'Arquivo removido por $actorName.',
+        type: NotificationStatus.warning,
+        saveInBell: true,
+        sendPush: true,
+        extra: <String, dynamic>{
+          'action': 'apostille_attachment_deleted',
+          'apostilleId': result.apostilleId,
+          'apostilleOrder': result.apostilleOrder,
+          'attachmentId': result.attachment?.id,
+          'attachmentLabel': result.attachment?.label,
+          'attachmentUrl': result.attachment?.url,
+          'attachmentPath': result.attachment?.path,
+        },
+      );
+    } catch (e) {
+      await _notify(
+        title: 'Erro ao remover arquivo',
+        subtitle: e.toString(),
+        type: NotificationStatus.error,
+        duration: const Duration(seconds: 6),
+        saveInBell: false,
+        sendPush: false,
+        extra: <String, dynamic>{
+          'action': 'apostille_attachment_delete_error',
+          'error': e.toString(),
+        },
+      );
+    }
   }
 
-  Future<void> _deleteApostille(dynamic a) async {
-    _cubit.selectApostille(a);
+  Future<void> _deleteApostille(ApostillesData a) async {
+    try {
+      _cubit.selectApostille(a);
 
-    await _cubit.deleteSelectedApostille();
+      final result = await _cubit.deleteSelectedApostille();
 
-    final actorName = _resolveActorName(
-      FirebaseAuth.instance.currentUser?.uid,
-    );
+      final actorName = _resolveActorName(
+        FirebaseAuth.instance.currentUser?.uid,
+      );
 
-    await _notify(
-      title: 'Apostilamento apagado',
-      subtitle: a.apostilleOrder != null
-          ? 'Apostilamento ${a.apostilleOrder} removido por $actorName.'
-          : 'O apostilamento foi removido por $actorName.',
-      type: NotificationType.warning,
-      saveInBell: true,
-      sendPush: true,
-      extra: <String, dynamic>{
-        'action': 'apostille_deleted',
-        'apostilleId': a.id,
-        'apostilleOrder': a.apostilleOrder,
-        'apostilleProcess': a.apostilleNumberProcess,
-        'apostilleValue': a.apostilleValue,
-        'apostilleDate': a.apostilleData?.toIso8601String(),
-      },
-    );
+      await _notify(
+        title: 'Apostilamento apagado',
+        subtitle: result.order != null
+            ? 'Apostilamento ${result.order} removido por $actorName.'
+            : 'O apostilamento foi removido por $actorName.',
+        type: NotificationStatus.warning,
+        saveInBell: true,
+        sendPush: true,
+        extra: <String, dynamic>{
+          'action': 'apostille_deleted',
+          'apostilleId': result.apostilleId,
+          'apostilleOrder': result.order,
+          'apostilleProcess': result.process,
+          'apostilleValue': result.value,
+          'apostilleDate': result.date?.toIso8601String(),
+        },
+      );
+    } catch (e) {
+      await _notify(
+        title: 'Erro ao apagar apostilamento',
+        subtitle: e.toString(),
+        type: NotificationStatus.error,
+        duration: const Duration(seconds: 6),
+        saveInBell: false,
+        sendPush: false,
+        extra: <String, dynamic>{
+          'action': 'apostille_delete_error',
+          'error': e.toString(),
+        },
+      );
+    }
   }
 
   @override
@@ -533,8 +641,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       if (_cubit.state.selected == null) {
                                         _clearForm(keepOrder: true);
                                       } else {
-                                        final sel = _cubit.state.selected!;
-                                        _fillForm(sel);
+                                        _fillForm(_cubit.state.selected!);
                                       }
 
                                       _cubit.updateFormValidity(
@@ -594,6 +701,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       _cubit.reloadAttachments();
 
                                       final sel = _cubit.state.selected;
+
                                       if (sel?.apostilleOrder != null) {
                                         _orderCtrl.text =
                                             sel!.apostilleOrder.toString();

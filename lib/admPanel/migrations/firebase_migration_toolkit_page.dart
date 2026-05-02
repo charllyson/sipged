@@ -1,10 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
@@ -58,27 +53,25 @@ class _FirebaseMigrationToolkitPageState
     super.dispose();
   }
 
-  void _notify({
-    required String title,
-    String? subtitle,
-    NotificationType type = NotificationType.info,
-    Duration duration = const Duration(seconds: 4),
-  }) {
+  void _showMessage(
+      String message, {
+        Color? backgroundColor,
+        Duration duration = const Duration(seconds: 4),
+      }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Firebase',
-        type: type,
-        duration: duration,
-        extra: const <String, dynamic>{
-          'module': 'firebase_migration_toolkit',
-        },
-      ),
-      saveInFirebase: false,
-    );
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          duration: duration,
+        ),
+      );
   }
 
   Future<void> _loadCollection() async {
@@ -121,10 +114,9 @@ class _FirebaseMigrationToolkitPageState
         _hasLoaded = true;
       });
 
-      _notify(
-        title: 'Coleção carregada',
-        subtitle: 'Encontrados ${ids.length} documentos em "$path".',
-        type: NotificationType.success,
+      _showMessage(
+        'Coleção carregada: ${ids.length} documento(s) encontrado(s) em "$path".',
+        backgroundColor: Colors.green.shade700,
         duration: const Duration(seconds: 4),
       );
     } catch (e) {
@@ -139,10 +131,9 @@ class _FirebaseMigrationToolkitPageState
         _hasLoaded = true;
       });
 
-      _notify(
-        title: 'Erro ao carregar coleção',
-        subtitle: '$e',
-        type: NotificationType.error,
+      _showMessage(
+        'Erro ao carregar coleção: $e',
+        backgroundColor: Colors.red.shade700,
         duration: const Duration(seconds: 6),
       );
     } finally {
@@ -256,31 +247,25 @@ class _FirebaseMigrationToolkitPageState
     final targetPath = _targetPathCtrl.text.trim();
 
     if (sourcePath.isEmpty) {
-      _notify(
-        title: 'Origem não informada',
-        subtitle: 'Informe o caminho da coleção de origem.',
-        type: NotificationType.error,
-        duration: const Duration(seconds: 4),
+      _showMessage(
+        'Informe o caminho da coleção de origem.',
+        backgroundColor: Colors.red.shade700,
       );
       return;
     }
 
     if (targetPath.isEmpty) {
-      _notify(
-        title: 'Destino não informado',
-        subtitle: 'Informe o caminho da coleção destino.',
-        type: NotificationType.error,
-        duration: const Duration(seconds: 4),
+      _showMessage(
+        'Informe o caminho da coleção destino.',
+        backgroundColor: Colors.red.shade700,
       );
       return;
     }
 
     if (_selectedIds.isEmpty) {
-      _notify(
-        title: 'Nenhum documento selecionado',
-        subtitle: 'Selecione ao menos um documento para copiar.',
-        type: NotificationType.info,
-        duration: const Duration(seconds: 4),
+      _showMessage(
+        'Selecione ao menos um documento para copiar.',
+        backgroundColor: Colors.blueGrey.shade700,
       );
       return;
     }
@@ -314,37 +299,31 @@ class _FirebaseMigrationToolkitPageState
 
         if (toCopy.isEmpty) continue;
 
-        final targetRef = FirebaseFirestore.instance
-            .collection(targetPath)
-            .doc(docId);
+        final targetRef =
+        FirebaseFirestore.instance.collection(targetPath).doc(docId);
 
         batch.set(targetRef, toCopy, SetOptions(merge: true));
         ops++;
       }
 
       if (ops == 0) {
-        _notify(
-          title: 'Nada para copiar',
-          subtitle:
-          'Nenhum campo selecionado ou dados vazios nos documentos escolhidos.',
-          type: NotificationType.info,
-          duration: const Duration(seconds: 4),
+        _showMessage(
+          'Nada para copiar. Nenhum campo selecionado ou dados vazios nos documentos escolhidos.',
+          backgroundColor: Colors.blueGrey.shade700,
         );
       } else {
         await batch.commit();
 
-        _notify(
-          title: 'Cópia concluída',
-          subtitle: 'Campos copiados para "$targetPath" em $ops documento(s).',
-          type: NotificationType.success,
+        _showMessage(
+          'Cópia concluída: campos copiados para "$targetPath" em $ops documento(s).',
+          backgroundColor: Colors.green.shade700,
           duration: const Duration(seconds: 5),
         );
       }
     } catch (e) {
-      _notify(
-        title: 'Erro ao copiar campos',
-        subtitle: '$e',
-        type: NotificationType.error,
+      _showMessage(
+        'Erro ao copiar campos: $e',
+        backgroundColor: Colors.red.shade700,
         duration: const Duration(seconds: 6),
       );
     } finally {
@@ -600,8 +579,7 @@ class _FirebaseMigrationToolkitPageState
                                 else
                                   ListView.separated(
                                     shrinkWrap: true,
-                                    physics:
-                                    const NeverScrollableScrollPhysics(),
+                                    physics: const NeverScrollableScrollPhysics(),
                                     itemCount: fieldKeys.length,
                                     separatorBuilder: (_, _) => Divider(
                                       height: 1,

@@ -5,9 +5,9 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/auto_icon.dart';
@@ -118,11 +118,11 @@ class _SideListBoxState extends State<SideListBox> {
   void _notifyError(String message) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: 'Erro',
         subtitle: message,
-        type: NotificationType.error,
+        status: NotificationStatus.error,
         leadingLabel: 'Anexos',
       ),
     );
@@ -157,10 +157,20 @@ class _SideListBoxState extends State<SideListBox> {
   Future<void> _openUrlExternal(String url) async {
     final uri = Uri.tryParse(url);
 
-    if (uri == null) return;
+    if (uri == null) {
+      _notifyError('URL inválida.');
+      return;
+    }
 
     try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!opened) {
+        _notifyError('Não foi possível abrir o arquivo.');
+      }
     } catch (_) {
       _notifyError('Não foi possível abrir o arquivo.');
     }
@@ -188,54 +198,58 @@ class _SideListBoxState extends State<SideListBox> {
   Future<String?> _askNewLabel(BuildContext context, String current) async {
     final ctrl = TextEditingController(text: current);
 
-    final newLabel = await showWindowDialog<String>(
-      context: context,
-      title: 'Renomear anexo',
-      width: 420,
-      child: Builder(
-        builder: (dialogCtx) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CustomTextField(
-                  controller: ctrl,
-                  labelText: 'Novo rótulo',
-                  onSubmitted: (_) {
-                    Navigator.of(dialogCtx).pop(ctrl.text.trim());
-                  },
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(dialogCtx).pop(null),
-                      child: const Text('Cancelar'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: () {
-                        Navigator.of(dialogCtx).pop(ctrl.text.trim());
-                      },
-                      child: const Text('Salvar'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+    try {
+      final newLabel = await showWindowDialog<String>(
+        context: context,
+        title: 'Renomear anexo',
+        width: 420,
+        child: Builder(
+          builder: (dialogCtx) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CustomTextField(
+                    controller: ctrl,
+                    labelText: 'Novo rótulo',
+                    onSubmitted: (_) {
+                      Navigator.of(dialogCtx).pop(ctrl.text.trim());
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogCtx).pop(null),
+                        child: const Text('Cancelar'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () {
+                          Navigator.of(dialogCtx).pop(ctrl.text.trim());
+                        },
+                        child: const Text('Salvar'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
 
-    final v = newLabel?.trim();
+      final v = newLabel?.trim();
 
-    if (v == null || v.isEmpty) return null;
+      if (v == null || v.isEmpty) return null;
 
-    return v;
+      return v;
+    } finally {
+      ctrl.dispose();
+    }
   }
 
   Future<void> _renameAt(int index) async {
@@ -498,8 +512,7 @@ class _SideListBoxState extends State<SideListBox> {
                                 : Colors.transparent,
                             child: ListTile(
                               dense: true,
-                              visualDensity:
-                              const VisualDensity(vertical: -2),
+                              visualDensity: const VisualDensity(vertical: -2),
                               minVerticalPadding: 0,
                               contentPadding:
                               const EdgeInsets.symmetric(horizontal: 10),

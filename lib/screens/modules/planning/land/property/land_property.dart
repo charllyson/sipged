@@ -6,9 +6,9 @@ import 'package:sipged/_blocs/modules/planning/land/property/land_property_cubit
 import 'package:sipged/_blocs/modules/planning/land/property/land_property_data.dart';
 import 'package:sipged/_blocs/modules/planning/land/property/land_property_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
@@ -156,11 +156,11 @@ class _LandPropertyState extends State<LandProperty> {
     required String title,
     String? subtitle,
     String? details,
-    required NotificationType type,
+    required NotificationStatus type,
   }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -298,7 +298,7 @@ class _LandPropertyState extends State<LandProperty> {
       _notify(
         title: 'Não foi possível abrir o arquivo',
         subtitle: 'Verifique se o link do anexo está válido.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
     }
   }
@@ -376,7 +376,7 @@ class _LandPropertyState extends State<LandProperty> {
     _notify(
       title: 'Formulário limpo',
       subtitle: 'Os campos do imóvel foram reiniciados.',
-      type: NotificationType.info,
+      type: NotificationStatus.info,
     );
   }
 
@@ -396,7 +396,7 @@ class _LandPropertyState extends State<LandProperty> {
             title: 'Erro no imóvel',
             subtitle: 'Não foi possível concluir a operação.',
             details: error,
-            type: NotificationType.error,
+            type: NotificationStatus.error,
           );
           context.read<LandPropertyCubit>().clearMessages();
         }
@@ -405,7 +405,7 @@ class _LandPropertyState extends State<LandProperty> {
           _notify(
             title: 'Imóvel atualizado',
             subtitle: success,
-            type: NotificationType.success,
+            type: NotificationStatus.success,
           );
           context.read<LandPropertyCubit>().clearMessages();
         }
@@ -461,7 +461,7 @@ class _LandPropertyState extends State<LandProperty> {
                 _notify(
                   title: 'Anexo adicionado',
                   subtitle: 'O documento foi incluído na lista do imóvel.',
-                  type: NotificationType.success,
+                  type: NotificationStatus.success,
                 );
               },
               onTap: (i) {
@@ -475,7 +475,7 @@ class _LandPropertyState extends State<LandProperty> {
                     title: 'Arquivo sem link',
                     subtitle:
                     'Este item ainda não possui URL vinculada para abertura.',
-                    type: NotificationType.info,
+                    type: NotificationStatus.info,
                   );
                 }
               },
@@ -496,7 +496,7 @@ class _LandPropertyState extends State<LandProperty> {
                 _notify(
                   title: 'Anexo removido',
                   subtitle: 'O documento foi removido da lista do imóvel.',
-                  type: NotificationType.info,
+                  type: NotificationStatus.info,
                 );
               },
               onItemsChanged: (items) {
@@ -531,7 +531,7 @@ class _LandPropertyState extends State<LandProperty> {
                 _notify(
                   title: 'Anexo renomeado',
                   subtitle: 'O rótulo do documento foi atualizado.',
-                  type: NotificationType.success,
+                  type: NotificationStatus.success,
                 );
 
                 return true;

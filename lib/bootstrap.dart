@@ -14,22 +14,25 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:sipged/_blocs/system/notification/bell/notification_bell_cubit.dart';
 
+import '_blocs/system/notification/preferences/notification_preferences_cubit.dart';
 import 'firebase_options_flavors.dart';
 import 'gate_page.dart';
 
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
 import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
-import 'package:sipged/_blocs/system/notification/remote/notification_push.dart';
+
+import 'package:sipged/_blocs/system/notification/notification_push.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/remote/notification_remote_repository.dart';
+import 'package:sipged/_blocs/system/notification/remote/notification_remote_cubit.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_repository.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
-
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_repository.dart';
 
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
@@ -166,11 +169,6 @@ Future<void> bootstrapAndRunApp() async {
       await initializeDateFormatting('pt_BR');
       await _initFirebase();
 
-      // ✅ IMPORTANTE:
-      // O handler de background precisa ser registrado depois do Firebase.initializeApp()
-      // e antes do runApp().
-      //
-      // No Web o background remote usa service worker, então não registramos aqui.
       if (!kIsWeb) {
         FirebaseMessaging.onBackgroundMessage(
           sipgedFirebaseMessagingBackgroundHandler,
@@ -200,13 +198,31 @@ Future<void> bootstrapAndRunApp() async {
                 repository: ctx.read<LoginRepository>(),
               ),
             ),
-
-            RepositoryProvider<NotificationRepository>(
-              create: (_) => NotificationRepository(),
+            /// PREFERENCIAS DAS NOTIFICAÇÕES
+            BlocProvider(
+              create: (_) => NotificationPreferencesCubit(),
             ),
-            BlocProvider<NotificationCubit>(
-              create: (ctx) => NotificationCubit(
-                repository: ctx.read<NotificationRepository>(),
+
+            /// TOAST LOCAL
+            BlocProvider<NotificationLocalCubit>(
+              create: (_) => NotificationLocalCubit(
+                maxVisible: 4,
+              ),
+            ),
+
+            /// NOTIFICAÇÕES REMOTAS / SINO / HISTÓRICO / TOKEN PUSH
+            RepositoryProvider<NotificationRemoteRepository>(
+              create: (_) => NotificationRemoteRepository(),
+            ),
+            BlocProvider<NotificationRemoteCubit>(
+              create: (ctx) => NotificationRemoteCubit(
+                repository: ctx.read<NotificationRemoteRepository>(),
+              ),
+            ),
+
+            BlocProvider<NotificationBellCubit>(
+              create: (ctx) => NotificationBellCubit(
+                repository: ctx.read<NotificationRemoteRepository>(),
               ),
             ),
 

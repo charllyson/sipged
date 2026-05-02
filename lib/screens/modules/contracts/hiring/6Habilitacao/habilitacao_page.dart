@@ -17,8 +17,8 @@ import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_
 import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
-import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
@@ -156,7 +156,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -167,7 +167,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
 
     final user = FirebaseAuth.instance.currentUser;
 
-    await NotificationContract.show(
+    await NotificationHiring.show(
       context: context,
       contract: _effectiveContract,
       title: title,
@@ -196,7 +196,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
       await _notify(
         title: 'Habilitação',
         subtitle: 'Esta etapa está em modo somente leitura.',
-        type: NotificationType.info,
+        type: NotificationStatus.info,
       );
       return false;
     }
@@ -218,7 +218,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
           title: 'Habilitação/Regularidade',
           subtitle: 'Erro ao salvar.',
           details: err,
-          type: NotificationType.error,
+          type: NotificationStatus.error,
           duration: const Duration(seconds: 6),
         );
 
@@ -238,7 +238,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
         title: 'Habilitação atualizada',
         subtitle: 'Alterações salvas por ${_currentActorName()}.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -258,7 +258,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
         title: 'Habilitação/Regularidade',
         subtitle: 'Erro ao salvar.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
 
@@ -282,7 +282,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
       await _notify(
         title: 'Habilitação',
         subtitle: 'Documento não encontrado para aprovar.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
 
       return;
@@ -319,7 +319,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
         title: 'Habilitação aprovada',
         subtitle: 'Etapa concluída por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -338,7 +338,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
         title: 'Habilitação',
         subtitle: 'Erro ao aprovar.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -358,7 +358,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
       await _notify(
         title: 'Habilitação',
         subtitle: 'Documento não encontrado para atualizar.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
 
       return;
@@ -382,7 +382,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
         title: 'Aprovação da Habilitação atualizada',
         subtitle: 'Atualizada por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -400,7 +400,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
         title: 'Habilitação',
         subtitle: 'Erro ao atualizar aprovação.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }

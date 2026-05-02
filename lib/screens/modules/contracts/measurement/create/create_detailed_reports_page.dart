@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
 
 import 'package:sipged/screens/modules/contracts/measurement/create/launcher_pdf.dart';
 
@@ -18,8 +19,7 @@ import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_data.dart';
 
-import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
 import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
@@ -200,11 +200,62 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     return ids.toList();
   }
 
+  DateTime? _parseDateTimeFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is DateTime) return value;
+
+    final text = value.toString().trim();
+    if (text.isEmpty) return null;
+
+    final iso = DateTime.tryParse(text);
+    if (iso != null) return iso;
+
+    final parts = text.split('/');
+
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+
+      if (day != null && month != null && year != null) {
+        final parsed = DateTime(year, month, day);
+
+        if (parsed.day == day &&
+            parsed.month == month &&
+            parsed.year == year) {
+          return parsed;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  num? _parseNumFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is num) return value;
+
+    final text = value.toString().trim();
+    if (text.isEmpty) return null;
+
+    final normalized = text
+        .replaceAll('R\$', '')
+        .replaceAll('.', '')
+        .replaceAll(',', '.')
+        .trim();
+
+    return num.tryParse(normalized);
+  }
+
+
+
   Future<void> _notify({
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -219,7 +270,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       currentUserId: currentUserId,
     );
 
-    await NotificationContract.show(
+    final measurement = widget.measurement;
+
+    await NotificationMeasurements.show(
       context: context,
       contract: widget.contractData,
       title: title,
@@ -227,22 +280,35 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       details: details ?? _contractSummary,
       leadingLabel: 'Boletim',
       module: 'contracts_measurement_report',
-      type: type,
+      kind: NotificationMeasurementKind.bulletin,
+      status: type,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
       actorId: currentUserId,
       actorName: actorName,
       targetUserIds: recipients,
+      includeCurrentUser: true,
+      measurementId: extra['measurementId']?.toString() ?? measurement?.id,
+      measurementNumber:
+      extra['measurementProcess']?.toString() ?? measurement?.numberprocess,
+      measurementOrder:
+      extra['measurementOrder']?.toString() ?? measurement?.order?.toString(),
+      measurementDate:
+      _parseDateTimeFromExtra(extra['measurementDate']) ?? measurement?.date,
+      measurementValue:
+      _parseNumFromExtra(extra['measurementValue']) ?? measurement?.value,
       extra: <String, dynamic>{
         'route': 'contracts_measurement_report',
+        'module': 'contracts_measurement_report',
         'contractId': _contractId,
         'contractNumber': _contractNumber,
         'contractTitle': _contractSummary,
         'contractSummary': _contractSummary,
-        'measurementId': widget.measurement?.id,
-        'measurementOrder': widget.measurement?.order,
-        'measurementProcess': widget.measurement?.numberprocess,
+        'measurementKind': NotificationMeasurementKind.bulletin.name,
+        'measurementId': measurement?.id,
+        'measurementOrder': measurement?.order,
+        'measurementProcess': measurement?.numberprocess,
         ...extra,
       },
     );
@@ -278,7 +344,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     await _notify(
       title: 'Boletim de medição atualizado',
       subtitle: 'Boletim ${measurement.order ?? '-'} alterado por $actorName.',
-      type: NotificationType.success,
+      type: NotificationStatus.success,
       saveInBell: true,
       sendPush: true,
       extra: <String, dynamic>{
@@ -305,7 +371,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     await _notify(
       title: 'PDF do boletim gerado',
       subtitle: 'Boletim ${measurement.order ?? '-'} pré-visualizado por $actorName.',
-      type: NotificationType.info,
+      type: NotificationStatus.info,
       saveInBell: true,
       sendPush: true,
       extra: <String, dynamic>{
@@ -320,7 +386,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     await _notify(
       title: 'Atenção',
       subtitle: message,
-      type: NotificationType.warning,
+      type: NotificationStatus.warning,
       saveInBell: false,
       sendPush: false,
     );
@@ -330,7 +396,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     await _notify(
       title: 'Erro',
       subtitle: message,
-      type: NotificationType.error,
+      type: NotificationStatus.error,
       saveInBell: false,
       sendPush: false,
       duration: const Duration(seconds: 6),

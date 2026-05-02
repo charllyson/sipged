@@ -16,8 +16,8 @@ import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
-import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
@@ -157,7 +157,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -168,7 +168,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
     final user = FirebaseAuth.instance.currentUser;
 
-    await NotificationContract.show(
+    await NotificationHiring.show(
       context: context,
       contract: _effectiveContract,
       title: title,
@@ -197,7 +197,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Esta etapa está em modo somente leitura.',
-        type: NotificationType.info,
+        type: NotificationStatus.info,
       );
       return false;
     }
@@ -206,7 +206,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Contrato não identificado para salvar.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
       return false;
     }
@@ -226,7 +226,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
           title: 'Parecer Jurídico',
           subtitle: 'Erro ao salvar.',
           details: cubit.state.error ?? 'Falha ao salvar',
-          type: NotificationType.error,
+          type: NotificationStatus.error,
           duration: const Duration(seconds: 6),
         );
         return false;
@@ -245,7 +245,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         title: 'Parecer Jurídico atualizado',
         subtitle: 'Alterações salvas por ${_currentActorName()}.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -265,7 +265,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         title: 'Parecer Jurídico',
         subtitle: 'Erro ao salvar.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
 
@@ -289,7 +289,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Documento não encontrado para aprovar.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
       return;
     }
@@ -322,7 +322,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         title: 'Parecer Jurídico aprovado',
         subtitle: 'Etapa concluída por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -341,7 +341,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         title: 'Parecer Jurídico',
         subtitle: 'Erro ao aprovar.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -361,7 +361,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Documento não encontrado para atualizar.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
       );
       return;
     }
@@ -383,7 +383,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         title: 'Aprovação do Parecer Jurídico atualizada',
         subtitle: 'Atualizada por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         targetUserIds: _defaultPushTargets,
@@ -401,7 +401,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         title: 'Parecer Jurídico',
         subtitle: 'Erro ao atualizar aprovação.',
         details: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }

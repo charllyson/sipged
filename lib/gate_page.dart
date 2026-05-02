@@ -8,18 +8,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_state.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
+
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_host.dart';
+import 'package:sipged/_blocs/system/notification/notification_push.dart';
+import 'package:sipged/_blocs/system/notification/remote/notification_remote_cubit.dart';
+
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
+
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
-import 'package:sipged/_blocs/system/notification/remote/notification_push.dart';
 
 import 'package:sipged/_utils/theme/app_theme.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/screens/common/login/sign_in/sign_in.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_host.dart';
 import 'package:sipged/screens/common/setup/initial_setup_page.dart';
 import 'package:sipged/screens/menus/menu_list_page.dart';
 
@@ -73,6 +77,8 @@ class _GatePageState extends State<GatePage> {
     _loadedUserUid = null;
     _userLoadFuture = null;
     _pushInitializedUserId = null;
+
+    unawaited(NotificationPush.instance.dispose());
   }
 
   Future<void> _initializePushForUser(String uid) async {
@@ -83,13 +89,33 @@ class _GatePageState extends State<GatePage> {
 
     _pushInitializedUserId = cleanUid;
 
-    final notificationCubit = context.read<NotificationCubit>();
+    final localCubit = context.read<NotificationLocalCubit>();
+    final remoteCubit = context.read<NotificationRemoteCubit>();
 
-    await NotificationPush.instance.initialize(
-      userId: cleanUid,
-      notificationCubit: notificationCubit,
-      onMessageOpened: _handlePushOpened,
-    );
+    try {
+      remoteCubit.watchBellNotifications(
+        userId: cleanUid,
+        systemLimit: 30,
+        unreadUserLimit: 30,
+      );
+
+      remoteCubit.watchHistory(
+        userId: cleanUid,
+        limit: 50,
+      );
+
+      await NotificationPush.instance.initialize(
+        userId: cleanUid,
+        localCubit: localCubit,
+        remoteCubit: remoteCubit,
+        onMessageOpened: _handlePushOpened,
+      );
+    } catch (e, s) {
+      _pushInitializedUserId = null;
+
+      debugPrint('[GatePage] Erro ao inicializar push: $e');
+      debugPrintStack(stackTrace: s);
+    }
   }
 
   void _handlePushOpened(RemoteMessage message) {
@@ -108,10 +134,7 @@ class _GatePageState extends State<GatePage> {
     debugPrint('[GatePage] processId=$processId');
     debugPrint('[GatePage] notificationId=$notificationId');
 
-    /// Aqui fica o ponto central para navegação futura.
-    ///
-    /// Como você ainda não me mandou o seu roteador central,
-    /// deixei apenas preparado para não chutar nomes de rotas.
+    /// Ponto central para navegação futura.
     ///
     /// Exemplo futuro:
     ///
@@ -146,7 +169,7 @@ class _GatePageState extends State<GatePage> {
         GlobalCupertinoLocalizations.delegate,
       ],
       builder: (context, child) {
-        return NotificationHost(
+        return NotificationLocalHost(
           child: child ?? const SizedBox.shrink(),
         );
       },

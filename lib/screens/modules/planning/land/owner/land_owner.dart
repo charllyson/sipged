@@ -6,9 +6,9 @@ import 'package:sipged/_blocs/modules/planning/land/owner/land_owner_cubit.dart'
 import 'package:sipged/_blocs/modules/planning/land/owner/land_owner_data.dart';
 import 'package:sipged/_blocs/modules/planning/land/owner/land_owner_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -77,11 +77,11 @@ class _LandOwnerState extends State<LandOwner> {
     required String title,
     String? subtitle,
     String? details,
-    required NotificationType type,
+    required NotificationStatus type,
   }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -177,7 +177,7 @@ class _LandOwnerState extends State<LandOwner> {
     _notify(
       title: 'Formulário limpo',
       subtitle: 'Os campos do proprietário foram reiniciados.',
-      type: NotificationType.info,
+      type: NotificationStatus.info,
     );
   }
 
@@ -196,7 +196,7 @@ class _LandOwnerState extends State<LandOwner> {
             title: 'Erro no proprietário',
             subtitle: 'Não foi possível concluir a operação.',
             details: error,
-            type: NotificationType.error,
+            type: NotificationStatus.error,
           );
         }
 
@@ -204,7 +204,7 @@ class _LandOwnerState extends State<LandOwner> {
           _notify(
             title: 'Proprietário atualizado',
             subtitle: success,
-            type: NotificationType.success,
+            type: NotificationStatus.success,
           );
         }
       },

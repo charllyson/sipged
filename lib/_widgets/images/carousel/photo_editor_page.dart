@@ -4,15 +4,10 @@ import 'package:exif/exif.dart' as exif;
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_editor/image_editor.dart' as ien;
 import 'package:native_exif/native_exif.dart';
 import 'package:path_provider/path_provider.dart';
-
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 
 class PhotoEditorPage extends StatefulWidget {
   final Uint8List originalBytes;
@@ -65,29 +60,6 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
   double? _currentAspect;
   bool _saving = false;
   _OrigExif? _origExif;
-
-  void _notify(
-      String title, {
-        NotificationType type = NotificationType.info,
-        String? subtitle,
-        Duration duration = const Duration(seconds: 5),
-      }) {
-    if (!mounted) return;
-
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Editor',
-        type: type,
-        duration: duration,
-        extra: const <String, dynamic>{
-          'module': 'photo_editor',
-        },
-      ),
-      saveInFirebase: false,
-    );
-  }
 
   List<_Aspect> get _ratios {
     final custom = widget.aspectRatios;
@@ -164,6 +136,14 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  void _debugError(String message, Object error, StackTrace? stackTrace) {
+    debugPrint('[PhotoEditorPage] $message: $error');
+
+    if (stackTrace != null) {
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   @override
@@ -274,23 +254,11 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
 
       final withExif = await _applyExifIfSupported(edited);
 
-      _notify(
-        'Foto exportada',
-        subtitle: 'Edição aplicada com sucesso',
-        type: NotificationType.success,
-        duration: const Duration(seconds: 3),
-      );
-
       if (!mounted) return;
 
       Navigator.of(context).pop<Uint8List>(withExif);
-    } catch (e) {
-      _notify(
-        'Falha ao exportar',
-        subtitle: '$e',
-        type: NotificationType.error,
-        duration: const Duration(seconds: 6),
-      );
+    } catch (e, s) {
+      _debugError('Falha ao exportar', e, s);
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -474,8 +442,7 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
           'UserComment': widget.exifUserComment!,
         if ((widget.exifSoftware ?? '').isNotEmpty)
           'Software': widget.exifSoftware!,
-        if ((widget.exifArtist ?? '').isNotEmpty)
-          'Artist': widget.exifArtist!,
+        if ((widget.exifArtist ?? '').isNotEmpty) 'Artist': widget.exifArtist!,
         if ((widget.exifCopyright ?? '').isNotEmpty)
           'Copyright': widget.exifCopyright!,
       });

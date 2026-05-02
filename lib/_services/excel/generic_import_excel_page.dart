@@ -4,12 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
@@ -68,36 +64,15 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
     super.dispose();
   }
 
-  void _notify(
-      String title, {
-        NotificationType type = NotificationType.info,
-        String? subtitle,
-      }) {
-    if (!mounted) return;
-
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Importação',
-        type: type,
-        extra: {
-          'module': 'generic_excel_import',
-          'path': _pathController.text.trim(),
-        },
-      ),
-      saveInFirebase: false,
-    );
+  void _debug(String message) {
+    debugPrint('[GenericImportExcelPage] $message');
   }
 
   Future<void> _verificarColecao() async {
     final path = _pathController.text.trim();
 
     if (path.isEmpty) {
-      _notify(
-        'Informe o caminho da coleção.',
-        type: NotificationType.warning,
-      );
+      _debug('Caminho da coleção não informado.');
       return;
     }
 
@@ -112,26 +87,19 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
         _loading = false;
       });
 
-      _notify(
+      _debug(
         _colecaoExiste == true
-            ? 'Coleção encontrada'
-            : 'Coleção vazia ou inexistente',
-        type: NotificationType.info,
-        subtitle: _colecaoExiste == true
-            ? null
-            : 'Ela será criada automaticamente ao importar.',
+            ? 'Coleção encontrada.'
+            : 'Coleção vazia ou inexistente. Será criada ao importar.',
       );
-    } catch (e) {
+    } catch (e, s) {
       setState(() {
         _colecaoExiste = false;
         _loading = false;
       });
 
-      _notify(
-        'Erro: caminho inválido.',
-        type: NotificationType.error,
-        subtitle: '$e',
-      );
+      debugPrint('[GenericImportExcelPage] Erro ao verificar coleção: $e');
+      debugPrintStack(stackTrace: s);
     }
   }
 
@@ -145,10 +113,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
       final result = await FilePicker.platform.pickFiles();
 
       if (result == null) {
-        _notify(
-          'Importação cancelada',
-          type: NotificationType.warning,
-        );
+        _debug('Importação cancelada pelo usuário.');
         return;
       }
 
@@ -158,20 +123,14 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
       final excel = Excel.decodeBytes(bytes);
 
       if (excel.tables.isEmpty) {
-        _notify(
-          'Aba da planilha não encontrada',
-          type: NotificationType.error,
-        );
+        _debug('Aba da planilha não encontrada.');
         return;
       }
 
       final sheet = excel.tables[excel.tables.keys.first];
 
       if (sheet == null || sheet.rows.isEmpty) {
-        _notify(
-          'Planilha vazia',
-          type: NotificationType.warning,
-        );
+        _debug('Planilha vazia.');
         return;
       }
 
@@ -197,23 +156,13 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
       if (_jsonData.isNotEmpty) {
         await _listarCamposExistentes();
 
-        _notify(
-          'Planilha carregada',
-          type: NotificationType.success,
-          subtitle: '${_jsonData.length} registros prontos',
-        );
+        _debug('Planilha carregada: ${_jsonData.length} registros.');
       } else {
-        _notify(
-          'Planilha vazia',
-          type: NotificationType.warning,
-        );
+        _debug('Planilha sem dados.');
       }
-    } catch (e) {
-      _notify(
-        'Erro ao ler planilha',
-        type: NotificationType.error,
-        subtitle: '$e',
-      );
+    } catch (e, s) {
+      debugPrint('[GenericImportExcelPage] Erro ao ler planilha: $e');
+      debugPrintStack(stackTrace: s);
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -247,10 +196,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
     final path = _pathController.text.trim();
 
     if (path.isEmpty) {
-      _notify(
-        'Informe o caminho da coleção.',
-        type: NotificationType.warning,
-      );
+      _debug('Caminho da coleção não informado.');
       return;
     }
 
@@ -279,14 +225,11 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
       setState(() => _carregandoCampos = false);
 
       _mostrarSelecaoDeCampos();
-    } catch (e) {
+    } catch (e, s) {
       setState(() => _carregandoCampos = false);
 
-      _notify(
-        'Erro ao listar campos',
-        type: NotificationType.error,
-        subtitle: '$e',
-      );
+      debugPrint('[GenericImportExcelPage] Erro ao listar campos: $e');
+      debugPrintStack(stackTrace: s);
     }
   }
 
@@ -309,7 +252,8 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
                       child: ListView(
                         shrinkWrap: true,
                         children: _camposDoExcel.map((campo) {
-                          final existe = _camposExistentesNoBanco.contains(campo);
+                          final existe =
+                          _camposExistentesNoBanco.contains(campo);
 
                           return Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,7 +281,8 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
                                     setStateDialog(() {
                                       setState(() {
                                         if (val == true) {
-                                          if (!_camposSelecionados.contains(campo)) {
+                                          if (!_camposSelecionados
+                                              .contains(campo)) {
                                             _camposSelecionados.add(campo);
                                           }
                                         } else {
@@ -367,7 +312,8 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
                                       if (val == 'Ignorar') {
                                         _camposSelecionados.remove(campo);
                                       } else {
-                                        if (!_camposSelecionados.contains(campo)) {
+                                        if (!_camposSelecionados
+                                            .contains(campo)) {
                                           _camposSelecionados.add(campo);
                                         }
                                       }
@@ -392,10 +338,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
                         FilledButton(
                           onPressed: () {
                             if (_camposSelecionados.isEmpty) {
-                              _notify(
-                                'Selecione ao menos um campo',
-                                type: NotificationType.warning,
-                              );
+                              _debug('Nenhum campo selecionado.');
                               return;
                             }
 
@@ -418,10 +361,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
 
   void _mostrarPreview() {
     if (_jsonData.isEmpty) {
-      _notify(
-        'Nenhum dado carregado',
-        type: NotificationType.warning,
-      );
+      _debug('Nenhum dado carregado.');
       return;
     }
 
@@ -490,18 +430,12 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
     final path = _pathController.text.trim();
 
     if (path.isEmpty) {
-      _notify(
-        'Informe o caminho da coleção.',
-        type: NotificationType.warning,
-      );
+      _debug('Caminho da coleção não informado.');
       return;
     }
 
     if (_jsonData.isEmpty) {
-      _notify(
-        'Nenhum dado para atualizar',
-        type: NotificationType.warning,
-      );
+      _debug('Nenhum dado para atualizar.');
       return;
     }
 
@@ -593,17 +527,10 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
         }
       }
 
-      _notify(
-        'Importação concluída',
-        type: NotificationType.success,
-        subtitle: '$_atualizados de $_totalParaAtualizar atualizados',
-      );
-    } catch (e) {
-      _notify(
-        'Falha durante a importação',
-        type: NotificationType.error,
-        subtitle: '$e',
-      );
+      _debug('Importação concluída: $_atualizados de $_totalParaAtualizar.');
+    } catch (e, s) {
+      debugPrint('[GenericImportExcelPage] Falha durante a importação: $e');
+      debugPrintStack(stackTrace: s);
     } finally {
       if (mounted) {
         setState(() {
@@ -667,9 +594,8 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
-              onPressed: _jsonData.isNotEmpty && !_loading
-                  ? _listarCamposExistentes
-                  : null,
+              onPressed:
+              _jsonData.isNotEmpty && !_loading ? _listarCamposExistentes : null,
               icon: const Icon(Icons.list),
               label: const Text('Selecionar campos'),
             ),

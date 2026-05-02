@@ -5,9 +5,9 @@ import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
@@ -48,10 +48,10 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
   void _showNotification({
     required String title,
     String? subtitle,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
   }) {
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -119,7 +119,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
               _showNotification(
                 title: 'Falha ao carregar rodovias',
                 subtitle: error,
-                type: NotificationType.error,
+                type: NotificationStatus.error,
                 duration: const Duration(seconds: 6),
               );
             });
@@ -150,7 +150,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
           _showNotification(
             title: 'Editando rodovia',
             subtitle: rotulo,
-            type: NotificationType.info,
+            type: NotificationStatus.info,
             duration: const Duration(seconds: 3),
           );
         }
@@ -161,7 +161,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
           _showNotification(
             title: 'Solicitando exclusão...',
             subtitle: 'Registro enviado para exclusão.',
-            type: NotificationType.warning,
+            type: NotificationStatus.warning,
             duration: const Duration(seconds: 3),
           );
         }

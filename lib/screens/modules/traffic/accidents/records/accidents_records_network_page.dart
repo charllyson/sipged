@@ -12,9 +12,9 @@ import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_services/bluetooth/ble_client.dart';
 import 'package:sipged/_services/bluetooth/ble_client_iface.dart';
@@ -92,13 +92,13 @@ class _AccidentsRecordsNetworkPageInnerState
   void _notify({
     required String title,
     String? subtitle,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     String leadingLabel = 'Acidentes',
     Duration duration = const Duration(seconds: 4),
   }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -113,11 +113,11 @@ class _AccidentsRecordsNetworkPageInnerState
       BuildContext context, {
         required String title,
         String? subtitle,
-        NotificationType type = NotificationType.info,
+        NotificationStatus type = NotificationStatus.info,
         String leadingLabel = 'Acidentes',
         Duration duration = const Duration(seconds: 4),
       }) {
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -283,7 +283,7 @@ class _AccidentsRecordsNetworkPageInnerState
                               btnContext,
                               title: 'Copiado',
                               subtitle: 'Link do boletim copiado.',
-                              type: NotificationType.success,
+                              type: NotificationStatus.success,
                               leadingLabel: 'QR',
                               duration: const Duration(seconds: 3),
                             );
@@ -344,7 +344,7 @@ class _AccidentsRecordsNetworkPageInnerState
       _notify(
         title: 'Falha ao gerar link',
         subtitle: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         leadingLabel: 'QR',
         duration: const Duration(seconds: 7),
       );
@@ -426,7 +426,7 @@ class _AccidentsRecordsNetworkPageInnerState
         title: 'Etiqueta enviada',
         subtitle:
         'TSPL BITMAP enviado via BLE. useGap=$_useGap gap=$_gapMm invert=$_invertBitmap density=$_density',
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         leadingLabel: 'Impressão',
         duration: const Duration(seconds: 4),
       );
@@ -436,7 +436,7 @@ class _AccidentsRecordsNetworkPageInnerState
       _notify(
         title: 'Falha ao imprimir',
         subtitle: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         leadingLabel: 'Impressão',
         duration: const Duration(seconds: 7),
       );
@@ -751,7 +751,7 @@ class _AccidentsRecordsNetworkPageInnerState
           _notify(
             title: 'Falha na operação',
             subtitle: state.error!,
-            type: NotificationType.error,
+            type: NotificationStatus.error,
             leadingLabel: 'Acidentes',
             duration: const Duration(seconds: 6),
           );
@@ -761,7 +761,7 @@ class _AccidentsRecordsNetworkPageInnerState
           _notify(
             title: 'Operação concluída',
             subtitle: state.success!,
-            type: NotificationType.success,
+            type: NotificationStatus.success,
             leadingLabel: 'Acidentes',
             duration: const Duration(seconds: 4),
           );
@@ -776,7 +776,7 @@ class _AccidentsRecordsNetworkPageInnerState
           _notify(
             title: 'Falha ao obter endereço',
             subtitle: state.locationError!,
-            type: NotificationType.error,
+            type: NotificationStatus.error,
             leadingLabel: 'Localização',
             duration: const Duration(seconds: 6),
           );

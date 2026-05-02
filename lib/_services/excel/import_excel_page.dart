@@ -3,11 +3,7 @@ import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
@@ -34,26 +30,8 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
 
   final Map<String, String> _tiposPorCampo = <String, String>{};
 
-  void _notify(
-      String title, {
-        NotificationType type = NotificationType.info,
-        String? subtitle,
-      }) {
-    if (!mounted) return;
-
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Importação',
-        type: type,
-        extra: {
-          'module': 'excel_import',
-          'firstCollection': widget.firstCollection,
-        },
-      ),
-      saveInFirebase: false,
-    );
+  void _debug(String message) {
+    debugPrint('[ImportExcelPage] $message');
   }
 
   Future<void> _importarExcel() async {
@@ -66,10 +44,7 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
       final result = await FilePicker.platform.pickFiles();
 
       if (result == null) {
-        _notify(
-          'Importação cancelada',
-          type: NotificationType.warning,
-        );
+        _debug('Importação cancelada pelo usuário.');
         return;
       }
 
@@ -79,29 +54,21 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
       final excel = Excel.decodeBytes(bytes);
 
       if (excel.tables.isEmpty) {
-        _notify(
-          'Planilha não encontrada',
-          type: NotificationType.error,
-        );
+        _debug('Planilha não encontrada.');
         return;
       }
 
       final sheet = excel.tables[excel.tables.keys.first];
 
       if (sheet == null || sheet.rows.isEmpty) {
-        _notify(
-          'Planilha não encontrada',
-          type: NotificationType.error,
-        );
+        _debug('Planilha não encontrada ou vazia.');
         return;
       }
 
-      final headers = sheet.rows.first
-          .map((cell) {
+      final headers = sheet.rows.first.map((cell) {
         final raw = cell?.value.toString().trim().replaceAll('\u00A0', '');
         return raw;
-      })
-          .toList();
+      }).toList();
 
       _jsonData = sheet.rows.skip(1).map((row) {
         final Map<String, dynamic> json = <String, dynamic>{};
@@ -119,20 +86,14 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
       }).toList();
 
       if (_jsonData.isEmpty) {
-        _notify(
-          'Planilha vazia!',
-          type: NotificationType.warning,
-        );
+        _debug('Planilha vazia.');
         return;
       }
 
       _mostrarPreviewComSelecao();
-    } catch (e) {
-      _notify(
-        'Erro ao importar',
-        type: NotificationType.error,
-        subtitle: '$e',
-      );
+    } catch (e, s) {
+      debugPrint('[ImportExcelPage] Erro ao importar: $e');
+      debugPrintStack(stackTrace: s);
     } finally {
       if (mounted) {
         setState(() => _importando = false);
@@ -421,19 +382,12 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
         count++;
       }
 
-      _notify(
-        'Importação concluída',
-        type: NotificationType.success,
-        subtitle: '$count registros importados.',
-      );
+      _debug('Importação concluída: $count registros importados.');
 
       widget.onFinished?.call();
-    } catch (e) {
-      _notify(
-        'Erro ao salvar importação',
-        type: NotificationType.error,
-        subtitle: '$e',
-      );
+    } catch (e, s) {
+      debugPrint('[ImportExcelPage] Erro ao salvar importação: $e');
+      debugPrintStack(stackTrace: s);
     }
   }
 

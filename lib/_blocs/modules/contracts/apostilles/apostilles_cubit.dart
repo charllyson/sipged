@@ -2,16 +2,12 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
 import 'package:sipged/_blocs/system/module/module_permission.dart' as perms;
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/user/user_permission.dart' as roles;
 
@@ -22,11 +18,78 @@ import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'apostilles_state.dart';
 
+class ApostilleSaveResult {
+  const ApostilleSaveResult({
+    required this.created,
+    required this.order,
+    required this.apostilleId,
+  });
+
+  final bool created;
+  final int? order;
+  final String? apostilleId;
+}
+
+class ApostilleDeleteResult {
+  const ApostilleDeleteResult({
+    required this.deleted,
+    required this.order,
+    required this.apostilleId,
+    required this.process,
+    required this.value,
+    required this.date,
+  });
+
+  final bool deleted;
+  final int? order;
+  final String? apostilleId;
+  final String? process;
+  final double? value;
+  final DateTime? date;
+}
+
+class ApostilleAttachmentAddResult {
+  const ApostilleAttachmentAddResult({
+    required this.apostilleId,
+    required this.apostilleOrder,
+    required this.attachment,
+  });
+
+  final String? apostilleId;
+  final int? apostilleOrder;
+  final Attachment attachment;
+}
+
+class ApostilleAttachmentDeleteResult {
+  const ApostilleAttachmentDeleteResult({
+    required this.apostilleId,
+    required this.apostilleOrder,
+    required this.attachment,
+  });
+
+  final String? apostilleId;
+  final int? apostilleOrder;
+  final Attachment? attachment;
+}
+
+class ApostilleAttachmentRenameResult {
+  const ApostilleAttachmentRenameResult({
+    required this.apostilleId,
+    required this.apostilleOrder,
+    required this.oldAttachment,
+    required this.newAttachment,
+  });
+
+  final String? apostilleId;
+  final int? apostilleOrder;
+  final Attachment oldAttachment;
+  final Attachment newAttachment;
+}
+
 class ApostillesCubit extends Cubit<ApostillesState> {
   ApostillesCubit({
     required this.contract,
     required this.repository,
-    this.notificationCubit,
     UserData? initialUser,
   })  : _currentUser = initialUser,
         super(ApostillesState.initial()) {
@@ -39,7 +102,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
   final ProcessData contract;
   final ApostillesRepository repository;
-  final NotificationCubit? notificationCubit;
 
   UserData? _currentUser;
 
@@ -69,55 +131,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     }
 
     await loadApostilles();
-  }
-
-  String _userName() {
-    final u = _currentUser;
-    return (u?.name ?? u?.email ?? 'Usuário').trim();
-  }
-
-  String? _userId() {
-    final uid = (_currentUser?.uid ?? '').trim();
-    return uid.isNotEmpty ? uid : null;
-  }
-
-  String _stamp([DateTime? dt]) {
-    final d = dt ?? DateTime.now();
-    return DateFormat('dd/MM/yyyy HH:mm').format(d);
-  }
-
-  Future<void> _notify({
-    required String title,
-    String? subtitle,
-    String? details,
-    String? leadingLabel,
-    NotificationType type = NotificationType.info,
-    bool saveInFirebase = false,
-    Map<String, dynamic> extra = const <String, dynamic>{},
-  }) async {
-    final cubit = notificationCubit;
-    if (cubit == null) return;
-
-    final userId = _userId();
-
-    await cubit.show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        details: details ?? '${_userName()} • ${_stamp()}',
-        leadingLabel: leadingLabel ?? 'Apostilamento',
-        type: type,
-        createdBy: userId,
-        persistInFirebase: saveInFirebase,
-        extra: {
-          'module': 'apostilles',
-          'contractId': contract.id,
-          ...extra,
-        },
-      ),
-      userId: userId,
-      saveInFirebase: saveInFirebase,
-    );
   }
 
   // =========================
@@ -368,14 +381,36 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     }
   }
 
-  Future<void> saveOrUpdate({
+  String? _resolveSelectedIdFallback({
+    required String? selectedId,
+    required String? fallbackId,
+  }) {
+    final cleanSelected = selectedId?.trim();
+
+    if (cleanSelected != null && cleanSelected.isNotEmpty) {
+      return cleanSelected;
+    }
+
+    final cleanFallback = fallbackId?.trim();
+
+    if (cleanFallback != null && cleanFallback.isNotEmpty) {
+      return cleanFallback;
+    }
+
+    return null;
+  }
+
+  Future<ApostilleSaveResult> saveOrUpdate({
     required String orderText,
     required String dateText,
     required String valueText,
     required String processText,
   }) async {
     final cId = contract.id?.trim();
-    if (cId == null || cId.isEmpty) return;
+
+    if (cId == null || cId.isEmpty) {
+      throw Exception('Contrato não informado para salvar o apostilamento.');
+    }
 
     emit(state.copyWith(isSaving: true, clearError: true));
 
@@ -401,22 +436,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         data: apostille,
       );
 
-      final bool didUpdate = resolvedId != null;
-
-      await _notify(
-        title:
-        didUpdate ? 'Apostilamento atualizado' : 'Apostilamento salvo',
-        subtitle: processText.trim().isNotEmpty
-            ? 'Processo: ${processText.trim()}'
-            : null,
-        type: NotificationType.success,
-        saveInFirebase: true,
-        extra: {
-          'action': didUpdate ? 'update' : 'create',
-          'apostilleOrder': ord,
-          'apostilleProcess': processText.trim(),
-        },
-      );
+      final bool created = resolvedId == null;
 
       await loadApostilles();
 
@@ -425,80 +445,71 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       } else {
         createNewApostille();
       }
-    } catch (e) {
-      await _notify(
-        title: 'Erro ao salvar apostilamento',
-        subtitle: e.toString(),
-        type: NotificationType.error,
-        saveInFirebase: false,
-        extra: {
-          'action': 'save_error',
-          'error': e.toString(),
-        },
-      );
 
+      return ApostilleSaveResult(
+        created: created,
+        order: ord > 0 ? ord : null,
+        apostilleId: _resolveSelectedIdFallback(
+          selectedId: state.selected?.id,
+          fallbackId: resolvedId,
+        ),
+      );
+    } catch (e) {
       emit(
         state.copyWith(
           isSaving: false,
           errorMessage: 'Erro ao salvar: $e',
         ),
       );
-      return;
+
+      rethrow;
     } finally {
       emit(state.copyWith(isSaving: false));
     }
   }
 
-  Future<void> deleteSelectedApostille() async {
+  Future<ApostilleDeleteResult> deleteSelectedApostille() async {
     final cId = contract.id?.trim();
     final selected = state.selected;
 
-    if (cId == null || cId.isEmpty || selected?.id == null) return;
+    if (cId == null || cId.isEmpty) {
+      throw Exception('Contrato não informado para excluir o apostilamento.');
+    }
+
+    if (selected == null || selected.id == null || selected.id!.trim().isEmpty) {
+      throw Exception('Nenhum apostilamento selecionado para exclusão.');
+    }
 
     emit(state.copyWith(isSaving: true, clearError: true));
 
     try {
-      await repository.deleteApostille(
-        contractId: cId,
-        apostilleId: selected!.id!,
+      final result = ApostilleDeleteResult(
+        deleted: true,
+        order: selected.apostilleOrder,
+        apostilleId: selected.id,
+        process: selected.apostilleNumberProcess,
+        value: selected.apostilleValue,
+        date: selected.apostilleData,
       );
 
-      await _notify(
-        title: 'Apostilamento deletado',
-        subtitle: selected.apostilleNumberProcess?.trim().isNotEmpty == true
-            ? 'Processo: ${selected.apostilleNumberProcess!.trim()}'
-            : null,
-        type: NotificationType.success,
-        saveInFirebase: true,
-        extra: {
-          'action': 'delete',
-          'apostilleId': selected.id,
-          'apostilleOrder': selected.apostilleOrder,
-          'apostilleProcess': selected.apostilleNumberProcess,
-        },
+      await repository.deleteApostille(
+        contractId: cId,
+        apostilleId: selected.id!,
       );
 
       await loadApostilles();
       createNewApostille();
-    } catch (e) {
-      await _notify(
-        title: 'Erro ao deletar apostilamento',
-        subtitle: e.toString(),
-        type: NotificationType.error,
-        saveInFirebase: false,
-        extra: {
-          'action': 'delete_error',
-          'error': e.toString(),
-        },
-      );
 
+      return result;
+    } catch (e) {
       emit(
         state.copyWith(
           isSaving: false,
           errorMessage: 'Erro ao deletar: $e',
         ),
       );
-      return;
+
+      rethrow;
     } finally {
       emit(state.copyWith(isSaving: false));
     }
@@ -623,12 +634,25 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     return 'Apostilamento $ord - $base';
   }
 
-  Future<void> addAttachmentWithPicker(BuildContext context) async {
+  Future<ApostilleAttachmentAddResult> addAttachmentWithPicker(
+      BuildContext context,
+      ) async {
     final cId = contract.id?.trim();
     final a = state.selected;
 
-    if (cId == null || cId.isEmpty || a == null || a.id == null) return;
-    if (!state.canAddFile) return;
+    if (cId == null || cId.isEmpty) {
+      throw Exception('Contrato não informado para anexar arquivo.');
+    }
+
+    if (a == null || a.id == null || a.id!.trim().isEmpty) {
+      throw Exception(
+        'Selecione ou salve um apostilamento antes de anexar arquivos.',
+      );
+    }
+
+    if (!state.canAddFile) {
+      throw Exception('Não é possível adicionar arquivo neste momento.');
+    }
 
     emit(
       state.copyWith(
@@ -677,30 +701,12 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         ),
       );
 
-      await _notify(
-        title: 'Anexo adicionado',
-        subtitle: att.label,
-        type: NotificationType.success,
-        saveInFirebase: true,
-        extra: {
-          'action': 'attachment_create',
-          'apostilleId': a.id,
-          'attachmentId': att.id,
-          'attachmentLabel': att.label,
-        },
+      return ApostilleAttachmentAddResult(
+        apostilleId: a.id,
+        apostilleOrder: a.apostilleOrder,
+        attachment: att,
       );
     } catch (e) {
-      await _notify(
-        title: 'Erro ao anexar',
-        subtitle: e.toString(),
-        type: NotificationType.error,
-        saveInFirebase: false,
-        extra: {
-          'action': 'attachment_create_error',
-          'error': e.toString(),
-        },
-      );
-
       emit(
         state.copyWith(
           sideLoading: false,
@@ -708,22 +714,33 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           errorMessage: 'Erro ao anexar: $e',
         ),
       );
+
+      rethrow;
     }
   }
 
-  Future<void> renameAttachment({
+  Future<ApostilleAttachmentRenameResult> renameAttachment({
     required int index,
     required String newLabel,
   }) async {
     final cId = contract.id?.trim();
     final a = state.selected;
 
-    if (cId == null || cId.isEmpty || a == null || a.attachments == null) {
-      return;
+    if (cId == null || cId.isEmpty) {
+      throw Exception('Contrato não informado para renomear anexo.');
     }
 
-    if (a.id == null) return;
-    if (index < 0 || index >= a.attachments!.length) return;
+    if (a == null || a.id == null || a.id!.trim().isEmpty) {
+      throw Exception('Nenhum apostilamento selecionado.');
+    }
+
+    if (a.attachments == null) {
+      throw Exception('O apostilamento selecionado não possui anexos.');
+    }
+
+    if (index < 0 || index >= a.attachments!.length) {
+      throw Exception('Índice de anexo inválido.');
+    }
 
     emit(
       state.copyWith(
@@ -734,17 +751,17 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     );
 
     try {
-      final att = a.attachments![index];
+      final oldAtt = a.attachments![index];
 
       final updated = Attachment(
-        id: att.id,
-        label: newLabel.isEmpty ? att.label : newLabel,
-        url: att.url,
-        path: att.path,
-        ext: att.ext,
-        size: att.size,
-        createdAt: att.createdAt,
-        createdBy: att.createdBy,
+        id: oldAtt.id,
+        label: newLabel.trim().isEmpty ? oldAtt.label : newLabel.trim(),
+        url: oldAtt.url,
+        path: oldAtt.path,
+        ext: oldAtt.ext,
+        size: oldAtt.size,
+        createdAt: oldAtt.createdAt,
+        createdBy: oldAtt.createdBy,
         updatedAt: DateTime.now(),
         updatedBy: _currentUser?.uid,
       );
@@ -766,30 +783,13 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         ),
       );
 
-      await _notify(
-        title: 'Nome do anexo atualizado',
-        subtitle: updated.label,
-        type: NotificationType.success,
-        saveInFirebase: true,
-        extra: {
-          'action': 'attachment_rename',
-          'apostilleId': a.id,
-          'attachmentId': updated.id,
-          'attachmentLabel': updated.label,
-        },
+      return ApostilleAttachmentRenameResult(
+        apostilleId: a.id,
+        apostilleOrder: a.apostilleOrder,
+        oldAttachment: oldAtt,
+        newAttachment: updated,
       );
     } catch (e) {
-      await _notify(
-        title: 'Erro ao renomear',
-        subtitle: e.toString(),
-        type: NotificationType.error,
-        saveInFirebase: false,
-        extra: {
-          'action': 'attachment_rename_error',
-          'error': e.toString(),
-        },
-      );
-
       emit(
         state.copyWith(
           sideLoading: false,
@@ -797,14 +797,22 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           errorMessage: 'Erro ao renomear: $e',
         ),
       );
+
+      rethrow;
     }
   }
 
-  Future<void> deleteAttachment(int index) async {
+  Future<ApostilleAttachmentDeleteResult> deleteAttachment(int index) async {
     final cId = contract.id?.trim();
     final a = state.selected;
 
-    if (cId == null || cId.isEmpty || a == null || a.id == null) return;
+    if (cId == null || cId.isEmpty) {
+      throw Exception('Contrato não informado para remover anexo.');
+    }
+
+    if (a == null || a.id == null || a.id!.trim().isEmpty) {
+      throw Exception('Nenhum apostilamento selecionado.');
+    }
 
     emit(
       state.copyWith(
@@ -819,21 +827,21 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         a.attachments ?? const <Attachment>[],
       );
 
-      Attachment? removed;
-
-      if (index >= 0 && index < atts.length) {
-        removed = atts.removeAt(index);
-
-        if (removed.path.isNotEmpty) {
-          await repository.deleteStorageByPath(removed.path);
-        }
-
-        await repository.setAttachments(
-          contractId: cId,
-          apostilleId: a.id!,
-          attachments: atts,
-        );
+      if (index < 0 || index >= atts.length) {
+        throw Exception('Índice de anexo inválido.');
       }
+
+      final removed = atts.removeAt(index);
+
+      if (removed.path.isNotEmpty) {
+        await repository.deleteStorageByPath(removed.path);
+      }
+
+      await repository.setAttachments(
+        contractId: cId,
+        apostilleId: a.id!,
+        attachments: atts,
+      );
 
       emit(
         state.copyWith(
@@ -844,30 +852,12 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         ),
       );
 
-      await _notify(
-        title: 'Anexo removido',
-        subtitle: removed?.label,
-        type: NotificationType.success,
-        saveInFirebase: true,
-        extra: {
-          'action': 'attachment_delete',
-          'apostilleId': a.id,
-          'attachmentId': removed?.id,
-          'attachmentLabel': removed?.label,
-        },
+      return ApostilleAttachmentDeleteResult(
+        apostilleId: a.id,
+        apostilleOrder: a.apostilleOrder,
+        attachment: removed,
       );
     } catch (e) {
-      await _notify(
-        title: 'Erro ao remover',
-        subtitle: e.toString(),
-        type: NotificationType.error,
-        saveInFirebase: false,
-        extra: {
-          'action': 'attachment_delete_error',
-          'error': e.toString(),
-        },
-      );
-
       emit(
         state.copyWith(
           sideLoading: false,
@@ -875,6 +865,8 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           errorMessage: 'Erro ao remover: $e',
         ),
       );
+
+      rethrow;
     }
   }
 

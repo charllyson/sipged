@@ -9,9 +9,9 @@ import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_control
 import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_data.dart';
 import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_store.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
@@ -71,12 +71,12 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
   }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -99,7 +99,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
         subtitle: detail?.isNotEmpty == true
             ? detail!
             : 'Distribuição atualizada com sucesso.',
-        type: NotificationType.success,
+        type: NotificationStatus.success,
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -110,7 +110,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     _notify(
       title: 'Planejamento físico-financeiro',
       subtitle: detail?.isNotEmpty == true ? detail! : 'Distribuição atualizada.',
-      type: NotificationType.success,
+      type: NotificationStatus.success,
     );
   }
 
@@ -311,7 +311,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
       _notify(
         title: 'Erro ao carregar termos',
         subtitle: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
 

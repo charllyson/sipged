@@ -12,9 +12,9 @@ import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
@@ -40,7 +40,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
   final _passController = TextEditingController();
   final _repeatPassController = TextEditingController();
 
-  late LoginCubit _loginCubit;
+  late final LoginCubit _loginCubit;
   final ValueNotifier<bool> _loading = ValueNotifier<bool>(false);
 
   @override
@@ -63,22 +63,22 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
   void _notify(
       String title, {
         String? subtitle,
-        NotificationType type = NotificationType.info,
+        NotificationStatus status = NotificationStatus.info,
       }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
         leadingLabel: 'Cadastro',
-        type: type,
+        status: status,
         duration: const Duration(seconds: 4),
         extra: const <String, dynamic>{
           'module': 'signup',
+          'source': 'sign_up_page',
         },
       ),
-      saveInFirebase: false,
     );
   }
 
@@ -160,7 +160,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
           'Erro ao cadastrar',
           subtitle: _loginCubit.state.errorMessage ??
               'Verifique os dados e tente novamente.',
-          type: NotificationType.error,
+          status: NotificationStatus.error,
         );
 
         return;
@@ -180,7 +180,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
 
       _notify(
         'Cadastro realizado com sucesso!',
-        type: NotificationType.success,
+        status: NotificationStatus.success,
       );
 
       navigator.pop();
@@ -189,8 +189,8 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
 
       _notify(
         'Erro inesperado ao cadastrar',
-        subtitle: '$e',
-        type: NotificationType.error,
+        subtitle: e.toString(),
+        status: NotificationStatus.error,
       );
     } finally {
       if (mounted) {
@@ -367,7 +367,7 @@ class _BlockingOverlay extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF1E1E1E),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Color(0xFF6E6E6E)),
+                border: Border.all(color: const Color(0xFF6E6E6E)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

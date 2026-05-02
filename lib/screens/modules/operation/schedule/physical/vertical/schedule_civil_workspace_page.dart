@@ -1,8 +1,11 @@
 // lib/screens/modules/operation/operation/civil/schedule_civil_workspace_page.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
 
@@ -19,9 +22,8 @@ import 'package:sipged/screens/modules/operation/schedule/physical/vertical/sche
 
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'schedule_civil_panel.dart';
 
@@ -34,6 +36,7 @@ class ScheduleCivilWorkspacePage extends StatefulWidget {
     this.pageNumber = 1,
     this.initialPdfBytes,
     this.allowPickNewPdf = true,
+    this.targetUserIds = const <String>[],
   });
 
   final String title;
@@ -42,6 +45,15 @@ class ScheduleCivilWorkspacePage extends StatefulWidget {
   final Uint8List? initialPdfBytes;
   final bool allowPickNewPdf;
   final ScheduleCivilController controller;
+
+  /// Destinatários explícitos para sino/push.
+  ///
+  /// Esta página possui apenas `contractId` e `title`, então não consegue
+  /// resolver sozinha os usuários vinculados ao contrato.
+  ///
+  /// Se quiser enviar para fiscais/gestores/participantes, envie a lista
+  /// pela tela pai.
+  final Iterable<String> targetUserIds;
 
   @override
   State<ScheduleCivilWorkspacePage> createState() =>
@@ -56,67 +68,85 @@ class _ScheduleCivilWorkspacePageState
   static const double kBottomPanelHeight = 380.0;
   static const double kBreakpoint = 980.0;
 
+  String get _cleanTitle {
+    final value = widget.title.trim();
+    return value.isEmpty ? 'Cronograma civil' : value;
+  }
+
+  String get _cleanContractId => widget.contractId.trim();
+
+  String get _module => 'operation_schedule_civil';
+
   void _togglePanel() {
     if (!mounted) return;
 
     setState(() => _panelOpen = !_panelOpen);
   }
 
-  void _notify({
+  ProcessData get _notificationContract {
+    final id = _cleanContractId;
+
+    if (id.isEmpty) {
+      return ProcessData.empty();
+    }
+
+    return ProcessData.empty().copyWith(id: id);
+  }
+
+  Future<void> _notify({
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
     Map<String, dynamic> extra = const <String, dynamic>{},
-  }) {
+  }) async {
     if (!mounted) return;
 
     final cleanTitle = title.trim();
     final cleanSubtitle = subtitle?.trim();
     final cleanDetails = details?.trim();
-    final cleanContractId = widget.contractId.trim();
-    final cleanModule = 'operation_schedule_civil';
 
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: cleanTitle.isEmpty ? 'Cronograma civil' : cleanTitle,
-        subtitle: cleanSubtitle?.isNotEmpty == true ? cleanSubtitle : null,
-        details: cleanDetails?.isNotEmpty == true
-            ? cleanDetails
-            : widget.title,
-        leadingLabel: 'Civil',
-        type: type,
-        duration: duration,
-        persistInFirebase: saveInBell,
-        sendPush: sendPush,
-        extra: <String, dynamic>{
-          'module': cleanModule,
-          'route': cleanModule,
-          'contractId': cleanContractId,
-          'contractTitle': widget.title,
-          'contractSummary': widget.title,
-          'source': 'schedule_civil_workspace_page',
-          'sendPush': sendPush,
-          ...extra,
-        },
-      ),
-      saveInFirebase: saveInBell,
+    final contract = _notificationContract;
+
+    await NotificationSchedule.show(
+      context: context,
+      contract: contract,
+      title: cleanTitle.isEmpty ? 'Cronograma civil' : cleanTitle,
+      subtitle: cleanSubtitle?.isNotEmpty == true ? cleanSubtitle : null,
+      details: cleanDetails?.isNotEmpty == true ? cleanDetails : _cleanTitle,
+      leadingLabel: 'Civil',
+      module: _module,
+      type: type,
+      duration: duration,
+      saveInBell: saveInBell,
       sendPush: sendPush,
+      targetUserIds: widget.targetUserIds,
+      includeCurrentUser: true,
+      extra: <String, dynamic>{
+        'module': _module,
+        'route': _module,
+        'contractId': _cleanContractId,
+        'contractTitle': _cleanTitle,
+        'contractSummary': _cleanTitle,
+        'source': 'schedule_civil_workspace_page',
+        'sendPush': sendPush,
+        ...extra,
+      },
     );
   }
 
-  void _notifyDxfSent({
+  Future<void> _notifyDxfSent({
     required int lines,
     required int totalVertices,
-  }) {
-    _notify(
+  }) async {
+    await _notify(
       title: 'DXF enviado ao mapa',
       subtitle: '$lines linha(s), $totalVertices vértice(s)',
-      details: widget.title,
-      type: NotificationType.success,
+      details: _cleanTitle,
+      type: NotificationStatus.success,
       duration: const Duration(seconds: 3),
       saveInBell: true,
       sendPush: false,
@@ -132,11 +162,11 @@ class _ScheduleCivilWorkspacePageState
   Widget build(BuildContext context) {
     final ctrl = widget.controller;
 
-    return BlocProvider(
+    return BlocProvider<CivilScheduleBloc>(
       create: (_) => CivilScheduleBloc()
         ..add(
           CivilWarmupRequested(
-            widget.contractId,
+            _cleanContractId,
             initialPage: 0,
           ),
         ),
@@ -147,9 +177,7 @@ class _ScheduleCivilWorkspacePageState
             child: CircleButtonChange(),
           ),
           titleWidgets: [
-            Text(
-              widget.title.trim().isEmpty ? 'Cronograma civil' : widget.title,
-            ),
+            Text(_cleanTitle),
           ],
           actions: [
             IconButton(
@@ -171,30 +199,32 @@ class _ScheduleCivilWorkspacePageState
               left: Stack(
                 children: [
                   ScheduleCivilWidget(
-                    title: widget.title,
+                    title: _cleanTitle,
                     controller: ctrl,
                     initialPdfBytes: widget.initialPdfBytes,
                     pageNumber: widget.pageNumber,
                     allowPickNewPdf: widget.allowPickNewPdf,
                     onPolylinesReady: (lines) {
-                      final total = lines.fold<int>(
+                      final totalVertices = lines.fold<int>(
                         0,
-                            (a, b) => a + b.length,
+                            (total, line) => total + line.length,
                       );
 
                       context.read<MapOverlayCubit>().showDxfPolylines(lines);
 
-                      _notifyDxfSent(
-                        lines: lines.length,
-                        totalVertices: total,
+                      unawaited(
+                        _notifyDxfSent(
+                          lines: lines.length,
+                          totalVertices: totalVertices,
+                        ),
                       );
                     },
                   ),
                 ],
               ),
               right: ScheduleCivilPanel(
-                title: widget.title,
-                contractId: widget.contractId,
+                title: _cleanTitle,
+                contractId: _cleanContractId,
                 controller: ctrl,
               ),
               showRightPanel: _panelOpen,

@@ -6,9 +6,9 @@ import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
@@ -149,10 +149,10 @@ class _RoadDetailsPageState extends State<RoadDetailsPage> {
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
   }) {
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -603,7 +603,7 @@ class _RoadDetailsPageState extends State<RoadDetailsPage> {
                                 subtitle: widget.editing?.id != null
                                     ? 'Atualizando registro'
                                     : 'Criando novo registro',
-                                type: NotificationType.info,
+                                type: NotificationStatus.info,
                                 duration: const Duration(seconds: 2),
                               );
 

@@ -6,9 +6,9 @@ import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/input/text_field_change.dart';
 
@@ -82,10 +82,10 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
   void _showNotification({
     required String title,
     String? subtitle,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
   }) {
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -288,7 +288,7 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
                         subtitle: widget.editing?.id != null
                             ? 'Atualizando registro'
                             : 'Criando novo registro',
-                        type: NotificationType.info,
+                        type: NotificationStatus.info,
                         duration: const Duration(seconds: 2),
                       );
 

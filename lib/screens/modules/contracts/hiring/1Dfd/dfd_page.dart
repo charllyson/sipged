@@ -18,9 +18,11 @@ import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.da
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 
-import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/notification_channel.dart';
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -58,6 +60,9 @@ class _DfdPageState extends State<DfdPage>
     with SipGedValidation, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+
+  static const String _notificationSource = 'contracts_hiring_dfd';
+  static const String _route = 'contracts_hiring_dfd';
 
   late final ProgressCubit _progressBloc;
 
@@ -98,10 +103,10 @@ class _DfdPageState extends State<DfdPage>
   }
 
   String get _currentUserId {
-    return FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+    return (FirebaseAuth.instance.currentUser?.uid ?? '').trim();
   }
 
-  List<String> get _defaultPushTargets {
+  List<String> get _defaultNotificationTargets {
     final uid = _currentUserId;
 
     if (uid.isEmpty) {
@@ -133,11 +138,13 @@ class _DfdPageState extends State<DfdPage>
   void dispose() {
     _scrollController.dispose();
     _progressBloc.close();
+
     super.dispose();
   }
 
   Future<void> _loadContract(String contractId) async {
     final cid = contractId.trim();
+
     if (cid.isEmpty) return;
 
     if (mounted) {
@@ -193,10 +200,19 @@ class _DfdPageState extends State<DfdPage>
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus status = NotificationStatus.info,
+
+    /// Compatibilidade com chamadas antigas internas desta tela.
+    NotificationStatus? type,
+
     Duration duration = const Duration(seconds: 4),
-    bool saveInBell = false,
-    bool sendPush = false,
+
+    bool local = true,
+    bool bell = false,
+    bool push = false,
+    bool email = false,
+    bool sms = false,
+
     Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
@@ -205,24 +221,41 @@ class _DfdPageState extends State<DfdPage>
     final user = FirebaseAuth.instance.currentUser;
     final effectiveContract = _effectiveContract;
 
-    await NotificationContract.show(
+    final channels = <NotificationChannel>{
+      if (local) NotificationChannel.local,
+      if (bell) NotificationChannel.bell,
+      if (push) NotificationChannel.push,
+      if (email) NotificationChannel.email,
+      if (sms) NotificationChannel.sms,
+    };
+
+    if (channels.isEmpty) return;
+
+    await NotificationHiring.show(
       context: context,
       contract: effectiveContract,
       title: title,
       subtitle: subtitle,
       details: details,
       leadingLabel: 'DFD',
-      module: 'contracts_hiring_dfd',
-      type: type,
+      module: _route,
+      notificationSource: _notificationSource,
+      source: 'dfd_notification',
+      status: type ?? status,
       duration: duration,
-      saveInBell: saveInBell,
-      sendPush: sendPush,
+      delivery: NotificationDelivery(channels: channels),
+      sendPush: channels.contains(NotificationChannel.push),
       targetUserIds: targetUserIds,
       actorId: user?.uid,
       actorName: _currentActorName(),
       extra: <String, dynamic>{
         ...extra,
-        'route': extra['route'] ?? 'contracts_hiring_dfd',
+        'route': extra['route'] ?? _route,
+        'module': _route,
+        'source': 'dfd_notification',
+        'sourceKey': _notificationSource,
+        'subSource': _notificationSource,
+        'notificationSource': _notificationSource,
         if ((effectiveContract.id ?? '').trim().isNotEmpty)
           'contractId': effectiveContract.id,
         if (effectiveContract.displaySummary.trim().isNotEmpty)
@@ -238,7 +271,8 @@ class _DfdPageState extends State<DfdPage>
       await _notify(
         title: 'DFD',
         subtitle: 'Esta etapa está em modo somente leitura.',
-        type: NotificationType.info,
+        status: NotificationStatus.info,
+        local: true,
       );
 
       return false;
@@ -265,8 +299,9 @@ class _DfdPageState extends State<DfdPage>
           title: 'DFD',
           subtitle: 'Erro ao salvar.',
           details: err,
-          type: NotificationType.error,
+          status: NotificationStatus.error,
           duration: const Duration(seconds: 6),
+          local: true,
         );
 
         return false;
@@ -286,15 +321,23 @@ class _DfdPageState extends State<DfdPage>
           title: 'DFD atualizado',
           subtitle: 'Alterações salvas por ${_currentActorName()}.',
           details: _effectiveContract.displaySummary,
-          type: NotificationType.success,
-          saveInBell: true,
-          sendPush: true,
-          targetUserIds: _defaultPushTargets,
+          status: NotificationStatus.success,
+
+          /// Canais que o DFD solicita.
+          /// O NotificationProcess filtra isso pelas preferências de cada usuário.
+          local: true,
+          bell: true,
+          push: true,
+          email: true,
+          sms: false,
+
+          targetUserIds: _defaultNotificationTargets,
           extra: <String, dynamic>{
             'action': 'dfd_saved',
             'dfdId': cubit.state.dfdId,
             'contractId': finalContractId,
-            'route': 'contracts_hiring_dfd',
+            'route': _route,
+            'notificationSource': _notificationSource,
           },
         );
       }
@@ -307,8 +350,9 @@ class _DfdPageState extends State<DfdPage>
         title: 'DFD',
         subtitle: 'Erro ao salvar.',
         details: '$e',
-        type: NotificationType.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
+        local: true,
       );
 
       return false;
@@ -338,7 +382,8 @@ class _DfdPageState extends State<DfdPage>
       await _notify(
         title: 'DFD',
         subtitle: 'Documento não encontrado para aprovar.',
-        type: NotificationType.error,
+        status: NotificationStatus.error,
+        local: true,
       );
 
       return;
@@ -376,7 +421,7 @@ class _DfdPageState extends State<DfdPage>
       );
 
       final targets = <String>{
-        ..._defaultPushTargets,
+        ..._defaultNotificationTargets,
         _formData.solicitanteUserId?.trim() ?? '',
         _formData.autoridadeUserId?.trim() ?? '',
       }.where((id) => id.isNotEmpty).toList();
@@ -385,15 +430,23 @@ class _DfdPageState extends State<DfdPage>
         title: 'DFD aprovado',
         subtitle: 'Etapa concluída por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
-        saveInBell: true,
-        sendPush: true,
+        status: NotificationStatus.success,
+
+        /// Canais solicitados para aprovação.
+        /// Cada usuário decide, nas preferências, se DFD chega por push/e-mail/sino.
+        local: true,
+        bell: true,
+        push: true,
+        email: true,
+        sms: false,
+
         targetUserIds: targets,
         extra: <String, dynamic>{
           'action': 'dfd_approved',
           'dfdId': dfdId,
           'contractId': contractIdForApprove,
-          'route': 'contracts_hiring_dfd',
+          'route': _route,
+          'notificationSource': _notificationSource,
           'nextStage': 'etp',
         },
       );
@@ -404,8 +457,9 @@ class _DfdPageState extends State<DfdPage>
         title: 'DFD',
         subtitle: 'Erro ao aprovar.',
         details: '$e',
-        type: NotificationType.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
+        local: true,
       );
     }
   }
@@ -431,7 +485,8 @@ class _DfdPageState extends State<DfdPage>
       await _notify(
         title: 'DFD',
         subtitle: 'Documento não encontrado para atualizar.',
-        type: NotificationType.error,
+        status: NotificationStatus.error,
+        local: true,
       );
 
       return;
@@ -452,7 +507,7 @@ class _DfdPageState extends State<DfdPage>
       if (!mounted) return;
 
       final targets = <String>{
-        ..._defaultPushTargets,
+        ..._defaultNotificationTargets,
         _formData.solicitanteUserId?.trim() ?? '',
         _formData.autoridadeUserId?.trim() ?? '',
       }.where((id) => id.isNotEmpty).toList();
@@ -461,15 +516,21 @@ class _DfdPageState extends State<DfdPage>
         title: 'Aprovação do DFD atualizada',
         subtitle: 'Atualizada por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationType.success,
-        saveInBell: true,
-        sendPush: true,
+        status: NotificationStatus.success,
+
+        local: true,
+        bell: true,
+        push: true,
+        email: true,
+        sms: false,
+
         targetUserIds: targets,
         extra: <String, dynamic>{
           'action': 'dfd_approval_updated',
           'dfdId': dfdId,
           'contractId': contractIdForApprove,
-          'route': 'contracts_hiring_dfd',
+          'route': _route,
+          'notificationSource': _notificationSource,
         },
       );
     } catch (e) {
@@ -479,8 +540,9 @@ class _DfdPageState extends State<DfdPage>
         title: 'DFD',
         subtitle: 'Erro ao atualizar aprovação.',
         details: '$e',
-        type: NotificationType.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
+        local: true,
       );
     }
   }
@@ -521,8 +583,7 @@ class _DfdPageState extends State<DfdPage>
             });
           }
 
-          final effectiveContractId =
-          state.contractId?.trim().isNotEmpty == true
+          final effectiveContractId = state.contractId?.trim().isNotEmpty == true
               ? state.contractId!.trim()
               : widget.contractId.trim();
 
@@ -556,8 +617,8 @@ class _DfdPageState extends State<DfdPage>
                 ? 'Carregando dados do contrato...'
                 : null;
 
-            final effectiveContractId =
-            state.contractId?.trim().isNotEmpty == true
+            final effectiveContractId = state.contractId?.trim().isNotEmpty ==
+                true
                 ? state.contractId!.trim()
                 : widget.contractId.trim();
 

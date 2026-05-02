@@ -11,9 +11,9 @@ import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cub
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
@@ -56,12 +56,12 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
   void _notify({
     required String title,
     String? subtitle,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
   }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -77,7 +77,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
     String? subtitle,
     String? details,
     String? leadingLabel,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = true,
     bool sendPush = true,
@@ -138,7 +138,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
         title: 'Faixas do cronograma atualizadas',
         subtitle: '${rows.length} faixa(s) configurada(s) por ${_actorName()}.',
         details: st.summarySubjectContract ?? widget.contract.displaySummary,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         duration: const Duration(seconds: 4),
         saveInBell: true,
         sendPush: true,
@@ -157,7 +157,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
       _notify(
         title: 'Erro ao salvar faixas',
         subtitle: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -179,7 +179,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
       _notify(
         title: 'Contrato inválido',
         subtitle: 'Não foi possível identificar o contrato.',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
       return;
@@ -230,7 +230,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
             ? 'Arquivo ${file.name} importado por ${_actorName()}.'
             : 'Geometria importada por ${_actorName()}.',
         details: summarySubjectContract,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         duration: const Duration(seconds: 4),
         saveInBell: true,
         sendPush: true,
@@ -252,7 +252,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
       _notify(
         title: 'Erro ao importar geometria',
         subtitle: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     } finally {

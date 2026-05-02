@@ -6,9 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/screens/modules/operation/schedule/financial/measure_text.dart';
 import 'package:sipged/screens/modules/operation/schedule/financial/percent_dialog.dart';
 import 'package:sipged/screens/modules/operation/schedule/financial/physfin_models.dart';
@@ -241,11 +238,13 @@ class PhysicsFinanceController {
 
     if (preferFit) {
       final double baseWidth = viewportWidth -
-          (measuredDescWidth +
-              extraW +
-              kItemColWidth +
-              measuredValueWidth +
-              paddingsHorizontal);
+          (
+              measuredDescWidth +
+                  extraW +
+                  kItemColWidth +
+                  measuredValueWidth +
+                  paddingsHorizontal
+          );
 
       final double candidate = nCols == 0 ? 100.0 : baseWidth / nCols;
 
@@ -278,79 +277,6 @@ class PhysicsFinanceController {
       current: current,
       alreadyAllocatedPercent: alreadyAllocatedPercent,
       serviceTotalReais: serviceTotalReais,
-    );
-  }
-
-  /// Notificação de sucesso padrão no novo padrão NotificationCubit.
-  static Future<void> toastSuccess({
-    required NotificationCubit notificationCubit,
-    required String title,
-    required String subtitle,
-    String? createdBy,
-    Map<String, dynamic> extra = const <String, dynamic>{},
-  }) {
-    return notificationCubit.show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Cronograma',
-        type: NotificationType.success,
-        createdBy: createdBy,
-        extra: {
-          'module': 'physics_finance',
-          ...extra,
-        },
-      ),
-      userId: createdBy,
-      saveInFirebase: false,
-    );
-  }
-
-  static Future<void> toastError({
-    required NotificationCubit notificationCubit,
-    required String title,
-    String? subtitle,
-    String? createdBy,
-    Map<String, dynamic> extra = const <String, dynamic>{},
-  }) {
-    return notificationCubit.show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Cronograma',
-        type: NotificationType.error,
-        createdBy: createdBy,
-        extra: {
-          'module': 'physics_finance',
-          ...extra,
-        },
-      ),
-      userId: createdBy,
-      saveInFirebase: false,
-    );
-  }
-
-  static Future<void> toastWarning({
-    required NotificationCubit notificationCubit,
-    required String title,
-    String? subtitle,
-    String? createdBy,
-    Map<String, dynamic> extra = const <String, dynamic>{},
-  }) {
-    return notificationCubit.show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Cronograma',
-        type: NotificationType.warning,
-        createdBy: createdBy,
-        extra: {
-          'module': 'physics_finance',
-          ...extra,
-        },
-      ),
-      userId: createdBy,
-      saveInFirebase: false,
     );
   }
 }

@@ -10,8 +10,8 @@ import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_me
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_state.dart';
 
-import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
@@ -165,11 +165,72 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     return 'Usuário';
   }
 
+  String get _contractNumber {
+    final data = widget.contractData;
+
+    final number = data.contractNumber?.trim() ?? '';
+    if (number.isNotEmpty) return number;
+
+    final process = data.processNumber?.trim() ?? '';
+    if (process.isNotEmpty) return process;
+
+    return _contractId;
+  }
+
+  DateTime? _parseDateTimeFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is DateTime) return value;
+
+    final text = value.toString().trim();
+    if (text.isEmpty) return null;
+
+    final iso = DateTime.tryParse(text);
+    if (iso != null) return iso;
+
+    final parts = text.split('/');
+
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+
+      if (day != null && month != null && year != null) {
+        final parsed = DateTime(year, month, day);
+
+        if (parsed.day == day &&
+            parsed.month == month &&
+            parsed.year == year) {
+          return parsed;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  num? _parseNumFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is num) return value;
+
+    final text = value.toString().trim();
+    if (text.isEmpty) return null;
+
+    final normalized = text
+        .replaceAll('R\$', '')
+        .replaceAll('.', '')
+        .replaceAll(',', '.')
+        .trim();
+
+    return num.tryParse(normalized);
+  }
+
   Future<void> _notify({
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -180,7 +241,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
 
-    await NotificationContract.show(
+    await NotificationMeasurements.show(
       context: context,
       contract: widget.contractData,
       title: title,
@@ -188,21 +249,27 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
       details: details ?? _contractSummary,
       leadingLabel: 'Revisão',
       module: 'contracts_measurement_revision',
-      type: type,
+      kind: NotificationMeasurementKind.revision,
+      status: type,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
       actorId: currentUserId,
       actorName: actorName,
-
-      // ✅ Inclui também o usuário atual nas notificações salvas e remote.
       includeCurrentUser: true,
-
+      measurementId: extra['revisionId']?.toString(),
+      measurementNumber: extra['revisionProcess']?.toString(),
+      measurementOrder: extra['revisionOrder']?.toString(),
+      measurementDate: _parseDateTimeFromExtra(extra['revisionDate']),
+      revisionValue: _parseNumFromExtra(extra['revisionValue']),
       extra: <String, dynamic>{
         'route': 'contracts_measurement_revision',
+        'module': 'contracts_measurement_revision',
         'contractId': _contractId,
+        'contractNumber': _contractNumber,
         'contractTitle': _contractSummary,
         'contractSummary': _contractSummary,
+        'measurementKind': NotificationMeasurementKind.revision.name,
         ...extra,
       },
     );
@@ -310,7 +377,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
       await _notify(
         title: 'Anexo renomeado',
         subtitle: newItem.label,
-        type: NotificationType.success,
+        type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -327,7 +394,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
       await _notify(
         title: 'Falha ao renomear anexo',
         subtitle: '$e',
-        type: NotificationType.error,
+        type: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
 
@@ -457,7 +524,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 await _notify(
                                   title: 'Data da revisão inválida',
                                   subtitle: 'Use o formato dd/MM/aaaa.',
-                                  type: NotificationType.error,
+                                  type: NotificationStatus.error,
                                 );
                                 return;
                               }
@@ -467,7 +534,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                   title: 'Contrato inválido',
                                   subtitle:
                                   'Não foi possível identificar o contrato.',
-                                  type: NotificationType.error,
+                                  type: NotificationStatus.error,
                                 );
                                 return;
                               }
@@ -509,7 +576,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                       : 'Revisão atualizada',
                                   subtitle:
                                   'Revisão ${data.order ?? '-'} salva por $actorName.',
-                                  type: NotificationType.success,
+                                  type: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
@@ -528,7 +595,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 await _notify(
                                   title: 'Erro ao salvar revisão',
                                   subtitle: '$e',
-                                  type: NotificationType.error,
+                                  type: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
                               }
@@ -568,7 +635,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                   title: 'Arquivo anexado',
                                   subtitle:
                                   uploaded?.label ?? 'Upload concluído.',
-                                  type: NotificationType.success,
+                                  type: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
@@ -583,7 +650,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 await _notify(
                                   title: 'Erro ao anexar arquivo',
                                   subtitle: '$e',
-                                  type: NotificationType.error,
+                                  type: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
                               }
@@ -618,7 +685,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 await _notify(
                                   title: 'Anexo removido',
                                   subtitle: attachment.label,
-                                  type: NotificationType.warning,
+                                  type: NotificationStatus.warning,
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
@@ -633,7 +700,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 await _notify(
                                   title: 'Erro ao remover anexo',
                                   subtitle: '$e',
-                                  type: NotificationType.error,
+                                  type: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
                               }
@@ -737,7 +804,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 subtitle: deleted.order != null
                                     ? 'Revisão ${deleted.order} removida por $actorName.'
                                     : 'A revisão foi removida por $actorName.',
-                                type: NotificationType.warning,
+                                type: NotificationStatus.warning,
                                 saveInBell: true,
                                 sendPush: true,
                                 extra: <String, dynamic>{
@@ -754,7 +821,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               await _notify(
                                 title: 'Erro ao apagar revisão',
                                 subtitle: '$e',
-                                type: NotificationType.error,
+                                type: NotificationStatus.error,
                                 duration: const Duration(seconds: 6),
                               );
                             }

@@ -10,8 +10,8 @@ import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustmen
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_state.dart';
 
-import 'package:sipged/_blocs/system/notification/helpers/notification_contract.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
@@ -178,11 +178,63 @@ class _AdjustmentMeasurementViewState
     return 'Usuário';
   }
 
+  DateTime? _parseDateTimeFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    final iso = DateTime.tryParse(text);
+
+    if (iso != null) {
+      return iso;
+    }
+
+    final parts = text.split('/');
+
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+
+    return null;
+  }
+
+  num? _parseNumFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is num) {
+      return value;
+    }
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    final normalized = text
+        .replaceAll('R\$', '')
+        .replaceAll('.', '')
+        .replaceAll(',', '.')
+        .trim();
+
+    return num.tryParse(normalized);
+  }
+
   Future<void> _notify({
     required String title,
     String? subtitle,
     String? details,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -193,7 +245,7 @@ class _AdjustmentMeasurementViewState
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
 
-    await NotificationContract.show(
+    await NotificationMeasurements.show(
       context: context,
       contract: widget.contractData,
       title: title,
@@ -201,22 +253,29 @@ class _AdjustmentMeasurementViewState
       details: details ?? _contractSummary,
       leadingLabel: 'Reajuste',
       module: 'contracts_adjustment_measurement',
-      type: type,
+      kind: NotificationMeasurementKind.adjustment,
+      status: type,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
       actorId: currentUserId,
       actorName: actorName,
-
-      // Inclui também quem executou a ação.
       includeCurrentUser: true,
+
+      measurementId: extra['adjustmentId']?.toString(),
+      measurementNumber: extra['adjustmentProcess']?.toString(),
+      measurementOrder: extra['adjustmentOrder']?.toString(),
+      measurementDate: _parseDateTimeFromExtra(extra['adjustmentDate']),
+      adjustmentValue: _parseNumFromExtra(extra['adjustmentValue']),
 
       extra: <String, dynamic>{
         'route': 'contracts_adjustment_measurement',
+        'module': 'contracts_adjustment_measurement',
         'contractId': _contractId,
         'contractNumber': _contractNumber,
         'contractTitle': _contractSummary,
         'contractSummary': _contractSummary,
+        'measurementKind': NotificationMeasurementKind.adjustment.name,
         ...extra,
       },
     );
@@ -417,7 +476,7 @@ class _AdjustmentMeasurementViewState
                                 await _notify(
                                   title: 'Data do reajuste inválida',
                                   subtitle: 'Use o formato dd/MM/aaaa.',
-                                  type: NotificationType.error,
+                                  type: NotificationStatus.error,
                                 );
                                 return;
                               }
@@ -427,7 +486,7 @@ class _AdjustmentMeasurementViewState
                                   title: 'Contrato inválido',
                                   subtitle:
                                   'Não foi possível identificar o contrato.',
-                                  type: NotificationType.error,
+                                  type: NotificationStatus.error,
                                 );
                                 return;
                               }
@@ -458,7 +517,7 @@ class _AdjustmentMeasurementViewState
                                       : 'Reajuste atualizado',
                                   subtitle:
                                   'Reajuste ${data.order ?? '-'} salvo por $actorName.',
-                                  type: NotificationType.success,
+                                  type: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
@@ -477,7 +536,7 @@ class _AdjustmentMeasurementViewState
                                 await _notify(
                                   title: 'Erro ao salvar reajuste',
                                   subtitle: '$e',
-                                  type: NotificationType.error,
+                                  type: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
                               }
@@ -519,7 +578,7 @@ class _AdjustmentMeasurementViewState
                                   title: 'Arquivo anexado ao reajuste',
                                   subtitle:
                                   'Upload concluído por $actorName.',
-                                  type: NotificationType.success,
+                                  type: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
@@ -534,7 +593,7 @@ class _AdjustmentMeasurementViewState
                                 await _notify(
                                   title: 'Falha ao anexar arquivo',
                                   subtitle: '$e',
-                                  type: NotificationType.error,
+                                  type: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
                               }
@@ -583,7 +642,7 @@ class _AdjustmentMeasurementViewState
                                   title: 'Arquivo removido do reajuste',
                                   subtitle:
                                   '${attachment.label} removido por $actorName.',
-                                  type: NotificationType.warning,
+                                  type: NotificationStatus.warning,
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
@@ -599,7 +658,7 @@ class _AdjustmentMeasurementViewState
                                 await _notify(
                                   title: 'Erro ao remover arquivo',
                                   subtitle: '$e',
-                                  type: NotificationType.error,
+                                  type: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
                               }
@@ -633,7 +692,7 @@ class _AdjustmentMeasurementViewState
                                   title: 'Anexo de reajuste renomeado',
                                   subtitle:
                                   '${newItem.label} renomeado por $actorName.',
-                                  type: NotificationType.success,
+                                  type: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
@@ -652,7 +711,7 @@ class _AdjustmentMeasurementViewState
                                 await _notify(
                                   title: 'Falha ao renomear anexo',
                                   subtitle: '$e',
-                                  type: NotificationType.error,
+                                  type: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
 
@@ -743,7 +802,7 @@ class _AdjustmentMeasurementViewState
                                 subtitle: deleted.order != null
                                     ? 'Reajuste ${deleted.order} removido por $actorName.'
                                     : 'O reajuste foi removido por $actorName.',
-                                type: NotificationType.warning,
+                                type: NotificationStatus.warning,
                                 saveInBell: true,
                                 sendPush: true,
                                 extra: <String, dynamic>{
@@ -760,7 +819,7 @@ class _AdjustmentMeasurementViewState
                               await _notify(
                                 title: 'Erro ao apagar reajuste',
                                 subtitle: '$e',
-                                type: NotificationType.error,
+                                type: NotificationStatus.error,
                                 duration: const Duration(seconds: 6),
                               );
                             }

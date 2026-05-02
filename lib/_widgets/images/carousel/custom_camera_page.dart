@@ -1,11 +1,7 @@
 import 'package:camera/camera.dart' as cam;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 class CustomCameraPage extends StatefulWidget {
@@ -18,33 +14,12 @@ class CustomCameraPage extends StatefulWidget {
 class _CustomCameraPageState extends State<CustomCameraPage>
     with WidgetsBindingObserver {
   cam.CameraController? _controller;
+
   bool _busy = false;
   bool _initializing = false;
+
   String? _error;
   int _initToken = 0;
-
-  void _notify(
-      String title, {
-        NotificationType type = NotificationType.info,
-        String? subtitle,
-        Duration duration = const Duration(seconds: 5),
-      }) {
-    if (!mounted) return;
-
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Câmera',
-        type: type,
-        duration: duration,
-        extra: const <String, dynamic>{
-          'module': 'camera',
-        },
-      ),
-      saveInFirebase: false,
-    );
-  }
 
   @override
   void initState() {
@@ -138,34 +113,26 @@ class _CustomCameraPageState extends State<CustomCameraPage>
       setState(() {
         _controller = controller;
       });
-    } on cam.CameraException catch (e) {
+    } on cam.CameraException catch (e, s) {
       if (!mounted) return;
 
       final msg = e.description ?? e.code;
 
+      debugPrint('[CustomCameraPage] Falha ao iniciar câmera: $msg');
+      debugPrintStack(stackTrace: s);
+
       setState(() {
         _error = 'Erro da câmera: $msg';
       });
-
-      _notify(
-        'Falha ao iniciar a câmera',
-        subtitle: msg,
-        type: NotificationType.error,
-        duration: const Duration(seconds: 6),
-      );
-    } catch (e) {
+    } catch (e, s) {
       if (!mounted) return;
+
+      debugPrint('[CustomCameraPage] Erro ao iniciar câmera: $e');
+      debugPrintStack(stackTrace: s);
 
       setState(() {
         _error = 'Erro ao iniciar câmera: $e';
       });
-
-      _notify(
-        'Falha ao iniciar a câmera',
-        subtitle: '$e',
-        type: NotificationType.error,
-        duration: const Duration(seconds: 6),
-      );
     } finally {
       _initializing = false;
 
@@ -189,24 +156,26 @@ class _CustomCameraPageState extends State<CustomCameraPage>
       if (!mounted) return;
 
       Navigator.of(context).pop<Uint8List>(bytes);
-    } on cam.CameraException catch (e) {
+    } on cam.CameraException catch (e, s) {
       if (!mounted) return;
 
-      _notify(
-        'Falha ao capturar',
-        subtitle: e.description ?? e.code,
-        type: NotificationType.error,
-        duration: const Duration(seconds: 6),
-      );
-    } catch (e) {
+      final msg = e.description ?? e.code;
+
+      debugPrint('[CustomCameraPage] Falha ao capturar: $msg');
+      debugPrintStack(stackTrace: s);
+
+      setState(() {
+        _error = 'Falha ao capturar: $msg';
+      });
+    } catch (e, s) {
       if (!mounted) return;
 
-      _notify(
-        'Falha ao capturar',
-        subtitle: '$e',
-        type: NotificationType.error,
-        duration: const Duration(seconds: 6),
-      );
+      debugPrint('[CustomCameraPage] Falha ao capturar: $e');
+      debugPrintStack(stackTrace: s);
+
+      setState(() {
+        _error = 'Falha ao capturar: $e';
+      });
     } finally {
       if (mounted) {
         setState(() => _busy = false);

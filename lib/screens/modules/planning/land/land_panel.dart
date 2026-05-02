@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/screens/modules/planning/land/land_tabs.dart';
@@ -23,11 +23,11 @@ class LandPanel extends StatelessWidget {
       BuildContext context, {
         required String title,
         String? subtitle,
-        NotificationType type = NotificationType.info,
+        NotificationStatus type = NotificationStatus.info,
         String leadingLabel = 'Direito de Passagem',
         Duration duration = const Duration(seconds: 4),
       }) {
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -64,7 +64,7 @@ class LandPanel extends StatelessWidget {
                     context,
                     title: 'Em implementação',
                     subtitle: 'Ação: Adicionar DUP',
-                    type: NotificationType.info,
+                    type: NotificationStatus.info,
                   );
                 },
               ),

@@ -1,13 +1,7 @@
-import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
 import 'package:sipged/_widgets/dialog/windows/window_dialog.dart';
 
 import 'excel_table_widget.dart';
@@ -75,47 +69,8 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
     super.dispose();
   }
 
-  void _notify(
-      String title, {
-        NotificationType type = NotificationType.info,
-        String? subtitle,
-      }) {
-    if (!mounted) return;
-
-    context.read<NotificationCubit>().show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Importação',
-        type: type,
-        extra: {
-          'module': 'excel_import',
-          'path': widget.path,
-        },
-      ),
-      saveInFirebase: false,
-    );
-  }
-
-  Future<void> _notifyWithCubit(
-      NotificationCubit cubit,
-      String title, {
-        NotificationType type = NotificationType.info,
-        String? subtitle,
-      }) {
-    return cubit.show(
-      NotificationData(
-        title: title,
-        subtitle: subtitle,
-        leadingLabel: 'Importação',
-        type: type,
-        extra: {
-          'module': 'excel_import',
-          'path': widget.path,
-        },
-      ),
-      saveInFirebase: false,
-    );
+  void _debug(String message) {
+    debugPrint('[ExcelPreviewDialog] $message');
   }
 
   @override
@@ -324,20 +279,14 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
     final total = _linhasSelecionadas.entries.where((e) => e.value).length;
 
     if (total == 0) {
-      _notify(
-        'Nada a importar',
-        subtitle: 'Nenhuma linha selecionada.',
-        type: NotificationType.warning,
-      );
+      _debug('Nenhuma linha selecionada para importação.');
       return;
     }
-
-    final notificationCubit = context.read<NotificationCubit>();
 
     final progress = ValueNotifier<int>(0);
     _importDialogLoopStarted = false;
 
-    await showDialog(
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
@@ -378,17 +327,10 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
                 Navigator.of(context).pop();
               }
 
-              unawaited(
-                _notifyWithCubit(
-                  notificationCubit,
-                  'Importação concluída',
-                  subtitle: 'Registros importados: $count de $total.',
-                  type: NotificationType.success,
-                ),
-              );
+              _debug('Importação concluída: $count de $total registros.');
 
               widget.onFinished?.call();
-            } catch (e) {
+            } catch (e, s) {
               if (ctx.mounted) {
                 Navigator.of(ctx).pop();
               }
@@ -397,14 +339,8 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
                 Navigator.of(context).pop();
               }
 
-              unawaited(
-                _notifyWithCubit(
-                  notificationCubit,
-                  'Falha na importação',
-                  subtitle: '$e',
-                  type: NotificationType.error,
-                ),
-              );
+              debugPrint('[ExcelPreviewDialog] Falha na importação: $e');
+              debugPrintStack(stackTrace: s);
             }
           });
         }

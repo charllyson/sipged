@@ -4,9 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
@@ -49,10 +49,10 @@ class _ActiveAirportRecordsPageState extends State<ActiveAirportRecordsPage> {
   void _showNotification({
     required String title,
     String? subtitle,
-    NotificationType type = NotificationType.info,
+    NotificationStatus type = NotificationStatus.info,
     Duration duration = const Duration(seconds: 4),
   }) {
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -171,7 +171,7 @@ class _ActiveAirportRecordsPageState extends State<ActiveAirportRecordsPage> {
                                 _showNotification(
                                   title: 'Solicitando exclusão...',
                                   subtitle: 'Registro enviado para exclusão.',
-                                  type: NotificationType.warning,
+                                  type: NotificationStatus.warning,
                                 );
                               },
                             ),

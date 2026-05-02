@@ -5,9 +5,9 @@ import 'package:sipged/_blocs/modules/planning/land/notification/land_notificati
 import 'package:sipged/_blocs/modules/planning/land/notification/land_notification_data.dart';
 import 'package:sipged/_blocs/modules/planning/land/notification/land_notification_state.dart';
 
-import 'package:sipged/_blocs/system/notification/local/notification_cubit.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/local/notification_type.dart';
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
@@ -114,11 +114,11 @@ class _LandNotificationState extends State<LandNotification> {
     required String title,
     String? subtitle,
     String? details,
-    required NotificationType type,
+    required NotificationStatus type,
   }) {
     if (!mounted) return;
 
-    context.read<NotificationCubit>().show(
+    context.read<NotificationLocalCubit>().show(
       NotificationData(
         title: title,
         subtitle: subtitle,
@@ -258,7 +258,7 @@ class _LandNotificationState extends State<LandNotification> {
     _notify(
       title: 'Formulário limpo',
       subtitle: 'Os campos da notificação foram reiniciados.',
-      type: NotificationType.info,
+      type: NotificationStatus.info,
     );
   }
 
@@ -289,7 +289,7 @@ class _LandNotificationState extends State<LandNotification> {
             title: 'Erro na notificação',
             subtitle: 'Não foi possível concluir a operação.',
             details: error,
-            type: NotificationType.error,
+            type: NotificationStatus.error,
           );
         }
 
@@ -297,7 +297,7 @@ class _LandNotificationState extends State<LandNotification> {
           _notify(
             title: 'Notificação atualizada',
             subtitle: success,
-            type: NotificationType.success,
+            type: NotificationStatus.success,
           );
         }
       },
