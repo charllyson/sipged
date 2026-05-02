@@ -1,3 +1,5 @@
+// lib/screens/modules/contracts/hiring/5Edital/edital_julgamento_page.dart
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,6 +14,7 @@ import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 
@@ -51,6 +54,9 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
   @override
   bool get wantKeepAlive => true;
 
+  static const String _notificationSource = 'contracts_hiring_edital';
+  static const String _route = 'contracts_hiring_edital';
+
   late final ProgressCubit _progressCubit;
 
   EditalData _formData = const EditalData.empty();
@@ -67,20 +73,6 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
   bool get _isEditable => !widget.readOnly;
 
   String get _contractId => widget.contractId.trim();
-
-  String get _currentUserId {
-    return FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
-  }
-
-  List<String> get _defaultPushTargets {
-    final uid = _currentUserId;
-
-    if (uid.isEmpty) {
-      return const <String>[];
-    }
-
-    return <String>[uid];
-  }
 
   ProcessData get _effectiveContract {
     if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
@@ -134,7 +126,9 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
 
         _loadingContract = false;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[EditalJulgamentoPage] Erro ao carregar contrato $cid: $e');
+
       if (!mounted) return;
 
       setState(() {
@@ -160,37 +154,55 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
     required String title,
     String? subtitle,
     String? details,
-    NotificationStatus type = NotificationStatus.info,
+    NotificationStatus status = NotificationStatus.info,
+
+    /// Compatibilidade com chamadas antigas.
+    NotificationStatus? type,
+
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
+
+    /// Vazio = helper resolve todos os usuários com permissão ao contrato.
     Iterable<String> targetUserIds = const <String>[],
+
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
+    final effectiveContract = _effectiveContract;
 
     await NotificationHiring.show(
       context: context,
-      contract: _effectiveContract,
+      contract: effectiveContract,
       title: title,
       subtitle: subtitle,
       details: details,
       leadingLabel: 'Edital',
-      module: 'contracts_hiring_edital',
-      type: type,
+      module: _route,
+      notificationSource: _notificationSource,
+      source: 'edital_notification',
+      status: type ?? status,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
+      delivery: NotificationDelivery.localBellAndPush,
       targetUserIds: targetUserIds,
       actorId: user?.uid,
       actorName: _currentActorName(),
       extra: <String, dynamic>{
         ...extra,
-        'route': extra['route'] ?? 'contracts_hiring_edital',
-        'contractId': _effectiveContract.id,
-        'contractSummary': _effectiveContract.displaySummary,
+        'route': extra['route'] ?? _route,
+        'module': _route,
+        'source': 'edital_notification',
+        'sourceKey': _notificationSource,
+        'subSource': _notificationSource,
+        'notificationSource': _notificationSource,
+        if ((effectiveContract.id ?? '').trim().isNotEmpty)
+          'contractId': effectiveContract.id,
+        if (effectiveContract.displaySummary.trim().isNotEmpty)
+          'contractSummary': effectiveContract.displaySummary,
       },
     );
   }
@@ -246,12 +258,14 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
     unawaited(_scrollToResultado());
   }
 
-  Future<bool> _saveOnly() async {
+  Future<bool> _saveOnly({
+    bool notifySuccess = true,
+  }) async {
     if (widget.readOnly) {
       await _notify(
         title: 'Edital',
         subtitle: 'Esta etapa está em modo somente leitura.',
-        type: NotificationStatus.info,
+        status: NotificationStatus.info,
       );
       return false;
     }
@@ -262,7 +276,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
       await _notify(
         title: 'Validação do Edital',
         subtitle: quick,
-        type: NotificationStatus.warning,
+        status: NotificationStatus.warning,
       );
 
       return false;
@@ -285,7 +299,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
           title: 'Edital',
           subtitle: 'Erro ao salvar.',
           details: err,
-          type: NotificationStatus.error,
+          status: NotificationStatus.error,
           duration: const Duration(seconds: 6),
         );
 
@@ -301,21 +315,24 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         collectionName: 'edital',
       );
 
-      await _notify(
-        title: 'Edital atualizado',
-        subtitle: 'Alterações salvas por ${_currentActorName()}.',
-        details: _effectiveContract.displaySummary,
-        type: NotificationStatus.success,
-        saveInBell: true,
-        sendPush: true,
-        targetUserIds: _defaultPushTargets,
-        extra: <String, dynamic>{
-          'action': 'edital_saved',
-          'editalId': cubit.state.editalId,
-          'contractId': _contractId,
-          'route': 'contracts_hiring_edital',
-        },
-      );
+      if (notifySuccess) {
+        await _notify(
+          title: 'Edital atualizado',
+          subtitle: 'Alterações salvas por ${_currentActorName()}.',
+          details: _effectiveContract.displaySummary,
+          status: NotificationStatus.success,
+          saveInBell: true,
+          sendPush: true,
+          targetUserIds: const <String>[],
+          extra: <String, dynamic>{
+            'action': 'edital_saved',
+            'editalId': cubit.state.editalId,
+            'contractId': _contractId,
+            'route': _route,
+            'notificationSource': _notificationSource,
+          },
+        );
+      }
 
       return true;
     } catch (e) {
@@ -325,7 +342,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         title: 'Edital',
         subtitle: 'Erro ao salvar.',
         details: '$e',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
 
@@ -339,7 +356,9 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
     final controller = DefaultTabController.of(context);
     final repo = _progressCubit.repo;
 
-    final saved = await _saveOnly();
+    final saved = await _saveOnly(
+      notifySuccess: false,
+    );
 
     if (!mounted || !saved) return;
 
@@ -349,7 +368,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
       await _notify(
         title: 'Edital',
         subtitle: 'Documento não encontrado para aprovar.',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
       );
 
       return;
@@ -386,15 +405,16 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         title: 'Edital aprovado',
         subtitle: 'Etapa concluída por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
-        targetUserIds: _defaultPushTargets,
+        targetUserIds: const <String>[],
         extra: <String, dynamic>{
           'action': 'edital_approved',
           'editalId': editalId,
           'contractId': _contractId,
-          'route': 'contracts_hiring_edital',
+          'route': _route,
+          'notificationSource': _notificationSource,
           'nextStage': 'habilitacao',
         },
       );
@@ -405,7 +425,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         title: 'Edital',
         subtitle: 'Erro ao aprovar a etapa.',
         details: '$e',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -415,7 +435,9 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
     final editalCubit = context.read<EditalCubit>();
     final repo = _progressCubit.repo;
 
-    final saved = await _saveOnly();
+    final saved = await _saveOnly(
+      notifySuccess: false,
+    );
 
     if (!mounted || !saved) return;
 
@@ -425,7 +447,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
       await _notify(
         title: 'Edital',
         subtitle: 'Documento não encontrado para atualizar.',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
       );
 
       return;
@@ -449,15 +471,16 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         title: 'Aprovação do Edital atualizada',
         subtitle: 'Atualizada por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
-        targetUserIds: _defaultPushTargets,
+        targetUserIds: const <String>[],
         extra: <String, dynamic>{
           'action': 'edital_approval_updated',
           'editalId': editalId,
           'contractId': _contractId,
-          'route': 'contracts_hiring_edital',
+          'route': _route,
+          'notificationSource': _notificationSource,
         },
       );
     } catch (e) {
@@ -467,7 +490,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
         title: 'Edital',
         subtitle: 'Erro ao atualizar aprovação.',
         details: '$e',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -607,7 +630,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                       return StageProgress(
                         title: 'Edital – Julgamento',
                         icon: Icons.gavel_outlined,
-                        busy: state.saving,
+                        busy: state.saving || progressState.loading,
                         approved: progressState.approved,
                         onSave: _saveOnly,
                         onSaveAndNext: _saveApproveAndNext,

@@ -43,6 +43,9 @@ class NotificationPreferencesRepository {
 
       final snapshot = await docRef.get();
 
+      /// Importante:
+      /// Só cria se não existir.
+      /// Se o usuário já desativou algo, não sobrescreve.
       if (!snapshot.exists) {
         batch.set(
           docRef,
@@ -211,6 +214,7 @@ class NotificationPreferencesRepository {
         sourceKey: subSource.key,
       );
 
+      /// Reset manual: aqui sim sobrescreve tudo para ativo.
       batch.set(
         docRef,
         NotificationPreferenceData.defaultForSubSource(subSource).toMap(),

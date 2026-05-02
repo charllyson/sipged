@@ -8,6 +8,7 @@ import 'package:sipged/_blocs/modules/contracts/additives/additives_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_state.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_additive.dart';
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
@@ -203,6 +204,34 @@ class _AdditivePageState extends State<AdditivePage> {
     return null;
   }
 
+  num? _parseNumFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is num) return value;
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    final normalized = text
+        .replaceAll('R\$', '')
+        .replaceAll('.', '')
+        .replaceAll(',', '.')
+        .trim();
+
+    return num.tryParse(normalized);
+  }
+
+  int? _parseIntFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is int) return value;
+
+    if (value is num) return value.toInt();
+
+    return int.tryParse(value.toString().trim());
+  }
+
   Future<void> _notify({
     required String title,
     String? subtitle,
@@ -226,6 +255,8 @@ class _AdditivePageState extends State<AdditivePage> {
       details: details ?? _contractSummary,
       leadingLabel: 'Aditivo',
       module: 'contracts_additives',
+      source: 'additive_notification',
+      notificationSource: 'contracts_additives',
       status: type,
       duration: duration,
       saveInBell: saveInBell,
@@ -233,14 +264,21 @@ class _AdditivePageState extends State<AdditivePage> {
       actorId: currentUserId,
       actorName: actorName,
       includeCurrentUser: true,
-
+      delivery: NotificationDelivery.localBellAndPush,
       additiveId: extra['additiveId']?.toString(),
-      additiveNumber: extra['additiveNumber']?.toString() ??
+      additiveNumber:
+      extra['additiveNumber']?.toString() ??
           extra['additiveProcess']?.toString(),
       additiveOrder: extra['additiveOrder']?.toString(),
       additiveType: extra['additiveType']?.toString(),
       additiveDate: _parseDateTimeFromExtra(extra['additiveDate']),
-
+      additiveValue: _parseNumFromExtra(extra['additiveValue']),
+      additiveValidityExecutionDays: _parseIntFromExtra(
+        extra['additiveValidityExecutionDays'],
+      ),
+      additiveValidityContractDays: _parseIntFromExtra(
+        extra['additiveValidityContractDays'],
+      ),
       extra: <String, dynamic>{
         'route': 'contracts_additives',
         'module': 'contracts_additives',

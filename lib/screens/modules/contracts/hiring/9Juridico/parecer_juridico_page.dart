@@ -1,3 +1,5 @@
+// lib/screens/modules/contracts/hiring/9Juridico/parecer_juridico_page.dart
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -16,6 +18,7 @@ import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 
@@ -55,6 +58,9 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
   @override
   bool get wantKeepAlive => true;
 
+  static const String _route = 'contracts_hiring_parecer';
+  static const String _notificationSource = 'contracts_hiring_parecer';
+
   late final ProgressCubit _progressBloc;
 
   ParecerJuridicoData _formData = const ParecerJuridicoData.empty();
@@ -70,16 +76,6 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
   bool get _isEditable => !widget.readOnly;
 
   String get _contractId => widget.contractId.trim();
-
-  String get _currentUserId {
-    return FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
-  }
-
-  List<String> get _defaultPushTargets {
-    final uid = _currentUserId;
-    if (uid.isEmpty) return const <String>[];
-    return <String>[uid];
-  }
 
   ProcessData get _effectiveContract {
     if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
@@ -131,7 +127,9 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
             : ProcessData.empty().copyWith(id: cid);
         _loadingContract = false;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ParecerJuridicoPage] Erro ao carregar contrato $cid: $e');
+
       if (!mounted) return;
 
       setState(() {
@@ -157,47 +155,67 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     required String title,
     String? subtitle,
     String? details,
-    NotificationStatus type = NotificationStatus.info,
+    NotificationStatus status = NotificationStatus.info,
+
+    /// Compatibilidade com chamadas antigas.
+    NotificationStatus? type,
+
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
+
+    /// Vazio = helper resolve todos os usuários com permissão ao contrato.
     Iterable<String> targetUserIds = const <String>[],
+
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
+    final effectiveContract = _effectiveContract;
 
     await NotificationHiring.show(
       context: context,
-      contract: _effectiveContract,
+      contract: effectiveContract,
       title: title,
       subtitle: subtitle,
       details: details,
       leadingLabel: 'Jurídico',
-      module: 'contracts_hiring_parecer',
-      type: type,
+      module: _route,
+      notificationSource: _notificationSource,
+      source: 'parecer_notification',
+      status: type ?? status,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
+      delivery: NotificationDelivery.localBellAndPush,
       targetUserIds: targetUserIds,
       actorId: user?.uid,
       actorName: _currentActorName(),
       extra: <String, dynamic>{
         ...extra,
-        'route': extra['route'] ?? 'contracts_hiring_parecer',
-        'contractId': _effectiveContract.id,
-        'contractSummary': _effectiveContract.displaySummary,
+        'route': extra['route'] ?? _route,
+        'module': _route,
+        'source': 'parecer_notification',
+        'sourceKey': _notificationSource,
+        'subSource': _notificationSource,
+        'notificationSource': _notificationSource,
+        if ((effectiveContract.id ?? '').trim().isNotEmpty)
+          'contractId': effectiveContract.id,
+        if (effectiveContract.displaySummary.trim().isNotEmpty)
+          'contractSummary': effectiveContract.displaySummary,
       },
     );
   }
 
-  Future<bool> _saveOnly() async {
+  Future<bool> _saveOnly({
+    bool notifySuccess = true,
+  }) async {
     if (widget.readOnly) {
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Esta etapa está em modo somente leitura.',
-        type: NotificationStatus.info,
+        status: NotificationStatus.info,
       );
       return false;
     }
@@ -206,7 +224,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Contrato não identificado para salvar.',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
       );
       return false;
     }
@@ -226,7 +244,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
           title: 'Parecer Jurídico',
           subtitle: 'Erro ao salvar.',
           details: cubit.state.error ?? 'Falha ao salvar',
-          type: NotificationStatus.error,
+          status: NotificationStatus.error,
           duration: const Duration(seconds: 6),
         );
         return false;
@@ -241,21 +259,24 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         collectionName: 'parecer',
       );
 
-      await _notify(
-        title: 'Parecer Jurídico atualizado',
-        subtitle: 'Alterações salvas por ${_currentActorName()}.',
-        details: _effectiveContract.displaySummary,
-        type: NotificationStatus.success,
-        saveInBell: true,
-        sendPush: true,
-        targetUserIds: _defaultPushTargets,
-        extra: <String, dynamic>{
-          'action': 'parecer_saved',
-          'parecerId': cubit.state.parecerId,
-          'contractId': _contractId,
-          'route': 'contracts_hiring_parecer',
-        },
-      );
+      if (notifySuccess) {
+        await _notify(
+          title: 'Parecer Jurídico atualizado',
+          subtitle: 'Alterações salvas por ${_currentActorName()}.',
+          details: _effectiveContract.displaySummary,
+          status: NotificationStatus.success,
+          saveInBell: true,
+          sendPush: true,
+          targetUserIds: const <String>[],
+          extra: <String, dynamic>{
+            'action': 'parecer_saved',
+            'parecerId': cubit.state.parecerId,
+            'contractId': _contractId,
+            'route': _route,
+            'notificationSource': _notificationSource,
+          },
+        );
+      }
 
       return true;
     } catch (e) {
@@ -265,7 +286,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         title: 'Parecer Jurídico',
         subtitle: 'Erro ao salvar.',
         details: '$e',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
 
@@ -279,7 +300,9 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     final tab = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly();
+    final saved = await _saveOnly(
+      notifySuccess: false,
+    );
 
     if (!mounted || !saved) return;
 
@@ -289,7 +312,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Documento não encontrado para aprovar.',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
       );
       return;
     }
@@ -322,15 +345,16 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         title: 'Parecer Jurídico aprovado',
         subtitle: 'Etapa concluída por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
-        targetUserIds: _defaultPushTargets,
+        targetUserIds: const <String>[],
         extra: <String, dynamic>{
           'action': 'parecer_approved',
           'parecerId': parecerId,
           'contractId': _contractId,
-          'route': 'contracts_hiring_parecer',
+          'route': _route,
+          'notificationSource': _notificationSource,
           'nextStage': 'publicacao',
         },
       );
@@ -341,7 +365,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         title: 'Parecer Jurídico',
         subtitle: 'Erro ao aprovar.',
         details: '$e',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -351,7 +375,9 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     final parecerCubit = context.read<ParecerJuridicoCubit>();
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly();
+    final saved = await _saveOnly(
+      notifySuccess: false,
+    );
 
     if (!mounted || !saved) return;
 
@@ -361,7 +387,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Documento não encontrado para atualizar.',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
       );
       return;
     }
@@ -383,15 +409,16 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         title: 'Aprovação do Parecer Jurídico atualizada',
         subtitle: 'Atualizada por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
-        targetUserIds: _defaultPushTargets,
+        targetUserIds: const <String>[],
         extra: <String, dynamic>{
           'action': 'parecer_approval_updated',
           'parecerId': parecerId,
           'contractId': _contractId,
-          'route': 'contracts_hiring_parecer',
+          'route': _route,
+          'notificationSource': _notificationSource,
         },
       );
     } catch (e) {
@@ -401,7 +428,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         title: 'Parecer Jurídico',
         subtitle: 'Erro ao atualizar aprovação.',
         details: '$e',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -542,11 +569,9 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                       return StageProgress(
                         title: 'Parecer Jurídico',
                         icon: Icons.gavel_outlined,
-                        busy: state.saving,
+                        busy: state.saving || progressState.loading,
                         approved: progressState.approved,
-                        onSave: () async {
-                          await _saveOnly();
-                        },
+                        onSave: _saveOnly,
                         onSaveAndNext: _saveApproveAndNext,
                         onUpdateApproved: _updateApproved,
                       );

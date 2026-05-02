@@ -64,6 +64,14 @@ class TabChanged extends StatefulWidget {
   final int initialTabIndex;
   final List<ContractTabDescriptor> tabs;
   final String Function(ProcessData c)? bannerTitleBuilder;
+
+  /// Monta o texto do número exibido antes do resumo no banner.
+  ///
+  /// Exemplo:
+  /// Contrato nº 012/2026
+  /// Processo nº E:05500.000000/2026
+  final String Function(ProcessData c)? contractNumberBuilder;
+
   final String blockedMessage;
 
   final double topBarHeight;
@@ -92,6 +100,7 @@ class TabChanged extends StatefulWidget {
     this.initialTabIndex = 0,
     required this.tabs,
     this.bannerTitleBuilder,
+    this.contractNumberBuilder,
     this.blockedMessage =
     '⚠️ Para acessar esta aba, salve primeiro as informações principais do contrato.',
     this.topBarHeight = 72.0,
@@ -127,10 +136,61 @@ class _TabChangedState extends State<TabChanged> {
   @override
   void didUpdateWidget(covariant TabChanged oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.contractData?.id != widget.contractData?.id ||
         oldWidget.contractData != widget.contractData) {
       _contractData = widget.contractData;
     }
+  }
+
+  bool _isBlocked(ContractTabDescriptor tab) {
+    if (!tab.requireSavedContract) return false;
+
+    final id = _contractData?.id?.trim();
+    return id == null || id.isEmpty;
+  }
+
+  String? _resolveBannerTitle(ProcessData contract) {
+    final customTitle = widget.bannerTitleBuilder?.call(contract).trim();
+
+    if (customTitle != null && customTitle.isNotEmpty) {
+      return customTitle;
+    }
+
+    final textBanner = widget.textBanner?.trim();
+    if (textBanner != null && textBanner.isNotEmpty) {
+      return textBanner;
+    }
+
+    final summary = contract.displaySummary.trim();
+    if (summary.isNotEmpty) return summary;
+
+    return null;
+  }
+
+  String? _resolveContractNumber(ProcessData contract) {
+    final customNumber = widget.contractNumberBuilder?.call(contract).trim();
+
+    if (customNumber != null && customNumber.isNotEmpty) {
+      return customNumber;
+    }
+
+    final number = contract.displayNumber.trim();
+    if (number.isEmpty) return null;
+
+    final hasContractNumber =
+        (contract.contractNumber ?? '').trim().isNotEmpty;
+    final hasProcessNumber = (contract.processNumber ?? '').trim().isNotEmpty;
+
+    if (hasContractNumber) {
+      return 'Contrato nº $number';
+    }
+
+    if (hasProcessNumber) {
+      return 'Processo nº $number';
+    }
+
+    return number;
   }
 
   @override
@@ -157,21 +217,25 @@ class _TabChangedState extends State<TabChanged> {
                     Builder(
                       builder: (context) {
                         final tabController = DefaultTabController.of(context);
+
                         return AnimatedBuilder(
                           animation: tabController,
                           builder: (context, _) {
                             final idx = tabController.index;
-                            final c = _contractData!;
+                            final contract = _contractData!;
+
                             final cfg = widget.resolveStampForTab?.call(
                               tabIndex: idx,
-                              contract: c,
+                              contract: contract,
                             ) ??
                                 StampConfig.hidden;
 
                             return TabBanner(
-                              contract: c,
+                              contract: contract,
                               contractsCubit: widget.contractsCubit,
-                              titleText: widget.textBanner,
+                              titleText: _resolveBannerTitle(contract),
+                              contractNumberText:
+                              _resolveContractNumber(contract),
                               showStamp: cfg.show,
                               stampApproved: cfg.approved,
                               stampApprovedLabel:
@@ -194,10 +258,10 @@ class _TabChangedState extends State<TabChanged> {
                     child: TabBarView(
                       physics: const NeverScrollableScrollPhysics(),
                       children: [
-                        for (final t in tabs)
-                          t.requireSavedContract && (_contractData?.id == null)
+                        for (final tab in tabs)
+                          _isBlocked(tab)
                               ? TabBlocked(message: widget.blockedMessage)
-                              : t.builder(_contractData),
+                              : tab.builder(_contractData),
                       ],
                     ),
                   ),
@@ -246,7 +310,9 @@ class _TabChangedState extends State<TabChanged> {
                         indicatorColor: widget.indicatorColor,
                         unselectedLabelColor: widget.unselectedLabelColor,
                         indicatorWeight: widget.indicatorWeight,
-                        tabs: [for (final l in labels) Tab(text: l)],
+                        tabs: [
+                          for (final label in labels) Tab(text: label),
+                        ],
                       ),
                     ),
                     if (widget.trailing != null) widget.trailing!,

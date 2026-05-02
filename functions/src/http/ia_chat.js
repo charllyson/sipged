@@ -1,45 +1,64 @@
 // functions/src/http/ia_chat.js
-const functions = require('firebase-functions/v1');
+
+const { onRequest } = require('firebase-functions/v2/https');
 const corsHandler = require('../config/cors');
 const { askIa } = require('../services/ia_service');
 
-const iaChat = functions.https.onRequest((req, res) => {
-    corsHandler(req, res, async () => {
-        if (req.method !== 'POST') {
-            res.status(405).send('Method Not Allowed');
-            return;
-        }
-
-        try {
-            const body = req.body || {};
-            const message = body.message || '';
-
-            if (!message) {
-                res.status(400).json({ error: "Campo 'message' é obrigatório." });
-                return;
+const iaChat = onRequest(
+    {
+        region: 'southamerica-east1',
+        timeoutSeconds: 60,
+        memory: '256MiB',
+    },
+    async (req, res) => {
+        return corsHandler(req, res, async () => {
+            if (req.method !== 'POST') {
+                return res.status(405).json({
+                    ok: false,
+                    message: 'Method Not Allowed',
+                });
             }
 
-            const reply = await askIa(message);
+            try {
+                const body = req.body || {};
+                const message = String(body.message || '').trim();
 
-            res.status(200).json({ reply });
-        } catch (error) {
-            console.error('Erro na função iaChat:', error?.response?.data || error);
+                if (!message) {
+                    return res.status(400).json({
+                        ok: false,
+                        message: "Campo 'message' é obrigatório.",
+                    });
+                }
 
-            // Extrai info mais amigável
-            const apiError = error?.response?.data?.error;
-            const status = error?.response?.status || error?.status;
-            const message =
-            apiError?.message ||
-            error?.message ||
-            'Erro interno ao processar a IA.';
+                const reply = await askIa(message);
 
-            res.status(500).json({
-                error: message,
-                status,
-                raw: apiError || null,
-            });
-        }
-    });
-});
+                return res.status(200).json({
+                    ok: true,
+                    reply,
+                });
+            } catch (error) {
+                console.error(
+                    '[iaChat] Erro:',
+                    error?.response?.data || error,
+                );
+
+                const apiError = error?.response?.data?.error;
+                const status = error?.response?.status || error?.status;
+
+                const message =
+                apiError?.message ||
+                error?.message ||
+                'Erro interno ao processar a IA.';
+
+                return res.status(500).json({
+                    ok: false,
+                    message,
+                    status,
+                    raw: apiError || null,
+                });
+            }
+        });
+    },
+);
 
 module.exports = { iaChat };

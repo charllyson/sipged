@@ -211,6 +211,23 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
             contractsCubit: widget.contractsCubit,
             initialTabIndex: widget.initialTabIndex,
             textBanner: _dfdDescricaoObjeto,
+
+            contractNumberBuilder: (contract) {
+              final number = contract.displayNumber.trim();
+
+              if (number.isEmpty) return '';
+
+              if ((contract.contractNumber ?? '').trim().isNotEmpty) {
+                return 'Contrato nº $number';
+              }
+
+              if ((contract.processNumber ?? '').trim().isNotEmpty) {
+                return 'Processo nº $number';
+              }
+
+              return number;
+            },
+
             resolveStampForTab: ({
               required int tabIndex,
               required ProcessData contract,

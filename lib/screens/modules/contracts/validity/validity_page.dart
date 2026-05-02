@@ -207,6 +207,8 @@ class ValidityPage extends StatelessWidget {
       details: details ?? _contractTitle,
       leadingLabel: 'Validade',
       module: 'contracts_validity',
+      source: 'validity_notification',
+      notificationSource: 'contracts_validity',
       status: type,
       duration: duration,
       saveInBell: saveInBell,
@@ -215,14 +217,11 @@ class ValidityPage extends StatelessWidget {
       actorName: actorName,
       targetUserIds: recipients,
       includeCurrentUser: true,
-
       validityId: extra['validityId']?.toString(),
-      validityOrder: extra['orderNumber']?.toString() ??
-          extra['validityOrder']?.toString(),
+      validityOrder:
+      extra['orderNumber']?.toString() ?? extra['validityOrder']?.toString(),
       validityStartDate: _parseDateTimeFromExtra(
-        extra['validityStartDate'] ??
-            extra['orderDate'] ??
-            extra['validityDate'],
+        extra['validityStartDate'] ?? extra['orderDate'] ?? extra['validityDate'],
       ),
       validityEndDate: _parseDateTimeFromExtra(
         extra['validityEndDate'],
@@ -233,7 +232,6 @@ class ValidityPage extends StatelessWidget {
       executionValidityDays: _parseIntFromExtra(
         extra['executionValidityDays'],
       ),
-
       extra: <String, dynamic>{
         'route': 'contracts_validity',
         'module': 'contracts_validity',

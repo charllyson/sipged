@@ -11,8 +11,7 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_widgets/list/search/search_user_permission_widget.dart';
 
-import 'package:sipged/_blocs/system/module/module_permission.dart'
-as perms;
+import 'package:sipged/_blocs/system/module/module_permission.dart' as perms;
 import 'package:sipged/_blocs/system/user/user_permission.dart' as roles;
 import 'package:sipged/_blocs/modules/contracts/_process/contract_permission.dart'
 as acl;
@@ -25,6 +24,7 @@ class TabBanner extends StatefulWidget {
     super.key,
     required this.contract,
     this.titleText,
+    this.contractNumberText,
     this.onTap,
     this.interactive = true,
     this.userData,
@@ -41,7 +41,19 @@ class TabBanner extends StatefulWidget {
   });
 
   final ProcessData contract;
+
+  /// Texto principal do banner.
+  ///
+  /// Exemplo:
+  /// Recuperação funcional da rodovia AL-101
   final String? titleText;
+
+  /// Texto exibido antes do resumo.
+  ///
+  /// Exemplo:
+  /// Contrato nº 012/2026
+  /// Processo nº E:05500.000000/2026
+  final String? contractNumberText;
 
   final VoidCallback? onTap;
   final bool interactive;
@@ -74,6 +86,7 @@ class _TabBannerState extends State<TabBanner> {
   @override
   void didUpdateWidget(covariant TabBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.contract.id != widget.contract.id ||
         oldWidget.contract != widget.contract) {
       _contractData = widget.contract;
@@ -88,11 +101,26 @@ class _TabBannerState extends State<TabBanner> {
   bool _can(String action, {ProcessData? c}) {
     final u = _currentUser();
     if (u == null) return false;
+
     return acl.ContractPermissions.can(
       user: u,
       contract: c ?? _contractData,
       action: action,
     );
+  }
+
+  String _composeTitle({
+    required String number,
+    required String title,
+  }) {
+    final cleanNumber = number.trim();
+    final cleanTitle = title.trim();
+
+    if (cleanNumber.isEmpty && cleanTitle.isEmpty) return '';
+    if (cleanNumber.isEmpty) return cleanTitle;
+    if (cleanTitle.isEmpty) return cleanNumber;
+
+    return '$cleanNumber — $cleanTitle';
   }
 
   Future<void> _openParticipantsDialogFromBanner(
@@ -129,6 +157,7 @@ class _TabBannerState extends State<TabBanner> {
           final u = userState.byId[uid];
           final base =
           (u != null) ? roles.roleForUser(u) : roles.UserProfile.leitor;
+
           return roles.UserRoleCodec.label(base);
         },
         getPerms: (uid) {
@@ -188,7 +217,12 @@ class _TabBannerState extends State<TabBanner> {
   @override
   Widget build(BuildContext context) {
     final contract = _contractData;
-    final titleText = widget.titleText?.trim() ?? '';
+
+    final titleText = _composeTitle(
+      number: widget.contractNumberText ?? '',
+      title: widget.titleText ?? '',
+    );
+
     if (titleText.isEmpty) return const SizedBox.shrink();
 
     if (!_can('read', c: contract)) return const SizedBox.shrink();
@@ -196,8 +230,12 @@ class _TabBannerState extends State<TabBanner> {
     final userState = context.read<UserCubit>().state;
 
     final ids = contract.permissionContractId.keys.toList();
-    final users =
-    ids.map((id) => userState.byId[id] ?? UserData(uid: id)).toList();
+
+    final users = ids
+        .map(
+          (id) => userState.byId[id] ?? UserData(uid: id),
+    )
+        .toList();
 
     final visible = users
         .where(
@@ -208,6 +246,7 @@ class _TabBannerState extends State<TabBanner> {
         .toList();
 
     final primary = visible.isNotEmpty ? visible.first : null;
+
     final primaryName = primary?.name?.trim().isNotEmpty == true
         ? primary!.name!
         : (primary?.email?.trim().isNotEmpty == true
@@ -281,17 +320,20 @@ class _TabBannerState extends State<TabBanner> {
           children: [
             Expanded(
               child: isMobile
-                  ? Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    titleText,
-                    textAlign: TextAlign.center,
-                    style: titleStyle,
-                  ),
-                  const SizedBox(height: 2),
-                  participantsRow,
-                ],
+                  ? Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      titleText,
+                      textAlign: TextAlign.center,
+                      style: titleStyle,
+                    ),
+                    const SizedBox(height: 2),
+                    participantsRow,
+                  ],
+                ),
               )
                   : SizedBox(
                 height: 36,
@@ -300,6 +342,7 @@ class _TabBannerState extends State<TabBanner> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Flexible(
+                      flex: 3,
                       child: Text(
                         titleText,
                         style: titleStyle,
@@ -309,7 +352,10 @@ class _TabBannerState extends State<TabBanner> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Flexible(child: participantsRow),
+                    Flexible(
+                      flex: 2,
+                      child: participantsRow,
+                    ),
                   ],
                 ),
               ),

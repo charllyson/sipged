@@ -1,3 +1,5 @@
+// functions/src/triggers/on_user_notification_create.js
+
 const admin = require('firebase-admin');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 
@@ -8,6 +10,7 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 const REGION = 'southamerica-east1';
+const FCM_BATCH_LIMIT = 500;
 
 function cleanString(value) {
     if (value === undefined || value === null) return '';
@@ -21,27 +24,53 @@ function cleanDataMap(input) {
         return output;
     }
 
-    for (const [key, value] of Object.entries(input)) {
-        if (value === undefined || value === null) continue;
+    for (const [rawKey, rawValue] of Object.entries(input)) {
+        const key = cleanString(rawKey);
 
-        if (typeof value === 'string') {
-            output[key] = value;
+        if (!key) continue;
+        if (rawValue === undefined || rawValue === null) continue;
+
+        if (typeof rawValue === 'string') {
+            const value = rawValue.trim();
+
+            if (value) {
+                output[key] = value;
+            }
+
             continue;
         }
 
         if (
-        typeof value === 'number' ||
-        typeof value === 'boolean' ||
-        value instanceof String
+        typeof rawValue === 'number' ||
+        typeof rawValue === 'boolean' ||
+        rawValue instanceof String
         ) {
-            output[key] = String(value);
+            output[key] = String(rawValue);
+            continue;
+        }
+
+        if (rawValue instanceof admin.firestore.Timestamp) {
+            output[key] = rawValue.toDate().toISOString();
+            continue;
+        }
+
+        if (rawValue instanceof Date) {
+            output[key] = rawValue.toISOString();
             continue;
         }
 
         try {
-            output[key] = JSON.stringify(value);
+            const value = JSON.stringify(rawValue);
+
+            if (value && value !== '{}' && value !== '[]') {
+                output[key] = value;
+            }
         } catch (_) {
-            output[key] = String(value);
+            const value = String(rawValue).trim();
+
+            if (value) {
+                output[key] = value;
+            }
         }
     }
 
@@ -56,10 +85,24 @@ function isInvalidTokenError(code) {
     ].includes(code);
 }
 
+function chunkArray(items, size) {
+    const chunks = [];
+
+    for (let i = 0; i < items.length; i += size) {
+        chunks.push(items.slice(i, i + size));
+    }
+
+    return chunks;
+}
+
 async function getEnabledTokens(userId) {
+    const cleanUserId = cleanString(userId);
+
+    if (!cleanUserId) return [];
+
     const snapshot = await db
         .collection('users')
-        .doc(userId)
+        .doc(cleanUserId)
         .collection('pushTokens')
         .where('enabled', '==', true)
         .get();
@@ -72,7 +115,7 @@ async function getEnabledTokens(userId) {
             id: doc.id,
             ref: doc.ref,
             token: cleanString(data.token || doc.id),
-            platform: cleanString(data.platform || 'unknown'),
+            platform: cleanString(data.platform || 'unknown') || 'unknown',
         };
     })
         .filter((item) => item.token.length > 0);
@@ -86,10 +129,90 @@ async function safeUpdateNotification(ref, data) {
     }
 }
 
+async function disableInvalidToken(tokenItem, code, messageText) {
+    try {
+        await tokenItem.ref.set(
+            {
+                enabled: false,
+                disabledAt: admin.firestore.FieldValue.serverTimestamp(),
+                disabledReason: code,
+                disabledMessage: messageText,
+            },
+            { merge: true },
+        );
+    } catch (error) {
+        console.error('[Push] Erro ao desativar token inválido:', {
+            tokenId: tokenItem.id,
+            code,
+            error: error.message || error,
+        });
+    }
+}
+
+function buildMulticastMessage({
+    tokens,
+    title,
+    body,
+    data,
+}) {
+    return {
+        tokens,
+
+        notification: {
+            title,
+            body,
+        },
+
+        data,
+
+        android: {
+            priority: 'high',
+            notification: {
+                channelId: 'sipged_high_importance',
+                sound: 'default',
+                priority: 'high',
+                defaultSound: true,
+                defaultVibrateTimings: true,
+            },
+        },
+
+        apns: {
+            headers: {
+                'apns-priority': '10',
+            },
+            payload: {
+                aps: {
+                    alert: {
+                        title,
+                        body,
+                    },
+                    sound: 'default',
+                    badge: 1,
+                    'content-available': 1,
+                },
+            },
+        },
+
+        webpush: {
+            notification: {
+                title,
+                body,
+                icon: '/icons/Icon-192.png',
+                badge: '/icons/Icon-192.png',
+            },
+            fcmOptions: {
+                link: '/',
+            },
+        },
+    };
+}
+
 exports.onUserNotificationCreate = onDocumentCreated(
     {
         region: REGION,
         document: 'users/{userId}/notifications/{notificationId}',
+        memory: '256MiB',
+        timeoutSeconds: 60,
     },
     async (event) => {
         const snapshot = event.data;
@@ -105,12 +228,15 @@ exports.onUserNotificationCreate = onDocumentCreated(
         const userId = cleanString(event.params.userId);
         const notificationId = cleanString(event.params.notificationId);
 
-        const sendPush = notification.sendPush === true;
-
         if (!userId || !notificationId) {
-            console.log('[Push] userId ou notificationId ausente.');
+            console.log('[Push] userId ou notificationId ausente.', {
+                userId,
+                notificationId,
+            });
             return;
         }
+
+        const sendPush = notification.sendPush === true;
 
         if (!sendPush) {
             console.log('[Push] Notificação sem sendPush=true. Ignorando.', {
@@ -133,9 +259,10 @@ exports.onUserNotificationCreate = onDocumentCreated(
         'Você recebeu uma nova notificação.';
 
         const leadingLabel = cleanString(notification.leadingLabel);
-        const type = cleanString(notification.type) || 'info';
+        const status = cleanString(notification.status || notification.type) || 'info';
 
-        const extra = notification.extra && typeof notification.extra === 'object'
+        const extra =
+        notification.extra && typeof notification.extra === 'object'
             ? notification.extra
             : {};
 
@@ -148,7 +275,8 @@ exports.onUserNotificationCreate = onDocumentCreated(
             subtitle: notification.subtitle,
             details: notification.details,
             leadingLabel,
-            type,
+            status,
+            type: status,
             sendPush: true,
             saveInBell: true,
         });
@@ -187,7 +315,7 @@ exports.onUserNotificationCreate = onDocumentCreated(
                 pushSent: false,
                 pushStatus: 'no_tokens',
                 pushAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
-                pushError: 'Nenhum token remote ativo encontrado para o usuário.',
+                pushError: 'Nenhum token remoto ativo encontrado para o usuário.',
                 pushSuccessCount: 0,
                 pushFailureCount: 0,
                 pushResults: [],
@@ -200,82 +328,73 @@ exports.onUserNotificationCreate = onDocumentCreated(
         const results = [];
         const errors = [];
 
-        for (const item of tokenItems) {
-            const message = {
-                token: item.token,
+        const tokenChunks = chunkArray(tokenItems, FCM_BATCH_LIMIT);
 
-                notification: {
-                    title,
-                    body,
-                },
+        for (const chunk of tokenChunks) {
+            const tokens = chunk.map((item) => item.token);
 
+            const message = buildMulticastMessage({
+                tokens,
+                title,
+                body,
                 data: baseData,
+            });
 
-                android: {
-                    priority: 'high',
-                    notification: {
-                        channelId: 'sipged_high_importance',
-                        sound: 'default',
-                        priority: 'high',
-                        defaultSound: true,
-                        defaultVibrateTimings: true,
-                    },
-                },
-
-                apns: {
-                    headers: {
-                        'apns-priority': '10',
-                    },
-                    payload: {
-                        aps: {
-                            alert: {
-                                title,
-                                body,
-                            },
-                            sound: 'default',
-                            badge: 1,
-                            'content-available': 1,
-                        },
-                    },
-                },
-
-                webpush: {
-                    notification: {
-                        title,
-                        body,
-                        icon: '/icons/Icon-192.png',
-                        badge: '/icons/Icon-192.png',
-                    },
-                    fcmOptions: {
-                        link: '/',
-                    },
-                },
-            };
+            let response;
 
             try {
-                const messageId = await admin.messaging().send(message);
-
-                results.push({
-                    tokenId: item.id,
-                    platform: item.platform,
-                    success: true,
-                    messageId,
-                });
-
-                console.log('[Push] Enviado com sucesso.', {
-                    userId,
-                    notificationId,
-                    platform: item.platform,
-                    tokenId: item.id,
-                    messageId,
-                });
+                response = await admin.messaging().sendEachForMulticast(message);
             } catch (error) {
                 const code = cleanString(error.code) || 'unknown';
                 const messageText = cleanString(error.message) || String(error);
 
+                console.error('[Push] Falha geral no lote multicast.', {
+                    userId,
+                    notificationId,
+                    code,
+                    message: messageText,
+                    totalTokens: chunk.length,
+                });
+
+                for (const item of chunk) {
+                    const errorData = {
+                        tokenId: item.id,
+                        platform: item.platform,
+                        success: false,
+                        code,
+                        message: messageText,
+                    };
+
+                    results.push(errorData);
+                    errors.push(errorData);
+                }
+
+                continue;
+            }
+
+            response.responses.forEach((itemResponse, index) => {
+                const tokenItem = chunk[index];
+
+                if (itemResponse.success) {
+                    const resultData = {
+                        tokenId: tokenItem.id,
+                        platform: tokenItem.platform,
+                        success: true,
+                        messageId: cleanString(itemResponse.messageId),
+                    };
+
+                    results.push(resultData);
+
+                    return;
+                }
+
+                const error = itemResponse.error || {};
+                const code = cleanString(error.code) || 'unknown';
+                const messageText = cleanString(error.message) || String(error);
+
                 const errorData = {
-                    tokenId: item.id,
-                    platform: item.platform,
+                    tokenId: tokenItem.id,
+                    platform: tokenItem.platform,
                     success: false,
                     code,
                     message: messageText,
@@ -284,42 +403,56 @@ exports.onUserNotificationCreate = onDocumentCreated(
                 results.push(errorData);
                 errors.push(errorData);
 
-                console.error('[Push] Falha ao enviar.', {
+                console.error('[Push] Falha ao enviar para token.', {
                     userId,
                     notificationId,
-                    platform: item.platform,
-                    tokenId: item.id,
+                    platform: tokenItem.platform,
+                    tokenId: tokenItem.id,
                     code,
                     message: messageText,
                 });
-
-                if (isInvalidTokenError(code)) {
-                    await item.ref.set(
-                        {
-                            enabled: false,
-                            disabledAt: admin.firestore.FieldValue.serverTimestamp(),
-                            disabledReason: code,
-                            disabledMessage: messageText,
-                        },
-                        { merge: true },
-                    );
-                }
-            }
+            });
         }
 
-        const successCount = results.where
-            ? results.where((item) => item.success).length
-            : results.filter((item) => item.success === true).length;
+        const invalidTokenDisables = [];
 
+        for (const errorItem of errors) {
+            if (!isInvalidTokenError(errorItem.code)) continue;
+
+            const tokenItem = tokenItems.find((item) => item.id === errorItem.tokenId);
+
+            if (!tokenItem) continue;
+
+            invalidTokenDisables.push(
+                disableInvalidToken(
+                    tokenItem,
+                    errorItem.code,
+                    errorItem.message,
+                ),
+            );
+        }
+
+        if (invalidTokenDisables.length > 0) {
+            await Promise.allSettled(invalidTokenDisables);
+        }
+
+        const successCount = results.filter((item) => item.success === true).length;
         const failureCount = errors.length;
 
         const sentAt = admin.firestore.FieldValue.serverTimestamp();
+
+        const pushStatus =
+        successCount === 0
+            ? 'failed'
+            : failureCount > 0
+            ? 'partial'
+            : 'sent';
 
         await safeUpdateNotification(notificationRef, {
             pushSent: successCount > 0,
             pushSentAt: successCount > 0 ? sentAt : null,
             pushAttemptedAt: sentAt,
-            pushStatus: failureCount > 0 ? 'partial_or_failed' : 'sent',
+            pushStatus,
             pushSuccessCount: successCount,
             pushFailureCount: failureCount,
             pushResults: results,
@@ -336,6 +469,7 @@ exports.onUserNotificationCreate = onDocumentCreated(
             total: tokenItems.length,
             successCount,
             failureCount,
+            pushStatus,
             platforms: tokenPlatforms,
         });
     },

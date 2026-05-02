@@ -6,6 +6,7 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
 
 import 'package:sipged/_blocs/system/notification/helpers/notification_budget.dart';
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
@@ -144,6 +145,7 @@ class _BudgetPageState extends State<BudgetPage> {
       actorName: actorName,
       targetUserIds: targetUserIds,
       includeCurrentUser: includeCurrentUser,
+      delivery: NotificationDelivery.localBellAndPush,
       extra: <String, dynamic>{
         'module': 'contracts_budget',
         'route': 'contracts_budget',

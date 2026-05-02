@@ -313,7 +313,6 @@ class _PersonalInfoSettingsPageState extends State<PersonalInfoSettingsPage> {
           padding: EdgeInsets.only(left: 12),
           child: CircleButtonChange(),
         ),
-        photoMenu: const SizedBox.shrink(),
       ),
       body: Stack(
         children: [

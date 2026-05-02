@@ -107,6 +107,8 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
       ),
     );
 
+    /// Cria apenas preferências faltantes.
+    /// Não sobrescreve o que o usuário já configurou.
     unawaited(_repository.ensureDefaults(cleanUserId));
 
     _sub = _repository.watchPreferences(cleanUserId).listen(
@@ -205,6 +207,40 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
         state.copyWith(
           saving: false,
           error: 'Erro ao salvar canal de notificação: $e',
+        ),
+      );
+    }
+  }
+
+  Future<void> resetDefaults(String userId) async {
+    final cleanUserId = userId.trim();
+
+    if (cleanUserId.isEmpty) return;
+
+    try {
+      emit(
+        state.copyWith(
+          saving: true,
+          clearError: true,
+        ),
+      );
+
+      await _repository.resetDefaults(cleanUserId);
+
+      final items = await _repository.getPreferences(cleanUserId);
+
+      emit(
+        state.copyWith(
+          items: items,
+          saving: false,
+          clearError: true,
+        ),
+      );
+    } catch (e) {
+      emit(
+        state.copyWith(
+          saving: false,
+          error: 'Erro ao restaurar preferências padrão: $e',
         ),
       );
     }

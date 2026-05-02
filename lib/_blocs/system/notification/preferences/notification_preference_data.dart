@@ -19,7 +19,7 @@ class NotificationPreferenceData extends Equatable {
 
   /// Chave principal usada nas preferências.
   ///
-  /// Agora deve ser preferencialmente uma NotificationSubSource.key:
+  /// Preferencialmente uma NotificationSubSource.key:
   /// - contracts_hiring_dfd
   /// - measurements_bulletin
   /// - schedule_general
@@ -37,6 +37,12 @@ class NotificationPreferenceData extends Equatable {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  static Map<NotificationChannel, bool> get defaultEnabledChannels {
+    return <NotificationChannel, bool>{
+      for (final channel in NotificationChannel.values) channel: true,
+    };
+  }
+
   factory NotificationPreferenceData.defaultForSubSource(
       NotificationSubSource subSource,
       ) {
@@ -45,10 +51,7 @@ class NotificationPreferenceData extends Equatable {
       source: subSource.source,
       subSource: subSource,
       enabled: true,
-      channels: <NotificationChannel, bool>{
-        for (final channel in NotificationChannel.values)
-          channel: channel.enabledByDefault,
-      },
+      channels: defaultEnabledChannels,
     );
   }
 
@@ -65,10 +68,7 @@ class NotificationPreferenceData extends Equatable {
         sourceKey: source.key,
         source: source,
         enabled: true,
-        channels: <NotificationChannel, bool>{
-          for (final channel in NotificationChannel.values)
-            channel: channel.enabledByDefault,
-        },
+        channels: defaultEnabledChannels,
       );
     }
 
@@ -78,7 +78,10 @@ class NotificationPreferenceData extends Equatable {
   bool isChannelEnabled(NotificationChannel channel) {
     if (!enabled) return false;
 
-    return channels[channel] ?? channel.enabledByDefault;
+    /// Ponto importante:
+    /// Se o canal ainda não existe no documento antigo do Firestore,
+    /// ele entra como true para manter o padrão inicial ativado.
+    return channels[channel] ?? true;
   }
 
   Set<NotificationChannel> filterChannels(
@@ -118,7 +121,9 @@ class NotificationPreferenceData extends Equatable {
     required bool value,
   }) {
     return copyWith(
+      enabled: true,
       channels: <NotificationChannel, bool>{
+        ...defaultEnabledChannels,
         ...channels,
         channel: value,
       },
@@ -138,11 +143,13 @@ class NotificationPreferenceData extends Equatable {
       'source': resolvedSource?.key,
       'subSource': resolvedSubSource?.key ?? cleanSourceKey,
       'enabled': enabled,
-      'channels': channels.map(
-            (channel, value) {
-          return MapEntry(channel.key, value);
-        },
-      ),
+      'channels': <String, bool>{
+        for (final entry in <NotificationChannel, bool>{
+          ...defaultEnabledChannels,
+          ...channels,
+        }.entries)
+          entry.key.key: entry.value,
+      },
       'updatedAt': FieldValue.serverTimestamp(),
       if (createdAt == null) 'createdAt': FieldValue.serverTimestamp(),
     };

@@ -1,4 +1,4 @@
-// lib/_blocs/system/notification/helpers/notification_contract.dart
+// lib/_blocs/system/notification/helpers/notification_contract_base.dart
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -107,6 +107,7 @@ class NotificationContractBase {
         'notificationSource': sourceKey,
         'requestedChannels': requestedChannels.map((item) => item.key).toList(),
         'sendPush': requestedChannels.contains(NotificationChannel.push),
+        'recipientCount': recipients.length,
         if (recipients.isNotEmpty) 'targetUserIds': recipients,
       },
     );
@@ -122,6 +123,8 @@ class NotificationContractBase {
       createdBy: resolvedActorId,
       persistInFirebase: requestedChannels.contains(NotificationChannel.bell),
       sendPush: requestedChannels.contains(NotificationChannel.push),
+      sendEmail: requestedChannels.contains(NotificationChannel.email),
+      sendSms: requestedChannels.contains(NotificationChannel.sms),
       extra: resolvedExtra,
     );
 
@@ -142,129 +145,327 @@ class NotificationContractBase {
     NotificationDelivery? delivery,
     Set<NotificationChannel>? channels,
   }) {
-    final resolvedChannels = channels ??
-        <NotificationChannel>{
-          NotificationChannel.local,
-          if (saveInBell) NotificationChannel.bell,
-          if (sendPush) NotificationChannel.push,
-        };
-
-    final resolvedDelivery =
-        delivery ?? NotificationDelivery(channels: resolvedChannels);
-
-    final requestedChannels = <NotificationChannel>{
-      ...resolvedDelivery.channels,
+    final resolvedChannels = <NotificationChannel>{
+      if (channels != null) ...channels,
+      if (delivery != null) ...delivery.channels,
+      if (channels == null && delivery == null) NotificationChannel.local,
+      if (saveInBell) NotificationChannel.bell,
       if (sendPush) NotificationChannel.push,
     };
 
-    if (requestedChannels.isEmpty) {
-      requestedChannels.add(NotificationChannel.local);
+    if (resolvedChannels.isEmpty) {
+      resolvedChannels.add(NotificationChannel.local);
     }
 
-    return requestedChannels;
+    return resolvedChannels;
   }
 
+  /// Retorna todos os usuários que devem receber a notificação do contrato.
+  ///
+  /// Ordem de prioridade:
+  /// 1. Se `targetUserIds` foi informado, usa esses IDs explicitamente.
+  /// 2. Caso contrário, usa todos os usuários em `permissionContractId`
+  ///    que tenham qualquer permissão operacional válida.
+  /// 3. Também inclui usuários em `participantsInfo`, pois no SIPGED eles
+  ///    geralmente representam participantes vinculados ao processo/contrato.
+  /// 4. Aplica `includeCurrentUser`.
   static List<String> resolveRecipients({
     required ProcessData contract,
     required Iterable<String> targetUserIds,
     required String? currentUserId,
     required bool includeCurrentUser,
   }) {
-    final current = currentUserId?.trim();
+    final current = clean(currentUserId);
 
-    final explicitRecipients = targetUserIds
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toSet();
+    final explicitRecipients = _cleanUserIds(targetUserIds);
 
     if (explicitRecipients.isNotEmpty) {
-      if (includeCurrentUser && current != null && current.isNotEmpty) {
+      if (includeCurrentUser && current != null) {
         explicitRecipients.add(current);
       }
 
-      if (!includeCurrentUser && current != null && current.isNotEmpty) {
+      if (!includeCurrentUser && current != null) {
         explicitRecipients.remove(current);
       }
 
-      return explicitRecipients.toList();
+      return _sortedUserIds(explicitRecipients);
     }
 
     final recipients = <String>{};
 
-    for (final entry in contract.permissionContractId.entries) {
-      final userId = entry.key.trim();
+    recipients.addAll(
+      _recipientsFromPermissionContractId(contract.permissionContractId),
+    );
 
-      if (userId.isEmpty) continue;
+    recipients.addAll(
+      _recipientsFromParticipantsInfo(contract.participantsInfo),
+    );
 
-      final perms = entry.value;
+    if (includeCurrentUser && current != null) {
+      recipients.add(current);
+    }
 
-      final canRead = perms['read'] == true ||
-          perms['view'] == true ||
-          perms['create'] == true ||
-          perms['edit'] == true ||
-          perms['update'] == true ||
-          perms['delete'] == true ||
-          perms['admin'] == true ||
-          perms['owner'] == true;
+    if (!includeCurrentUser && current != null) {
+      recipients.remove(current);
+    }
 
-      if (canRead) {
+    return _sortedUserIds(recipients);
+  }
+
+  static Set<String> _recipientsFromPermissionContractId(
+      Map<String, Map<String, bool>> permissionContractId,
+      ) {
+    final recipients = <String>{};
+
+    for (final entry in permissionContractId.entries) {
+      final userId = clean(entry.key);
+
+      if (userId == null) continue;
+
+      final permissions = entry.value;
+
+      if (_hasAnyContractPermission(permissions)) {
         recipients.add(userId);
       }
     }
 
-    for (final userId in contract.participantsInfo.keys) {
-      final cleanUserId = userId.trim();
+    return recipients;
+  }
 
-      if (cleanUserId.isNotEmpty) {
-        recipients.add(cleanUserId);
+  static Set<String> _recipientsFromParticipantsInfo(
+      Map<String, dynamic> participantsInfo,
+      ) {
+    final recipients = <String>{};
+
+    for (final entry in participantsInfo.entries) {
+      final userId = clean(entry.key);
+
+      if (userId == null) continue;
+
+      final value = entry.value;
+
+      if (_participantLooksActive(value)) {
+        recipients.add(userId);
       }
     }
 
-    if (includeCurrentUser && current != null && current.isNotEmpty) {
-      recipients.add(current);
+    return recipients;
+  }
+
+  static bool _participantLooksActive(dynamic value) {
+    if (value == null) return true;
+
+    if (value is bool) return value;
+
+    if (value is Map) {
+      final active = _boolFromDynamic(
+        value['active'] ??
+            value['enabled'] ??
+            value['isActive'] ??
+            value['ativo'] ??
+            value['habilitado'],
+      );
+
+      final removed = _boolFromDynamic(
+        value['removed'] ??
+            value['deleted'] ??
+            value['isDeleted'] ??
+            value['removido'] ??
+            value['excluido'] ??
+            value['excluído'],
+      );
+
+      if (removed == true) return false;
+      if (active == false) return false;
+
+      return true;
     }
 
-    if (!includeCurrentUser && current != null && current.isNotEmpty) {
-      recipients.remove(current);
+    return true;
+  }
+
+  static bool _hasAnyContractPermission(Map<String, bool> permissions) {
+    if (permissions.isEmpty) return false;
+
+    const acceptedKeys = <String>{
+      // Leitura / visualização
+      'read',
+      'view',
+      'viewer',
+      'visualizar',
+      'visao',
+      'visão',
+      'ler',
+      'leitura',
+
+      // Criação
+      'create',
+      'creator',
+      'criar',
+      'criacao',
+      'criação',
+
+      // Edição / atualização
+      'edit',
+      'update',
+      'write',
+      'writer',
+      'editar',
+      'atualizar',
+      'alterar',
+      'escrever',
+      'gravacao',
+      'gravação',
+
+      // Exclusão
+      'delete',
+      'remove',
+      'deletar',
+      'excluir',
+      'remover',
+
+      // Administração / propriedade
+      'admin',
+      'administrator',
+      'owner',
+      'manager',
+      'gestor',
+      'fiscal',
+      'administrador',
+      'proprietario',
+      'proprietário',
+      'responsavel',
+      'responsável',
+
+      // Compatibilidade com ações granulares
+      'canread',
+      'canview',
+      'cancreate',
+      'canedit',
+      'canupdate',
+      'candelete',
+      'canmanage',
+    };
+
+    for (final entry in permissions.entries) {
+      final key = _normalizePermissionKey(entry.key);
+
+      if (acceptedKeys.contains(key) && entry.value == true) {
+        return true;
+      }
     }
 
-    return recipients.toList();
+    return false;
+  }
+
+  static Set<String> _cleanUserIds(Iterable<String> values) {
+    return values
+        .map(clean)
+        .whereType<String>()
+        .where((item) => item.isNotEmpty)
+        .toSet();
+  }
+
+  static List<String> _sortedUserIds(Set<String> values) {
+    final list = values.toList()..sort();
+
+    return list;
+  }
+
+  static bool? _boolFromDynamic(dynamic value) {
+    if (value == null) return null;
+
+    if (value is bool) return value;
+
+    if (value is num) {
+      if (value == 1) return true;
+      if (value == 0) return false;
+    }
+
+    final text = value.toString().trim().toLowerCase();
+
+    if (text.isEmpty) return null;
+
+    if (<String>{
+      'true',
+      '1',
+      'yes',
+      'sim',
+      's',
+      'ativo',
+      'active',
+      'enabled',
+      'habilitado',
+    }.contains(text)) {
+      return true;
+    }
+
+    if (<String>{
+      'false',
+      '0',
+      'no',
+      'nao',
+      'não',
+      'n',
+      'inativo',
+      'inactive',
+      'disabled',
+      'desabilitado',
+    }.contains(text)) {
+      return false;
+    }
+
+    return null;
+  }
+
+  static String _normalizePermissionKey(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(' ', '')
+        .replaceAll('_', '')
+        .replaceAll('-', '');
   }
 
   static String? resolveActorNameFromContract({
     required ProcessData contract,
     required String? uid,
   }) {
-    final cleanUid = uid?.trim();
+    final cleanUid = clean(uid);
 
-    if (cleanUid == null || cleanUid.isEmpty) return null;
+    if (cleanUid == null) return null;
 
     final meta = contract.participantsInfo[cleanUid];
 
     if (meta == null) return null;
 
-    final fullName = (meta['fullName'] ??
-        meta['displayName'] ??
-        meta['nameComplete'] ??
-        '')
-        .toString()
-        .trim();
+    final fullName = clean(
+      (meta['fullName'] ??
+          meta['displayName'] ??
+          meta['nameComplete'] ??
+          meta['nomeCompleto'] ??
+          meta['nome'] ??
+          '')
+          .toString(),
+    );
 
-    if (fullName.isNotEmpty) return fullName;
+    if (fullName != null) return fullName;
 
-    final name = (meta['name'] ?? '').toString().trim();
-    final surname = (meta['surname'] ?? '').toString().trim();
+    final name = clean((meta['name'] ?? meta['nome'] ?? '').toString());
+    final surname = clean(
+      (meta['surname'] ?? meta['sobrenome'] ?? '').toString(),
+    );
 
     final composed = <String>[
-      name,
-      surname,
-    ].where((item) => item.trim().isNotEmpty).join(' ').trim();
+      ?name,
+      ?surname,
+    ].join(' ').trim();
 
     if (composed.isNotEmpty) return composed;
 
-    final email = (meta['email'] ?? '').toString().trim();
+    final email = clean((meta['email'] ?? '').toString());
 
-    if (email.isNotEmpty) return email;
+    if (email != null) return email;
 
     return null;
   }

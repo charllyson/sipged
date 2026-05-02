@@ -11,6 +11,7 @@ import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measur
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_state.dart';
 
 import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
@@ -242,13 +243,20 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     required String title,
     String? subtitle,
     String? details,
-    NotificationStatus type = NotificationStatus.info,
+    NotificationStatus status = NotificationStatus.info,
+
+    /// Compatibilidade temporária com chamadas antigas.
+    NotificationStatus? type,
+
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
+
+    const route = 'contracts_measurement';
+    const notificationSource = 'contracts_measurement';
 
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
@@ -260,15 +268,18 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       subtitle: subtitle,
       details: details ?? _contractSummary,
       leadingLabel: 'Medição',
-      module: 'contracts_measurement',
+      module: route,
+      notificationSource: notificationSource,
+      source: 'report_measurement_notification',
       kind: NotificationMeasurementKind.bulletin,
-      status: type,
+      status: type ?? status,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
       actorId: currentUserId,
       actorName: actorName,
       includeCurrentUser: true,
+      delivery: NotificationDelivery.localBellAndPush,
       measurementId:
       extra['measurementId']?.toString() ?? _selectedMeasurement?.id,
       measurementNumber: extra['measurementProcess']?.toString() ??
@@ -282,8 +293,12 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       _parseNumFromExtra(extra['measurementValue']) ??
           _selectedMeasurement?.value,
       extra: <String, dynamic>{
-        'route': 'contracts_measurement',
-        'module': 'contracts_measurement',
+        'route': route,
+        'module': route,
+        'source': 'report_measurement_notification',
+        'sourceKey': notificationSource,
+        'subSource': notificationSource,
+        'notificationSource': notificationSource,
         'contractId': _contractId,
         'contractNumber': _contractNumber,
         'contractTitle': _contractSummary,
@@ -497,7 +512,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       await _notify(
         title: 'Arquivo removido',
         subtitle: attachment.label,
-        type: NotificationStatus.warning,
+        status: NotificationStatus.warning,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -511,7 +526,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       await _notify(
         title: 'Erro ao remover arquivo',
         subtitle: '$e',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -650,7 +665,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   title: 'Salve a medição primeiro',
                                   subtitle:
                                   'Depois você poderá anexar arquivos.',
-                                  type: NotificationStatus.info,
+                                  status: NotificationStatus.info,
                                 );
                                 return;
                               }
@@ -674,7 +689,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 await _notify(
                                   title: 'Arquivo anexado',
                                   subtitle: attachment.label,
-                                  type: NotificationStatus.success,
+                                  status: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
@@ -688,7 +703,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 await _notify(
                                   title: 'Falha ao anexar arquivo',
                                   subtitle: '$e',
-                                  type: NotificationStatus.error,
+                                  status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
                               }
@@ -707,7 +722,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 await _notify(
                                   title: 'Data da medição inválida',
                                   subtitle: 'Use o formato dd/MM/aaaa.',
-                                  type: NotificationStatus.error,
+                                  status: NotificationStatus.error,
                                 );
                                 return;
                               }
@@ -743,7 +758,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                       : 'Medição atualizada',
                                   subtitle:
                                   'Boletim ${data.order ?? '-'} salvo por $actorName.',
-                                  type: NotificationStatus.success,
+                                  status: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
@@ -762,7 +777,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 await _notify(
                                   title: 'Erro ao salvar medição',
                                   subtitle: '$e',
-                                  type: NotificationStatus.error,
+                                  status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
                               } finally {
@@ -782,7 +797,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   title: 'Selecione uma medição',
                                   subtitle:
                                   'Selecione ou salve uma medição para abrir o boletim.',
-                                  type: NotificationStatus.info,
+                                  status: NotificationStatus.info,
                                 );
                                 return;
                               }
@@ -829,7 +844,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 await _notify(
                                   title: 'Anexo renomeado',
                                   subtitle: newItem.label,
-                                  type: NotificationStatus.success,
+                                  status: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
@@ -846,7 +861,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 await _notify(
                                   title: 'Falha ao renomear anexo',
                                   subtitle: '$e',
-                                  type: NotificationStatus.error,
+                                  status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
 
@@ -910,7 +925,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 subtitle: deletedMeasurement.order != null
                                     ? 'Boletim ${deletedMeasurement.order} removido por $actorName.'
                                     : 'O boletim foi removido por $actorName.',
-                                type: NotificationStatus.warning,
+                                status: NotificationStatus.warning,
                                 saveInBell: true,
                                 sendPush: true,
                                 extra: <String, dynamic>{
@@ -929,7 +944,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                               await _notify(
                                 title: 'Erro ao apagar medição',
                                 subtitle: '$e',
-                                type: NotificationStatus.error,
+                                status: NotificationStatus.error,
                                 duration: const Duration(seconds: 6),
                               );
                             } finally {

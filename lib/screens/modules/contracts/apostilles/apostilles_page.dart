@@ -9,6 +9,7 @@ import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_cubit.dart
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_state.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_apostilles.dart';
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
@@ -193,6 +194,24 @@ class _ApostillesPageState extends State<ApostillesPage> {
     return null;
   }
 
+  num? _parseNumFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is num) return value;
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    final normalized = text
+        .replaceAll('R\$', '')
+        .replaceAll('.', '')
+        .replaceAll(',', '.')
+        .trim();
+
+    return num.tryParse(normalized);
+  }
+
   Future<void> _notify({
     required String title,
     String? subtitle,
@@ -216,6 +235,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
       details: details ?? _contractSummary,
       leadingLabel: 'Apostilamento',
       module: 'contracts_apostilles',
+      source: 'apostille_notification',
+      notificationSource: 'contracts_apostilles',
       status: type,
       duration: duration,
       saveInBell: saveInBell,
@@ -223,14 +244,15 @@ class _ApostillesPageState extends State<ApostillesPage> {
       actorId: currentUserId,
       actorName: actorName,
       includeCurrentUser: true,
-
+      delivery: NotificationDelivery.localBellAndPush,
       apostilleId: extra['apostilleId']?.toString(),
-      apostilleNumber: extra['apostilleNumber']?.toString() ??
+      apostilleNumber:
+      extra['apostilleNumber']?.toString() ??
           extra['apostilleProcess']?.toString(),
       apostilleOrder: extra['apostilleOrder']?.toString(),
       apostilleType: extra['apostilleType']?.toString(),
       apostilleDate: _parseDateTimeFromExtra(extra['apostilleDate']),
-
+      apostilleValue: _parseNumFromExtra(extra['apostilleValue']),
       extra: <String, dynamic>{
         'route': 'contracts_apostilles',
         'module': 'contracts_apostilles',

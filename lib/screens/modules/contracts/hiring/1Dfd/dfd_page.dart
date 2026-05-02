@@ -102,20 +102,6 @@ class _DfdPageState extends State<DfdPage>
     return _contract;
   }
 
-  String get _currentUserId {
-    return (FirebaseAuth.instance.currentUser?.uid ?? '').trim();
-  }
-
-  List<String> get _defaultNotificationTargets {
-    final uid = _currentUserId;
-
-    if (uid.isEmpty) {
-      return const <String>[];
-    }
-
-    return <String>[uid];
-  }
-
   @override
   void initState() {
     super.initState();
@@ -213,7 +199,9 @@ class _DfdPageState extends State<DfdPage>
     bool email = false,
     bool sms = false,
 
+    /// Quando vazio, o helper deve resolver os usuários com permissão no contrato.
     Iterable<String> targetUserIds = const <String>[],
+
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
@@ -243,9 +231,14 @@ class _DfdPageState extends State<DfdPage>
       source: 'dfd_notification',
       status: type ?? status,
       duration: duration,
-      delivery: NotificationDelivery(channels: channels),
+
+      /// Mantido como local + sino + push.
+      /// E-mail/SMS só terão efeito se o helper/dispatcher suportar esses canais.
+      delivery: NotificationDelivery.localBellAndPush,
+
       sendPush: channels.contains(NotificationChannel.push),
       targetUserIds: targetUserIds,
+
       actorId: user?.uid,
       actorName: _currentActorName(),
       extra: <String, dynamic>{
@@ -256,6 +249,7 @@ class _DfdPageState extends State<DfdPage>
         'sourceKey': _notificationSource,
         'subSource': _notificationSource,
         'notificationSource': _notificationSource,
+        'requestedChannels': channels.map((item) => item.key).toList(),
         if ((effectiveContract.id ?? '').trim().isNotEmpty)
           'contractId': effectiveContract.id,
         if (effectiveContract.displaySummary.trim().isNotEmpty)
@@ -323,15 +317,18 @@ class _DfdPageState extends State<DfdPage>
           details: _effectiveContract.displaySummary,
           status: NotificationStatus.success,
 
-          /// Canais que o DFD solicita.
-          /// O NotificationProcess filtra isso pelas preferências de cada usuário.
+          /// Solicita os canais principais.
+          /// O Dispatcher/helper filtra conforme preferência do usuário.
           local: true,
           bell: true,
           push: true,
-          email: true,
+          email: false,
           sms: false,
 
-          targetUserIds: _defaultNotificationTargets,
+          /// Importante:
+          /// vazio para o helper buscar todos que têm permissão no contrato.
+          targetUserIds: const <String>[],
+
           extra: <String, dynamic>{
             'action': 'dfd_saved',
             'dfdId': cubit.state.dfdId,
@@ -420,27 +417,22 @@ class _DfdPageState extends State<DfdPage>
         (tabController.index + 1).clamp(0, tabController.length - 1),
       );
 
-      final targets = <String>{
-        ..._defaultNotificationTargets,
-        _formData.solicitanteUserId?.trim() ?? '',
-        _formData.autoridadeUserId?.trim() ?? '',
-      }.where((id) => id.isNotEmpty).toList();
-
       await _notify(
         title: 'DFD aprovado',
         subtitle: 'Etapa concluída por $actorName.',
         details: _effectiveContract.displaySummary,
         status: NotificationStatus.success,
 
-        /// Canais solicitados para aprovação.
-        /// Cada usuário decide, nas preferências, se DFD chega por push/e-mail/sino.
         local: true,
         bell: true,
         push: true,
-        email: true,
+        email: false,
         sms: false,
 
-        targetUserIds: targets,
+        /// Importante:
+        /// vazio para o helper buscar todos que têm permissão no contrato.
+        targetUserIds: const <String>[],
+
         extra: <String, dynamic>{
           'action': 'dfd_approved',
           'dfdId': dfdId,
@@ -448,6 +440,8 @@ class _DfdPageState extends State<DfdPage>
           'route': _route,
           'notificationSource': _notificationSource,
           'nextStage': 'etp',
+          'responsibleUserId': _formData.solicitanteUserId,
+          'approverUserId': _formData.autoridadeUserId,
         },
       );
     } catch (e) {
@@ -506,12 +500,6 @@ class _DfdPageState extends State<DfdPage>
 
       if (!mounted) return;
 
-      final targets = <String>{
-        ..._defaultNotificationTargets,
-        _formData.solicitanteUserId?.trim() ?? '',
-        _formData.autoridadeUserId?.trim() ?? '',
-      }.where((id) => id.isNotEmpty).toList();
-
       await _notify(
         title: 'Aprovação do DFD atualizada',
         subtitle: 'Atualizada por $actorName.',
@@ -521,16 +509,21 @@ class _DfdPageState extends State<DfdPage>
         local: true,
         bell: true,
         push: true,
-        email: true,
+        email: false,
         sms: false,
 
-        targetUserIds: targets,
+        /// Importante:
+        /// vazio para o helper buscar todos que têm permissão no contrato.
+        targetUserIds: const <String>[],
+
         extra: <String, dynamic>{
           'action': 'dfd_approval_updated',
           'dfdId': dfdId,
           'contractId': contractIdForApprove,
           'route': _route,
           'notificationSource': _notificationSource,
+          'responsibleUserId': _formData.solicitanteUserId,
+          'approverUserId': _formData.autoridadeUserId,
         },
       );
     } catch (e) {
@@ -617,8 +610,8 @@ class _DfdPageState extends State<DfdPage>
                 ? 'Carregando dados do contrato...'
                 : null;
 
-            final effectiveContractId = state.contractId?.trim().isNotEmpty ==
-                true
+            final effectiveContractId =
+            state.contractId?.trim().isNotEmpty == true
                 ? state.contractId!.trim()
                 : widget.contractId.trim();
 

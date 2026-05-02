@@ -48,6 +48,17 @@ extension NotificationMeasurementKindExtension on NotificationMeasurementKind {
         return 'operation_measurements_revisions';
     }
   }
+
+  String get defaultSource {
+    switch (this) {
+      case NotificationMeasurementKind.bulletin:
+        return 'measurement_notification';
+      case NotificationMeasurementKind.adjustment:
+        return 'adjustment_measurement_notification';
+      case NotificationMeasurementKind.revision:
+        return 'revision_measurement_notification';
+    }
+  }
 }
 
 class NotificationMeasurements {
@@ -66,7 +77,7 @@ class NotificationMeasurements {
 
     NotificationStatus status = NotificationStatus.info,
 
-    /// Compatibilidade temporária.
+    /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
 
     Duration duration = const Duration(seconds: 5),
@@ -83,6 +94,27 @@ class NotificationMeasurements {
     bool includeCurrentUser = true,
     bool global = false,
 
+    /// Origem principal da notificação.
+    ///
+    /// Exemplo:
+    /// - measurement_notification
+    /// - adjustment_measurement_notification
+    /// - revision_measurement_notification
+    String? source,
+
+    /// Suborigem usada para preferências/canais da central de notificações.
+    ///
+    /// Quando não informado, usa o sourceKey padrão do tipo:
+    /// - measurementsBulletin
+    /// - measurementsAdjustments
+    /// - measurementsRevision
+    String? sourceKey,
+
+    /// Alias mais explícito usado pelas páginas novas.
+    ///
+    /// Quando informado, tem prioridade para compor sourceKey/subSource.
+    String? notificationSource,
+
     String? measurementId,
     String? measurementNumber,
     String? measurementOrder,
@@ -93,14 +125,32 @@ class NotificationMeasurements {
 
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
+    final resolvedSource = source?.trim().isNotEmpty == true
+        ? source!.trim()
+        : kind.defaultSource;
+
+    final resolvedSourceKey = notificationSource?.trim().isNotEmpty == true
+        ? notificationSource!.trim()
+        : sourceKey?.trim().isNotEmpty == true
+        ? sourceKey!.trim()
+        : kind.sourceKey;
+
+    final resolvedModule = module?.trim().isNotEmpty == true
+        ? module!.trim()
+        : kind.module;
+
+    final resolvedLeadingLabel = leadingLabel?.trim().isNotEmpty == true
+        ? leadingLabel!.trim()
+        : kind.label;
+
     await NotificationContractBase.show(
       context: context,
       contract: contract,
       title: title,
       subtitle: subtitle,
       details: details,
-      leadingLabel: leadingLabel,
-      module: module,
+      leadingLabel: resolvedLeadingLabel,
+      module: resolvedModule,
       status: status,
       type: type,
       duration: duration,
@@ -113,18 +163,32 @@ class NotificationMeasurements {
       targetUserIds: targetUserIds,
       includeCurrentUser: includeCurrentUser,
       global: global,
-      source: 'measurement_notification',
-      sourceKey: kind.sourceKey,
+      source: resolvedSource,
+      sourceKey: resolvedSourceKey,
       defaultModule: kind.module,
       defaultLeadingLabel: kind.label,
       extra: <String, dynamic>{
         ...extra,
+
+        /// Identificação da origem.
+        'source': resolvedSource,
+        'sourceKey': resolvedSourceKey,
+        'subSource': resolvedSourceKey,
+        'notificationSource': resolvedSourceKey,
+        'module': resolvedModule,
+
+        /// Identificação do tipo de medição.
         'measurementKind': kind.name,
+        'measurementKindLabel': kind.label,
+
+        /// Dados comuns.
         'measurementId': measurementId,
         'measurementNumber': measurementNumber,
         'measurementOrder': measurementOrder,
         'measurementDate': measurementDate?.toIso8601String(),
         'measurementValue': measurementValue,
+
+        /// Dados específicos.
         'adjustmentValue': adjustmentValue,
         'revisionValue': revisionValue,
       },

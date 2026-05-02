@@ -12,6 +12,7 @@ import 'package:sipged/_blocs/system/login/login_state.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_host.dart';
 import 'package:sipged/_blocs/system/notification/notification_push.dart';
+import 'package:sipged/_blocs/system/notification/preferences/notification_preferences_cubit.dart';
 import 'package:sipged/_blocs/system/notification/remote/notification_remote_cubit.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
@@ -42,6 +43,7 @@ class _GatePageState extends State<GatePage> {
 
   String? _loadedUserUid;
   String? _pushInitializedUserId;
+  String? _notificationPreferencesInitializedUserId;
 
   Future<void> _loadSetupOnce() {
     _setupLoadFuture ??= context.read<SetupCubit>().loadSystemSetup().timeout(
@@ -77,8 +79,32 @@ class _GatePageState extends State<GatePage> {
     _loadedUserUid = null;
     _userLoadFuture = null;
     _pushInitializedUserId = null;
+    _notificationPreferencesInitializedUserId = null;
 
     unawaited(NotificationPush.instance.dispose());
+  }
+
+  Future<void> _initializeNotificationPreferencesForUser(String uid) async {
+    final cleanUid = uid.trim();
+
+    if (cleanUid.isEmpty) return;
+    if (_notificationPreferencesInitializedUserId == cleanUid) return;
+
+    _notificationPreferencesInitializedUserId = cleanUid;
+
+    try {
+      final preferencesCubit = context.read<NotificationPreferencesCubit>();
+
+      await preferencesCubit.initializeDefaults(cleanUid);
+      preferencesCubit.watch(cleanUid);
+    } catch (e, s) {
+      _notificationPreferencesInitializedUserId = null;
+
+      debugPrint(
+        '[GatePage] Erro ao inicializar preferências de notificação: $e',
+      );
+      debugPrintStack(stackTrace: s);
+    }
   }
 
   Future<void> _initializePushForUser(String uid) async {
@@ -133,19 +159,6 @@ class _GatePageState extends State<GatePage> {
     debugPrint('[GatePage] contractId=$contractId');
     debugPrint('[GatePage] processId=$processId');
     debugPrint('[GatePage] notificationId=$notificationId');
-
-    /// Ponto central para navegação futura.
-    ///
-    /// Exemplo futuro:
-    ///
-    /// AppNotificationRouter.open(
-    ///   context,
-    ///   route: route,
-    ///   module: module,
-    ///   contractId: contractId,
-    ///   processId: processId,
-    ///   notificationId: notificationId,
-    /// );
   }
 
   @override
@@ -233,6 +246,7 @@ class _GatePageState extends State<GatePage> {
                 return const SignIn();
               }
 
+              unawaited(_initializeNotificationPreferencesForUser(uid));
               unawaited(_initializePushForUser(uid));
 
               return FutureBuilder<void>(

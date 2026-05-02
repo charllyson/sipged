@@ -9,6 +9,7 @@ import 'notification_channel.dart';
 import 'notification_data.dart';
 import 'notification_delivery.dart';
 import 'notification_source.dart';
+import 'preferences/notification_preference_data.dart';
 import 'preferences/notification_preferences_repository.dart';
 import 'remote/notification_remote_cubit.dart';
 
@@ -31,108 +32,207 @@ class NotificationDispatcher {
 
     final sourceKey = _resolveSourceKey(data);
 
-    final requestedChannels = <NotificationChannel>{
-      ...delivery.channels,
-      ...data.channels,
-      if (sendPush || data.sendPush) NotificationChannel.push,
-      if (data.persistInFirebase) NotificationChannel.bell,
-    };
+    final requestedChannels = _resolveRequestedChannels(
+      data: data,
+      delivery: delivery,
+      sendPush: sendPush,
+    );
 
-    if (requestedChannels.isEmpty) {
-      requestedChannels.add(NotificationChannel.local);
-    }
+    if (requestedChannels.isEmpty) return;
 
-    final currentUserId =
-        FirebaseAuth.instance.currentUser?.uid.trim() ?? fallbackUserId?.trim();
+    final currentUserId = _resolveCurrentUserId(fallbackUserId);
 
-    if (currentUserId != null && currentUserId.isNotEmpty) {
-      final localChannels = await _resolveEnabledChannelsForUser(
-        userId: currentUserId,
+    final preferenceCache = <String, Future<NotificationPreferenceData>>{};
+
+    Future<Set<NotificationChannel>> resolveEnabledChannels({
+      required String userId,
+      required Set<NotificationChannel> channels,
+    }) {
+      return _resolveEnabledChannelsForUser(
+        cache: preferenceCache,
+        userId: userId,
         sourceKey: sourceKey,
-        requestedChannels: requestedChannels,
+        requestedChannels: channels,
       );
-
-      if (localChannels.contains(NotificationChannel.local) && context.mounted) {
-        context.read<NotificationLocalCubit>().show(
-          data.copyWith(
-            createdAt: data.createdAt ?? DateTime.now(),
-            channels: const <NotificationChannel>{
-              NotificationChannel.local,
-            },
-            persistInFirebase: false,
-            sendPush: false,
-            extra: NotificationData.sanitizeExtra(
-              <String, dynamic>{
-                ...data.extra,
-                'source': sourceKey,
-                'sourceKey': sourceKey,
-                'subSource': sourceKey,
-                'notificationSource': sourceKey,
-                'channels': const <String>['local'],
-                'sendPush': false,
-                'sendEmail': false,
-                'sendSms': false,
-                'recipientUserId': currentUserId,
-              },
-            ),
-          ),
-        );
-      }
     }
 
-    final remoteRequestedChannels = requestedChannels.where((channel) {
-      return channel != NotificationChannel.local;
-    }).toSet();
+    await _dispatchLocalIfAllowed(
+      context: context,
+      data: data,
+      sourceKey: sourceKey,
+      currentUserId: currentUserId,
+      requestedChannels: requestedChannels,
+      resolveEnabledChannels: resolveEnabledChannels,
+    );
+
+    final remoteRequestedChannels = _remoteChannelsOnly(requestedChannels);
 
     if (remoteRequestedChannels.isEmpty) return;
-
     if (!context.mounted) return;
 
     final remoteCubit = context.read<NotificationRemoteCubit>();
 
     if (global) {
-      final globalChannels = remoteRequestedChannels;
-
-      if (globalChannels.isEmpty) return;
-
-      await remoteCubit.sendGlobal(
-        data: _remoteData(
-          data: data,
-          sourceKey: sourceKey,
-          channels: globalChannels,
-        ),
-        sendPush: globalChannels.contains(NotificationChannel.push),
+      await _dispatchGlobal(
+        remoteCubit: remoteCubit,
+        data: data,
+        sourceKey: sourceKey,
+        channels: remoteRequestedChannels,
       );
 
       return;
     }
 
-    final recipients = targetUserIds
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toSet()
-        .toList();
+    await _dispatchToUsers(
+      remoteCubit: remoteCubit,
+      data: data,
+      sourceKey: sourceKey,
+      targetUserIds: targetUserIds,
+      fallbackUserId: fallbackUserId,
+      requestedChannels: remoteRequestedChannels,
+      resolveEnabledChannels: resolveEnabledChannels,
+    );
+  }
+
+  static Set<NotificationChannel> _resolveRequestedChannels({
+    required NotificationData data,
+    required NotificationDelivery delivery,
+    required bool sendPush,
+  }) {
+    final channels = <NotificationChannel>{
+      ...delivery.channels,
+      ...data.channels,
+      if (data.persistInFirebase) NotificationChannel.bell,
+      if (sendPush || data.sendPush) NotificationChannel.push,
+      if (data.sendEmail) NotificationChannel.email,
+      if (data.sendSms) NotificationChannel.sms,
+    };
+
+    if (channels.isEmpty) {
+      channels.add(NotificationChannel.local);
+    }
+
+    return channels;
+  }
+
+  static String? _resolveCurrentUserId(String? fallbackUserId) {
+    final authUserId = FirebaseAuth.instance.currentUser?.uid.trim();
+
+    if (authUserId != null && authUserId.isNotEmpty) {
+      return authUserId;
+    }
 
     final fallback = fallbackUserId?.trim();
 
-    if (recipients.isEmpty && fallback != null && fallback.isNotEmpty) {
-      recipients.add(fallback);
+    if (fallback != null && fallback.isNotEmpty) {
+      return fallback;
     }
+
+    return null;
+  }
+
+  static Future<void> _dispatchLocalIfAllowed({
+    required BuildContext context,
+    required NotificationData data,
+    required String sourceKey,
+    required String? currentUserId,
+    required Set<NotificationChannel> requestedChannels,
+    required Future<Set<NotificationChannel>> Function({
+    required String userId,
+    required Set<NotificationChannel> channels,
+    }) resolveEnabledChannels,
+  }) async {
+    if (!requestedChannels.contains(NotificationChannel.local)) return;
+
+    final userId = currentUserId?.trim();
+
+    if (userId == null || userId.isEmpty) return;
+
+    final enabledChannels = await resolveEnabledChannels(
+      userId: userId,
+      channels: const <NotificationChannel>{
+        NotificationChannel.local,
+      },
+    );
+
+    if (!enabledChannels.contains(NotificationChannel.local)) return;
+    if (!context.mounted) return;
+
+    context.read<NotificationLocalCubit>().show(
+      data.copyWith(
+        createdAt: data.createdAt ?? DateTime.now(),
+        channels: const <NotificationChannel>{
+          NotificationChannel.local,
+        },
+        persistInFirebase: false,
+        sendPush: false,
+        sendEmail: false,
+        sendSms: false,
+        recipientUserId: userId,
+        extra: NotificationData.sanitizeExtra(
+          <String, dynamic>{
+            ...data.extra,
+            'source': sourceKey,
+            'sourceKey': sourceKey,
+            'subSource': sourceKey,
+            'notificationSource': sourceKey,
+            'channels': const <String>['local'],
+            'sendPush': false,
+            'sendEmail': false,
+            'sendSms': false,
+            'recipientUserId': userId,
+          },
+        ),
+      ),
+    );
+  }
+
+  static Future<void> _dispatchGlobal({
+    required NotificationRemoteCubit remoteCubit,
+    required NotificationData data,
+    required String sourceKey,
+    required Set<NotificationChannel> channels,
+  }) async {
+    if (channels.isEmpty) return;
+
+    await remoteCubit.sendGlobal(
+      data: _remoteData(
+        data: data,
+        sourceKey: sourceKey,
+        channels: channels,
+      ),
+      sendPush: channels.contains(NotificationChannel.push),
+    );
+  }
+
+  static Future<void> _dispatchToUsers({
+    required NotificationRemoteCubit remoteCubit,
+    required NotificationData data,
+    required String sourceKey,
+    required Iterable<String> targetUserIds,
+    required String? fallbackUserId,
+    required Set<NotificationChannel> requestedChannels,
+    required Future<Set<NotificationChannel>> Function({
+    required String userId,
+    required Set<NotificationChannel> channels,
+    }) resolveEnabledChannels,
+  }) async {
+    final recipients = _resolveRecipients(
+      targetUserIds: targetUserIds,
+      fallbackUserId: fallbackUserId,
+    );
 
     if (recipients.isEmpty) return;
 
     final groupedByChannels = <String, _NotificationRecipientGroup>{};
 
     for (final userId in recipients) {
-      final enabledChannels = await _resolveEnabledChannelsForUser(
+      final enabledChannels = await resolveEnabledChannels(
         userId: userId,
-        sourceKey: sourceKey,
-        requestedChannels: remoteRequestedChannels,
+        channels: requestedChannels,
       );
 
-      final cleanChannels = enabledChannels.where((channel) {
-        return channel != NotificationChannel.local;
-      }).toSet();
+      final cleanChannels = _remoteChannelsOnly(enabledChannels);
 
       if (cleanChannels.isEmpty) continue;
 
@@ -159,7 +259,36 @@ class NotificationDispatcher {
     }
   }
 
+  static List<String> _resolveRecipients({
+    required Iterable<String> targetUserIds,
+    required String? fallbackUserId,
+  }) {
+    final recipients = targetUserIds
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+
+    final fallback = fallbackUserId?.trim();
+
+    if (recipients.isEmpty && fallback != null && fallback.isNotEmpty) {
+      recipients.add(fallback);
+    }
+
+    final list = recipients.toList()..sort();
+
+    return list;
+  }
+
+  static Set<NotificationChannel> _remoteChannelsOnly(
+      Iterable<NotificationChannel> channels,
+      ) {
+    return channels.where((channel) {
+      return channel != NotificationChannel.local;
+    }).toSet();
+  }
+
   static Future<Set<NotificationChannel>> _resolveEnabledChannelsForUser({
+    required Map<String, Future<NotificationPreferenceData>> cache,
     required String userId,
     required String sourceKey,
     required Set<NotificationChannel> requestedChannels,
@@ -170,10 +299,19 @@ class NotificationDispatcher {
       return const <NotificationChannel>{};
     }
 
-    final preference = await _preferencesRepository.getPreference(
-      userId: cleanUserId,
-      sourceKey: sourceKey,
+    final cacheKey = '$cleanUserId::$sourceKey';
+
+    final preferenceFuture = cache.putIfAbsent(
+      cacheKey,
+          () {
+        return _preferencesRepository.getPreference(
+          userId: cleanUserId,
+          sourceKey: sourceKey,
+        );
+      },
     );
+
+    final preference = await preferenceFuture;
 
     return preference.filterChannels(requestedChannels);
   }
@@ -188,6 +326,8 @@ class NotificationDispatcher {
       channels: channels,
       persistInFirebase: channels.contains(NotificationChannel.bell),
       sendPush: channels.contains(NotificationChannel.push),
+      sendEmail: channels.contains(NotificationChannel.email),
+      sendSms: channels.contains(NotificationChannel.sms),
       extra: NotificationData.sanitizeExtra(
         <String, dynamic>{
           ...data.extra,
@@ -205,60 +345,22 @@ class NotificationDispatcher {
   }
 
   static String _resolveSourceKey(NotificationData data) {
-    final fromNotificationSource = _clean(
+    final candidates = <String?>[
       data.extra['notificationSource']?.toString(),
-    );
-
-    if (fromNotificationSource != null) {
-      return _normalizeSubSourceKey(fromNotificationSource);
-    }
-
-    final fromSubSource = _clean(
       data.extra['subSource']?.toString(),
-    );
-
-    if (fromSubSource != null) {
-      return _normalizeSubSourceKey(fromSubSource);
-    }
-
-    final fromSourceKey = _clean(
       data.extra['sourceKey']?.toString(),
-    );
-
-    if (fromSourceKey != null) {
-      return _normalizeSubSourceKey(fromSourceKey);
-    }
-
-    final fromSource = _clean(
       data.extra['source']?.toString(),
-    );
-
-    if (fromSource != null) {
-      return _normalizeSubSourceKey(fromSource);
-    }
-
-    final fromRoute = _clean(
       data.extra['route']?.toString(),
-    );
-
-    if (fromRoute != null) {
-      return _normalizeSubSourceKey(fromRoute);
-    }
-
-    final fromModule = _clean(
       data.extra['module']?.toString(),
-    );
-
-    if (fromModule != null) {
-      return _normalizeSubSourceKey(fromModule);
-    }
-
-    final fromAction = _clean(
       data.extra['action']?.toString(),
-    );
+    ];
 
-    if (fromAction != null) {
-      return _normalizeSubSourceKey(fromAction);
+    for (final candidate in candidates) {
+      final cleanValue = _clean(candidate);
+
+      if (cleanValue == null) continue;
+
+      return _normalizeSubSourceKey(cleanValue);
     }
 
     return NotificationSubSource.generalSystem.key;
@@ -279,7 +381,8 @@ class NotificationDispatcher {
 
     final source = NotificationSourceRegistry.resolveSource(clean);
 
-    if (source != NotificationSource.general || clean == NotificationSource.general.key) {
+    if (source != NotificationSource.general ||
+        clean == NotificationSource.general.key) {
       final subSources = source.subSources;
 
       if (subSources.isNotEmpty) {
@@ -297,19 +400,23 @@ class NotificationDispatcher {
       return NotificationSubSource.generalSystem.key;
     }
 
-    if (clean.contains('general_notices') ||
-        clean.contains('notice') ||
-        clean.contains('notices') ||
-        clean.contains('aviso') ||
-        clean.contains('avisos') ||
-        clean.contains('comunicado')) {
+    if (_containsAny(clean, const [
+      'general_notices',
+      'notice',
+      'notices',
+      'aviso',
+      'avisos',
+      'comunicado',
+    ])) {
       return NotificationSubSource.generalNotices.key;
     }
 
-    if (clean.contains('general_ads') ||
-        clean.contains('ads') ||
-        clean.contains('publicidade') ||
-        clean.contains('campanha')) {
+    if (_containsAny(clean, const [
+      'general_ads',
+      'ads',
+      'publicidade',
+      'campanha',
+    ])) {
       return NotificationSubSource.generalAds.key;
     }
 
@@ -321,115 +428,167 @@ class NotificationDispatcher {
       return NotificationSubSource.contractsHiringEtp.key;
     }
 
-    if (clean.contains('contracts_hiring_tr') ||
-        clean.contains('_tr') ||
-        clean.contains('termo') ||
-        clean.contains('referencia') ||
-        clean.contains('referência')) {
+    if (_containsAny(clean, const [
+      'contracts_hiring_tr',
+      '_tr',
+      'termo',
+      'referencia',
+      'referência',
+    ])) {
       return NotificationSubSource.contractsHiringTr.key;
     }
 
-    if (clean.contains('cotacao') || clean.contains('cotação')) {
+    if (_containsAny(clean, const [
+      'cotacao',
+      'cotação',
+    ])) {
       return NotificationSubSource.contractsHiringCotacao.key;
     }
 
-    if (clean.contains('edital') ||
-        clean.contains('julgamento') ||
-        clean.contains('proposta') ||
-        clean.contains('lance')) {
+    if (_containsAny(clean, const [
+      'edital',
+      'julgamento',
+      'proposta',
+      'lance',
+    ])) {
       return NotificationSubSource.contractsHiringEdital.key;
     }
 
-    if (clean.contains('habilitacao') ||
-        clean.contains('habilitação') ||
-        clean.contains('regularidade')) {
+    if (_containsAny(clean, const [
+      'habilitacao',
+      'habilitação',
+      'regularidade',
+    ])) {
       return NotificationSubSource.contractsHiringHabilitacao.key;
     }
 
-    if (clean.contains('dotacao') ||
-        clean.contains('dotação') ||
-        clean.contains('orcamentaria') ||
-        clean.contains('orçamentária') ||
-        clean.contains('orcamento') ||
-        clean.contains('orçamento')) {
+    if (_containsAny(clean, const [
+      'dotacao',
+      'dotação',
+      'orcamentaria',
+      'orçamentária',
+    ])) {
       return NotificationSubSource.contractsHiringDotacao.key;
+    }
+
+    if (_containsAny(clean, const [
+      'budget',
+      'orcamento',
+      'orçamento',
+      'planilha',
+      'budget_general',
+    ])) {
+      return NotificationSubSource.budgetGeneral.key;
     }
 
     if (clean.contains('minuta')) {
       return NotificationSubSource.contractsHiringMinuta.key;
     }
 
-    if (clean.contains('parecer') || clean.contains('juridico')) {
+    if (_containsAny(clean, const [
+      'parecer',
+      'juridico',
+      'jurídico',
+    ])) {
       return NotificationSubSource.contractsHiringParecer.key;
     }
 
-    if (clean.contains('publicacao') ||
-        clean.contains('publicação') ||
-        clean.contains('extrato')) {
+    if (_containsAny(clean, const [
+      'publicacao',
+      'publicação',
+      'extrato',
+    ])) {
       return NotificationSubSource.contractsHiringPublicacao.key;
     }
 
-    if (clean.contains('arquivamento') ||
-        clean.contains('arquivar') ||
-        clean.contains('arquivo')) {
+    if (_containsAny(clean, const [
+      'arquivamento',
+      'arquivar',
+      'arquivo',
+    ])) {
       return NotificationSubSource.contractsHiringArquivamento.key;
     }
 
-    if (clean.contains('measurement') ||
-        clean.contains('measurements') ||
-        clean.contains('medicao') ||
-        clean.contains('medição') ||
-        clean.contains('boletim')) {
+    if (_containsAny(clean, const [
+      'measurement',
+      'measurements',
+      'medicao',
+      'medição',
+      'boletim',
+    ])) {
       return NotificationSubSource.measurementsBulletin.key;
     }
 
-    if (clean.contains('adjustment') ||
-        clean.contains('adjustments') ||
-        clean.contains('reajuste')) {
+    if (_containsAny(clean, const [
+      'adjustment',
+      'adjustments',
+      'reajuste',
+    ])) {
       return NotificationSubSource.measurementsAdjustments.key;
     }
 
-    if (clean.contains('revision') ||
-        clean.contains('revisao') ||
-        clean.contains('revisão')) {
+    if (_containsAny(clean, const [
+      'revision',
+      'revisao',
+      'revisão',
+    ])) {
       return NotificationSubSource.measurementsRevision.key;
     }
 
-    if (clean.contains('schedule') ||
-        clean.contains('cronograma') ||
-        clean.contains('estaca')) {
+    if (_containsAny(clean, const [
+      'schedule',
+      'cronograma',
+      'estaca',
+    ])) {
       return NotificationSubSource.scheduleGeneral.key;
     }
 
-    if (clean.contains('additive') || clean.contains('aditivo')) {
+    if (_containsAny(clean, const [
+      'additive',
+      'aditivo',
+    ])) {
       return NotificationSubSource.additivesGeneral.key;
     }
 
-    if (clean.contains('apostille') ||
-        clean.contains('apostila') ||
-        clean.contains('apostilamento')) {
+    if (_containsAny(clean, const [
+      'apostille',
+      'apostila',
+      'apostilamento',
+    ])) {
       return NotificationSubSource.apostillesGeneral.key;
     }
 
-    if (clean.contains('validity') ||
-        clean.contains('vigencia') ||
-        clean.contains('vigência') ||
-        clean.contains('validade') ||
-        clean.contains('prazo')) {
+    if (_containsAny(clean, const [
+      'validity',
+      'vigencia',
+      'vigência',
+      'validade',
+      'prazo',
+    ])) {
       return NotificationSubSource.validityGeneral.key;
     }
 
-    if (clean.contains('contract') ||
-        clean.contains('contrato') ||
-        clean.contains('process') ||
-        clean.contains('processo') ||
-        clean.contains('hiring') ||
-        clean.contains('contratacao') ||
-        clean.contains('contratação')) {
+    if (_containsAny(clean, const [
+      'contract',
+      'contrato',
+      'process',
+      'processo',
+      'hiring',
+      'contratacao',
+      'contratação',
+    ])) {
       return NotificationSubSource.contractsHiringDfd.key;
     }
 
     return NotificationSubSource.generalSystem.key;
+  }
+
+  static bool _containsAny(String value, Iterable<String> terms) {
+    for (final term in terms) {
+      if (value.contains(term)) return true;
+    }
+
+    return false;
   }
 
   static String _channelsKey(Set<NotificationChannel> channels) {

@@ -42,7 +42,6 @@ class LoginSecuritySettingsPage extends StatelessWidget {
           padding: EdgeInsets.only(left: 12),
           child: CircleButtonChange(),
         ),
-        photoMenu: const SizedBox.shrink(),
       ),
       body: Stack(
         children: [

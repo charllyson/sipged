@@ -1,3 +1,5 @@
+// lib/screens/modules/contracts/hiring/3Tr/tr_page.dart
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,6 +14,7 @@ import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 
@@ -57,6 +60,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
   @override
   bool get wantKeepAlive => true;
 
+  static const String _notificationSource = 'contracts_hiring_tr';
+  static const String _route = 'contracts_hiring_tr';
+
   late final ProgressCubit _progressBloc;
 
   TrData _formData = const TrData.empty();
@@ -72,20 +78,6 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
   bool get _isEditable => !widget.readOnly;
 
   String get _contractId => widget.contractId.trim();
-
-  String get _currentUserId {
-    return FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
-  }
-
-  List<String> get _defaultPushTargets {
-    final uid = _currentUserId;
-
-    if (uid.isEmpty) {
-      return const <String>[];
-    }
-
-    return <String>[uid];
-  }
 
   ProcessData get _effectiveContract {
     if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
@@ -139,7 +131,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
 
         _loadingContract = false;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[TermoReferenciaPage] Erro ao carregar contrato $cid: $e');
+
       if (!mounted) return;
 
       setState(() {
@@ -165,47 +159,67 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
     required String title,
     String? subtitle,
     String? details,
-    NotificationStatus type = NotificationStatus.info,
+    NotificationStatus status = NotificationStatus.info,
+
+    /// Compatibilidade com chamadas antigas.
+    NotificationStatus? type,
+
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
+
+    /// Quando vazio, o helper deve resolver todos os usuários com permissão no contrato.
     Iterable<String> targetUserIds = const <String>[],
+
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
+    final effectiveContract = _effectiveContract;
 
     await NotificationHiring.show(
       context: context,
-      contract: _effectiveContract,
+      contract: effectiveContract,
       title: title,
       subtitle: subtitle,
       details: details,
       leadingLabel: 'TR',
-      module: 'contracts_hiring_tr',
-      type: type,
+      module: _route,
+      notificationSource: _notificationSource,
+      source: 'tr_notification',
+      status: type ?? status,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
+      delivery: NotificationDelivery.localBellAndPush,
       targetUserIds: targetUserIds,
       actorId: user?.uid,
       actorName: _currentActorName(),
       extra: <String, dynamic>{
         ...extra,
-        'route': extra['route'] ?? 'contracts_hiring_tr',
-        'contractId': _effectiveContract.id,
-        'contractSummary': _effectiveContract.displaySummary,
+        'route': extra['route'] ?? _route,
+        'module': _route,
+        'source': 'tr_notification',
+        'sourceKey': _notificationSource,
+        'subSource': _notificationSource,
+        'notificationSource': _notificationSource,
+        if ((effectiveContract.id ?? '').trim().isNotEmpty)
+          'contractId': effectiveContract.id,
+        if (effectiveContract.displaySummary.trim().isNotEmpty)
+          'contractSummary': effectiveContract.displaySummary,
       },
     );
   }
 
-  Future<bool> _saveOnly() async {
+  Future<bool> _saveOnly({
+    bool notifySuccess = true,
+  }) async {
     if (widget.readOnly) {
       await _notify(
         title: 'TR',
         subtitle: 'Esta etapa está em modo somente leitura.',
-        type: NotificationStatus.info,
+        status: NotificationStatus.info,
       );
       return false;
     }
@@ -227,7 +241,7 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
           title: 'TR',
           subtitle: 'Erro ao salvar.',
           details: err,
-          type: NotificationStatus.error,
+          status: NotificationStatus.error,
           duration: const Duration(seconds: 6),
         );
 
@@ -243,21 +257,27 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         collectionName: 'tr',
       );
 
-      await _notify(
-        title: 'TR atualizado',
-        subtitle: 'Alterações salvas por ${_currentActorName()}.',
-        details: _effectiveContract.displaySummary,
-        type: NotificationStatus.success,
-        saveInBell: true,
-        sendPush: true,
-        targetUserIds: _defaultPushTargets,
-        extra: <String, dynamic>{
-          'action': 'tr_saved',
-          'trId': cubit.state.trId,
-          'contractId': _contractId,
-          'route': 'contracts_hiring_tr',
-        },
-      );
+      if (notifySuccess) {
+        await _notify(
+          title: 'TR atualizado',
+          subtitle: 'Alterações salvas por ${_currentActorName()}.',
+          details: _effectiveContract.displaySummary,
+          status: NotificationStatus.success,
+          saveInBell: true,
+          sendPush: true,
+
+          /// Vazio = todos com permissão ao contrato.
+          targetUserIds: const <String>[],
+
+          extra: <String, dynamic>{
+            'action': 'tr_saved',
+            'trId': cubit.state.trId,
+            'contractId': _contractId,
+            'route': _route,
+            'notificationSource': _notificationSource,
+          },
+        );
+      }
 
       return true;
     } catch (e) {
@@ -267,7 +287,7 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         title: 'TR',
         subtitle: 'Erro ao salvar.',
         details: '$e',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
 
@@ -281,7 +301,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
     final tab = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly();
+    final saved = await _saveOnly(
+      notifySuccess: false,
+    );
 
     if (!mounted || !saved) return;
 
@@ -291,7 +313,7 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
       await _notify(
         title: 'TR',
         subtitle: 'Documento não encontrado para aprovar.',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
       );
       return;
     }
@@ -327,15 +349,19 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         title: 'TR aprovado',
         subtitle: 'Etapa concluída por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
-        targetUserIds: _defaultPushTargets,
+
+        /// Vazio = todos com permissão ao contrato.
+        targetUserIds: const <String>[],
+
         extra: <String, dynamic>{
           'action': 'tr_approved',
           'trId': trId,
           'contractId': _contractId,
-          'route': 'contracts_hiring_tr',
+          'route': _route,
+          'notificationSource': _notificationSource,
           'nextStage': 'cotacao',
         },
       );
@@ -346,7 +372,7 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         title: 'TR',
         subtitle: 'Erro ao aprovar.',
         details: '$e',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -356,7 +382,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
     final trCubit = context.read<TrCubit>();
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly();
+    final saved = await _saveOnly(
+      notifySuccess: false,
+    );
 
     if (!mounted || !saved) return;
 
@@ -366,7 +394,7 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
       await _notify(
         title: 'TR',
         subtitle: 'Documento não encontrado para atualizar.',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
       );
       return;
     }
@@ -389,15 +417,19 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         title: 'Aprovação do TR atualizada',
         subtitle: 'Atualizada por $actorName.',
         details: _effectiveContract.displaySummary,
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
-        targetUserIds: _defaultPushTargets,
+
+        /// Vazio = todos com permissão ao contrato.
+        targetUserIds: const <String>[],
+
         extra: <String, dynamic>{
           'action': 'tr_approval_updated',
           'trId': trId,
           'contractId': _contractId,
-          'route': 'contracts_hiring_tr',
+          'route': _route,
+          'notificationSource': _notificationSource,
         },
       );
     } catch (e) {
@@ -407,7 +439,7 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         title: 'TR',
         subtitle: 'Erro ao atualizar aprovação.',
         details: '$e',
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
     }
@@ -569,7 +601,7 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
                       return StageProgress(
                         title: 'Termo de Referência',
                         icon: Icons.rule_folder_outlined,
-                        busy: state.saving,
+                        busy: state.saving || pstate.loading,
                         approved: pstate.approved,
                         onSave: _saveOnly,
                         onSaveAndNext: _saveApproveAndNext,

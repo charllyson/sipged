@@ -23,38 +23,62 @@ class TabBarAdditivePage extends StatelessWidget {
     this.initialTabIndex = 0,
   });
 
+  String _buildContractNumber(ProcessData contract) {
+    final number = contract.displayNumber.trim();
+
+    if (number.isEmpty) return '';
+
+    if ((contract.contractNumber ?? '').trim().isNotEmpty) {
+      return 'Contrato nº $number';
+    }
+
+    if ((contract.processNumber ?? '').trim().isNotEmpty) {
+      return 'Processo nº $number';
+    }
+
+    return number;
+  }
+
   @override
   Widget build(BuildContext context) {
     return TabChanged(
       contractData: contractData,
       contractsCubit: contractsCubit,
       initialTabIndex: initialTabIndex,
+      textBanner: contractData?.summarySubjectContract,
+      contractNumberBuilder: _buildContractNumber,
       tabs: [
         ContractTabDescriptor(
           label: 'Aditivos',
           requireSavedContract: true,
           builder: (c) {
+            final contract = c!;
+
             return AdditivePage(
-              key: ValueKey(c?.id),
-              contractData: c!,
+              key: ValueKey(contract.id),
+              contractData: contract,
             );
           },
         ),
         ContractTabDescriptor(
           label: 'Cronograma',
           requireSavedContract: true,
-          builder: (c) => BlocProvider<ScheduleRoadCubit>(
-            create: (_) => ScheduleRoadCubit(
-              repository: ScheduleRoadRepository(),
-            )..warmup(
-              contractId: c.id!,
-              initialServiceKey: 'geral',
-            ),
-            child: PhysFinWidget(
-              contractData: c!,
-              chronogramMode: true,
-            ),
-          ),
+          builder: (c) {
+            final contract = c!;
+
+            return BlocProvider<ScheduleRoadCubit>(
+              create: (_) => ScheduleRoadCubit(
+                repository: ScheduleRoadRepository(),
+              )..warmup(
+                contractId: contract.id!,
+                initialServiceKey: 'geral',
+              ),
+              child: PhysFinWidget(
+                contractData: contract,
+                chronogramMode: true,
+              ),
+            );
+          },
         ),
       ],
     );
