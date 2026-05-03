@@ -3,11 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
@@ -44,13 +42,16 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
     return (a ?? '').trim().toUpperCase() == (b ?? '').trim().toUpperCase();
   }
 
-  List<AccidentsData> _filterByCity(List<AccidentsData> list, String city) {
-    final c = city.trim().toUpperCase();
+  List<AccidentsData> _filterByCity(
+      List<AccidentsData> list,
+      String city,
+      ) {
+    final normalizedCity = city.trim().toUpperCase();
 
-    return list.where((e) {
-      final candidate = (e.city ?? e.locality ?? '').trim().toUpperCase();
+    return list.where((item) {
+      final candidate = (item.city ?? item.locality ?? '').trim().toUpperCase();
 
-      return candidate == c;
+      return candidate == normalizedCity;
     }).toList();
   }
 
@@ -85,10 +86,6 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final moduleLabel = SetupData.defaultModuleLabel;
-    final moduleGradient = SetupData.gradientForModule(moduleLabel);
-    final _ = moduleGradient;
-
     return MultiBlocProvider(
       providers: [
         BlocProvider(
@@ -107,18 +104,18 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
             const BackgroundChange(),
             LayoutBuilder(
               builder: (context, constraints) {
-                final w = constraints.maxWidth;
-                final h = constraints.maxHeight;
+                final width = constraints.maxWidth;
+                final height = constraints.maxHeight;
 
-                final targetBottomPanelHeight =
-                (h * _mobilePanelRatio).clamp(260.0, h * 0.90);
+                final targetBottomPanelHeight = (height * _mobilePanelRatio)
+                    .clamp(260.0, height * 0.90);
 
                 final layoutKey = ValueKey(
-                  'split_${w.round()}_${h.round()}_${targetBottomPanelHeight.round()}',
+                  'split_${width.round()}_${height.round()}_${targetBottomPanelHeight.round()}',
                 );
 
                 return BlocBuilder<AccidentsCubit, AccidentsState>(
-                  builder: (context, accState) {
+                  builder: (context, accidentState) {
                     return BlocBuilder<IBGELocationCubit, IBGELocationState>(
                       builder: (context, geoState) {
                         final polygons = geoState.cityPolygons;
@@ -131,8 +128,9 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
                           showRightPanel: true,
                           showDividers: true,
                           dividerThickness: 12,
-                          dividerBackgroundColor:
-                          isDark ? const Color(0xFF0B0F17) : Colors.white,
+                          dividerBackgroundColor: isDark
+                              ? const Color(0xFF0B0F17)
+                              : Colors.white,
                           dividerBorderColor: isDark
                               ? Colors.white.withValues(alpha: 0.08)
                               : Colors.black.withValues(alpha: 0.08),
@@ -142,10 +140,9 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
                           stackedRightOnTop: false,
                           left: _buildLeftMap(
                             theme: theme,
-                            accState: accState,
+                            accidentState: accidentState,
                             geoState: geoState,
                             polygons: polygons,
-                            isMobile: w < _mobileBreakpoint,
                           ),
                           right: const AccidentDashboardPanel(),
                         );
@@ -163,107 +160,81 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
 
   Widget _buildLeftMap({
     required ThemeData theme,
-    required AccidentsState accState,
+    required AccidentsState accidentState,
     required IBGELocationState geoState,
     required List<Polygon<Map<String, dynamic>>> polygons,
-    required bool isMobile,
   }) {
     final accidentsCubit = context.read<AccidentsCubit>();
 
     final selectedRegions =
-    (accState.city != null && accState.city!.trim().isNotEmpty)
-        ? <String>[accState.city!.trim()]
+    accidentState.city != null && accidentState.city!.trim().isNotEmpty
+        ? <String>[accidentState.city!.trim()]
         : const <String>[];
 
     return Stack(
       children: [
         AccidentDashboardMap(
           center: _fallbackCenter,
-          accidents: accState.view,
+          accidents: accidentState.view,
           polygonsChanged: polygons,
           selectedRegionNames: selectedRegions,
           onRegionTap: (region) async {
-            final r = (region ?? '').trim();
+            final selectedRegion = (region ?? '').trim();
 
-            if (r.isEmpty) {
+            if (selectedRegion.isEmpty) {
               await accidentsCubit.toggleCity(null);
               return;
             }
 
-            final alreadySelected = _equalsNorm(accState.city, r);
+            final alreadySelected = _equalsNorm(
+              accidentState.city,
+              selectedRegion,
+            );
 
-            await accidentsCubit.toggleCity(r);
+            await accidentsCubit.toggleCity(selectedRegion);
 
             if (!alreadySelected) {
-              final dadosCidade = _filterByCity(accState.universe, r);
-              await _openCityDetails(region: r, dados: dadosCidade);
+              final cityData = _filterByCity(
+                accidentState.universe,
+                selectedRegion,
+              );
+
+              await _openCityDetails(
+                region: selectedRegion,
+                dados: cityData,
+              );
             }
           },
-          onTapMarker: (acc) async {
-            final city = (acc.city ?? acc.locality ?? '').trim();
+          onTapMarker: (accident) async {
+            final city = (accident.city ?? accident.locality ?? '').trim();
 
             if (city.isEmpty) {
               await _openCityDetails(
                 region: 'Ocorrência',
-                dados: [acc],
+                dados: [accident],
               );
               return;
             }
 
-            final alreadySelected = _equalsNorm(accState.city, city);
+            final alreadySelected = _equalsNorm(
+              accidentState.city,
+              city,
+            );
 
             await accidentsCubit.toggleCity(city);
 
             if (!alreadySelected) {
-              final dadosCidade = _filterByCity(accState.universe, city);
-              await _openCityDetails(region: city, dados: dadosCidade);
+              final cityData = _filterByCity(
+                accidentState.universe,
+                city,
+              );
+
+              await _openCityDetails(
+                region: city,
+                dados: cityData,
+              );
             }
           },
-        ),
-        Positioned(
-          left: 12,
-          bottom: 12,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 8,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: theme.brightness == Brightness.dark
-                  ? Colors.black.withValues(alpha: 0.40)
-                  : Colors.white.withValues(alpha: 0.90),
-              border: Border.all(
-                color: (theme.brightness == Brightness.dark
-                    ? Colors.white
-                    : Colors.black)
-                    .withValues(alpha: 0.12),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  geoState.isLoading ? Icons.autorenew : Icons.map_outlined,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${geoState.cityPolygons.length} polígonos encontrados',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (geoState.isLoading) ...[
-                  const SizedBox(width: 10),
-                  const LoadingTreeDots(
-                    size: 20,
-                    centered: false,
-                  ),
-                ],
-              ],
-            ),
-          ),
         ),
         if (geoState.errorMessage != null &&
             geoState.errorMessage!.trim().isNotEmpty)
@@ -290,8 +261,8 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
             ),
           ),
         const Positioned(
-          right: 12,
-          bottom: 12,
+          right: 60,
+          bottom: 18,
           child: MiniLegend(
             items: [
               LegendItem(label: 'Leve', icon: Icons.circle),

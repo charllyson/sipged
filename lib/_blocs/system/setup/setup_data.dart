@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
-import 'package:flutter/material.dart';
 
 DateTime? _dateFromFirestore(dynamic value) {
   if (value is Timestamp) return value.toDate();
@@ -13,375 +12,316 @@ Timestamp? _dateToFirestore(DateTime? value) {
   return Timestamp.fromDate(value);
 }
 
+enum SetupGroup {
+  modules,
+  profiles,
+  permissions,
+  parameters,
+  integrations,
+  featureFlags,
+}
+
+extension SetupGroupExtension on SetupGroup {
+  String get collectionName {
+    switch (this) {
+      case SetupGroup.modules:
+        return 'modules';
+
+      case SetupGroup.profiles:
+        return 'profiles';
+
+      case SetupGroup.permissions:
+        return 'permissions';
+
+      case SetupGroup.parameters:
+        return 'parameters';
+
+      case SetupGroup.integrations:
+        return 'integrations';
+
+      case SetupGroup.featureFlags:
+        return 'feature_flags';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case SetupGroup.modules:
+        return 'Módulos';
+
+      case SetupGroup.profiles:
+        return 'Perfis';
+
+      case SetupGroup.permissions:
+        return 'Permissões';
+
+      case SetupGroup.parameters:
+        return 'Parâmetros';
+
+      case SetupGroup.integrations:
+        return 'Integrações';
+
+      case SetupGroup.featureFlags:
+        return 'Recursos';
+    }
+  }
+}
+
 class SetupData extends Equatable {
   final String id;
 
-  final String label;
-  final String? parentId;
-  final String? cnpjCompanyContracted;
-  final List<String>? municipios;
-  final String? companyId;
-  final String? companyName;
-  final String? fantasyName;
-  final String? fonteRecurso;
-  final String? unitId;
-  final String? unitName;
-  final String? roadId;
-  final String? roadName;
-  final String? regionId;
-  final String? regionName;
-  final String? genericId;
-  final String? name;
-  final String? cnpj;
+  final String tenantId;
 
-  final String? logoUrl;
-  final String? logoPath;
+  final SetupGroup group;
+
+  /// Chave técnica. Ex:
+  /// contracts-overview-dashboard
+  /// traffic-accidents-records
+  /// max-upload-size
+  /// enable-push-notifications
+  final String key;
+
+  /// Nome exibido na interface.
+  final String label;
+
+  /// Descrição técnica ou funcional.
+  final String? description;
+
+  /// Tipo lógico do item. Ex:
+  /// module, profile, permission, parameter, integration, feature_flag.
+  final String type;
+
+  /// Valor livre para parâmetros e flags.
+  ///
+  /// Pode ser bool, String, num, List ou Map.
+  final dynamic value;
+
+  final bool enabled;
+
+  final int order;
 
   final DateTime? createdAt;
   final String? createdBy;
   final DateTime? updatedAt;
   final String? updatedBy;
-  final Map<String, dynamic> extra;
+
+  final Map<String, dynamic> metadata;
 
   const SetupData({
     required this.id,
+    required this.tenantId,
+    required this.group,
+    required this.key,
     required this.label,
-    this.parentId,
-    this.cnpjCompanyContracted,
-    this.municipios,
-    this.companyId,
-    this.companyName,
-    this.fantasyName,
-    this.fonteRecurso,
-    this.unitId,
-    this.unitName,
-    this.roadId,
-    this.roadName,
-    this.regionId,
-    this.regionName,
-    this.genericId,
-    this.name,
-    this.cnpj,
-    this.logoUrl,
-    this.logoPath,
+    required this.type,
+    this.description,
+    this.value,
+    this.enabled = true,
+    this.order = 0,
     this.createdAt,
     this.createdBy,
     this.updatedAt,
     this.updatedBy,
-    this.extra = const {},
+    this.metadata = const <String, dynamic>{},
   });
 
   const SetupData.empty()
       : id = '',
+        tenantId = '',
+        group = SetupGroup.parameters,
+        key = '',
         label = '',
-        parentId = null,
-        cnpjCompanyContracted = null,
-        municipios = null,
-        companyId = null,
-        companyName = null,
-        fantasyName = null,
-        fonteRecurso = null,
-        unitId = null,
-        unitName = null,
-        roadId = null,
-        roadName = null,
-        regionId = null,
-        regionName = null,
-        genericId = null,
-        name = null,
-        cnpj = null,
-        logoUrl = null,
-        logoPath = null,
+        description = null,
+        type = 'parameter',
+        value = null,
+        enabled = true,
+        order = 0,
         createdAt = null,
         createdBy = null,
         updatedAt = null,
         updatedBy = null,
-        extra = const {};
+        metadata = const <String, dynamic>{};
 
   factory SetupData.fromMap({
     required String id,
     required Map<String, dynamic>? map,
-    String? forcedParentId,
+    required SetupGroup group,
+    String? forcedTenantId,
   }) {
     if (map == null) return const SetupData.empty();
 
     final raw = Map<String, dynamic>.from(map);
 
-    final companyIdRaw = raw.remove('companyId')?.toString();
-    final companyName = raw.remove('companyName')?.toString();
-    final fantasyName = raw.remove('fantasyName')?.toString();
-    final unitId = raw.remove('unitId')?.toString();
-    final unitName = raw.remove('unitName')?.toString();
-    final regionId = raw.remove('regionId')?.toString();
-    final regionName = raw.remove('regionName')?.toString();
+    final tenantId = (forcedTenantId ?? raw.remove('tenantId')?.toString() ?? '')
+        .trim();
 
-    final genericId = raw.remove('id')?.toString();
-    final name = raw.remove('name')?.toString();
+    final key = (raw.remove('key') ?? id).toString().trim();
 
-    final parentId = forcedParentId ?? raw.remove('parentId')?.toString();
+    final label = (raw.remove('label') ?? key).toString().trim();
 
-    final cnpjValue = (raw.remove('cnpj') ?? '').toString().trim();
-    final cnpj = cnpjValue.isEmpty ? null : cnpjValue;
+    final descriptionRaw = raw.remove('description')?.toString().trim();
+    final description =
+    descriptionRaw == null || descriptionRaw.isEmpty ? null : descriptionRaw;
 
-    final logoUrlValue = (raw.remove('logoUrl') ?? '').toString().trim();
-    final logoPathValue = (raw.remove('logoPath') ?? '').toString().trim();
+    final type = (raw.remove('type') ?? _defaultTypeForGroup(group))
+        .toString()
+        .trim();
 
-    final logoUrl = logoUrlValue.isEmpty ? null : logoUrlValue;
-    final logoPath = logoPathValue.isEmpty ? null : logoPathValue;
+    final value = raw.remove('value');
 
-    List<String>? municipios;
-    final municipiosDynamic = raw.remove('municipios');
-    if (municipiosDynamic is List) {
-      municipios = municipiosDynamic.map((e) => e.toString()).toList();
-    }
+    final enabledRaw = raw.remove('enabled');
+    final enabled = enabledRaw is bool ? enabledRaw : true;
+
+    final orderRaw = raw.remove('order');
+    final order = orderRaw is int
+        ? orderRaw
+        : orderRaw is num
+        ? orderRaw.toInt()
+        : int.tryParse(orderRaw?.toString() ?? '') ?? 0;
 
     final createdAt = _dateFromFirestore(raw.remove('createdAt'));
     final updatedAt = _dateFromFirestore(raw.remove('updatedAt'));
+
     final createdBy = raw.remove('createdBy')?.toString();
     final updatedBy = raw.remove('updatedBy')?.toString();
 
-    final effectiveCompanyId =
-        companyIdRaw ?? (id == 'company' ? 'company' : null);
+    final metadataRaw = raw.remove('metadata');
 
-    final label = (companyName ??
-        fantasyName ??
-        regionName ??
-        unitName ??
-        name ??
-        raw.remove('label')?.toString() ??
-        '')
-        .toString();
+    final metadata = <String, dynamic>{};
 
-    final roadId = genericId;
-    final roadName = name;
+    if (metadataRaw is Map) {
+      metadata.addAll(Map<String, dynamic>.from(metadataRaw));
+    }
+
+    metadata.addAll(raw);
 
     return SetupData(
       id: id,
+      tenantId: tenantId,
+      group: group,
+      key: key,
       label: label,
-      parentId: parentId,
-      cnpjCompanyContracted: cnpj,
-      municipios: municipios,
-      companyId: effectiveCompanyId,
-      companyName: companyName,
-      fantasyName: fantasyName,
-      unitId: unitId,
-      unitName: unitName,
-      roadId: roadId,
-      roadName: roadName,
-      regionId: regionId,
-      regionName: regionName,
-      genericId: genericId,
-      name: name,
-      cnpj: cnpj,
-      logoUrl: logoUrl,
-      logoPath: logoPath,
+      description: description,
+      type: type,
+      value: value,
+      enabled: enabled,
+      order: order,
       createdAt: createdAt,
       createdBy: createdBy,
       updatedAt: updatedAt,
       updatedBy: updatedBy,
-      extra: raw,
+      metadata: metadata,
     );
   }
 
   factory SetupData.fromDoc(
       DocumentSnapshot<Map<String, dynamic>> doc, {
-        String? forcedParentId,
+        required SetupGroup group,
+        String? forcedTenantId,
       }) {
     return SetupData.fromMap(
       id: doc.id,
       map: doc.data(),
-      forcedParentId: forcedParentId,
+      group: group,
+      forcedTenantId: forcedTenantId,
     );
   }
 
-  Map<String, dynamic> toMap() {
-    final map = <String, dynamic>{
-      'companyId': companyId,
-      'companyName': companyName,
-      'fantasyName': fantasyName,
-      'unitId': unitId,
-      'unitName': unitName,
-      'regionId': regionId,
-      'regionName': regionName,
-      'id': genericId,
-      'name': name,
-      'parentId': parentId,
-      if (municipios != null) 'municipios': municipios,
-      if (cnpjCompanyContracted != null) 'cnpj': cnpjCompanyContracted,
-      if (logoUrl != null) 'logoUrl': logoUrl,
-      if (logoPath != null) 'logoPath': logoPath,
-      if (createdAt != null) 'createdAt': _dateToFirestore(createdAt),
-      if (createdBy != null) 'createdBy': createdBy,
-      if (updatedAt != null) 'updatedAt': _dateToFirestore(updatedAt),
-      if (updatedBy != null) 'updatedBy': updatedBy,
-    };
+  static String _defaultTypeForGroup(SetupGroup group) {
+    switch (group) {
+      case SetupGroup.modules:
+        return 'module';
 
-    map.addAll(extra);
-    return map;
+      case SetupGroup.profiles:
+        return 'profile';
+
+      case SetupGroup.permissions:
+        return 'permission';
+
+      case SetupGroup.parameters:
+        return 'parameter';
+
+      case SetupGroup.integrations:
+        return 'integration';
+
+      case SetupGroup.featureFlags:
+        return 'feature_flag';
+    }
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'tenantId': tenantId,
+      'key': key,
+      'label': label,
+      'type': type,
+      'enabled': enabled,
+      'order': order,
+      if (description != null && description!.trim().isNotEmpty)
+        'description': description,
+      if (value != null) 'value': value,
+      if (createdAt != null) 'createdAt': _dateToFirestore(createdAt),
+      if (createdBy != null && createdBy!.trim().isNotEmpty)
+        'createdBy': createdBy,
+      if (updatedAt != null) 'updatedAt': _dateToFirestore(updatedAt),
+      if (updatedBy != null && updatedBy!.trim().isNotEmpty)
+        'updatedBy': updatedBy,
+      if (metadata.isNotEmpty) 'metadata': metadata,
+    };
   }
 
   SetupData copyWith({
     String? id,
+    String? tenantId,
+    SetupGroup? group,
+    String? key,
     String? label,
-    String? parentId,
-    String? cnpjCompanyContracted,
-    List<String>? municipios,
-    String? companyId,
-    String? companyName,
-    String? fantasyName,
-    String? unitId,
-    String? unitName,
-    String? roadId,
-    String? roadName,
-    String? regionId,
-    String? regionName,
-    String? genericId,
-    String? name,
-    String? cnpj,
-    String? logoUrl,
-    String? logoPath,
+    String? description,
+    String? type,
+    dynamic value,
+    bool? enabled,
+    int? order,
     DateTime? createdAt,
     String? createdBy,
     DateTime? updatedAt,
     String? updatedBy,
-    Map<String, dynamic>? extra,
+    Map<String, dynamic>? metadata,
   }) {
     return SetupData(
       id: id ?? this.id,
+      tenantId: tenantId ?? this.tenantId,
+      group: group ?? this.group,
+      key: key ?? this.key,
       label: label ?? this.label,
-      parentId: parentId ?? this.parentId,
-      cnpjCompanyContracted:
-      cnpjCompanyContracted ?? this.cnpjCompanyContracted,
-      municipios: municipios ?? this.municipios,
-      companyId: companyId ?? this.companyId,
-      companyName: companyName ?? this.companyName,
-      fantasyName: fantasyName ?? this.fantasyName,
-      unitId: unitId ?? this.unitId,
-      unitName: unitName ?? this.unitName,
-      roadId: roadId ?? this.roadId,
-      roadName: roadName ?? this.roadName,
-      regionId: regionId ?? this.regionId,
-      regionName: regionName ?? this.regionName,
-      genericId: genericId ?? this.genericId,
-      name: name ?? this.name,
-      cnpj: cnpj ?? this.cnpj,
-      logoUrl: logoUrl ?? this.logoUrl,
-      logoPath: logoPath ?? this.logoPath,
+      description: description ?? this.description,
+      type: type ?? this.type,
+      value: value ?? this.value,
+      enabled: enabled ?? this.enabled,
+      order: order ?? this.order,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
-      extra: extra ?? Map<String, dynamic>.from(this.extra),
+      metadata: metadata ?? Map<String, dynamic>.from(this.metadata),
     );
   }
 
   @override
   List<Object?> get props => [
     id,
+    tenantId,
+    group,
+    key,
     label,
-    parentId,
-    cnpjCompanyContracted,
-    municipios,
-    companyId,
-    companyName,
-    fantasyName,
-    unitId,
-    unitName,
-    roadId,
-    roadName,
-    regionId,
-    regionName,
-    genericId,
-    name,
-    cnpj,
-    logoUrl,
-    logoPath,
+    description,
+    type,
+    value,
+    enabled,
+    order,
     createdAt,
     createdBy,
     updatedAt,
     updatedBy,
-    extra,
+    metadata,
   ];
-
-  static List<String> moduleName = [
-    'DER',
-    'DNIT-RO',
-  ];
-
-  static const String defaultModuleLabel = 'DER';
-  static String? selectedUF = 'AL';
-
-  static List<String> ufs = const [
-    'AC',
-    'AL',
-    'AM',
-    'AP',
-    'BA',
-    'CE',
-    'DF',
-    'ES',
-    'GO',
-    'MA',
-    'MG',
-    'MS',
-    'MT',
-    'PA',
-    'PB',
-    'PE',
-    'PI',
-    'PR',
-    'RJ',
-    'RN',
-    'RO',
-    'RR',
-    'RS',
-    'SC',
-    'SE',
-    'SP',
-    'TO'
-  ];
-
-  static String? profileKeyForArea(String areaLabel) {
-    switch (areaLabel.trim().toUpperCase()) {
-      case 'DNIT-RO':
-        return 'profileWork';
-      case 'DER':
-      default:
-        return 'profileWork';
-    }
-  }
-
-  static String flavorForArea(String areaLabel) {
-    switch (areaLabel.trim().toUpperCase()) {
-      case 'DNIT-RO':
-        return 'dnitro';
-      case 'DER':
-      default:
-        return 'der';
-    }
-  }
-
-  static Gradient gradientForModule(String name) {
-    switch (name.toUpperCase()) {
-      case 'DNIT-RO':
-        return const LinearGradient(
-          colors: [
-            Color.fromARGB(255, 27, 32, 51),
-            Color.fromARGB(255, 144, 202, 249),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-      case 'DER':
-      default:
-        return const LinearGradient(
-          colors: [
-            Color.fromARGB(255, 27, 32, 51),
-            Color.fromARGB(255, 144, 202, 249),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-    }
-  }
 }

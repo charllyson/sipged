@@ -3,12 +3,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
-import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
+
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
+
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
@@ -43,7 +45,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
   late final FocusNode _extensaoFocus;
   late final FocusNode _valorFocus;
 
-  String? _companyId;
+  String? _tenantId;
   int _roadsNonce = 0;
 
   bool _syncing = false;
@@ -54,11 +56,25 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
 
     final d = widget.data;
 
-    _tipoContratacaoCtrl = TextEditingController(text: d.tipoContratacao ?? '');
-    _tipoObraCtrl = TextEditingController(text: d.tipoObra ?? '');
-    _descricaoObjetoCtrl = TextEditingController(text: d.descricaoObjeto ?? '');
-    _justificativaCtrl = TextEditingController(text: d.justificativa ?? '');
-    _rodoviaCtrl = TextEditingController(text: d.rodovia ?? '');
+    _tipoContratacaoCtrl = TextEditingController(
+      text: d.tipoContratacao ?? '',
+    );
+
+    _tipoObraCtrl = TextEditingController(
+      text: d.tipoObra ?? '',
+    );
+
+    _descricaoObjetoCtrl = TextEditingController(
+      text: d.descricaoObjeto ?? '',
+    );
+
+    _justificativaCtrl = TextEditingController(
+      text: d.justificativa ?? '',
+    );
+
+    _rodoviaCtrl = TextEditingController(
+      text: d.rodovia ?? '',
+    );
 
     _extensaoMetrosCtrl = TextEditingController(
       text: d.extensaoKm != null ? _kmToMetersText(d.extensaoKm!) : '',
@@ -73,9 +89,14 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     _extensaoFocus = FocusNode();
     _valorFocus = FocusNode();
 
-    _companyId = _normalizeId(d.companyId);
+    _tenantId = _normalizeId(d.companyId);
 
-    context.read<SetupCubit>().loadSystemSetup();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      context.read<TenantCubit>().ensureTenantProfileLoaded();
+      context.read<TenantCubit>().ensureTenantItemsLoaded();
+    });
 
     _tipoContratacaoCtrl.addListener(_onAnyFieldChanged);
     _tipoObraCtrl.addListener(_onAnyFieldChanged);
@@ -91,12 +112,15 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
       if (_extensaoFocus.hasFocus) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
+
           final len = _extensaoMetrosCtrl.text.length;
-          _extensaoMetrosCtrl.selection =
-              TextSelection.collapsed(offset: len);
+          _extensaoMetrosCtrl.selection = TextSelection.collapsed(
+            offset: len,
+          );
         });
       } else {
         final meters = SipGedFormatNumbers.toInt(_extensaoMetrosCtrl.text);
+
         _syncControllerText(
           _extensaoMetrosCtrl,
           meters == null ? '' : _metersToText(meters),
@@ -110,11 +134,17 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
       if (_valorFocus.hasFocus) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
+
           final len = _valorDemandaCtrl.text.length;
-          _valorDemandaCtrl.selection = TextSelection.collapsed(offset: len);
+          _valorDemandaCtrl.selection = TextSelection.collapsed(
+            offset: len,
+          );
         });
       } else {
-        final parsed = SipGedFormatNumbers.toDouble(_valorDemandaCtrl.text);
+        final parsed = SipGedFormatNumbers.toDouble(
+          _valorDemandaCtrl.text,
+        );
+
         _syncControllerText(
           _valorDemandaCtrl,
           parsed == null ? '' : SipGedFormatMoney.brlNoSymbol(parsed),
@@ -130,9 +160,10 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     final newData = widget.data;
     final oldData = oldWidget.data;
 
-    final newCompanyId = _normalizeId(newData.companyId);
-    if (_companyId != newCompanyId) {
-      _companyId = newCompanyId;
+    final newTenantId = _normalizeId(newData.companyId);
+
+    if (_tenantId != newTenantId) {
+      _tenantId = newTenantId;
       _roadsNonce++;
     }
 
@@ -142,40 +173,61 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
         newData.tipoContratacao ?? '',
       );
     }
+
     if (oldData.tipoObra != newData.tipoObra) {
-      _syncControllerText(_tipoObraCtrl, newData.tipoObra ?? '');
+      _syncControllerText(
+        _tipoObraCtrl,
+        newData.tipoObra ?? '',
+      );
     }
+
     if (oldData.descricaoObjeto != newData.descricaoObjeto) {
       _syncControllerText(
         _descricaoObjetoCtrl,
         newData.descricaoObjeto ?? '',
       );
     }
+
     if (oldData.justificativa != newData.justificativa) {
-      _syncControllerText(_justificativaCtrl, newData.justificativa ?? '');
-    }
-    if (oldData.rodovia != newData.rodovia) {
-      _syncControllerText(_rodoviaCtrl, newData.rodovia ?? '');
+      _syncControllerText(
+        _justificativaCtrl,
+        newData.justificativa ?? '',
+      );
     }
 
-    final newMetersText = newData.extensaoKm != null
-        ? _kmToMetersText(newData.extensaoKm!)
-        : '';
-    final oldMetersText = oldData.extensaoKm != null
-        ? _kmToMetersText(oldData.extensaoKm!)
-        : '';
+    if (oldData.rodovia != newData.rodovia) {
+      _syncControllerText(
+        _rodoviaCtrl,
+        newData.rodovia ?? '',
+      );
+    }
+
+    final newMetersText =
+    newData.extensaoKm != null ? _kmToMetersText(newData.extensaoKm!) : '';
+
+    final oldMetersText =
+    oldData.extensaoKm != null ? _kmToMetersText(oldData.extensaoKm!) : '';
+
     if (newMetersText != oldMetersText && !_extensaoFocus.hasFocus) {
-      _syncControllerText(_extensaoMetrosCtrl, newMetersText);
+      _syncControllerText(
+        _extensaoMetrosCtrl,
+        newMetersText,
+      );
     }
 
     final newValorText = newData.valorDemanda != null
         ? SipGedFormatMoney.brlNoSymbol(newData.valorDemanda!)
         : '';
+
     final oldValorText = oldData.valorDemanda != null
         ? SipGedFormatMoney.brlNoSymbol(oldData.valorDemanda!)
         : '';
+
     if (newValorText != oldValorText && !_valorFocus.hasFocus) {
-      _syncControllerText(_valorDemandaCtrl, newValorText);
+      _syncControllerText(
+        _valorDemandaCtrl,
+        newValorText,
+      );
     }
   }
 
@@ -199,12 +251,14 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     _rodoviaCtrl.dispose();
     _extensaoMetrosCtrl.dispose();
     _valorDemandaCtrl.dispose();
+
     super.dispose();
   }
 
-  String? _normalizeId(String? v) {
-    final s = (v ?? '').trim();
-    return s.isEmpty ? null : s;
+  String? _normalizeId(String? value) {
+    final normalized = (value ?? '').trim();
+
+    return normalized.isEmpty ? null : normalized;
   }
 
   Future<String?> _askNewLabel(
@@ -223,7 +277,9 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
           content: TextField(
             controller: ctrl,
             autofocus: true,
-            decoration: InputDecoration(labelText: labelText),
+            decoration: InputDecoration(
+              labelText: labelText,
+            ),
             onSubmitted: (value) {
               Navigator.of(ctx).pop(value.trim());
             },
@@ -245,44 +301,59 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     ctrl.dispose();
 
     if (result == null) return null;
+
     final trimmed = result.trim();
-    if (trimmed.isEmpty || trimmed == initialValue.trim()) return null;
+
+    if (trimmed.isEmpty || trimmed == initialValue.trim()) {
+      return null;
+    }
+
     return trimmed;
   }
 
-  void _syncCompanyFromSetup(SetupData? company) {
-    if (company == null) return;
+  void _syncTenantFromProfile(TenantData? tenant) {
+    if (tenant == null) return;
 
-    final newCompanyId = _normalizeId(company.companyId ?? company.id);
-    if (_companyId == newCompanyId) return;
+    final newTenantId = _normalizeId(tenant.tenantId ?? tenant.id);
+
+    if (newTenantId == null) return;
+    if (_tenantId == newTenantId) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       setState(() {
-        _companyId = newCompanyId;
+        _tenantId = newTenantId;
         _roadsNonce++;
       });
+
       _emitChange();
     });
   }
 
-  void _syncControllerText(TextEditingController c, String v) {
-    if (c.text == v) return;
+  void _syncControllerText(TextEditingController controller, String value) {
+    if (controller.text == value) return;
 
-    final oldSel = c.selection;
+    final oldSel = controller.selection;
+
     _syncing = true;
-    c.text = v;
+    controller.text = value;
 
-    final newLen = c.text.length;
+    final newLen = controller.text.length;
+
     int base = oldSel.baseOffset;
     int extent = oldSel.extentOffset;
 
     if (base < 0 || extent < 0) {
-      c.selection = TextSelection.collapsed(offset: newLen);
+      controller.selection = TextSelection.collapsed(offset: newLen);
     } else {
       base = base.clamp(0, newLen);
       extent = extent.clamp(0, newLen);
-      c.selection = TextSelection(baseOffset: base, extentOffset: extent);
+
+      controller.selection = TextSelection(
+        baseOffset: base,
+        extentOffset: extent,
+      );
     }
 
     _syncing = false;
@@ -291,34 +362,46 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
   void _onAnyFieldChanged() {
     if (_syncing) return;
     if (!widget.isEditable) return;
+
     _emitChange();
   }
 
-  String _metersToText(int meters) =>
-      SipGedFormatNumbers.formatDigitsWithDots(meters.toString());
+  String _metersToText(int meters) {
+    return SipGedFormatNumbers.formatDigitsWithDots(
+      meters.toString(),
+    );
+  }
 
   String _kmToMetersText(double km) {
     final meters = (km * 1000.0).round();
+
     return _metersToText(meters);
   }
 
   void _emitChange() {
-    final meters = SipGedFormatNumbers.toInt(_extensaoMetrosCtrl.text);
-    final km = meters == null ? null : (meters / 1000.0);
+    final meters = SipGedFormatNumbers.toInt(
+      _extensaoMetrosCtrl.text,
+    );
+
+    final km = meters == null ? null : meters / 1000.0;
 
     final updated = widget.data.copyWith(
       tipoContratacao: _tipoContratacaoCtrl.text.trim().isEmpty
           ? null
           : _tipoContratacaoCtrl.text.trim(),
-      tipoObra: _tipoObraCtrl.text.trim().isEmpty
-          ? null
-          : _tipoObraCtrl.text.trim(),
+      tipoObra:
+      _tipoObraCtrl.text.trim().isEmpty ? null : _tipoObraCtrl.text.trim(),
       descricaoObjeto: _descricaoObjetoCtrl.text,
       justificativa: _justificativaCtrl.text,
       rodovia: _rodoviaCtrl.text,
       extensaoKm: km,
-      valorDemanda: SipGedFormatNumbers.toDouble(_valorDemandaCtrl.text),
-      companyId: _companyId,
+      valorDemanda: SipGedFormatNumbers.toDouble(
+        _valorDemandaCtrl.text,
+      ),
+
+      // Mantém compatibilidade com DfdData atual.
+      // O campo ainda se chama companyId, mas agora recebe o tenantId.
+      companyId: _tenantId,
     );
 
     widget.onChanged(updated);
@@ -326,13 +409,15 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
 
   @override
   Widget build(BuildContext context) {
-    final setupState = context.watch<SetupCubit>().state;
-    final systemCubit = context.read<SetupCubit>();
+    final tenantState = context.watch<TenantCubit>().state;
+    final tenantCubit = context.read<TenantCubit>();
 
-    _syncCompanyFromSetup(setupState.companyProfile);
+    final TenantData? tenant = tenantState.tenantProfile;
 
-    final bool hasCompanyConfigured = setupState.companyProfile != null;
-    final List<SetupData> roads = systemCubit.getRoads();
+    _syncTenantFromProfile(tenant);
+
+    final bool hasTenantConfigured = tenant != null;
+    final List<TenantItemData> roads = tenantState.roads;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,8 +439,12 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     controller: _tipoContratacaoCtrl,
                     items: HiringData.tiposDeContratacao,
                     validator: null,
-                    onChanged: (v) {
-                      _syncControllerText(_tipoContratacaoCtrl, v ?? '');
+                    onChanged: (value) {
+                      _syncControllerText(
+                        _tipoContratacaoCtrl,
+                        value ?? '',
+                      );
+
                       setState(() {});
                     },
                   ),
@@ -368,8 +457,12 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     controller: _tipoObraCtrl,
                     items: HiringData.workTypes,
                     validator: null,
-                    onChanged: (v) {
-                      _syncControllerText(_tipoObraCtrl, v ?? '');
+                    onChanged: (value) {
+                      _syncControllerText(
+                        _tipoObraCtrl,
+                        value ?? '',
+                      );
+
                       setState(() {});
                     },
                   ),
@@ -377,40 +470,63 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                 SizedBox(
                   width: w3,
                   child: DropDownChange(
-                    key: ValueKey('roads-$_roadsNonce-${_companyId ?? "none"}'),
+                    key: ValueKey(
+                      'tenant-roads-$_roadsNonce-${_tenantId ?? "none"}',
+                    ),
                     width: w3,
                     labelText: 'Rodovia',
-                    tooltipMessage: !hasCompanyConfigured
-                        ? 'Configure o contratante no setup do sistema'
+                    tooltipMessage: !hasTenantConfigured
+                        ? 'Configure o contratante no tenant'
                         : null,
                     controller: _rodoviaCtrl,
                     items: roads.map((e) => e.label).toList(),
-                    enabled: widget.isEditable && hasCompanyConfigured,
+                    enabled: widget.isEditable && hasTenantConfigured,
                     validator: null,
                     specialItemLabel: 'Adicionar rodovia',
                     showSpecialWhenEmpty: true,
                     showSpecialAlways: true,
                     onChanged: (value) {
-                      _syncControllerText(_rodoviaCtrl, value ?? '');
+                      if (!widget.isEditable) return;
+
+                      _syncControllerText(
+                        _rodoviaCtrl,
+                        value ?? '',
+                      );
+
+                      _emitChange();
                       setState(() {});
                     },
-                    onCreateNewItem: (!widget.isEditable || !hasCompanyConfigured)
+                    onCreateNewItem: !widget.isEditable || !hasTenantConfigured
                         ? null
                         : (label) async {
-                      final created = await systemCubit.createRoad(label);
+                      final created = await tenantCubit.createRoad(
+                        label,
+                      );
+
                       if (!mounted || created == null) return;
-                      _syncControllerText(_rodoviaCtrl, created.label);
+
+                      _syncControllerText(
+                        _rodoviaCtrl,
+                        created.label,
+                      );
+
+                      _emitChange();
                       setState(() {});
                     },
-                    onEditItem: (widget.isEditable && hasCompanyConfigured)
+                    onEditItem: widget.isEditable && hasTenantConfigured
                         ? (ctx, label) async {
-                      final list = systemCubit.getRoads();
+                      final list = context
+                          .read<TenantCubit>()
+                          .state
+                          .roads;
+
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
-                            (r) => r.label == label,
+                            (road) => road.label == label,
                         orElse: () => list.first,
                       );
+
                       if (target.id.isEmpty) return;
 
                       final newLabel = await _askNewLabel(
@@ -419,36 +535,55 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                         initialValue: label,
                         labelText: 'Nome da rodovia',
                       );
+
                       if (newLabel == null) return;
 
-                      final updated = await systemCubit.updateRoadName(
+                      final updated =
+                      await tenantCubit.updateRoadName(
                         target.id,
                         newLabel,
                       );
+
                       if (!mounted || updated == null) return;
 
                       if (_rodoviaCtrl.text == label) {
-                        _syncControllerText(_rodoviaCtrl, updated.label);
+                        _syncControllerText(
+                          _rodoviaCtrl,
+                          updated.label,
+                        );
+
+                        _emitChange();
                         setState(() {});
                       }
                     }
                         : null,
-                    onDeleteItem: (widget.isEditable && hasCompanyConfigured)
+                    onDeleteItem: widget.isEditable && hasTenantConfigured
                         ? (ctx, label) async {
-                      final list = systemCubit.getRoads();
+                      final list = context
+                          .read<TenantCubit>()
+                          .state
+                          .roads;
+
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
-                            (r) => r.label == label,
+                            (road) => road.label == label,
                         orElse: () => list.first,
                       );
+
                       if (target.id.isEmpty) return;
 
-                      await systemCubit.deleteRoad(target.id);
+                      await tenantCubit.deleteRoad(target.id);
 
                       if (!mounted) return;
+
                       if (_rodoviaCtrl.text == label) {
-                        _syncControllerText(_rodoviaCtrl, '');
+                        _syncControllerText(
+                          _rodoviaCtrl,
+                          '',
+                        );
+
+                        _emitChange();
                         setState(() {});
                       }
                     }
@@ -488,7 +623,9 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     labelText: 'Valor da demanda',
                     hintText: 'Ex.: 1.234,56',
                     prefixText: 'R\$ ',
-                    inputFormatters: const [SipGedMoneyFormatter()],
+                    inputFormatters: const [
+                      SipGedMoneyFormatter(),
+                    ],
                     keyboardType: TextInputType.number,
                     validator: null,
                   ),

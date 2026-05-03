@@ -3,15 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
+
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
+
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
-import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-import 'package:sipged/screens/common/setup/company_body_dialog.dart';
 
 class SectionPropostas extends StatefulWidget {
   final bool isEditable;
@@ -41,23 +41,25 @@ class _PropostaRowControllers {
 
   _PropostaRowControllers();
 
-  _PropostaRowControllers.fromMap(Map<String, dynamic> m) {
-    licitanteCtrl.text = (m['licitante'] ?? '').toString();
-    cnpjCtrl.text = (m['cnpj'] ?? '').toString();
-    valorCtrl.text = (m['valor'] ?? '').toString();
-    statusCtrl.text = (m['status'] ?? '').toString();
-    motivoDesclassCtrl.text = (m['motivoDesclass'] ?? '').toString();
-    linkCtrl.text = (m['link'] ?? '').toString();
+  _PropostaRowControllers.fromMap(Map<String, dynamic> map) {
+    licitanteCtrl.text = (map['licitante'] ?? '').toString();
+    cnpjCtrl.text = (map['cnpj'] ?? '').toString();
+    valorCtrl.text = (map['valor'] ?? '').toString();
+    statusCtrl.text = (map['status'] ?? '').toString();
+    motivoDesclassCtrl.text = (map['motivoDesclass'] ?? '').toString();
+    linkCtrl.text = (map['link'] ?? '').toString();
   }
 
-  Map<String, dynamic> toMap() => {
-    'licitante': licitanteCtrl.text,
-    'cnpj': cnpjCtrl.text,
-    'valor': valorCtrl.text,
-    'status': statusCtrl.text,
-    'motivoDesclass': motivoDesclassCtrl.text,
-    'link': linkCtrl.text,
-  };
+  Map<String, dynamic> toMap() {
+    return {
+      'licitante': licitanteCtrl.text,
+      'cnpj': cnpjCtrl.text,
+      'valor': valorCtrl.text,
+      'status': statusCtrl.text,
+      'motivoDesclass': motivoDesclassCtrl.text,
+      'link': linkCtrl.text,
+    };
+  }
 
   void dispose() {
     licitanteCtrl.dispose();
@@ -75,44 +77,66 @@ class _SectionPropostasState extends State<SectionPropostas> {
   @override
   void initState() {
     super.initState();
-    _rebuildFromData(widget.data);
-    context.read<SetupCubit>().loadSystemSetup();
+
+    _rebuildFromData(widget.data, shouldSetState: false);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final tenantCubit = context.read<TenantCubit>();
+
+      tenantCubit.ensureTenantProfileLoaded();
+      tenantCubit.ensureTenantItemsLoaded();
+    });
   }
 
   @override
   void didUpdateWidget(covariant SectionPropostas oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data.propostasItems != widget.data.propostasItems ||
-        oldWidget.data.vencedor != widget.data.vencedor ||
-        oldWidget.data.highlightWinner != widget.data.highlightWinner) {
+
+    final shouldRebuild =
+        oldWidget.data.propostasItems != widget.data.propostasItems ||
+            oldWidget.data.vencedor != widget.data.vencedor ||
+            oldWidget.data.highlightWinner != widget.data.highlightWinner;
+
+    if (shouldRebuild) {
       _rebuildFromData(widget.data);
     }
   }
 
   @override
   void dispose() {
-    for (final r in _rows) {
-      r.dispose();
+    for (final row in _rows) {
+      row.dispose();
     }
+
     super.dispose();
   }
 
-  void _rebuildFromData(EditalData data) {
-    for (final r in _rows) {
-      r.dispose();
+  void _rebuildFromData(
+      EditalData data, {
+        bool shouldSetState = true,
+      }) {
+    for (final row in _rows) {
+      row.dispose();
     }
-    _rows = data.propostasItems
-        .map((m) => _PropostaRowControllers.fromMap(m))
-        .toList();
 
-    if (mounted) {
+    _rows = data.propostasItems.map((map) {
+      return _PropostaRowControllers.fromMap(map);
+    }).toList();
+
+    if (shouldSetState && mounted) {
       setState(() {});
     }
   }
 
   void _emitChange() {
-    final updatedItems = _rows.map((r) => r.toMap()).toList();
-    final updated = widget.data.copyWith(propostasItems: updatedItems);
+    final updatedItems = _rows.map((row) => row.toMap()).toList();
+
+    final updated = widget.data.copyWith(
+      propostasItems: updatedItems,
+    );
+
     widget.onChanged(updated);
   }
 
@@ -120,14 +144,18 @@ class _SectionPropostasState extends State<SectionPropostas> {
     setState(() {
       _rows.add(_PropostaRowControllers());
     });
+
     _emitChange();
   }
 
   void _removeProposta(int index) {
     if (index < 0 || index >= _rows.length) return;
-    final r = _rows.removeAt(index);
-    r.dispose();
+
+    final row = _rows.removeAt(index);
+    row.dispose();
+
     setState(() {});
+
     _emitChange();
   }
 
@@ -138,29 +166,155 @@ class _SectionPropostasState extends State<SectionPropostas> {
       valorVencedor: '',
       highlightWinner: false,
     );
+
     widget.onChanged(updated);
+  }
+
+  TenantItemData? _findBodyByLabel(
+      List<TenantItemData> bodies,
+      String label,
+      ) {
+    final lower = label.trim().toLowerCase();
+
+    if (lower.isEmpty) return null;
+
+    for (final body in bodies) {
+      if (body.label.trim().toLowerCase() == lower) {
+        return body;
+      }
+    }
+
+    return null;
+  }
+
+  String? _cnpjFromBody(TenantItemData? body) {
+    final cnpj = body?.extra['cnpj']?.toString().trim();
+
+    if (cnpj == null || cnpj.isEmpty) return null;
+
+    return cnpj;
+  }
+
+  Future<String?> _showCreateTenantCompanyBodyDialog(
+      BuildContext context,
+      ) async {
+    final tenantCubit = context.read<TenantCubit>();
+
+    final nameCtrl = TextEditingController();
+    final cnpjCtrl = TextEditingController();
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          title: const Text('Adicionar empresa'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Nome da empresa',
+                ),
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: cnpjCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'CNPJ',
+                ),
+                keyboardType: TextInputType.number,
+                onSubmitted: (_) {
+                  Navigator.of(dialogCtx).pop({
+                    'label': nameCtrl.text.trim(),
+                    'cnpj': cnpjCtrl.text.trim(),
+                  });
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop({
+                  'label': nameCtrl.text.trim(),
+                  'cnpj': cnpjCtrl.text.trim(),
+                });
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    nameCtrl.dispose();
+    cnpjCtrl.dispose();
+
+    if (!mounted || result == null) return null;
+
+    final label = result['label']?.trim() ?? '';
+    final cnpj = result['cnpj']?.trim();
+
+    if (label.isEmpty) return null;
+
+    final created = await tenantCubit.createCompanyBody(
+      label,
+      cnpj: cnpj,
+    );
+
+    if (!mounted) return null;
+
+    return created?.label ?? label;
+  }
+
+  void _applyLicitante({
+    required _PropostaRowControllers row,
+    required String? label,
+    required List<TenantItemData> bodies,
+  }) {
+    final value = label ?? '';
+
+    row.licitanteCtrl.text = value;
+
+    final body = _findBodyByLabel(bodies, value);
+    final cnpj = _cnpjFromBody(body);
+
+    if (cnpj != null) {
+      row.cnpjCtrl.text = cnpj;
+    } else if (value.isEmpty) {
+      row.cnpjCtrl.clear();
+    }
+
+    _emitChange();
   }
 
   @override
   Widget build(BuildContext context) {
-    final cData = widget.data;
+    final data = widget.data;
     final isEditable = widget.isEditable;
 
     final hasWinner =
-        cData.vencedor.isNotEmpty && cData.highlightWinner == true;
+        data.vencedor.trim().isNotEmpty && data.highlightWinner == true;
 
-    final winnerBg = Colors.green.shade50;
-    final winnerBorder = Colors.green.shade600;
+    final tenantState = context.watch<TenantCubit>().state;
+    final List<TenantItemData> bodies = tenantState.companyBodies;
 
-    final systemState = context.watch<SetupCubit>().state;
-    final List<SetupData> bodies = systemState.companyBodies;
+    final bodyLabels = bodies.map((e) => e.label).where((e) {
+      return e.trim().isNotEmpty;
+    });
 
-    final List<String> bodyLabels =
-    bodies.map((e) => e.label).toList(growable: false);
-
-    final Iterable<String> labelsFromRows = _rows
-        .map((r) => r.licitanteCtrl.text.trim())
-        .where((t) => t.isNotEmpty);
+    final labelsFromRows = _rows.map((row) {
+      return row.licitanteCtrl.text.trim();
+    }).where((e) {
+      return e.isNotEmpty;
+    });
 
     final List<String> allLabels = {
       ...bodyLabels,
@@ -168,20 +322,10 @@ class _SectionPropostasState extends State<SectionPropostas> {
     }.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    SetupData? findBodyByLabel(String label) {
-      final lower = label.trim().toLowerCase();
-      try {
-        return bodies.firstWhere(
-              (c) => c.label.trim().toLowerCase() == lower,
-        );
-      } catch (_) {
-        return null;
-      }
-    }
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final w1 = inputW1(context, constraints);
+
         final w4 = inputWidth(
           context: context,
           inner: constraints,
@@ -194,8 +338,11 @@ class _SectionPropostasState extends State<SectionPropostas> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 const SectionTitle(text: 'Propostas recebidas'),
                 OutlinedButton.icon(
@@ -218,13 +365,13 @@ class _SectionPropostasState extends State<SectionPropostas> {
                   'Nenhuma proposta cadastrada. Clique em "Adicionar proposta" para começar.',
                 ),
               ),
-            ...List.generate(_rows.length, (i) {
-              final p = _rows[i];
+            ...List.generate(_rows.length, (index) {
+              final row = _rows[index];
 
-              final isWinner =
-                  hasWinner && cData.vencedor == p.licitanteCtrl.text;
+              final isWinner = hasWinner &&
+                  data.vencedor.trim() == row.licitanteCtrl.text.trim();
 
-              final statusText = p.statusCtrl.text.trim();
+              final statusText = row.statusCtrl.text.trim();
               final isClassificada =
                   statusText.toLowerCase() == 'classificada';
 
@@ -233,10 +380,11 @@ class _SectionPropostasState extends State<SectionPropostas> {
               final chipFg =
               isClassificada ? Colors.blue.shade700 : Colors.red.shade700;
 
-              final cardBg = isWinner ? winnerBg : Colors.grey.shade100;
-              final cardBorder = isWinner ? winnerBorder : Colors.grey;
+              final cardBg =
+              isWinner ? Colors.green.shade50 : Colors.grey.shade100;
+              final cardBorder = isWinner ? Colors.green.shade600 : Colors.grey;
 
-              final bool canRemoveCard =
+              final canRemoveCard =
               !isEditable ? false : (_rows.length > 1 || !isWinner);
 
               return AnimatedContainer(
@@ -264,17 +412,19 @@ class _SectionPropostasState extends State<SectionPropostas> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          'Proposta ${i + 1}',
+                          'Proposta ${index + 1}',
                           style:
                           Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey,
+                            color: Colors.grey.shade700,
                           ),
                         ),
-                        const SizedBox(width: 8),
                         if (statusText.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -307,8 +457,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
                               ],
                             ),
                           ),
-                        if (isWinner) ...[
-                          const SizedBox(width: 8),
+                        if (isWinner)
                           TextButton(
                             style: TextButton.styleFrom(
                               padding: const EdgeInsets.symmetric(
@@ -343,31 +492,28 @@ class _SectionPropostasState extends State<SectionPropostas> {
                               ],
                             ),
                           ),
-                        ],
-                        const Spacer(),
-                        if (isEditable) ...[
-                          if (!hasWinner)
-                            TextButton.icon(
-                              onPressed: widget.onDefinirVencedorEIr == null
-                                  ? null
-                                  : () => widget.onDefinirVencedorEIr!(i),
-                              icon: const Icon(
-                                Icons.emoji_events_outlined,
-                                size: 18,
-                              ),
-                              label: const Text('Definir vencedor'),
+                        if (isEditable && !hasWinner)
+                          TextButton.icon(
+                            onPressed: widget.onDefinirVencedorEIr == null
+                                ? null
+                                : () => widget.onDefinirVencedorEIr!(index),
+                            icon: const Icon(
+                              Icons.emoji_events_outlined,
+                              size: 18,
                             ),
-                          const SizedBox(width: 8),
+                            label: const Text('Definir vencedor'),
+                          ),
+                        if (isEditable)
                           IconButton(
                             tooltip: canRemoveCard
                                 ? 'Remover proposta'
                                 : 'Não é possível remover a única proposta vencedora',
-                            onPressed:
-                            canRemoveCard ? () => _removeProposta(i) : null,
+                            onPressed: canRemoveCard
+                                ? () => _removeProposta(index)
+                                : null,
                             icon: const Icon(Icons.delete_outline),
                             color: Colors.red,
                           ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -378,33 +524,26 @@ class _SectionPropostasState extends State<SectionPropostas> {
                         SizedBox(
                           width: w4,
                           child: DropDownChange(
-                            controller: p.licitanteCtrl,
+                            controller: row.licitanteCtrl,
                             labelText: 'Licitante',
                             enabled: isEditable,
                             items: allLabels,
                             showSpecialAlways: true,
                             specialItemLabel: 'Adicionar empresa',
                             onChanged: (label) {
-                              final val = label ?? '';
-                              p.licitanteCtrl.text = val;
-
-                              final body = findBodyByLabel(val);
-                              if (body?.cnpjCompanyContracted != null &&
-                                  body!.cnpjCompanyContracted!
-                                      .trim()
-                                      .isNotEmpty) {
-                                p.cnpjCtrl.text = body.cnpjCompanyContracted!;
-                              }
-
-                              _emitChange();
+                              _applyLicitante(
+                                row: row,
+                                label: label,
+                                bodies: bodies,
+                              );
                             },
-                            onAddNewItem: showCreateCompanyBodyDialog,
+                            onAddNewItem: _showCreateTenantCompanyBodyDialog,
                           ),
                         ),
                         SizedBox(
                           width: w4,
                           child: CustomTextField(
-                            controller: p.cnpjCtrl,
+                            controller: row.cnpjCtrl,
                             labelText: 'CNPJ',
                             enabled: false,
                             readOnly: true,
@@ -413,7 +552,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
                         SizedBox(
                           width: w4,
                           child: CustomTextField(
-                            controller: p.valorCtrl,
+                            controller: row.valorCtrl,
                             labelText: 'Valor (R\$)',
                             enabled: isEditable,
                             keyboardType: TextInputType.number,
@@ -428,10 +567,10 @@ class _SectionPropostasState extends State<SectionPropostas> {
                           child: DropDownChange(
                             enabled: isEditable,
                             labelText: 'Status',
-                            controller: p.statusCtrl,
+                            controller: row.statusCtrl,
                             items: HiringData.statusProposta,
-                            onChanged: (v) {
-                              p.statusCtrl.text = v ?? '';
+                            onChanged: (value) {
+                              row.statusCtrl.text = value ?? '';
                               _emitChange();
                             },
                           ),
@@ -439,7 +578,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
                         SizedBox(
                           width: w1,
                           child: CustomTextField(
-                            controller: p.motivoDesclassCtrl,
+                            controller: row.motivoDesclassCtrl,
                             labelText: 'Motivo da desclassificação',
                             enabled: isEditable,
                             maxLines: 2,
@@ -449,7 +588,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
                         SizedBox(
                           width: w1,
                           child: CustomTextField(
-                            controller: p.linkCtrl,
+                            controller: row.linkCtrl,
                             labelText: 'Link da proposta',
                             enabled: isEditable,
                             onChanged: (_) => _emitChange(),

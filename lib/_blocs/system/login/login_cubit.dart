@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 import 'login_repository.dart';
@@ -29,6 +28,7 @@ class LoginCubit extends Cubit<LoginState> {
         );
       } else {
         final profile = await _resolveProfile(user.uid);
+
         emit(
           state.copyWith(
             status: LoginStatus.authenticated,
@@ -45,55 +45,102 @@ class LoginCubit extends Cubit<LoginState> {
 
   // ===================== Local email =====================
 
-  /// Carrega o último e-mail salvo e injeta no state.
-  /// Também seta hasSavedEmail para a UI (botão Entrar/Continuar).
   Future<String?> loadLastEmail() async {
     final email = await _repo.loadLastEmail();
-    final has = (email != null && email.trim().isNotEmpty);
+    final has = email != null && email.trim().isNotEmpty;
 
     if (has) {
+      final cleanEmail = email.trim();
+
       emit(
         state.copyWith(
-          data: state.data.copyWith(email: email.trim()),
+          data: state.data.copyWith(email: cleanEmail),
           hasSavedEmail: true,
         ),
       );
+
       await recheckAreaAccessPreview();
-      return email.trim();
+
+      return cleanEmail;
     }
 
-    // Se não tem salvo, só marca flag false (não altera email atual)
     emit(state.copyWith(hasSavedEmail: false));
+
     return null;
   }
 
   // ===================== Inputs =====================
 
-  void changeEmail(String? v) {
-    emit(state.copyWith(data: state.data.copyWith(email: (v ?? '').trim())));
+  void changeEmail(String? value) {
+    emit(
+      state.copyWith(
+        data: state.data.copyWith(
+          email: (value ?? '').trim(),
+        ),
+      ),
+    );
+
     recheckAreaAccessPreview();
   }
 
-  void changePassword(String? v) {
-    emit(state.copyWith(data: state.data.copyWith(password: (v ?? ''))));
+  void changePassword(String? value) {
+    emit(
+      state.copyWith(
+        data: state.data.copyWith(
+          password: value ?? '',
+        ),
+      ),
+    );
   }
 
-  void changeSelectedArea(String? v) {
-    emit(state.copyWith(data: state.data.copyWith(selectedArea: v?.trim())));
+  void changeSelectedArea(String? value) {
+    emit(
+      state.copyWith(
+        data: state.data.copyWith(
+          selectedArea: value?.trim(),
+        ),
+      ),
+    );
+
     recheckAreaAccessPreview();
   }
 
-  // ===================== Auxiliares =====================
+  // ===================== Profile / Área =====================
 
   Future<LoginProfile> _resolveProfile(String uid) async {
     final data = await _repo.getUserDocByUid(uid);
+
     if (data == null) return LoginProfile.commom;
 
     if (data['profileWork'] == true) return LoginProfile.work;
     if (data['profileLegal'] == true) return LoginProfile.legal;
-    if (data['profileCompany'] == true) return LoginProfile.company;
 
     return LoginProfile.commom;
+  }
+
+  String? _profileKeyForArea(String area) {
+    final normalized = area.trim().toUpperCase();
+
+    if (normalized.isEmpty) return null;
+
+    switch (normalized) {
+      case 'DER':
+      case 'DNIT-RO':
+      case 'DNIT':
+      case 'SETRAND':
+      case 'OBRAS':
+      case 'TRÂNSITO':
+      case 'TRANSITO':
+        return 'profileWork';
+
+      case 'JURÍDICO':
+      case 'JURIDICO':
+      case 'LEGAL':
+        return 'profileLegal';
+
+      default:
+        return 'profileWork';
+    }
   }
 
   Future<void> recheckAreaAccessPreview() async {
@@ -124,9 +171,12 @@ class LoginCubit extends Cubit<LoginState> {
     }
 
     final ok = await _hasProfileForArea(area);
+
     emit(
       state.copyWith(
-        areaAccessStatus: ok ? AreaAccessStatus.allowed : AreaAccessStatus.denied,
+        areaAccessStatus: ok
+            ? AreaAccessStatus.allowed
+            : AreaAccessStatus.denied,
         areaAccessPreview: ok,
       ),
     );
@@ -134,7 +184,8 @@ class LoginCubit extends Cubit<LoginState> {
 
   Future<bool> _hasProfileForArea(String area) async {
     try {
-      final profileKey = SetupData.profileKeyForArea(area);
+      final profileKey = _profileKeyForArea(area);
+
       if (profileKey == null) return false;
 
       final enteredEmail = state.data.email.toLowerCase().trim();
@@ -142,7 +193,8 @@ class LoginCubit extends Cubit<LoginState> {
 
       Map<String, dynamic>? userDocData;
 
-      final shouldLookupByEmail = enteredEmail.isNotEmpty && enteredEmail != currentEmail;
+      final shouldLookupByEmail =
+          enteredEmail.isNotEmpty && enteredEmail != currentEmail;
 
       if (shouldLookupByEmail) {
         userDocData = await _repo.getUserDocByEmailLower(enteredEmail);
@@ -154,8 +206,14 @@ class LoginCubit extends Cubit<LoginState> {
 
       if (userDocData == null) return false;
 
-      final baseProfile = (userDocData['baseProfile'] ?? '').toString().toLowerCase();
-      final isAdmin = baseProfile == 'administrador' || userDocData['isAdmin'] == true;
+      final baseProfile = (userDocData['baseProfile'] ?? '')
+          .toString()
+          .toLowerCase()
+          .trim();
+
+      final isAdmin =
+          baseProfile == 'administrador' || userDocData['isAdmin'] == true;
+
       if (isAdmin) return true;
 
       return userDocData[profileKey] == true;
@@ -181,10 +239,19 @@ class LoginCubit extends Cubit<LoginState> {
       return false;
     }
 
-    emit(state.copyWith(status: LoginStatus.loading, clearError: true));
+    emit(
+      state.copyWith(
+        status: LoginStatus.loading,
+        clearError: true,
+      ),
+    );
 
     try {
-      final cred = await _repo.signIn(email: email, password: password);
+      final cred = await _repo.signIn(
+        email: email,
+        password: password,
+      );
+
       final user = cred.user;
 
       if (user == null) {
@@ -201,25 +268,97 @@ class LoginCubit extends Cubit<LoginState> {
 
       if (selectedArea != null && selectedArea.isNotEmpty) {
         final ok = await _hasProfileForArea(selectedArea);
+
         if (!ok) {
           await _repo.signOut();
+
           emit(
             state.copyWith(
               status: LoginStatus.failure,
               firebaseUser: null,
               profile: LoginProfile.commom,
-              errorMessage: 'Sem permissão para acessar $selectedArea. Contate o administrador.',
+              errorMessage:
+              'Sem permissão para acessar $selectedArea. Contate o administrador.',
               areaAccessStatus: AreaAccessStatus.denied,
               areaAccessPreview: false,
             ),
           );
+
           return false;
         }
       }
 
-      // ✅ salva localmente o último e-mail que logou
       await _repo.saveLastEmail(email);
-      emit(state.copyWith(hasSavedEmail: true));
+
+      emit(
+        state.copyWith(
+          hasSavedEmail: true,
+          status: LoginStatus.authenticated,
+          firebaseUser: user,
+          profile: profile,
+          clearError: true,
+        ),
+      );
+
+      await recheckAreaAccessPreview();
+
+      return true;
+    } on Exception catch (e) {
+      emit(
+        state.copyWith(
+          status: LoginStatus.failure,
+          errorMessage: _translateAnyError(e),
+        ),
+      );
+
+      return false;
+    }
+  }
+
+  Future<bool> signUp({
+    required UserData userData,
+    required String pass,
+  }) async {
+    emit(
+      state.copyWith(
+        status: LoginStatus.loading,
+        clearError: true,
+      ),
+    );
+
+    try {
+      final email = userData.email?.trim().toLowerCase();
+
+      if (email == null || email.isEmpty) {
+        emit(
+          state.copyWith(
+            status: LoginStatus.failure,
+            errorMessage: 'Informe um e-mail válido para criar o usuário.',
+          ),
+        );
+
+        return false;
+      }
+
+      final cred = await _repo.signUp(
+        email: email,
+        password: pass,
+      );
+
+      final user = cred.user;
+
+      if (user == null) {
+        emit(
+          state.copyWith(
+            status: LoginStatus.failure,
+            errorMessage: 'Falha ao criar usuário. Tente novamente.',
+          ),
+        );
+
+        return false;
+      }
+
+      final profile = await _resolveProfile(user.uid);
 
       emit(
         state.copyWith(
@@ -230,7 +369,6 @@ class LoginCubit extends Cubit<LoginState> {
         ),
       );
 
-      await recheckAreaAccessPreview();
       return true;
     } on Exception catch (e) {
       emit(
@@ -239,58 +377,24 @@ class LoginCubit extends Cubit<LoginState> {
           errorMessage: _translateAnyError(e),
         ),
       );
-      return false;
-    }
-  }
 
-  Future<bool> signUp({
-    required UserData userData,
-    required String pass,
-  }) async {
-    emit(state.copyWith(status: LoginStatus.loading, clearError: true));
-
-    try {
-      final cred = await _repo.signUp(email: userData.email!, password: pass);
-      final user = cred.user;
-
-      if (user == null) {
-        emit(
-          state.copyWith(
-            status: LoginStatus.failure,
-            errorMessage: 'Falha ao criar usuário. Tente novamente.',
-          ),
-        );
-        return false;
-      }
-
-      emit(
-        state.copyWith(
-          status: LoginStatus.authenticated,
-          firebaseUser: user,
-          clearError: true,
-        ),
-      );
-
-      return true;
-    } on Exception catch (e) {
-      emit(
-        state.copyWith(
-          status: LoginStatus.failure,
-          errorMessage: _translateAnyError(e),
-        ),
-      );
       return false;
     }
   }
 
   Future<void> recoverPass(String email) async {
+    final cleanEmail = email.trim();
+
+    if (cleanEmail.isEmpty) return;
+
     try {
-      await _repo.recoverPass(email.trim());
+      await _repo.recoverPass(cleanEmail);
     } catch (_) {}
   }
 
   Future<void> signOut() async {
     await _repo.signOut();
+
     emit(
       state.copyWith(
         status: LoginStatus.unauthenticated,
@@ -303,15 +407,36 @@ class LoginCubit extends Cubit<LoginState> {
     );
   }
 
-  String _translateAnyError(Object e) {
-    final msg = e.toString().toLowerCase();
+  String _translateAnyError(Object error) {
+    final msg = error.toString().toLowerCase();
 
-    if (msg.contains('invalid-email')) return 'O e-mail informado é inválido.';
-    if (msg.contains('user-disabled')) return 'Este usuário foi desativado.';
-    if (msg.contains('user-not-found')) return 'Usuário não encontrado.';
-    if (msg.contains('wrong-password')) return 'Senha incorreta.';
-    if (msg.contains('too-many-requests')) return 'Muitas tentativas. Tente novamente mais tarde.';
-    if (msg.contains('network')) return 'Sem conexão. Verifique sua internet.';
+    if (msg.contains('invalid-email')) {
+      return 'O e-mail informado é inválido.';
+    }
+
+    if (msg.contains('user-disabled')) {
+      return 'Este usuário foi desativado.';
+    }
+
+    if (msg.contains('user-not-found')) {
+      return 'Usuário não encontrado.';
+    }
+
+    if (msg.contains('wrong-password')) {
+      return 'Senha incorreta.';
+    }
+
+    if (msg.contains('invalid-credential')) {
+      return 'Credenciais inválidas. Verifique e-mail e senha.';
+    }
+
+    if (msg.contains('too-many-requests')) {
+      return 'Muitas tentativas. Tente novamente mais tarde.';
+    }
+
+    if (msg.contains('network')) {
+      return 'Sem conexão. Verifique sua internet.';
+    }
 
     return 'Erro ao realizar login. Verifique suas credenciais.';
   }

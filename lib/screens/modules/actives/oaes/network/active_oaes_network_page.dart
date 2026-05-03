@@ -9,15 +9,21 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
+
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+
 import 'package:sipged/screens/modules/actives/oaes/network/active_oaes_details.dart';
 import 'package:sipged/screens/modules/actives/oaes/network/active_oaes_panel.dart';
 import 'package:sipged/screens/modules/actives/oaes/network/maps/active_oaes_map_mapbox.dart';
 
-enum _RightPanelMode { none, analytics, details }
+enum _RightPanelMode {
+  none,
+  analytics,
+  details,
+}
 
 class ActiveOAEsNetworkPage extends StatefulWidget {
   const ActiveOAEsNetworkPage({super.key});
@@ -27,13 +33,32 @@ class ActiveOAEsNetworkPage extends StatefulWidget {
 }
 
 class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
-  final _repo = ActiveOaesRepository();
+  // ---------------------------------------------------------------------------
+  // TESTE MANUAL MULTI-TENANT
+  //
+  // Enquanto o tenant ainda não vem do usuário logado / empresa selecionada,
+  // defina manualmente aqui.
+  //
+  // Quando for integrar oficialmente, substitua por:
+  // final tenantId = context.read<TenantCubit>().state.currentTenantId;
+  // ou equivalente.
+  // ---------------------------------------------------------------------------
+
+  static const String _manualTenantId = 'SZQmefRUqdtLB14ahcuh';
+
+  late final ActiveOaesRepository _repo = ActiveOaesRepository(
+    tenantId: _manualTenantId,
+  );
 
   _RightPanelMode _mode = _RightPanelMode.analytics;
   bool _showPanel = true;
 
   ActiveOaesData? _detailsData;
   int? _selectedSideIndex;
+
+  // ---------------------------------------------------------------------------
+  // Actions gerais
+  // ---------------------------------------------------------------------------
 
   void _clearFilters() {
     final cubit = context.read<ActiveOaesCubit>();
@@ -42,7 +67,9 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   }
 
   void _togglePanelVisibility() {
-    setState(() => _showPanel = !_showPanel);
+    setState(() {
+      _showPanel = !_showPanel;
+    });
   }
 
   void _openDetails(ActiveOaesData data) {
@@ -63,8 +90,18 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Attachments
+  // ---------------------------------------------------------------------------
+
   String _attachmentsDir(ActiveOaesData d) {
-    return 'actives_oaes/${d.id}/attachments';
+    final id = d.id;
+
+    if (id == null || id.trim().isEmpty) {
+      return '${_repo.storageBasePath}/sem_id/attachments';
+    }
+
+    return '${_repo.storageBasePath}/${id.trim()}/attachments';
   }
 
   List<Attachment> _currentAttachments() {
@@ -73,21 +110,30 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
 
   Future<void> _persistAttachments(List<Attachment> next) async {
     final d = _detailsData;
-    if (d == null || d.id == null) return;
 
-    final updated = d.copyWith(attachments: next);
-    await _repo.upsert(updated);
+    if (d == null || d.id == null || d.id!.trim().isEmpty) {
+      return;
+    }
+
+    final updated = d.copyWith(
+      attachments: next,
+    );
+
+    final saved = await _repo.upsert(updated);
 
     if (!mounted) return;
 
     setState(() {
-      _detailsData = updated;
+      _detailsData = saved;
     });
   }
 
   Future<void> _onAddSideItem() async {
     final d = _detailsData;
-    if (d == null || d.id == null) return;
+
+    if (d == null || d.id == null || d.id!.trim().isEmpty) {
+      return;
+    }
 
     final att = await _repo.pickAndUploadSingle(
       baseDir: _attachmentsDir(d),
@@ -96,7 +142,11 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
 
     if (att == null) return;
 
-    final next = [..._currentAttachments(), att];
+    final next = <Attachment>[
+      ..._currentAttachments(),
+      att,
+    ];
+
     await _persistAttachments(next);
   }
 
@@ -106,15 +156,21 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     if (ext == 'pdf' || ext == '.pdf') return true;
 
     final url = a.url.toLowerCase();
+
     return url.endsWith('.pdf') || url.contains('.pdf?');
   }
 
   Future<void> _openAttachmentInline(Attachment att) async {
     if (!_isPdfAttachment(att)) {
       final uri = Uri.tryParse(att.url);
+
       if (uri != null) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
       }
+
       return;
     }
 
@@ -142,8 +198,12 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
                 tooltip: 'Abrir em outra aba',
                 onPressed: () {
                   final uri = Uri.tryParse(att.url);
+
                   if (uri != null) {
-                    launchUrl(uri, mode: LaunchMode.externalApplication);
+                    launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    );
                   }
                 },
                 icon: const Icon(Icons.open_in_new),
@@ -166,15 +226,19 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
 
   Future<void> _onTapSideItem(int index) async {
     final items = _currentAttachments();
+
     if (index < 0 || index >= items.length) return;
 
-    setState(() => _selectedSideIndex = index);
+    setState(() {
+      _selectedSideIndex = index;
+    });
 
     await _openAttachmentInline(items[index]);
   }
 
   Future<void> _onDeleteSideItem(int index) async {
     final items = _currentAttachments();
+
     if (index < 0 || index >= items.length) return;
 
     final confirmed = await showWindowDialog<bool>(
@@ -195,12 +259,16 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: () => Navigator.of(dialogCtx).pop(false),
+                      onPressed: () {
+                        Navigator.of(dialogCtx).pop(false);
+                      },
                       child: const Text('Cancelar'),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
-                      onPressed: () => Navigator.of(dialogCtx).pop(true),
+                      onPressed: () {
+                        Navigator.of(dialogCtx).pop(true);
+                      },
                       child: const Text('Excluir'),
                     ),
                   ],
@@ -215,11 +283,15 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     if (confirmed != true) return;
 
     final path = items[index].path;
+
     if (path.isNotEmpty) {
       await _repo.deleteByPath(path);
     }
 
-    final next = [...items]..removeAt(index);
+    final next = <Attachment>[
+      ...items,
+    ]..removeAt(index);
+
     await _persistAttachments(next);
 
     if (!mounted) return;
@@ -237,13 +309,22 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     required Attachment newItem,
   }) async {
     final items = _currentAttachments();
-    if (index < 0 || index >= items.length) return false;
+
+    if (index < 0 || index >= items.length) {
+      return false;
+    }
 
     try {
-      final next = [...items]
-        ..[index] = newItem.copyWith(updatedAt: DateTime.now());
+      final next = <Attachment>[
+        ...items,
+      ];
+
+      next[index] = newItem.copyWith(
+        updatedAt: DateTime.now(),
+      );
 
       await _persistAttachments(next);
+
       return true;
     } catch (_) {
       return false;
@@ -252,24 +333,78 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
 
   void _onItemsChanged(List<dynamic> newItems) {
     final d = _detailsData;
+
     if (d == null) return;
 
     final next = newItems.whereType<Attachment>().toList();
 
     setState(() {
-      _detailsData = d.copyWith(attachments: next);
+      _detailsData = d.copyWith(
+        attachments: next,
+      );
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Right pane separado para não forçar rebuild do mapa
+  // ---------------------------------------------------------------------------
+
+  Widget? _buildRightPane() {
+    switch (_mode) {
+      case _RightPanelMode.none:
+        return null;
+
+      case _RightPanelMode.analytics:
+        return ActiveOaesPanel(
+          onClose: _closePanel,
+        );
+
+      case _RightPanelMode.details:
+        final data = _detailsData;
+
+        if (data == null) {
+          return ActiveOaesPanel(
+            onClose: _closePanel,
+          );
+        }
+
+        final sideItems = data.attachments ?? const <Attachment>[];
+
+        return ActiveOaesDetails(
+          key: ValueKey<String>('details_${data.id ?? 'sem_id'}'),
+          data: data,
+          repository: _repo,
+          onClose: _closePanel,
+          sideItems: sideItems,
+          selectedSideIndex: _selectedSideIndex,
+          onAddSideItem: _onAddSideItem,
+          onTapSideItem: _onTapSideItem,
+          onDeleteSideItem: _onDeleteSideItem,
+          onRenamePersist: _onRenamePersist,
+          onItemsChanged: _onItemsChanged,
+          isEditable: true,
+        );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
+    final rightPane = _buildRightPane();
+
     return Scaffold(
       appBar: UpBar(
         showPhotoMenu: true,
         actions: [
           IconButton(
             tooltip: 'Limpar filtros',
-            icon: const Icon(Icons.filter_alt_off, color: Colors.white),
+            icon: const Icon(
+              Icons.filter_alt_off,
+              color: Colors.white,
+            ),
             onPressed: _clearFilters,
           ),
           IconButton(
@@ -282,66 +417,28 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
           ),
         ],
       ),
-      body: BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
-        buildWhen: (prev, curr) {
-          return prev.loadStatus != curr.loadStatus ||
-              prev.initialized != curr.initialized ||
-              prev.all != curr.all ||
-              prev.selectedPieIndexFilter != curr.selectedPieIndexFilter ||
-              prev.selectedRegionFilter != curr.selectedRegionFilter ||
-              prev.regionLabels != curr.regionLabels;
-        },
-        builder: (context, state) {
-          Widget? rightPane;
-
-          switch (_mode) {
-            case _RightPanelMode.none:
-              rightPane = null;
-              break;
-
-            case _RightPanelMode.analytics:
-              rightPane = ActiveOaesPanel(onClose: _closePanel);
-              break;
-
-            case _RightPanelMode.details:
-              final data = _detailsData;
-
-              if (data != null) {
-                final sideItems = data.attachments ?? const <Attachment>[];
-
-                rightPane = ActiveOaesDetails(
-                  key: ValueKey(data.id),
-                  data: data,
-                  onClose: _closePanel,
-                  sideItems: sideItems,
-                  selectedSideIndex: _selectedSideIndex,
-                  onAddSideItem: _onAddSideItem,
-                  onTapSideItem: _onTapSideItem,
-                  onDeleteSideItem: _onDeleteSideItem,
-                  onRenamePersist: _onRenamePersist,
-                  onItemsChanged: _onItemsChanged,
-                  isEditable: true,
-                );
-              } else {
-                rightPane = ActiveOaesPanel(onClose: _closePanel);
-              }
-
-              break;
-          }
-
-          return SplitLayout(
-            left: ActiveOaesMapMapbox(
+      body: SplitLayout(
+        left: BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
+          buildWhen: (prev, curr) {
+            return prev.loadStatus != curr.loadStatus ||
+                prev.initialized != curr.initialized ||
+                prev.all != curr.all ||
+                prev.selectedPieIndexFilter != curr.selectedPieIndexFilter ||
+                prev.selectedRegionFilter != curr.selectedRegionFilter;
+          },
+          builder: (context, state) {
+            return ActiveOaesMapMapbox(
               state: state,
               onOpenDetails: _openDetails,
-            ),
-            right: rightPane ?? const SizedBox.shrink(),
-            showRightPanel: _showPanel && rightPane != null,
-            breakpoint: 980.0,
-            rightPanelWidth: 580.0,
-            bottomPanelHeight: 420.0,
-            showDividers: true,
-          );
-        },
+            );
+          },
+        ),
+        right: rightPane ?? const SizedBox.shrink(),
+        showRightPanel: _showPanel && rightPane != null,
+        breakpoint: 980.0,
+        rightPanelWidth: 580.0,
+        bottomPanelHeight: 420.0,
+        showDividers: true,
       ),
     );
   }

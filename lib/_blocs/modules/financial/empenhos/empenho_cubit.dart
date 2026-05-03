@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/screens/modules/financial/finance_utils.dart';
 
@@ -9,293 +10,452 @@ import 'empenho_state.dart';
 class EmpenhoCubit extends Cubit<EmpenhoState> {
   final EmpenhoRepository _repo;
 
-  EmpenhoCubit({EmpenhoRepository? repository})
-      : _repo = repository ?? EmpenhoRepository(),
+  EmpenhoCubit({
+    EmpenhoRepository? repository,
+  })  : _repo = repository ?? EmpenhoRepository(),
         super(EmpenhoState.initial());
 
-  // ==================== LOAD ====================
+  Future<void> init({
+    String? contractId,
+  }) async {
+    await loadDfds();
+
+    final cid = (contractId ?? '').trim();
+
+    if (cid.isNotEmpty) {
+      await loadByContract(cid);
+    } else {
+      await loadAll();
+    }
+  }
+
+  Future<void> loadDfds() async {
+    if (state.loadingDfds) return;
+
+    emit(
+      state.copyWith(
+        loadingDfds: true,
+        clearError: true,
+      ),
+    );
+
+    try {
+      final list = await _repo.getAvailableDfds();
+
+      emit(
+        state.copyWith(
+          loadingDfds: false,
+          dfds: list,
+          clearError: true,
+        ),
+      );
+    } catch (e) {
+      emit(
+        state.copyWith(
+          loadingDfds: false,
+          dfds: const [],
+          error: e.toString(),
+        ),
+      );
+    }
+  }
 
   Future<void> loadAll() async {
-    emit(state.copyWith(status: EmpenhoStatus.loading, clearError: true));
+    emit(
+      state.copyWith(
+        status: EmpenhoStatus.loading,
+        clearContractId: true,
+        clearError: true,
+      ),
+    );
+
     try {
       final list = await _repo.getAll();
-      emit(state.copyWith(
-        status: EmpenhoStatus.success,
-        items: list,
-        contractId: null,
-        clearError: true,
-      ));
+
+      emit(
+        state.copyWith(
+          status: EmpenhoStatus.success,
+          items: list,
+          clearContractId: true,
+          clearError: true,
+        ),
+      );
     } catch (e) {
-      emit(state.copyWith(status: EmpenhoStatus.failure, error: e.toString()));
+      emit(
+        state.copyWith(
+          status: EmpenhoStatus.failure,
+          error: e.toString(),
+        ),
+      );
     }
   }
 
   Future<void> loadByContract(String contractId) async {
-    emit(state.copyWith(
-      status: EmpenhoStatus.loading,
-      contractId: contractId,
-      clearError: true,
-    ));
+    final cid = contractId.trim();
+
+    emit(
+      state.copyWith(
+        status: EmpenhoStatus.loading,
+        contractId: cid,
+        clearError: true,
+      ),
+    );
 
     try {
-      final list = await _repo.getAllByContract(contractId: contractId);
-      emit(state.copyWith(
-        status: EmpenhoStatus.success,
-        items: list,
-        contractId: contractId,
-        clearError: true,
-      ));
+      final list = await _repo.getAllByContract(contractId: cid);
+
+      emit(
+        state.copyWith(
+          status: EmpenhoStatus.success,
+          items: list,
+          contractId: cid,
+          clearError: true,
+        ),
+      );
     } catch (e) {
-      emit(state.copyWith(status: EmpenhoStatus.failure, error: e.toString()));
+      emit(
+        state.copyWith(
+          status: EmpenhoStatus.failure,
+          error: e.toString(),
+        ),
+      );
     }
   }
-
-  // ==================== SELECTION ====================
 
   void select(EmpenhoData? e) {
     if (e == null) {
-      emit(state.copyWith(
-        selected: null,
-        clearSelected: true,
-        numero: '',
+      emit(
+        state.copyWith(
+          selected: null,
+          clearSelected: true,
+          numero: '',
+          clearDemand: true,
+          credor: '',
+          clearCompanyId: true,
+          companyLabel: '',
+          clearFundingSourceId: true,
+          fundingSourceLabel: '',
+          totalText: '',
+          clearDate: true,
+          sliceLabels: const [],
+          sliceAmounts: const [],
+          attachments: const [],
+          clearSelectedSideIndex: true,
+          clearError: true,
+          status: EmpenhoStatus.success,
+        ),
+      );
 
-        // ✅ limpa demanda
-        clearDemand: true,
-        credor: '',
-
-        // ✅ limpa company
-        clearCompanyId: true,
-        companyLabel: '',
-
-        // ✅ limpa fonte
-        fundingSourceId: null,
-        clearFundingSourceId: true,
-        fundingSourceLabel: '',
-
-        totalText: '',
-        date: null,
-        sliceLabels: const [],
-        sliceAmounts: const [],
-        attachments: const [],
-        clearSelectedSideIndex: true,
-        clearError: true,
-        status: EmpenhoStatus.success,
-      ));
       return;
     }
 
-    emit(state.copyWith(
-      selected: e,
-      numero: e.numero,
-
-      demandContractId: e.demandContractId,
-      demandLabel: e.demandLabel,
-      // legado
-      credor: e.demandLabel,
-
-      companyId: e.companyId,
-      companyLabel: e.companyLabel ?? '',
-
-      fundingSourceId: e.fundingSourceId,
-      fundingSourceLabel: e.fundingSourceLabel,
-
-      totalText: e.empenhadoTotal.toStringAsFixed(2),
-      date: e.date,
-      sliceLabels: e.slices.map((s) => s.label).toList(),
-      sliceAmounts: e.slices.map((s) => s.amount.toStringAsFixed(2)).toList(),
-      attachments: (e.attachments ?? const <Attachment>[]),
-      clearSelectedSideIndex: true,
-      clearError: true,
-      status: EmpenhoStatus.success,
-    ));
+    emit(
+      state.copyWith(
+        selected: e,
+        numero: e.numero,
+        demandContractId: e.demandContractId,
+        demandLabel: e.demandLabel,
+        credor: e.demandLabel,
+        companyId: e.companyId,
+        companyLabel: e.companyLabel ?? '',
+        fundingSourceId: e.fundingSourceId,
+        fundingSourceLabel: e.fundingSourceLabel,
+        totalText: e.empenhadoTotal.toStringAsFixed(2),
+        date: e.date,
+        sliceLabels: e.slices.map((s) => s.label).toList(),
+        sliceAmounts: e.slices.map((s) => s.amount.toStringAsFixed(2)).toList(),
+        attachments: e.attachments ?? const <Attachment>[],
+        clearSelectedSideIndex: true,
+        clearError: true,
+        status: EmpenhoStatus.success,
+      ),
+    );
   }
 
-  // ==================== SETTERS (FORM) ====================
+  void setNumero(String v) {
+    emit(state.copyWith(numero: v));
+  }
 
-  void setNumero(String v) => emit(state.copyWith(numero: v));
+  void setDemandContractId(String? id) {
+    final value = (id ?? '').trim();
 
-  /// ✅ DEMANDA (id + label)
-  void setDemandContractId(String? id) => emit(state.copyWith(demandContractId: id));
-  void setDemandLabel(String label) =>
-      emit(state.copyWith(demandLabel: label, credor: label)); // espelha legado
-  void clearDemand() => emit(state.copyWith(clearDemand: true, credor: ''));
+    emit(
+      state.copyWith(
+        demandContractId: value.isEmpty ? null : value,
+      ),
+    );
+  }
 
-  // ✅ COMPANY
-  void setCompanyId(String? id) => emit(state.copyWith(companyId: id));
-  void setCompanyLabel(String v) => emit(state.copyWith(companyLabel: v));
-  void clearCompany() => emit(state.copyWith(clearCompanyId: true, companyLabel: ''));
+  void setDemandLabel(String label) {
+    emit(
+      state.copyWith(
+        demandLabel: label.trim(),
+        credor: label.trim(),
+      ),
+    );
+  }
 
-  // ✅ Fonte de recurso
-  void setFundingSourceLabel(String v) =>
-      emit(state.copyWith(fundingSourceLabel: v));
+  void clearDemand() {
+    emit(
+      state.copyWith(
+        clearDemand: true,
+        credor: '',
+      ),
+    );
+  }
 
-  void setFundingSourceId(String? id) =>
-      emit(state.copyWith(fundingSourceId: id));
+  void setCompanyId(String? id) {
+    final value = (id ?? '').trim();
 
-  void clearFundingSourceId() =>
-      emit(state.copyWith(clearFundingSourceId: true));
+    emit(
+      state.copyWith(
+        companyId: value.isEmpty ? null : value,
+      ),
+    );
+  }
 
-  void setTotalText(String v) => emit(state.copyWith(totalText: v));
-  void setDate(DateTime? d) => emit(state.copyWith(date: d));
+  void setCompanyLabel(String v) {
+    emit(state.copyWith(companyLabel: v.trim()));
+  }
 
-  // ==================== SLICES ====================
+  void clearCompany() {
+    emit(
+      state.copyWith(
+        clearCompanyId: true,
+        companyLabel: '',
+      ),
+    );
+  }
+
+  void setFundingSourceLabel(String v) {
+    emit(state.copyWith(fundingSourceLabel: v.trim()));
+  }
+
+  void setFundingSourceId(String? id) {
+    final value = (id ?? '').trim();
+
+    emit(
+      state.copyWith(
+        fundingSourceId: value.isEmpty ? null : value,
+      ),
+    );
+  }
+
+  void clearFundingSourceId() {
+    emit(state.copyWith(clearFundingSourceId: true));
+  }
+
+  void setTotalText(String v) {
+    emit(state.copyWith(totalText: v));
+  }
+
+  void setDate(DateTime? d) {
+    emit(
+      state.copyWith(
+        date: d,
+        clearDate: d == null,
+      ),
+    );
+  }
 
   void addSlice() {
-    emit(state.copyWith(
-      sliceLabels: [...state.sliceLabels, 'Nova fatia'],
-      sliceAmounts: [...state.sliceAmounts, '0'],
-    ));
+    emit(
+      state.copyWith(
+        sliceLabels: [...state.sliceLabels, 'Nova fatia'],
+        sliceAmounts: [...state.sliceAmounts, '0'],
+      ),
+    );
   }
 
   void removeSlice(int index) {
     if (index < 0 || index >= state.sliceLabels.length) return;
+
     final labels = [...state.sliceLabels]..removeAt(index);
-    final amounts = [...state.sliceAmounts]..removeAt(index);
-    emit(state.copyWith(sliceLabels: labels, sliceAmounts: amounts));
+    final amounts = [...state.sliceAmounts];
+
+    if (index < amounts.length) {
+      amounts.removeAt(index);
+    }
+
+    emit(
+      state.copyWith(
+        sliceLabels: labels,
+        sliceAmounts: amounts,
+      ),
+    );
   }
 
   void setSliceLabel(int index, String v) {
     if (index < 0 || index >= state.sliceLabels.length) return;
+
     final labels = [...state.sliceLabels];
     labels[index] = v;
+
     emit(state.copyWith(sliceLabels: labels));
   }
 
   void setSliceAmount(int index, String v) {
     if (index < 0 || index >= state.sliceAmounts.length) return;
+
     final amounts = [...state.sliceAmounts];
     amounts[index] = v;
+
     emit(state.copyWith(sliceAmounts: amounts));
   }
 
-  // ==================== ATTACHMENTS ====================
+  void selectSideIndex(int? i) {
+    if (i == null) {
+      emit(state.copyWith(clearSelectedSideIndex: true));
+      return;
+    }
 
-  void selectSideIndex(int? i) => emit(state.copyWith(selectedSideIndex: i));
+    emit(state.copyWith(selectedSideIndex: i));
+  }
 
   void addAttachment(Attachment a) {
     final list = [...state.attachments, a];
-    emit(state.copyWith(attachments: list, selectedSideIndex: list.length - 1));
+
+    emit(
+      state.copyWith(
+        attachments: list,
+        selectedSideIndex: list.length - 1,
+      ),
+    );
   }
 
   void deleteAttachmentAt(int index) {
     if (index < 0 || index >= state.attachments.length) return;
+
     final list = [...state.attachments]..removeAt(index);
 
-    int? nextSelected;
-    if (list.isNotEmpty) {
-      nextSelected = (index >= list.length) ? list.length - 1 : index;
-    }
-    emit(state.copyWith(attachments: list, selectedSideIndex: nextSelected));
-  }
-  /// SideListBox (novo) -> quando a UI muda a lista (reorder/rename local etc)
-  void setAttachmentsFromUi(List<dynamic> items) {
-    final list = <Attachment>[];
-    for (final it in items) {
-      if (it is Attachment) list.add(it);
+    if (list.isEmpty) {
+      emit(
+        state.copyWith(
+          attachments: list,
+          clearSelectedSideIndex: true,
+        ),
+      );
+
+      return;
     }
 
-    // mantém selectedSideIndex válido
+    final nextSelected = index >= list.length ? list.length - 1 : index;
+
+    emit(
+      state.copyWith(
+        attachments: list,
+        selectedSideIndex: nextSelected,
+      ),
+    );
+  }
+
+  void setAttachmentsFromUi(List<dynamic> items) {
+    final list = <Attachment>[];
+
+    for (final it in items) {
+      if (it is Attachment) {
+        list.add(it);
+      }
+    }
+
     int? idx = state.selectedSideIndex;
+
     if (idx != null) {
       if (list.isEmpty) {
         idx = null;
       } else if (idx < 0) {
         idx = 0;
-      }
-      else if (idx >= list.length) {
+      } else if (idx >= list.length) {
         idx = list.length - 1;
       }
     }
 
-    emit(state.copyWith(attachments: list, selectedSideIndex: idx));
+    emit(
+      state.copyWith(
+        attachments: list,
+        selectedSideIndex: idx,
+        clearSelectedSideIndex: idx == null,
+      ),
+    );
   }
 
-  /// SideListBox (novo) -> rename com persistência (retorna bool)
   Future<bool> persistRenameAttachment({
     required int index,
     required Attachment oldItem,
     required Attachment newItem,
   }) async {
-    // só permite se existir registro selecionado (id)
-    final sel = state.selected;
-    if (sel?.id == null) return false;
+    final selected = state.selected;
 
-    if (index < 0 || index >= state.attachments.length) return false;
+    if (selected?.id == null || selected!.id!.trim().isEmpty) {
+      return false;
+    }
+
+    if (index < 0 || index >= state.attachments.length) {
+      return false;
+    }
 
     final newLabel = newItem.label.trim();
-    if (newLabel.isEmpty) return false;
 
-    // evita escrita desnecessária
-    if (oldItem.label.trim() == newLabel) return true;
+    if (newLabel.isEmpty) {
+      return false;
+    }
+
+    if (oldItem.label.trim() == newLabel) {
+      return true;
+    }
+
+    final previous = [...state.attachments];
 
     try {
-      // atualiza lista local
       final list = [...state.attachments];
+
       list[index] = list[index].copyWith(
         label: newLabel,
         updatedAt: DateTime.now(),
-        // updatedBy: ... (se você tiver uid no state, pluga aqui)
       );
+
       emit(state.copyWith(attachments: list));
 
-      // persiste no Firestore via repo (update parcial)
-      final payload = EmpenhoData(
-        id: sel!.id,
-        contractId: sel.contractId,
-        numero: sel.numero,
-
-        demandContractId: sel.demandContractId,
-        demandLabel: sel.demandLabel,
-        credor: sel.credor,
-
-        companyId: sel.companyId,
-        companyLabel: sel.companyLabel,
-
-        fundingSourceId: sel.fundingSourceId,
-        fundingSourceLabel: sel.fundingSourceLabel,
-        objeto: sel.objeto,
-
-        date: sel.date,
-        empenhadoTotal: sel.empenhadoTotal,
-        slices: sel.slices,
-
+      final payload = selected.copyWith(
         attachments: list.isEmpty ? null : list,
-        pdfUrl: list.isNotEmpty ? list.first.url : null, // compat
+        clearAttachments: list.isEmpty,
+        pdfUrl: list.isNotEmpty ? list.first.url : null,
+        clearPdfUrl: list.isEmpty,
       );
 
       await _repo.saveOrUpdate(payload);
 
-      // mantém state.selected coerente (pra reabrir e não perder rename)
-      emit(state.copyWith(selected: sel.copyWith(
-        attachments: list.isEmpty ? null : list,
-        pdfUrl: list.isNotEmpty ? list.first.url : null,
-      )));
+      emit(
+        state.copyWith(
+          selected: payload,
+          attachments: list,
+        ),
+      );
 
       return true;
     } catch (_) {
-      // se falhar, tenta reverter no state (opcional)
-      final list = [...state.attachments];
-      if (index >= 0 && index < list.length) {
-        list[index] = list[index].copyWith(label: oldItem.label);
-        emit(state.copyWith(attachments: list));
-      }
+      emit(state.copyWith(attachments: previous));
       return false;
     }
   }
 
   void editAttachmentLabel(int index, String newLabel) {
     if (index < 0 || index >= state.attachments.length) return;
+
     final list = [...state.attachments];
     final old = list[index];
+
     list[index] = old.copyWith(label: newLabel);
+
     emit(state.copyWith(attachments: list));
   }
 
-  // ==================== COMPUTEDS ====================
-
   double _toDoubleMoney(String s) {
     final raw = s.trim();
-    if (raw.isEmpty) return 0.0;
+
+    if (raw.isEmpty) {
+      return 0.0;
+    }
 
     final normalized = raw
         .replaceAll('R\$', '')
@@ -310,9 +470,11 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
 
   double get somaFatias {
     double sum = 0;
+
     for (final s in state.sliceAmounts) {
       sum += _toDoubleMoney(s);
     }
+
     return sum;
   }
 
@@ -332,55 +494,65 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
         total > 0;
   }
 
-  // ==================== SAVE/DELETE ====================
-
   Future<void> saveOrUpdate() async {
     if (!formValidated) {
-      emit(state.copyWith(
-        status: EmpenhoStatus.failure,
-        error:
-        'Preencha Número, Demanda (selecionada), Contratante, Fonte de recurso e Valor total (> 0).',
-      ));
+      emit(
+        state.copyWith(
+          status: EmpenhoStatus.failure,
+          error:
+          'Preencha Número, Demanda selecionada, Contratante, Fonte de recurso e Valor total maior que zero.',
+        ),
+      );
+
       return;
     }
 
-    emit(state.copyWith(status: EmpenhoStatus.loading, clearError: true));
+    emit(
+      state.copyWith(
+        status: EmpenhoStatus.loading,
+        clearError: true,
+      ),
+    );
 
     try {
       final dt = state.date ?? DateTime.now();
 
       final slices = <AllocationSlice>[];
+
       for (int i = 0; i < state.sliceLabels.length; i++) {
         final label = state.sliceLabels[i].trim();
-        final amount = _toDoubleMoney(state.sliceAmounts[i]);
-        if (label.isEmpty) continue;
-        if (amount <= 0) continue;
-        slices.add(AllocationSlice(label: label, amount: amount));
+
+        final amount = i < state.sliceAmounts.length
+            ? _toDoubleMoney(state.sliceAmounts[i])
+            : 0.0;
+
+        if (label.isEmpty || amount <= 0) {
+          continue;
+        }
+
+        slices.add(
+          AllocationSlice(
+            label: label,
+            amount: amount,
+          ),
+        );
       }
+
+      final contractId = (state.contractId ?? '').trim();
 
       final payload = EmpenhoData(
         id: state.selected?.id,
-        contractId:
-        (state.contractId?.trim().isEmpty ?? true) ? null : state.contractId,
-
+        contractId: contractId.isEmpty ? null : contractId,
         numero: state.numero.trim(),
-
-        // ✅ demanda (novo)
-        demandContractId: state.demandContractId,
+        demandContractId: state.demandContractId?.trim(),
         demandLabel: state.demandLabel.trim(),
-
-        // ✅ legado espelhado
         credor: state.demandLabel.trim(),
-
-        companyId: state.companyId,
-        companyLabel: state.companyLabel.trim().isEmpty ? null : state.companyLabel.trim(),
-
-        fundingSourceId: state.fundingSourceId,
+        companyId: state.companyId?.trim(),
+        companyLabel:
+        state.companyLabel.trim().isEmpty ? null : state.companyLabel.trim(),
+        fundingSourceId: state.fundingSourceId?.trim(),
         fundingSourceLabel: state.fundingSourceLabel.trim(),
-
-        // compat
         objeto: state.fundingSourceLabel.trim(),
-
         date: dt,
         empenhadoTotal: totalValue,
         slices: slices,
@@ -390,29 +562,47 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
 
       await _repo.saveOrUpdate(payload);
 
-      final cid = state.contractId?.trim() ?? '';
-      if (cid.isNotEmpty) {
-        await loadByContract(cid);
+      if (contractId.isNotEmpty) {
+        await loadByContract(contractId);
       } else {
         await loadAll();
       }
 
-      emit(state.copyWith(status: EmpenhoStatus.success, clearError: true));
+      emit(
+        state.copyWith(
+          status: EmpenhoStatus.success,
+          clearError: true,
+        ),
+      );
     } catch (e) {
-      emit(state.copyWith(status: EmpenhoStatus.failure, error: e.toString()));
+      emit(
+        state.copyWith(
+          status: EmpenhoStatus.failure,
+          error: e.toString(),
+        ),
+      );
     }
   }
 
   Future<void> deleteSelected() async {
-    final sel = state.selected;
-    if (sel?.id == null) return;
+    final selected = state.selected;
 
-    emit(state.copyWith(status: EmpenhoStatus.loading, clearError: true));
+    if (selected?.id == null || selected!.id!.trim().isEmpty) {
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        status: EmpenhoStatus.loading,
+        clearError: true,
+      ),
+    );
 
     try {
-      await _repo.deleteById(sel!.id!);
+      await _repo.deleteById(selected.id!);
 
       final cid = state.contractId?.trim() ?? '';
+
       if (cid.isNotEmpty) {
         await loadByContract(cid);
       } else {
@@ -420,9 +610,20 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
       }
 
       select(null);
-      emit(state.copyWith(status: EmpenhoStatus.success, clearError: true));
+
+      emit(
+        state.copyWith(
+          status: EmpenhoStatus.success,
+          clearError: true,
+        ),
+      );
     } catch (e) {
-      emit(state.copyWith(status: EmpenhoStatus.failure, error: e.toString()));
+      emit(
+        state.copyWith(
+          status: EmpenhoStatus.failure,
+          error: e.toString(),
+        ),
+      );
     }
   }
 }

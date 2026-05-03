@@ -274,13 +274,29 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
                   polygons: styledPolys,
                 ),
 
-                initialCenter: const LatLng(-9.6658, -35.7353),
+                // Centro aproximado de Alagoas
+                initialCenter: const LatLng(-9.5713, -36.7820),
                 initialZoom: 7.8,
-                minZoom: 4,
-                maxZoom: 14,
+
+                // Zoom fixo para este painel
+                minZoom: 7.8,
+                maxZoom: 7.8,
 
                 showSearch: false,
                 showControls: true,
+
+                // Oculta controles
+                showZoomSlider: false,
+                showMapTypeButton: false,
+                showRotationButton: false,
+
+                // Bloqueia interações de zoom e rotação
+                enableZoom: false,
+                enableRotation: false,
+
+                // Mantém o arraste do mapa.
+                // Se quiser travar totalmente, mude para false.
+                enablePan: true,
 
                 fitInitialGeometryOnce: true,
                 initialGeometryPoints: geomPoints,

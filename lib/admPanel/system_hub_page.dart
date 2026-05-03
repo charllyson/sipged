@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
-import 'package:sipged/admPanel/system/settings_system_page.dart';
-import 'firebase/settings_firebase_page.dart';
-import 'migrations/settings_topic_migracoes_page.dart';
+import 'package:sipged/admPanel/firebase/firebase_settings_page.dart';
+import 'package:sipged/admPanel/system/system_settings_page.dart';
 
 class SystemHubPage extends StatelessWidget {
   const SystemHubPage({super.key});
@@ -24,24 +24,17 @@ class SystemHubPage extends StatelessWidget {
     final cards = <BasicCardItem<WidgetBuilder>>[
       BasicCardItem<WidgetBuilder>(
         title: 'Firebase',
-        subtitle: 'Firestore, Storage, manutenção',
+        subtitle: 'Firestore, Storage, migrações, importações e manutenção',
         icon: Icons.cloud_outlined,
         color: Colors.blueGrey.shade700,
-        value: (_) => const SettingsFirebasePage(),
+        value: (_) => const FirebaseSettingsPage(),
       ),
       BasicCardItem<WidgetBuilder>(
         title: 'Sistema',
-        subtitle: 'Usuários & permissões',
+        subtitle: 'Usuários, permissões e configurações iniciais',
         icon: Icons.manage_accounts_outlined,
         color: Colors.teal.shade700,
-        value: (_) => const SettingsSystemPage(),
-      ),
-      BasicCardItem<WidgetBuilder>(
-        title: 'Migrações & Limpeza',
-        subtitle: 'Migrar docs, apagar coleções & campos',
-        icon: Icons.sync_alt_outlined,
-        color: Colors.deepOrange.shade700,
-        value: (_) => const SettingsTopicMigracoesPage(),
+        value: (_) => const SystemSettingsPage(),
       ),
     ];
 

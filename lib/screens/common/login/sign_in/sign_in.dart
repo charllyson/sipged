@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_blocs/system/login/login_area_config.dart';
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_state.dart';
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
@@ -11,6 +11,7 @@ import 'package:sipged/_widgets/images/logos/sipged_logo.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
+
 import 'package:sipged/screens/common/login/forgot/forgot_password_page.dart';
 import 'package:sipged/screens/common/login/sign_in/sign_in_button.dart';
 
@@ -23,7 +24,7 @@ class SignIn extends StatefulWidget {
 
 class _SignInState extends State<SignIn> {
   late final TextEditingController _emailController;
-  late final TextEditingController _companyController;
+  late final TextEditingController _areaController;
   late final TextEditingController _passController;
 
   late final FocusNode _emailFocus;
@@ -31,10 +32,9 @@ class _SignInState extends State<SignIn> {
 
   bool _hasEmail = false;
   bool _inputObscure = true;
+  bool _didLoadLastEmail = false;
 
   late Gradient _bgGradient;
-
-  bool _didLoadLastEmail = false;
 
   @override
   void initState() {
@@ -43,41 +43,56 @@ class _SignInState extends State<SignIn> {
     _emailController = TextEditingController();
     _passController = TextEditingController();
 
-    _companyController =
-        TextEditingController(text: SetupData.defaultModuleLabel);
+    _areaController = TextEditingController(
+      text: AppAreaConfig.defaultAreaLabel,
+    );
 
     _emailFocus = FocusNode();
     _passFocus = FocusNode();
 
-    _bgGradient =
-        SetupData.gradientForModule(SetupData.defaultModuleLabel);
+    _bgGradient = AppAreaConfig.gradientForArea(
+      AppAreaConfig.defaultAreaLabel,
+    );
 
-    _emailController.addListener(() {
-      final has = _emailController.text.trim().isNotEmpty;
-      if (has != _hasEmail) setState(() => _hasEmail = has);
+    _emailController.addListener(_handleEmailChanged);
+    _passController.addListener(_handlePasswordChanged);
+    _areaController.addListener(_handleAreaChanged);
 
-      context.read<LoginCubit>().changeEmail(_emailController.text);
-    });
-
-    _passController.addListener(() {
-      context.read<LoginCubit>().changePassword(_passController.text);
-    });
-
-    _companyController.addListener(() {
-      final selected = _companyController.text.trim();
-      setState(() => _bgGradient = SetupData.gradientForModule(selected));
-      context.read<LoginCubit>().changeSelectedArea(selected);
-    });
-
-    context
-        .read<LoginCubit>()
-        .changeSelectedArea(_companyController.text.trim());
+    context.read<LoginCubit>().changeSelectedArea(
+      _areaController.text.trim(),
+    );
 
     _loadLastEmailIntoField();
   }
 
+  void _handleEmailChanged() {
+    final email = _emailController.text.trim();
+    final has = email.isNotEmpty;
+
+    if (has != _hasEmail) {
+      setState(() => _hasEmail = has);
+    }
+
+    context.read<LoginCubit>().changeEmail(email);
+  }
+
+  void _handlePasswordChanged() {
+    context.read<LoginCubit>().changePassword(_passController.text);
+  }
+
+  void _handleAreaChanged() {
+    final selected = _areaController.text.trim();
+
+    setState(() {
+      _bgGradient = AppAreaConfig.gradientForArea(selected);
+    });
+
+    context.read<LoginCubit>().changeSelectedArea(selected);
+  }
+
   Future<void> _loadLastEmailIntoField() async {
     if (_didLoadLastEmail) return;
+
     _didLoadLastEmail = true;
 
     final cubit = context.read<LoginCubit>();
@@ -92,6 +107,7 @@ class _SignInState extends State<SignIn> {
       );
 
       setState(() => _hasEmail = true);
+
       _passFocus.requestFocus();
     } else {
       _emailFocus.requestFocus();
@@ -100,11 +116,17 @@ class _SignInState extends State<SignIn> {
 
   @override
   void dispose() {
+    _emailController.removeListener(_handleEmailChanged);
+    _passController.removeListener(_handlePasswordChanged);
+    _areaController.removeListener(_handleAreaChanged);
+
     _emailFocus.dispose();
     _passFocus.dispose();
+
     _emailController.dispose();
     _passController.dispose();
-    _companyController.dispose();
+    _areaController.dispose();
+
     super.dispose();
   }
 
@@ -119,36 +141,41 @@ class _SignInState extends State<SignIn> {
       backgroundColor: Colors.transparent,
       extendBody: true,
       body: BlocBuilder<LoginCubit, LoginState>(
-        builder: (context, st) {
-          final isLoading = st.isLoading;
+        builder: (context, state) {
+          final isLoading = state.isLoading;
 
           return Container(
-            decoration: BoxDecoration(gradient: _bgGradient),
+            decoration: BoxDecoration(
+              gradient: _bgGradient,
+            ),
             child: Stack(
               children: [
                 SafeArea(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final w = MediaQuery.of(context).size.width;
-                      final maxW = w >= 520 ? 420.0 : double.infinity;
+                      final width = MediaQuery.of(context).size.width;
+                      final maxWidth = width >= 520 ? 420.0 : double.infinity;
 
                       return Center(
                         child: ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: maxW),
+                          constraints: BoxConstraints(maxWidth: maxWidth),
                           child: SingleChildScrollView(
                             physics: const ClampingScrollPhysics(),
                             padding: EdgeInsets.only(
                               left: 22,
                               right: 22,
                               top: 18,
-                              bottom: 18 + MediaQuery.of(context).viewInsets.bottom,
+                              bottom:
+                              18 + MediaQuery.of(context).viewInsets.bottom,
                             ),
                             child: ConstrainedBox(
-                              constraints:
-                              BoxConstraints(minHeight: constraints.maxHeight),
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight,
+                              ),
                               child: IntrinsicHeight(
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.stretch,
                                   children: [
                                     const SizedBox(height: 8),
                                     const SipgedLogo(),
@@ -177,7 +204,10 @@ class _SignInState extends State<SignIn> {
                           SizedBox(height: 12),
                           Text(
                             'Entrando...',
-                            style: TextStyle(color: Colors.white, fontSize: 20),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                            ),
                           ),
                         ],
                       ),
@@ -201,10 +231,10 @@ class _SignInState extends State<SignIn> {
           children: [
             DropDownChange(
               width: double.infinity,
-              controller: _companyController,
-              labelText: 'Módulo',
+              controller: _areaController,
+              labelText: 'Área',
               enabled: false,
-              items: SetupData.moduleName,
+              items: AppAreaConfig.areaNames,
             ),
             const SizedBox(height: 24),
             CustomTextField(
@@ -216,7 +246,6 @@ class _SignInState extends State<SignIn> {
               labelText: 'E-mail',
               hintText: 'Digite seu e-mail',
               keyboardType: TextInputType.emailAddress,
-              onChanged: (_) {},
               enabled: true,
               suffix: _hasEmail
                   ? Padding(
@@ -247,7 +276,6 @@ class _SignInState extends State<SignIn> {
               labelText: 'Senha',
               hintText: '••••••••',
               obscure: _inputObscure,
-              onChanged: (_) {},
               enabled: true,
               suffix: Padding(
                 padding: const EdgeInsets.only(right: 6),
@@ -260,7 +288,11 @@ class _SignInState extends State<SignIn> {
                         ? Icons.visibility_outlined
                         : Icons.visibility_off_outlined,
                     tooltip: _inputObscure ? 'Mostrar' : 'Ocultar',
-                    onPressed: () => setState(() => _inputObscure = !_inputObscure),
+                    onPressed: () {
+                      setState(() {
+                        _inputObscure = !_inputObscure;
+                      });
+                    },
                   ),
                 ),
               ),
@@ -286,20 +318,24 @@ class _SignInState extends State<SignIn> {
             const SignInButton(),
             const SizedBox(height: 6),
             BlocBuilder<LoginCubit, LoginState>(
-              buildWhen: (a, b) =>
-              a.errorMessage != b.errorMessage || a.status != b.status,
-              builder: (_, st) {
-                final err = st.errorMessage;
-                if (err != null && err.isNotEmpty) {
+              buildWhen: (previous, current) {
+                return previous.errorMessage != current.errorMessage ||
+                    previous.status != current.status;
+              },
+              builder: (_, state) {
+                final error = state.errorMessage;
+
+                if (error != null && error.isNotEmpty) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(
-                      err,
+                      error,
                       style: const TextStyle(color: Colors.red),
                       textAlign: TextAlign.center,
                     ),
                   );
                 }
+
                 return const SizedBox.shrink();
               },
             ),

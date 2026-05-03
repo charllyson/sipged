@@ -1,5 +1,3 @@
-// lib/bootstrap.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -20,9 +18,9 @@ import 'gate_page.dart';
 
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
 
-import 'package:sipged/_services/map/map_box/service/nominatim_cubit.dart';
-import 'package:sipged/_services/map/map_box/service/nominatim_geocoder.dart';
-import 'package:sipged/_services/map/map_box/service/nominatim_repository.dart';
+import 'package:sipged/_services/my_location/nominatim_cubit.dart';
+import 'package:sipged/_services/my_location/nominatim_geocoder.dart';
+import 'package:sipged/_services/my_location/nominatim_repository.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_push.dart';
 import 'package:sipged/_blocs/system/notification/bell/notification_bell_cubit.dart';
@@ -31,15 +29,15 @@ import 'package:sipged/_blocs/system/notification/preferences/notification_prefe
 import 'package:sipged/_blocs/system/notification/remote/notification_remote_cubit.dart';
 import 'package:sipged/_blocs/system/notification/remote/notification_remote_repository.dart';
 
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_repository.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
-import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
-import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
@@ -183,6 +181,10 @@ Future<void> bootstrapAndRunApp() async {
               create: (_) => MapOverlayCubit(),
             ),
 
+            BlocProvider<TenantCubit>(
+              create: (_) => TenantCubit(),
+            ),
+
             BlocProvider<SetupCubit>(
               create: (_) => SetupCubit(),
             ),
@@ -257,16 +259,9 @@ Future<void> bootstrapAndRunApp() async {
             BlocProvider<ActiveOaesCubit>(
               create: (_) => ActiveOaesCubit()..warmup(),
             ),
-            BlocProvider<ActiveOacsCubit>(
-              create: (_) => ActiveOacsCubit()..warmup(),
-            ),
             BlocProvider<ActiveRoadsCubit>(
               create: (_) => ActiveRoadsCubit()..warmup(),
             ),
-            BlocProvider<ActiveRailwaysCubit>(
-              create: (_) => ActiveRailwaysCubit()..warmup(),
-            ),
-
             BlocProvider<AccidentsCubit>(
               create: (_) => AccidentsCubit(),
             ),

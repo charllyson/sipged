@@ -11,6 +11,7 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_widgets/DataTime/selector/selector_dates.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
@@ -23,6 +24,7 @@ import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
+
 import 'package:sipged/screens/modules/actives/oaes/card_3d.dart';
 import 'package:sipged/screens/modules/actives/oaes/network/details_panel_body.dart';
 import 'package:sipged/screens/modules/actives/oaes/network/panel_header.dart';
@@ -31,6 +33,7 @@ class ActiveOaesDetails extends StatefulWidget {
   const ActiveOaesDetails({
     super.key,
     required this.data,
+    required this.repository,
     this.onClose,
     required this.sideItems,
     this.selectedSideIndex,
@@ -46,6 +49,8 @@ class ActiveOaesDetails extends StatefulWidget {
   });
 
   final ActiveOaesData data;
+  final ActiveOaesRepository repository;
+
   final VoidCallback? onClose;
 
   final List<dynamic> sideItems;
@@ -74,7 +79,7 @@ class ActiveOaesDetails extends StatefulWidget {
 }
 
 class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
-  final _repo = ActiveOaesRepository();
+  ActiveOaesRepository get _repo => widget.repository;
 
   List<Attachment> _allPhotos = const [];
   List<Attachment> _filtered = const [];
@@ -299,6 +304,14 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
       'longitude',
       'altitude',
       'attachments',
+      'tenantId',
+      'createdAt',
+      'createdBy',
+      'updatedAt',
+      'updatedBy',
+      'migrationSourcePath',
+      'migrationSourceDocId',
+      'migratedAt',
     };
 
     final extraEntries = d.toMap().entries.where((e) {
@@ -388,7 +401,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                     header,
                     const Divider(height: 1),
                     const SizedBox(height: 12),
-
                     SizedBox(
                       height: photosHeight,
                       child: ListView.separated(
@@ -442,9 +454,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                         },
                       ),
                     ),
-
                     const SizedBox(height: 12),
-
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0),
                       child: AbsorbPointer(
@@ -475,11 +485,8 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
                     const SectionTitle(text: 'Modelo 3D'),
-
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0),
                       child: OaeModel3DCard(
@@ -487,11 +494,8 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                         isEditable: widget.isEditable,
                       ),
                     ),
-
                     const SizedBox(height: 24),
-
                     const SectionTitle(text: 'Projetos e Documentos da OAE'),
-
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: isSmall

@@ -1,3 +1,5 @@
+// lib/_widgets/map/map/map_change.dart
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -49,12 +51,18 @@ class MapChange extends StatefulWidget {
     this.temporaryPolygonLayers = const {},
     this.distanceMeasurementPoints = const [],
     this.cursor = SystemMouseCursors.basic,
-    this.initialCenter = const LatLng(-9.6658, -35.7353),
-    this.initialZoom = 7.0,
+    this.initialCenter = const LatLng(-9.5713, -36.7820),
+    this.initialZoom = 9.0,
     this.minZoom,
     this.maxZoom,
     this.showSearch = true,
     this.showControls = true,
+    this.showZoomSlider = true,
+    this.showMapTypeButton = true,
+    this.showRotationButton = true,
+    this.enableZoom = true,
+    this.enablePan = true,
+    this.enableRotation = true,
     this.initialGeometryPoints = const <LatLng>[],
     this.fitInitialGeometryOnce = false,
     this.externalPolygons = const <Polygon<Map<String, dynamic>>>[],
@@ -95,6 +103,24 @@ class MapChange extends StatefulWidget {
 
   final bool showSearch;
   final bool showControls;
+
+  /// Exibe ou oculta o SliderButton lateral de zoom.
+  final bool showZoomSlider;
+
+  /// Exibe ou oculta o botão de troca do tipo de mapa.
+  final bool showMapTypeButton;
+
+  /// Reservado para controle de rotação, caso você use em outra versão.
+  final bool showRotationButton;
+
+  /// Permite ou bloqueia zoom por gesto, scroll, duplo toque e controles.
+  final bool enableZoom;
+
+  /// Permite ou bloqueia arrastar/mover o mapa.
+  final bool enablePan;
+
+  /// Permite ou bloqueia rotação por gesto.
+  final bool enableRotation;
 
   final List<LatLng> initialGeometryPoints;
   final bool fitInitialGeometryOnce;
@@ -269,38 +295,57 @@ class _MapChangeState extends State<MapChange>
       });
     }
 
-    final shouldRefreshStatic =
-        visualSignatureChanged ||
-            featuresRefChanged ||
-            !mapEquals(oldWidget.layersById, widget.layersById) ||
-            !listEquals(
-              oldWidget.orderedActiveLayerIds,
-              widget.orderedActiveLayerIds,
-            ) ||
-            oldWidget.selectedFeatureKey != widget.selectedFeatureKey ||
-            !mapEquals(
-              oldWidget.temporaryLineLayers,
-              widget.temporaryLineLayers,
-            ) ||
-            !mapEquals(
-              oldWidget.temporaryPolygonLayers,
-              widget.temporaryPolygonLayers,
-            ) ||
-            !listEquals(
-              oldWidget.distanceMeasurementPoints,
-              widget.distanceMeasurementPoints,
-            );
+    final shouldRefreshStatic = visualSignatureChanged ||
+        featuresRefChanged ||
+        !mapEquals(oldWidget.layersById, widget.layersById) ||
+        !listEquals(
+          oldWidget.orderedActiveLayerIds,
+          widget.orderedActiveLayerIds,
+        ) ||
+        oldWidget.selectedFeatureKey != widget.selectedFeatureKey ||
+        !mapEquals(
+          oldWidget.temporaryLineLayers,
+          widget.temporaryLineLayers,
+        ) ||
+        !mapEquals(
+          oldWidget.temporaryPolygonLayers,
+          widget.temporaryPolygonLayers,
+        ) ||
+        !listEquals(
+          oldWidget.distanceMeasurementPoints,
+          widget.distanceMeasurementPoints,
+        );
 
-    final shouldRefreshMarkers =
-        shouldRefreshStatic ||
-            !mapEquals(
-              oldWidget.temporaryPointLayers,
-              widget.temporaryPointLayers,
-            );
+    final shouldRefreshMarkers = shouldRefreshStatic ||
+        !mapEquals(
+          oldWidget.temporaryPointLayers,
+          widget.temporaryPointLayers,
+        );
 
     if (shouldRefreshStatic || shouldRefreshMarkers) {
       _scheduleCacheRefresh(immediate: true);
     }
+  }
+
+  int _interactionFlags() {
+    var flags = InteractiveFlag.all;
+
+    if (!widget.enableZoom) {
+      flags = flags &
+      ~InteractiveFlag.pinchZoom &
+      ~InteractiveFlag.doubleTapZoom &
+      ~InteractiveFlag.scrollWheelZoom;
+    }
+
+    if (!widget.enablePan) {
+      flags = flags & ~InteractiveFlag.drag;
+    }
+
+    if (!widget.enableRotation) {
+      flags = flags & ~InteractiveFlag.rotate;
+    }
+
+    return flags;
   }
 
   int get _safeMapIndex {
@@ -464,6 +509,7 @@ class _MapChangeState extends State<MapChange>
 
   void _moveZoom(double zoom) {
     if (!_mapReady) return;
+    if (!widget.enableZoom) return;
 
     final minZoom = widget.minZoom ?? 3.0;
     final maxZoom = widget.maxZoom ?? 18.0;
@@ -1114,10 +1160,7 @@ class _MapChangeState extends State<MapChange>
 
     final sliderRight = isCompact ? 12.0 : 16.0;
 
-    /// Precisa bater com o buttonWidth padrão do SliderButton.
     const sliderWidth = 33.0;
-
-    /// Espaço entre a lista de mapas aberta e o controle de zoom.
     const gapToSlider = 12.0;
 
     final maxMapTypeWidth = math.max(
@@ -1175,9 +1218,6 @@ class _MapChangeState extends State<MapChange>
                   },
                   onChanged: (index) {
                     _onMapTypeChanged(index);
-
-                    /// Não fecha ao selecionar o mapa.
-                    /// Para fechar, o usuário toca fora da lista.
                   },
                 ),
               ),
@@ -1296,6 +1336,9 @@ class _MapChangeState extends State<MapChange>
                 initialZoom: _lastKnownZoom,
                 minZoom: widget.minZoom,
                 maxZoom: widget.maxZoom,
+                interactionOptions: InteractionOptions(
+                  flags: _interactionFlags(),
+                ),
                 onMapReady: _handleMapReady,
                 onTap: (_, latLng) {
                   unawaited(_handleMapTap(latLng));
@@ -1355,9 +1398,15 @@ class _MapChangeState extends State<MapChange>
             ),
           ),
         ),
+
         if (widget.showSearch) _buildSearchControl(),
-        if (widget.showControls) _buildMapTypeControl(),
-        if (widget.showControls) _buildMapControls(),
+
+        if (widget.showControls && widget.showMapTypeButton)
+          _buildMapTypeControl(),
+
+        if (widget.showControls && widget.showZoomSlider)
+          _buildMapControls(),
+
         _buildLoadingOverlay(),
       ],
     );

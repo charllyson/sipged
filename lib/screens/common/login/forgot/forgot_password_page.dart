@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_blocs/system/login/login_area_config.dart';
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
@@ -30,8 +30,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   bool _loading = false;
   bool _didPreload = false;
 
-  late final TextEditingController _companyController;
-  late Gradient _bgGradient;
+  late final Gradient _bgGradient;
 
   @override
   void initState() {
@@ -40,12 +39,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     _emailCtrl = TextEditingController();
     _emailFocus = FocusNode();
 
-    _companyController = TextEditingController(
-      text: SetupData.defaultModuleLabel,
-    );
-
-    _bgGradient = SetupData.gradientForModule(
-      SetupData.defaultModuleLabel,
+    _bgGradient = AppAreaConfig.gradientForArea(
+      AppAreaConfig.defaultAreaLabel,
     );
 
     _emailCtrl.addListener(_handleEmailChanged);
@@ -88,7 +83,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     _emailCtrl.removeListener(_handleEmailChanged);
     _emailCtrl.dispose();
     _emailFocus.dispose();
-    _companyController.dispose();
+
     super.dispose();
   }
 
@@ -115,11 +110,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   bool _isValidEmail(String email) {
-    final e = email.trim();
+    final cleanEmail = email.trim();
 
-    if (e.isEmpty) return false;
+    if (cleanEmail.isEmpty) return false;
 
-    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(e);
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(cleanEmail);
   }
 
   Future<void> _send() async {
@@ -182,25 +177,28 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
       ),
       body: Container(
-        decoration: BoxDecoration(gradient: _bgGradient),
+        decoration: BoxDecoration(
+          gradient: _bgGradient,
+        ),
         child: Stack(
           children: [
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final w = MediaQuery.of(context).size.width;
-                  final maxW = w >= 520 ? 420.0 : double.infinity;
+                  final width = MediaQuery.of(context).size.width;
+                  final maxWidth = width >= 520 ? 420.0 : double.infinity;
 
                   return Center(
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: maxW),
+                      constraints: BoxConstraints(maxWidth: maxWidth),
                       child: SingleChildScrollView(
                         physics: const ClampingScrollPhysics(),
                         padding: EdgeInsets.only(
                           left: 22,
                           right: 22,
                           top: 18,
-                          bottom: 18 + MediaQuery.of(context).viewInsets.bottom,
+                          bottom:
+                          18 + MediaQuery.of(context).viewInsets.bottom,
                         ),
                         child: ConstrainedBox(
                           constraints: BoxConstraints(

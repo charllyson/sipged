@@ -24,7 +24,7 @@ class BalloonChange extends StatefulWidget {
     /// internamente a posição.
     ///
     /// Exemplo:
-    /// final ValueNotifier<int> balloonTick = ValueNotifier(0);
+    /// final ValueNotifier balloonTick = ValueNotifier(0);
     /// balloonTick.value++;
     this.rebuildListenable,
 

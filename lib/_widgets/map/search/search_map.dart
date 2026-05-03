@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_services/map/map_box/service/nominatim_cubit.dart';
+import 'package:sipged/_services/my_location/nominatim_cubit.dart';
 import 'package:sipged/_widgets/map/search/search_overlay.dart';
 import 'package:sipged/_widgets/map/search/search_suggestion.dart';
 import 'package:sipged/_widgets/map/search/search_widget.dart';

@@ -11,7 +11,6 @@ import 'package:sipged/_blocs/modules/financial/dashboard/financial_dashboard_st
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 
-import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/screens/modules/financial/dashboard/finance_dashboard_page.dart';
 
@@ -106,7 +105,6 @@ class _FinancialDashboardNetworkPageState
                     totalSaldo: totals.saldo,
                   ),
                 ),
-                const FootBar(),
               ],
             );
           },

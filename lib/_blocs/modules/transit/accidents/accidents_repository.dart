@@ -1,3 +1,5 @@
+// lib/_blocs/modules/transit/accidents/accidents_repository.dart
+
 import 'dart:convert';
 import 'dart:math';
 
@@ -15,31 +17,106 @@ import 'accidents_data.dart';
 class AccidentsRepository {
   AccidentsRepository({
     FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
     String? publicReportBaseUrl,
+
+    /// Novo modelo:
+    /// tenants/{tenantId}/traffic/accidents/items
+    String? tenantId,
+
+    /// Caso queira informar manualmente o caminho completo da coleção de anos.
+    ///
+    /// Exemplo:
+    /// tenants/empresaA/traffic/accidents/items
+    ///
+    /// Se informado, ele tem prioridade sobre o tenant fixo de teste.
+    String? baseCollectionPath,
+
+    /// Mantém leitura compatível com a estrutura antiga:
+    /// trafficAccidents/{year}/records
+    bool enableLegacyFallback = true,
   })  : _db = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance,
+        _tenantId = tenantId,
+        _baseCollectionPath = baseCollectionPath,
+        _enableLegacyFallback = enableLegacyFallback,
         _publicReportBaseUrl = _resolvePublicReportBaseUrl(publicReportBaseUrl);
 
   final FirebaseFirestore _db;
+  final FirebaseAuth _auth;
+
+  final String? _tenantId;
+  final String? _baseCollectionPath;
+  final bool _enableLegacyFallback;
+
+  /// ID fixo temporário para teste.
+  static const String _manualTenantIdForTest = 'SZQmefRUqdtLB14ahcuh';
+
+  /// Estrutura antiga.
+  static const String legacyCollectionPath = 'trafficAccidents';
 
   /// Exemplo final: https://deral.sipged.com.br/bo
   /// O link PDF final será: {_publicReportBaseUrl}/{token}.pdf
   final String _publicReportBaseUrl;
 
+  /// Estrutura nova temporária para teste:
+  ///
+  /// tenants/SZQmefRUqdtLB14ahcuh/traffic/accidents/items
+  ///
+  /// Depois, remova o uso de [_manualTenantIdForTest] e volte para [_tenantId].
+  String get collectionPath {
+    final explicit = (_baseCollectionPath ?? '').trim();
+
+    if (explicit.isNotEmpty) {
+      return explicit;
+    }
+
+    final tenant = _manualTenantIdForTest.trim();
+
+    if (tenant.isNotEmpty) {
+      return 'tenants/$tenant/traffic/accidents/items';
+    }
+
+    final dynamicTenant = (_tenantId ?? '').trim();
+
+    if (dynamicTenant.isNotEmpty) {
+      return 'tenants/$dynamicTenant/traffic/accidents/items';
+    }
+
+    return 'traffic/accidents/items';
+  }
+
+  CollectionReference<Map<String, dynamic>> get _containers {
+    return _db.collection(collectionPath);
+  }
+
+  CollectionReference<Map<String, dynamic>> get _legacyContainers {
+    return _db.collection(legacyCollectionPath);
+  }
+
   static String _resolvePublicReportBaseUrl(String? provided) {
     final p = (provided ?? '').trim();
-    if (p.isNotEmpty) return _normalizeBase(p);
+
+    if (p.isNotEmpty) {
+      return _normalizeBase(p);
+    }
 
     final env = const String.fromEnvironment(
       'PUBLIC_REPORT_BASE_URL',
       defaultValue: '',
     ).trim();
-    if (env.isNotEmpty) return _normalizeBase(env);
+
+    if (env.isNotEmpty) {
+      return _normalizeBase(env);
+    }
 
     final uri = Uri.base;
     final scheme = uri.scheme.toLowerCase();
+
     if (scheme == 'http' || scheme == 'https') {
       final origin =
           '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+
       return _normalizeBase('$origin/bo');
     }
 
@@ -48,9 +125,11 @@ class AccidentsRepository {
 
   static String _normalizeBase(String base) {
     var b = base.trim();
+
     while (b.endsWith('/')) {
       b = b.substring(0, b.length - 1);
     }
+
     return b;
   }
 
@@ -90,32 +169,145 @@ class AccidentsRepository {
     );
   }
 
-  int _yearFromDateTime(DateTime dt, {bool local = true}) =>
-      local ? dt.toLocal().year : dt.toUtc().year;
+  int _yearFromDateTime(DateTime dt, {bool local = true}) {
+    return local ? dt.toLocal().year : dt.toUtc().year;
+  }
+
+  Future<DocumentReference<Map<String, dynamic>>?> _getYearRefFrom(
+      CollectionReference<Map<String, dynamic>> collection,
+      int year,
+      ) async {
+    final deterministicRef = collection.doc(year.toString());
+    final deterministicSnap = await deterministicRef.get();
+
+    if (deterministicSnap.exists) {
+      return deterministicRef;
+    }
+
+    final q = await collection.where('year', isEqualTo: year).limit(1).get();
+
+    if (q.docs.isNotEmpty) {
+      return q.docs.first.reference;
+    }
+
+    return null;
+  }
 
   Future<DocumentReference<Map<String, dynamic>>?> _getYearRefCompat(
       int year,
       ) async {
-    final detRef = _db.collection('trafficAccidents').doc(year.toString());
-    final detSnap = await detRef.get();
-    if (detSnap.exists) return detRef;
+    final currentRef = await _getYearRefFrom(_containers, year);
 
-    final q = await _db
-        .collection('trafficAccidents')
-        .where('year', isEqualTo: year)
-        .limit(1)
-        .get();
+    if (currentRef != null) {
+      return currentRef;
+    }
 
-    if (q.docs.isNotEmpty) return q.docs.first.reference;
-    return null;
+    if (!_enableLegacyFallback) {
+      return null;
+    }
+
+    return _getYearRefFrom(_legacyContainers, year);
   }
 
   Future<DocumentReference<Map<String, dynamic>>> _getOrCreateYearRefCanonical(
       int year,
       ) async {
-    final detRef = _db.collection('trafficAccidents').doc(year.toString());
-    await detRef.set({'year': year}, SetOptions(merge: true));
-    return detRef;
+    final existing = await _getYearRefFrom(_containers, year);
+
+    if (existing != null) {
+      await existing.set(
+        {
+          'year': year,
+          'module': 'traffic',
+          'type': 'accidents',
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': _auth.currentUser?.uid ?? '',
+        },
+        SetOptions(merge: true),
+      );
+
+      return existing;
+    }
+
+    final ref = _containers.doc(year.toString());
+
+    await ref.set(
+      {
+        'year': year,
+        'module': 'traffic',
+        'type': 'accidents',
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': _auth.currentUser?.uid ?? '',
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _auth.currentUser?.uid ?? '',
+      },
+      SetOptions(merge: true),
+    );
+
+    return ref;
+  }
+
+  Future<List<DocumentReference<Map<String, dynamic>>>> _listYearRefsFrom(
+      CollectionReference<Map<String, dynamic>> collection,
+      ) async {
+    final snap = await collection.get();
+
+    final refs = snap.docs.where((doc) {
+      final data = doc.data();
+      final year = (data['year'] as num?)?.toInt();
+
+      if (year != null && year > 0) {
+        return true;
+      }
+
+      return int.tryParse(doc.id) != null;
+    }).map((doc) {
+      return doc.reference;
+    }).toList();
+
+    refs.sort((a, b) {
+      final ay = int.tryParse(a.id) ?? 0;
+      final by = int.tryParse(b.id) ?? 0;
+
+      return by.compareTo(ay);
+    });
+
+    return refs;
+  }
+
+  Future<List<DocumentReference<Map<String, dynamic>>>>
+  _listYearRefsCompat() async {
+    final current = await _listYearRefsFrom(_containers);
+
+    if (current.isNotEmpty || !_enableLegacyFallback) {
+      return current;
+    }
+
+    return _listYearRefsFrom(_legacyContainers);
+  }
+
+  Future<List<int>> listAvailableYears() async {
+    final refs = await _listYearRefsCompat();
+
+    final years = <int>{};
+
+    for (final ref in refs) {
+      final snap = await ref.get();
+      final data = snap.data();
+
+      final yearFromField = (data?['year'] as num?)?.toInt();
+      final yearFromId = int.tryParse(ref.id);
+
+      final year = yearFromField ?? yearFromId;
+
+      if (year != null && year > 0) {
+        years.add(year);
+      }
+    }
+
+    final list = years.toList()..sort((a, b) => b.compareTo(a));
+
+    return list;
   }
 
   Future<void> deleteAccident({
@@ -123,17 +315,21 @@ class AccidentsRepository {
     required int year,
   }) async {
     final yearRef = await _getYearRefCompat(year);
-    if (yearRef == null) return;
+
+    if (yearRef == null) {
+      return;
+    }
 
     final doc = yearRef.collection('records').doc(id);
     final snap = await doc.get();
+
     if (snap.exists) {
       await doc.delete();
     }
   }
 
   Future<void> saveOrUpdateAccident(AccidentsData data) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _auth.currentUser;
 
     if (data.date == null) {
       throw Exception("Campo 'date' é obrigatório em AccidentsData.");
@@ -162,7 +358,9 @@ class AccidentsRepository {
       'yearDocId': yearRef.id,
       'recordPath': recordPath,
       'recordId': recordId,
-      'sourcePath': '${yearRef.path}/records/$recordId',
+      'sourcePath': recordPath,
+      'module': 'traffic',
+      'type': 'accidents',
       'yearMonthKey':
       '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}',
       'updatedAt': FieldValue.serverTimestamp(),
@@ -175,11 +373,29 @@ class AccidentsRepository {
     if (isNew) {
       json['createdAt'] = FieldValue.serverTimestamp();
       json['createdBy'] = user?.uid ?? '';
+    } else {
+      json.remove('createdAt');
+      json.remove('createdBy');
     }
 
     await _db.runTransaction((tx) async {
-      tx.set(yearRef, {'year': year}, SetOptions(merge: true));
-      tx.set(docRef, json, SetOptions(merge: true));
+      tx.set(
+        yearRef,
+        {
+          'year': year,
+          'module': 'traffic',
+          'type': 'accidents',
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': user?.uid ?? '',
+        },
+        SetOptions(merge: true),
+      );
+
+      tx.set(
+        docRef,
+        json,
+        SetOptions(merge: true),
+      );
     });
   }
 
@@ -188,17 +404,21 @@ class AccidentsRepository {
     int? month,
     String? city,
   }) async {
-    Query q;
+    final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs =
+    <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
     if (year != null) {
       final yearRef = await _getYearRefCompat(year);
-      if (yearRef == null) return [];
 
-      q = yearRef.collection('records').orderBy('date');
+      if (yearRef == null) {
+        return <AccidentsData>[];
+      }
+
+      Query<Map<String, dynamic>> q = yearRef.collection('records');
 
       if (month != null) {
         final start = DateTime(year, month, 1);
-        final end = (month == 12)
+        final end = month == 12
             ? DateTime(year + 1, 1, 1)
             : DateTime(year, month + 1, 1);
 
@@ -211,63 +431,137 @@ class AccidentsRepository {
         final norm = AccidentsData.normalizeString(city);
         q = q.where('cityNormalized', isEqualTo: norm);
       }
-    } else {
-      q = _db.collectionGroup('records').orderBy('date');
 
-      if (month != null) {
-        q = q.where('month', isEqualTo: month);
+      final snap = await q.orderBy('date').get();
+      docs.addAll(snap.docs);
+    } else {
+      final yearRefs = await _listYearRefsCompat();
+
+      for (final yearRef in yearRefs) {
+        Query<Map<String, dynamic>> q = yearRef.collection('records');
+
+        if (month != null) {
+          q = q.where('month', isEqualTo: month);
+        }
+
+        if (city != null && city.trim().isNotEmpty) {
+          final norm = AccidentsData.normalizeString(city);
+          q = q.where('cityNormalized', isEqualTo: norm);
+        }
+
+        final snap = await q.get();
+        docs.addAll(snap.docs);
       }
-      if (city != null && city.trim().isNotEmpty) {
-        final norm = AccidentsData.normalizeString(city);
-        q = q.where('cityNormalized', isEqualTo: norm);
-      }
+
+      docs.sort((a, b) {
+        final ad = a.data()['date'];
+        final bd = b.data()['date'];
+
+        final aDate = ad is Timestamp
+            ? ad.toDate()
+            : DateTime.fromMillisecondsSinceEpoch(0);
+
+        final bDate = bd is Timestamp
+            ? bd.toDate()
+            : DateTime.fromMillisecondsSinceEpoch(0);
+
+        return aDate.compareTo(bDate);
+      });
     }
 
-    final snap = await q.get();
-    return snap.docs.map((d) => AccidentsData.fromDocument(d)).toList();
+    return docs.map((d) => AccidentsData.fromDocument(d)).toList();
+  }
+
+  Future<QuerySnapshot<Map<String, dynamic>>> pageRecordsByYear({
+    required int year,
+    DocumentSnapshot? lastDoc,
+    int limit = 200,
+  }) async {
+    final yearRef = await _getYearRefCompat(year);
+
+    if (yearRef == null) {
+      return _containers.doc('__empty__').collection('records').limit(0).get();
+    }
+
+    Query<Map<String, dynamic>> query =
+    yearRef.collection('records').orderBy('date');
+
+    if (lastDoc != null) {
+      query = query.startAfterDocument(lastDoc);
+    }
+
+    return query.limit(limit.clamp(1, 500)).get();
+  }
+
+  Future<int> countByYear(int year) async {
+    final yearRef = await _getYearRefCompat(year);
+
+    if (yearRef == null) {
+      return 0;
+    }
+
+    final snap = await yearRef.collection('records').get();
+
+    return snap.docs.length;
   }
 
   Future<Map<String, double>> getTotaisPorTipoAcidente(
       List<AccidentsData> acidentes,
       ) async {
-    final Map<String, double> totais = {};
+    final Map<String, double> totais = <String, double>{};
+
     for (final a in acidentes) {
       final key = AccidentsData.canonicalType(a.typeOfAccident);
       totais[key] = (totais[key] ?? 0) + 1.0;
     }
+
     return totais;
   }
 
   Future<Map<String, double>> getValoresPorCidade(
       List<AccidentsData> acidentes,
       ) async {
-    final Map<String, double> totais = {};
+    final Map<String, double> totais = <String, double>{};
+
     for (final a in acidentes) {
       final cidade = (a.city ?? '').trim();
       final key = cidade.isEmpty ? 'NÃO INFORMADO' : cidade.toUpperCase();
+
       totais[key] = (totais[key] ?? 0.0) + 1.0;
     }
+
     return totais;
   }
 
-  CollectionReference<Map<String, dynamic>> get _publicReports =>
-      _db.collection('publicAccidentReports');
+  CollectionReference<Map<String, dynamic>> get _publicReports {
+    return _db.collection('publicAccidentReports');
+  }
 
   String _makeToken({int bytes = 24}) {
     final rnd = Random.secure();
-    final data =
-    Uint8List.fromList(List<int>.generate(bytes, (_) => rnd.nextInt(256)));
+
+    final data = Uint8List.fromList(
+      List<int>.generate(bytes, (_) => rnd.nextInt(256)),
+    );
+
     final sb = StringBuffer();
+
     for (final b in data) {
       sb.write(b.toRadixString(16).padLeft(2, '0'));
     }
+
     return sb.toString();
   }
 
   String buildPublicUrlFromToken(String token) {
     final base = _publicReportBaseUrl.trim();
-    if (base.isEmpty) return token;
+
+    if (base.isEmpty) {
+      return token;
+    }
+
     final t = token.trim();
+
     return '$base/$t.pdf';
   }
 
@@ -275,19 +569,20 @@ class AccidentsRepository {
     required AccidentsData accident,
     Duration expiresIn = const Duration(days: 30),
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _auth.currentUser;
+
     if (user == null) {
       throw Exception('Usuário não autenticado (necessário para gerar link).');
     }
 
     final recordPath = (accident.recordPath ?? '').trim();
     final accidentId = (accident.id ?? '').trim();
+
     if (recordPath.isEmpty || accidentId.isEmpty) {
       throw Exception('Registro inválido: id/recordPath ausentes.');
     }
 
-    final now = DateTime.now();
-    final expiresAt = now.add(expiresIn);
+    final expiresAt = DateTime.now().add(expiresIn);
 
     if (accident.publicReportIsValid) {
       final token = accident.publicReportToken!.trim();
@@ -301,8 +596,9 @@ class AccidentsRepository {
             'accidentId': accidentId,
             'recordPath': recordPath,
             'createdAt': FieldValue.serverTimestamp(),
-            'expiresAt':
-            Timestamp.fromDate(accident.publicReportExpiresAt ?? expiresAt),
+            'expiresAt': Timestamp.fromDate(
+              accident.publicReportExpiresAt ?? expiresAt,
+            ),
             'revokedAt': null,
             'enabled': true,
             'publicData': accident.toPublicReportMap(),
@@ -316,11 +612,16 @@ class AccidentsRepository {
     }
 
     String token = _makeToken();
-    DocumentReference<Map<String, dynamic>> publicDoc = _publicReports.doc(token);
+    DocumentReference<Map<String, dynamic>> publicDoc =
+    _publicReports.doc(token);
 
     for (int i = 0; i < 3; i++) {
       final exists = (await publicDoc.get()).exists;
-      if (!exists) break;
+
+      if (!exists) {
+        break;
+      }
+
       token = _makeToken();
       publicDoc = _publicReports.doc(token);
     }
@@ -367,12 +668,18 @@ class AccidentsRepository {
   Future<void> revokePublicReportLink({
     required AccidentsData accident,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('Usuário não autenticado.');
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw Exception('Usuário não autenticado.');
+    }
 
     final token = (accident.publicReportToken ?? '').trim();
     final recordPath = (accident.recordPath ?? '').trim();
-    if (token.isEmpty || recordPath.isEmpty) return;
+
+    if (token.isEmpty || recordPath.isEmpty) {
+      return;
+    }
 
     final now = DateTime.now();
     final publicDoc = _publicReports.doc(token);
@@ -403,40 +710,57 @@ class AccidentsRepository {
     });
   }
 
+  /// Corrige datas apenas dentro do módulo de acidentes.
+  ///
+  /// Não usa collectionGroup('records') aberto para não misturar acidentes,
+  /// infrações e outros módulos que também usam subcoleção chamada "records".
   Future<void> corrigirDatasAcidentesCollectionGroup() async {
     final DateFormat formato = DateFormat('dd/MM/yyyy');
-    final snap = await _db.collectionGroup('records').get();
+    final yearRefs = await _listYearRefsCompat();
 
-    for (final doc in snap.docs) {
-      final data = doc.data();
-      final rawDate = data['date'];
+    for (final yearRef in yearRefs) {
+      final snap = await yearRef.collection('records').get();
 
-      if (rawDate is String) {
-        try {
-          final parsed = formato.parseStrict(rawDate);
-          await doc.reference.update({'date': Timestamp.fromDate(parsed)});
-        } catch (_) {}
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final rawDate = data['date'];
+
+        if (rawDate is String) {
+          try {
+            final parsed = formato.parseStrict(rawDate);
+
+            await doc.reference.update({
+              'date': Timestamp.fromDate(parsed),
+              'updatedAt': FieldValue.serverTimestamp(),
+              'updatedBy': _auth.currentUser?.uid ?? '',
+            });
+          } catch (_) {}
+        }
       }
     }
   }
 
   Future<AddressSuggestion> geocodeCep(String cep) async {
     final digits = cep.replaceAll(RegExp(r'\D'), '');
+
     if (digits.length != 8) {
       throw Exception('CEP inválido: "$cep"');
     }
 
     final viaCepUri = Uri.https('viacep.com.br', '/ws/$digits/json/');
+
     final viaResp = await http.get(
       viaCepUri,
       headers: {'Accept': 'application/json'},
     );
+
     if (viaResp.statusCode != 200) {
       throw Exception('Falha no ViaCEP ($digits): HTTP ${viaResp.statusCode}');
     }
 
-    final via =
-    json.decode(utf8.decode(viaResp.bodyBytes)) as Map<String, dynamic>;
+    final via = json.decode(
+      utf8.decode(viaResp.bodyBytes),
+    ) as Map<String, dynamic>;
 
     if (via['erro'] == true) {
       throw Exception('CEP não encontrado no ViaCEP: $digits');
@@ -448,6 +772,7 @@ class AccidentsRepository {
     final uf = (via['uf'] as String? ?? '').trim();
 
     LatLng? pos;
+
     try {
       final nomiUri = Uri.https(
         'nominatim.openstreetmap.org',
@@ -467,17 +792,19 @@ class AccidentsRepository {
       final nomiResp = await http.get(
         nomiUri,
         headers: {
-          'User-Agent': 'SIGED-Accidents/1.0 (contato@seu-dominio.gov.br)',
+          'User-Agent': 'SIPGED-Accidents/1.0',
           'Accept': 'application/json',
         },
       );
 
       if (nomiResp.statusCode == 200) {
         final arr = json.decode(utf8.decode(nomiResp.bodyBytes));
+
         if (arr is List && arr.isNotEmpty) {
           final first = arr.first as Map<String, dynamic>;
           final lat = double.tryParse(first['lat']?.toString() ?? '');
           final lon = double.tryParse(first['lon']?.toString() ?? '');
+
           if (lat != null && lon != null) {
             pos = LatLng(lat, lon);
           }
@@ -493,6 +820,7 @@ class AccidentsRepository {
           'Brasil',
           digits,
         ];
+
         final q = qParts.where((e) => e.trim().isNotEmpty).join(', ');
 
         final nomiUri2 = Uri.https(
@@ -510,17 +838,19 @@ class AccidentsRepository {
         final r2 = await http.get(
           nomiUri2,
           headers: {
-            'User-Agent': 'SIGED-Accidents/1.0 (contato@seu-dominio.gov.br)',
+            'User-Agent': 'SIPGED-Accidents/1.0',
             'Accept': 'application/json',
           },
         );
 
         if (r2.statusCode == 200) {
           final arr = json.decode(utf8.decode(r2.bodyBytes));
+
           if (arr is List && arr.isNotEmpty) {
             final first = arr.first as Map<String, dynamic>;
             final lat = double.tryParse(first['lat']?.toString() ?? '');
             final lon = double.tryParse(first['lon']?.toString() ?? '');
+
             if (lat != null && lon != null) {
               pos = LatLng(lat, lon);
             }
@@ -544,19 +874,27 @@ class AccidentsRepository {
 
   Future<LocationPermission> _ensurePermission() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return LocationPermission.denied;
+
+    if (!serviceEnabled) {
+      return LocationPermission.denied;
+    }
 
     var permission = await Geolocator.checkPermission();
+
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
+
     return permission;
   }
 
   String _firstNonEmpty(List<String?> vals) {
     for (final v in vals) {
-      if (v != null && v.trim().isNotEmpty) return v.trim();
+      if (v != null && v.trim().isNotEmpty) {
+        return v.trim();
+      }
     }
+
     return '';
   }
 
@@ -581,7 +919,7 @@ class AccidentsRepository {
     final resp = await http.get(
       uri,
       headers: {
-        'User-Agent': 'SIGED-Accidents/1.0 (contato@seu-dominio.gov.br)',
+        'User-Agent': 'SIPGED-Accidents/1.0',
         'Accept': 'application/json',
       },
     );
@@ -590,16 +928,20 @@ class AccidentsRepository {
       return AddressSuggestion(latitude: lat, longitude: lon);
     }
 
-    final data =
-    json.decode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
-    final addr = (data['address'] is Map)
+    final data = json.decode(
+      utf8.decode(resp.bodyBytes),
+    ) as Map<String, dynamic>;
+
+    final addr = data['address'] is Map
         ? (data['address'] as Map).cast<String, dynamic>()
         : <String, dynamic>{};
 
     final road = addr['road'] as String? ??
         addr['pedestrian'] as String? ??
         addr['path'] as String?;
+
     final houseNumber = addr['house_number'] as String?;
+
     final street = [road, houseNumber]
         .where((e) => e != null && e.toString().trim().isNotEmpty)
         .join(', ');
@@ -639,9 +981,11 @@ class AccidentsRepository {
 
   Future<AddressSuggestion> resolveCurrentLocation() async {
     final permission = await _ensurePermission();
+
     if (permission == LocationPermission.deniedForever) {
       throw Exception('Permissão de localização negada permanentemente.');
     }
+
     if (permission == LocationPermission.denied) {
       throw Exception('Permissão de localização negada.');
     }
@@ -659,11 +1003,18 @@ class AccidentsRepository {
         lon: pos.longitude,
         acceptLanguage: 'pt-BR',
       );
+
       return suggestion.latitude != null
           ? suggestion
-          : AddressSuggestion(latitude: pos.latitude, longitude: pos.longitude);
+          : AddressSuggestion(
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+      );
     } catch (_) {
-      return AddressSuggestion(latitude: pos.latitude, longitude: pos.longitude);
+      return AddressSuggestion(
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+      );
     }
   }
 
@@ -678,7 +1029,10 @@ class AccidentsRepository {
         acceptLanguage: 'pt-BR',
       );
     } catch (_) {
-      return AddressSuggestion(latitude: lat, longitude: lon);
+      return AddressSuggestion(
+        latitude: lat,
+        longitude: lon,
+      );
     }
   }
 }

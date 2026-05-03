@@ -7,6 +7,8 @@ import 'package:sipged/_blocs/modules/financial/budget/budget_data.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 import 'summary_section.dart';
 import 'extract_timeline.dart';
@@ -53,73 +55,81 @@ class FinancialDashboardPage extends StatelessWidget {
     final selected = selectedEmpenho;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        SummarySection(
-          totalsOrcamento: totalOrcamento,
-          totalsEmpenhado: totalEmpenhado,
-          totalsLiquidado: totalMedido,
-          totalsPago: totalPago,
-          totalsSaldo: max<double>(0.0, totalSaldo),
-          theme: theme,
-        ),
-        const SizedBox(height: 16),
-
-        if (empenhos.isEmpty)
-          BasicCard(
-            isDark: isDark,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                "Cadastre um empenho para visualizar os gráficos.",
-                style: theme.textTheme.bodyLarge,
+    return Scaffold(
+      appBar: UpBar(),
+      body: Stack(
+        children: [
+          BackgroundChange(),
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              SummarySection(
+                totalsOrcamento: totalOrcamento,
+                totalsEmpenhado: totalEmpenhado,
+                totalsLiquidado: totalMedido,
+                totalsPago: totalPago,
+                totalsSaldo: max<double>(0.0, totalSaldo),
+                theme: theme,
               ),
-            ),
-          )
-        else ...[
-          // ============================
-          // ORÇAMENTO (por fonte)
-          // ============================
-          BudgetSlicesRow(
-            currency: currency,
-            budgets: budgets,
-          ),
-          const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-          // ============================
-          // EMPENHOS (por DEMANDA, fatias = FONTE)
-          // ============================
-          EmpenhoSlicesRow(
-            currency: currency,
-            budgets: budgets,
-            empenhos: empenhos,
-          ),
-          const SizedBox(height: 12),
+              if (empenhos.isEmpty)
+                BasicCard(
+                  isDark: isDark,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      "Cadastre um empenho para visualizar os gráficos.",
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                  ),
+                )
+              else ...[
+                // ============================
+                // ORÇAMENTO (por fonte)
+                // ============================
+                BudgetSlicesRow(
+                  currency: currency,
+                  budgets: budgets,
+                ),
+                const SizedBox(height: 12),
 
-          // ============================
-          // PROGRESSO (mantém no "selected" – se existir)
-          // ============================
-          if (selected != null) ...[
-            SlicesProgressCard(
-              currency: currency,
-              theme: theme,
-              empenho: selected,
-            ),
-            const SizedBox(height: 12),
-          ],
+                // ============================
+                // EMPENHOS (por DEMANDA, fatias = FONTE)
+                // ============================
+                EmpenhoSlicesRow(
+                  currency: currency,
+                  budgets: budgets,
+                  empenhos: empenhos,
+                ),
+                const SizedBox(height: 12),
 
-          // ============================
-          // EXTRATO / TIMELINE (orçamento + empenhos)
-          // ============================
-          ExtractTimeline(
-            currency: currency,
-            theme: theme,
-            budgets: budgets,
-            empenhos: empenhos,
+                // ============================
+                // PROGRESSO (mantém no "selected" – se existir)
+                // ============================
+                if (selected != null) ...[
+                  SlicesProgressCard(
+                    currency: currency,
+                    theme: theme,
+                    empenho: selected,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // ============================
+                // EXTRATO / TIMELINE (orçamento + empenhos)
+                // ============================
+                ExtractTimeline(
+                  currency: currency,
+                  theme: theme,
+                  budgets: budgets,
+                  empenhos: empenhos,
+                ),
+              ],
+            ],
           ),
         ],
-      ],
+      ),
     );
   }
 }

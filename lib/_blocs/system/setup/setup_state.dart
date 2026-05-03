@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+
 import 'setup_data.dart';
 
 class SetupState extends Equatable {
@@ -6,71 +7,83 @@ class SetupState extends Equatable {
   final bool hasLoadedSystem;
   final String? error;
 
-  final SetupData? companyProfile;
-  final List<SetupData> companyBodies;
-  final List<SetupData> units;
-  final List<SetupData> roads;
-  final List<SetupData> regions;
-  final List<SetupData> fundingSources;
-  final List<SetupData> programs;
-  final List<SetupData> expenseNatures;
+  final List<SetupData> modules;
+  final List<SetupData> profiles;
+  final List<SetupData> permissions;
+  final List<SetupData> parameters;
+  final List<SetupData> integrations;
+  final List<SetupData> featureFlags;
 
   const SetupState({
     required this.isLoading,
     required this.hasLoadedSystem,
     required this.error,
-    required this.companyProfile,
-    required this.companyBodies,
-    required this.units,
-    required this.roads,
-    required this.regions,
-    required this.fundingSources,
-    required this.programs,
-    required this.expenseNatures,
+    required this.modules,
+    required this.profiles,
+    required this.permissions,
+    required this.parameters,
+    required this.integrations,
+    required this.featureFlags,
   });
 
-  factory SetupState.initial() => const SetupState(
-    isLoading: false,
-    hasLoadedSystem: false,
-    error: null,
-    companyProfile: null,
-    companyBodies: [],
-    units: [],
-    roads: [],
-    regions: [],
-    fundingSources: [],
-    programs: [],
-    expenseNatures: [],
-  );
+  factory SetupState.initial() {
+    return const SetupState(
+      isLoading: false,
+      hasLoadedSystem: false,
+      error: null,
+      modules: <SetupData>[],
+      profiles: <SetupData>[],
+      permissions: <SetupData>[],
+      parameters: <SetupData>[],
+      integrations: <SetupData>[],
+      featureFlags: <SetupData>[],
+    );
+  }
+
+  List<SetupData> itemsByGroup(SetupGroup group) {
+    switch (group) {
+      case SetupGroup.modules:
+        return modules;
+
+      case SetupGroup.profiles:
+        return profiles;
+
+      case SetupGroup.permissions:
+        return permissions;
+
+      case SetupGroup.parameters:
+        return parameters;
+
+      case SetupGroup.integrations:
+        return integrations;
+
+      case SetupGroup.featureFlags:
+        return featureFlags;
+    }
+  }
 
   SetupState copyWith({
     bool? isLoading,
     bool? hasLoadedSystem,
     String? error,
     bool clearError = false,
-    SetupData? companyProfile,
-    bool clearCompanyProfile = false,
-    List<SetupData>? companyBodies,
-    List<SetupData>? units,
-    List<SetupData>? roads,
-    List<SetupData>? regions,
-    List<SetupData>? fundingSources,
-    List<SetupData>? programs,
-    List<SetupData>? expenseNatures,
+    List<SetupData>? modules,
+    List<SetupData>? profiles,
+    List<SetupData>? permissions,
+    List<SetupData>? parameters,
+    List<SetupData>? integrations,
+    List<SetupData>? featureFlags,
   }) {
     return SetupState(
       isLoading: isLoading ?? this.isLoading,
       hasLoadedSystem: hasLoadedSystem ?? this.hasLoadedSystem,
-      error: clearError ? null : (error ?? this.error),
-      companyProfile:
-      clearCompanyProfile ? null : (companyProfile ?? this.companyProfile),
-      companyBodies: companyBodies ?? this.companyBodies,
-      units: units ?? this.units,
-      roads: roads ?? this.roads,
-      regions: regions ?? this.regions,
-      fundingSources: fundingSources ?? this.fundingSources,
-      programs: programs ?? this.programs,
-      expenseNatures: expenseNatures ?? this.expenseNatures,
+      error: clearError ? null : error ?? this.error,
+      modules: modules ?? this.modules,
+      profiles: profiles ?? this.profiles,
+      permissions: permissions ?? this.permissions,
+      parameters: parameters ?? this.parameters,
+      integrations: integrations ?? this.integrations,
+      featureFlags: featureFlags ?? this.featureFlags,
     );
   }
 
@@ -79,13 +92,11 @@ class SetupState extends Equatable {
     isLoading,
     hasLoadedSystem,
     error,
-    companyProfile,
-    companyBodies,
-    units,
-    roads,
-    regions,
-    fundingSources,
-    programs,
-    expenseNatures,
+    modules,
+    profiles,
+    permissions,
+    parameters,
+    integrations,
+    featureFlags,
   ];
 }

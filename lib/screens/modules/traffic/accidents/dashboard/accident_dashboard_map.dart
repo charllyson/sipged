@@ -1,7 +1,5 @@
 // lib/screens/modules/traffic/accidents/dashboard/widgets/accident_dashboard_map.dart
 
-import 'dart:math' as math;
-
 import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -11,10 +9,7 @@ import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
 
-import 'package:sipged/_utils/theme/sipged_theme.dart';
-
 import 'package:sipged/_widgets/map/map/map_change.dart';
-import 'package:sipged/_widgets/map/pin/pin_aureola.dart';
 
 class AccidentDashboardMap extends StatelessWidget {
   final LatLng center;
@@ -59,163 +54,6 @@ class AccidentDashboardMap extends StatelessWidget {
         polygon.label;
 
     return value?.toString().trim() ?? '';
-  }
-
-  String _severityOf(AccidentsData a) {
-    final death = a.death ?? 0;
-
-    if (death > 0) return 'GRAVE';
-
-    final victims = a.scoresVictims ?? 0;
-
-    if (victims >= 3) return 'GRAVE';
-    if (victims >= 1) return 'MODERADO';
-
-    return 'LEVE';
-  }
-
-  String _labelOf(AccidentsData a) {
-    final t = AccidentsData.canonicalType(a.typeOfAccident);
-    final clean = t.replaceAll('COLISÃO ', '').replaceAll('COM ', '').trim();
-
-    if (clean.isEmpty) return '—';
-
-    return clean.substring(0, math.min(2, clean.length)).toUpperCase();
-  }
-
-  (_Bounds? bounds, bool any) _boundsFromPolygons(
-      List<Polygon<Map<String, dynamic>>> polys, {
-        int sampleTarget = 90,
-      }) {
-    if (polys.isEmpty) return (null, false);
-
-    double minLat = 999.0;
-    double maxLat = -999.0;
-    double minLng = 999.0;
-    double maxLng = -999.0;
-
-    bool any = false;
-
-    for (final polygon in polys) {
-      final pts = polygon.points;
-
-      if (pts.isEmpty) continue;
-
-      final step = (pts.length / sampleTarget).ceil().clamp(1, 999999);
-
-      for (int i = 0; i < pts.length; i += step) {
-        final ll = pts[i];
-        any = true;
-
-        if (ll.latitude < minLat) minLat = ll.latitude;
-        if (ll.latitude > maxLat) maxLat = ll.latitude;
-        if (ll.longitude < minLng) minLng = ll.longitude;
-        if (ll.longitude > maxLng) maxLng = ll.longitude;
-      }
-
-      final holes = polygon.holePointsList ?? const <List<LatLng>>[];
-
-      for (final hole in holes) {
-        if (hole.isEmpty) continue;
-
-        final holeStep = (hole.length / sampleTarget).ceil().clamp(1, 999999);
-
-        for (int i = 0; i < hole.length; i += holeStep) {
-          final ll = hole[i];
-          any = true;
-
-          if (ll.latitude < minLat) minLat = ll.latitude;
-          if (ll.latitude > maxLat) maxLat = ll.latitude;
-          if (ll.longitude < minLng) minLng = ll.longitude;
-          if (ll.longitude > maxLng) maxLng = ll.longitude;
-        }
-      }
-    }
-
-    if (!any) return (null, false);
-
-    return (
-    _Bounds(
-      minLat: minLat,
-      maxLat: maxLat,
-      minLng: minLng,
-      maxLng: maxLng,
-    ),
-    true,
-    );
-  }
-
-  _Bounds _padBounds(_Bounds b, {double factor = 0.12}) {
-    final latSpan = (b.maxLat - b.minLat).abs();
-    final lngSpan = (b.maxLng - b.minLng).abs();
-
-    final padLat = math.max(latSpan * factor, 0.05);
-    final padLng = math.max(lngSpan * factor, 0.05);
-
-    return _Bounds(
-      minLat: b.minLat - padLat,
-      maxLat: b.maxLat + padLat,
-      minLng: b.minLng - padLng,
-      maxLng: b.maxLng + padLng,
-    );
-  }
-
-  LatLng _centerOfBounds(_Bounds b) {
-    return LatLng(
-      (b.minLat + b.maxLat) / 2.0,
-      (b.minLng + b.maxLng) / 2.0,
-    );
-  }
-
-  double _latRad(double lat) {
-    final s = math.sin(lat * math.pi / 180.0);
-    final radX2 = math.log((1 + s) / (1 - s)) / 2.0;
-
-    return math.max(math.min(radX2, math.pi), -math.pi) / 2.0;
-  }
-
-  double _zoomForBounds({
-    required _Bounds b,
-    required double mapWidthPx,
-    required double mapHeightPx,
-    double tileSize = 256.0,
-    double paddingPx = 40.0,
-  }) {
-    final width = math.max(1.0, mapWidthPx - paddingPx * 2);
-    final height = math.max(1.0, mapHeightPx - paddingPx * 2);
-
-    final lngSpan = (b.maxLng - b.minLng).abs().clamp(1e-6, 360.0);
-
-    final latRadSpan =
-    (_latRad(b.maxLat) - _latRad(b.minLat)).abs().clamp(1e-6, math.pi);
-
-    final zoomLng =
-        math.log((width * 360.0) / (tileSize * lngSpan)) / math.ln2;
-
-    final zoomLat =
-        math.log((height * math.pi) / (tileSize * latRadSpan)) / math.ln2;
-
-    return math.min(zoomLng, zoomLat);
-  }
-
-  List<LatLng> _geometryPointsFromPolygons(
-      List<Polygon<Map<String, dynamic>>> polygons,
-      ) {
-    if (polygons.isEmpty) return const <LatLng>[];
-
-    final points = <LatLng>[];
-
-    for (final polygon in polygons) {
-      points.addAll(polygon.points);
-
-      final holes = polygon.holePointsList ?? const <List<LatLng>>[];
-
-      for (final hole in holes) {
-        points.addAll(hole);
-      }
-    }
-
-    return points;
   }
 
   List<Polygon<Map<String, dynamic>>> _applyAccidentsStyle({
@@ -284,10 +122,9 @@ class AccidentDashboardMap extends StatelessWidget {
             : hasData
             ? dataBorderWidth
             : noDataBorderWidth,
-        label: polygon.label,
-        labelStyle: polygon.labelStyle,
-        rotateLabel: polygon.rotateLabel,
-        labelPlacementCalculator: polygon.labelPlacementCalculator,
+        rotateLabel: false,
+        labelPlacementCalculator: null,
+
         hitValue: hit,
       );
     }).toList(growable: false);
@@ -305,129 +142,49 @@ class AccidentDashboardMap extends StatelessWidget {
       selectedNames: selectedNames,
     );
 
-    final markers = accidents
-        .where((e) => e.latLng != null)
-        .take(140)
-        .map((acc) {
-      final sev = _severityOf(acc);
-      final color = SipGedTheme.severityColor(sev);
+    return MapChange(
+      key: ValueKey(
+        'transitMap_${styledPolys.length}_${accidents.length}_${selectedNames.join('|')}',
+      ),
 
-      return Marker(
-        point: acc.latLng!,
-        width: 52,
-        height: 52,
-        alignment: Alignment.center,
-        child: GestureDetector(
-          onTap: () => onTapMarker(acc),
-          child: PinAureola(
-            color: color,
-            label: _labelOf(acc),
-          ),
-        ),
-      );
-    }).toList(growable: false);
+      features: const <FeatureData>[],
+      layersById: const <String, LayerData>{},
+      orderedActiveLayerIds: const <String>[],
 
-    return LayoutBuilder(
-      builder: (context, c) {
-        final size = c.biggest;
-        final w = size.width.isFinite ? size.width : 1000.0;
-        final h = size.height.isFinite ? size.height : 700.0;
+      selectedFeatureKey: null,
+      loading: false,
 
-        final (rawBounds, any) = _boundsFromPolygons(styledPolys);
+      visualDataSignature: Object.hash(
+        'accident-dashboard-map',
+        styledPolys.length,
+        accidents.length,
+        selectedNames.join('|'),
+      ),
 
-        LatLng effectiveCenter = center;
-        double effectiveZoom = 10.5;
+      externalPolygons: styledPolys,
+      onControllerReady: (_) {},
 
-        if (any && rawBounds != null) {
-          final padded = _padBounds(rawBounds, factor: 0.12);
+      onCameraChanged: (_, _) {},
 
-          effectiveCenter = _centerOfBounds(padded);
+      onFeatureTap: (_) {},
 
-          final z = _zoomForBounds(
-            b: padded,
-            mapWidthPx: w,
-            mapHeightPx: h,
-            paddingPx: 56,
-          );
+      onExternalPolygonTap: (polygon) {
+        if (onRegionTap == null) return;
 
-          effectiveZoom = z.clamp(5.0, 19.0);
+        if (polygon == null) {
+          onRegionTap?.call(null);
+          return;
         }
 
-        final geometryPoints = _geometryPointsFromPolygons(styledPolys);
+        final region = _polygonTitle(polygon);
 
-        return MapChange(
-          key: ValueKey(
-            'transitMap_${styledPolys.length}_${accidents.length}_${selectedNames.join('|')}',
-          ),
+        if (region.trim().isEmpty) {
+          onRegionTap?.call(null);
+          return;
+        }
 
-          features: const <FeatureData>[],
-          layersById: const <String, LayerData>{},
-          orderedActiveLayerIds: const <String>[],
-
-          selectedFeatureKey: null,
-          loading: false,
-
-          visualDataSignature: Object.hash(
-            'accident-dashboard-map',
-            styledPolys.length,
-            accidents.length,
-            selectedNames.join('|'),
-          ),
-
-          initialCenter: effectiveCenter,
-          initialZoom: effectiveZoom,
-          minZoom: 5,
-          maxZoom: 19,
-
-          showSearch: false,
-          showControls: true,
-
-          initialGeometryPoints:
-          geometryPoints.isNotEmpty ? geometryPoints : <LatLng>[effectiveCenter],
-          fitInitialGeometryOnce: geometryPoints.isNotEmpty,
-
-          externalPolygons: styledPolys,
-          externalMarkers: markers,
-
-          onControllerReady: (_) {},
-
-          onCameraChanged: (_, _) {},
-
-          onFeatureTap: (_) {},
-
-          onExternalPolygonTap: (polygon) {
-            if (onRegionTap == null) return;
-
-            if (polygon == null) {
-              onRegionTap?.call(null);
-              return;
-            }
-
-            final region = _polygonTitle(polygon);
-
-            if (region.trim().isEmpty) {
-              onRegionTap?.call(null);
-              return;
-            }
-
-            onRegionTap?.call(region);
-          },
-        );
+        onRegionTap?.call(region);
       },
     );
   }
-}
-
-class _Bounds {
-  final double minLat;
-  final double maxLat;
-  final double minLng;
-  final double maxLng;
-
-  const _Bounds({
-    required this.minLat,
-    required this.maxLat,
-    required this.minLng,
-    required this.maxLng,
-  });
 }

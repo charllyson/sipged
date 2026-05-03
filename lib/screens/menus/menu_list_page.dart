@@ -38,12 +38,8 @@ import 'package:sipged/screens/common/home/home_page.dart';
 import 'package:sipged/screens/menus/drawer_button.dart';
 import 'package:sipged/screens/menus/drawer_menu.dart';
 
-import 'package:sipged/screens/modules/actives/airports/network/active_airports_network_page.dart';
-import 'package:sipged/screens/modules/actives/airports/records/active_airports_records_page.dart';
 import 'package:sipged/screens/modules/actives/oaes/network/active_oaes_network_page.dart';
 import 'package:sipged/screens/modules/actives/oaes/records/active_oaes_records_page.dart';
-import 'package:sipged/screens/modules/actives/railways/network/active_railways_network_page.dart';
-import 'package:sipged/screens/modules/actives/railways/records/active_railways_records_page.dart';
 import 'package:sipged/screens/modules/actives/roads/network/active_roads_network_page.dart';
 import 'package:sipged/screens/modules/actives/roads/records/active_roads_records_page.dart';
 
@@ -566,23 +562,6 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleItem.activeOAEsRegistration:
         return const ActiveOaesRecordsPage();
 
-      case ModuleItem.activeAirportsNetwork:
-        return const ActiveAirportNetworkPage();
-
-      case ModuleItem.activeAirportsRegistration:
-        return const ActiveAirportRecordsPage();
-
-      case ModuleItem.activeRailwaysNetwork:
-        return const ActiveRailwaysNetworkPage();
-
-      case ModuleItem.activeRailwaysRegistration:
-        return const ActiveRailwaysRecordsPage();
-
-      case ModuleItem.activePortsNetwork:
-        return const ActiveRoadsNetworkPage();
-
-      case ModuleItem.activeRegistrationPorts:
-        return const ActiveRoadsRecordsPage();
     }
   }
 

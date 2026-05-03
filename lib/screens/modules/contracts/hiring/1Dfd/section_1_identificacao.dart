@@ -7,8 +7,8 @@ import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
@@ -54,7 +54,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
   late final TextEditingController _statusContratoCtrl;
   late final TextEditingController _naturezaIntervencaoCtrl;
 
-  String? _companyId;
+  String? _tenantId;
   String? _unitId;
 
   String? _orgaoDemandanteId;
@@ -66,7 +66,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
   DateTime? _dataSolicitacao;
 
-  int _companyNonce = 0;
+  int _tenantNonce = 0;
   bool _syncing = false;
 
   static const String _cpfMask = '999.999.999-99';
@@ -78,54 +78,85 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
     final d = widget.data;
 
-    _orgaoDemandanteCtrl = TextEditingController(text: d.orgaoDemandante ?? '');
-    _unidadeSolicitanteCtrl =
-        TextEditingController(text: d.unidadeSolicitante ?? '');
+    _orgaoDemandanteCtrl = TextEditingController(
+      text: d.orgaoDemandante ?? '',
+    );
 
-    _solicitanteCtrl = TextEditingController(text: d.solicitanteNome ?? '');
+    _unidadeSolicitanteCtrl = TextEditingController(
+      text: d.unidadeSolicitante ?? '',
+    );
 
-    final cpfDigitsInit = (d.solicitanteCpf ?? '').replaceAll(RegExp(r'\D'), '');
+    _solicitanteCtrl = TextEditingController(
+      text: d.solicitanteNome ?? '',
+    );
+
+    final cpfDigitsInit = (d.solicitanteCpf ?? '').replaceAll(
+      RegExp(r'\D'),
+      '',
+    );
+
     final cpfTextInit = cpfDigitsInit.length == 11
         ? SipGedFormatNumbers.formatCPF(cpfDigitsInit)
         : (d.solicitanteCpf ?? '');
+
     _cpfSolicitanteCtrl = TextEditingController(text: cpfTextInit);
 
-    _cargoSolicitanteCtrl =
-        TextEditingController(text: d.solicitanteCargo ?? '');
-    _emailSolicitanteCtrl =
-        TextEditingController(text: d.solicitanteEmail ?? '');
+    _cargoSolicitanteCtrl = TextEditingController(
+      text: d.solicitanteCargo ?? '',
+    );
 
-    final phoneDigitsInit =
-    (d.solicitanteTelefone ?? '').replaceAll(RegExp(r'\D'), '');
+    _emailSolicitanteCtrl = TextEditingController(
+      text: d.solicitanteEmail ?? '',
+    );
+
+    final phoneDigitsInit = (d.solicitanteTelefone ?? '').replaceAll(
+      RegExp(r'\D'),
+      '',
+    );
+
     final phoneTextInit = phoneDigitsInit.isEmpty
         ? ''
         : _applyMask(_phoneMask, phoneDigitsInit);
+
     _telefoneSolicitanteCtrl = TextEditingController(text: phoneTextInit);
 
-    _processoAdministrativoCtrl =
-        TextEditingController(text: d.processoAdministrativo ?? '');
+    _processoAdministrativoCtrl = TextEditingController(
+      text: d.processoAdministrativo ?? '',
+    );
 
     _statusContrato = d.statusDemanda;
     _naturezaIntervencao = d.naturezaIntervencao;
     _solicitanteUserId = d.solicitanteUserId;
     _dataSolicitacao = d.dataSolicitacao;
 
-    _statusContratoCtrl = TextEditingController(text: _statusContrato ?? '');
-    _naturezaIntervencaoCtrl =
-        TextEditingController(text: _naturezaIntervencao ?? '');
+    _statusContratoCtrl = TextEditingController(
+      text: _statusContrato ?? '',
+    );
 
-    _companyId = _normalizeId(d.companyId);
+    _naturezaIntervencaoCtrl = TextEditingController(
+      text: _naturezaIntervencao ?? '',
+    );
+
+    _tenantId = _normalizeId(d.companyId);
     _unitId = _normalizeId(d.unitId);
 
-    _orgaoDemandanteId = _normalizeId(d.orgaoDemandanteId) ?? _companyId;
+    _orgaoDemandanteId = _normalizeId(d.orgaoDemandanteId) ?? _tenantId;
     _unidadeSolicitanteId = _normalizeId(d.unidadeSolicitanteId) ?? _unitId;
 
-    context.read<SetupCubit>().loadSystemSetup();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final tenantCubit = context.read<TenantCubit>();
+
+      tenantCubit.ensureTenantProfileLoaded();
+      tenantCubit.ensureTenantItemsLoaded();
+    });
   }
 
   @override
   void didUpdateWidget(covariant SectionIdentificacao oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.data == widget.data) return;
 
     final d = widget.data;
@@ -134,15 +165,25 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     _syncControllerText(_unidadeSolicitanteCtrl, d.unidadeSolicitante ?? '');
     _syncControllerText(_solicitanteCtrl, d.solicitanteNome ?? '');
 
-    final incomingCpfDigits =
-    (d.solicitanteCpf ?? '').replaceAll(RegExp(r'\D'), '');
-    _syncMaskedController(_cpfSolicitanteCtrl, incomingCpfDigits, _cpfMask);
+    final incomingCpfDigits = (d.solicitanteCpf ?? '').replaceAll(
+      RegExp(r'\D'),
+      '',
+    );
+
+    _syncMaskedController(
+      _cpfSolicitanteCtrl,
+      incomingCpfDigits,
+      _cpfMask,
+    );
 
     _syncControllerText(_cargoSolicitanteCtrl, d.solicitanteCargo ?? '');
     _syncControllerText(_emailSolicitanteCtrl, d.solicitanteEmail ?? '');
 
-    final incomingPhoneDigits =
-    (d.solicitanteTelefone ?? '').replaceAll(RegExp(r'\D'), '');
+    final incomingPhoneDigits = (d.solicitanteTelefone ?? '').replaceAll(
+      RegExp(r'\D'),
+      '',
+    );
+
     _syncMaskedController(
       _telefoneSolicitanteCtrl,
       incomingPhoneDigits,
@@ -162,10 +203,10 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     _syncControllerText(_statusContratoCtrl, _statusContrato ?? '');
     _syncControllerText(_naturezaIntervencaoCtrl, _naturezaIntervencao ?? '');
 
-    _companyId = _normalizeId(d.companyId);
+    _tenantId = _normalizeId(d.companyId);
     _unitId = _normalizeId(d.unitId);
 
-    _orgaoDemandanteId = _normalizeId(d.orgaoDemandanteId) ?? _companyId;
+    _orgaoDemandanteId = _normalizeId(d.orgaoDemandanteId) ?? _tenantId;
     _unidadeSolicitanteId = _normalizeId(d.unidadeSolicitanteId) ?? _unitId;
   }
 
@@ -173,14 +214,18 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
   void dispose() {
     _orgaoDemandanteCtrl.dispose();
     _unidadeSolicitanteCtrl.dispose();
+
     _solicitanteCtrl.dispose();
     _cpfSolicitanteCtrl.dispose();
     _cargoSolicitanteCtrl.dispose();
     _emailSolicitanteCtrl.dispose();
     _telefoneSolicitanteCtrl.dispose();
+
     _processoAdministrativoCtrl.dispose();
+
     _statusContratoCtrl.dispose();
     _naturezaIntervencaoCtrl.dispose();
+
     super.dispose();
   }
 
@@ -227,8 +272,13 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     ctrl.dispose();
 
     if (result == null) return null;
+
     final trimmed = result.trim();
-    if (trimmed.isEmpty || trimmed == initialValue.trim()) return null;
+
+    if (trimmed.isEmpty || trimmed == initialValue.trim()) {
+      return null;
+    }
+
     return trimmed;
   }
 
@@ -236,10 +286,12 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     if (c.text == v) return;
 
     final oldSel = c.selection;
+
     _syncing = true;
     c.text = v;
 
     final newLen = c.text.length;
+
     int base = oldSel.baseOffset;
     int extent = oldSel.extentOffset;
 
@@ -254,15 +306,20 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     _syncing = false;
   }
 
-  void _syncCompanyFromSetup(SetupData? company) {
-    if (company == null) return;
+  void _syncTenantFromTenantProfile(TenantData? tenant) {
+    if (tenant == null) return;
 
-    final newCompanyId = _normalizeId(company.companyId ?? company.id);
-    final newCompanyLabel = company.companyName ?? company.label;
+    final newTenantId = _normalizeId(tenant.tenantId ?? tenant.id);
+    final newTenantLabel = (tenant.companyName ??
+        tenant.fantasyName ??
+        tenant.label)
+        .trim();
 
-    final needsSync = _companyId != newCompanyId ||
-        _orgaoDemandanteCtrl.text != newCompanyLabel ||
-        _orgaoDemandanteId != newCompanyId;
+    if (newTenantId == null || newTenantLabel.isEmpty) return;
+
+    final needsSync = _tenantId != newTenantId ||
+        _orgaoDemandanteCtrl.text != newTenantLabel ||
+        _orgaoDemandanteId != newTenantId;
 
     if (!needsSync) return;
 
@@ -270,42 +327,55 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
       if (!mounted) return;
 
       setState(() {
-        _companyId = newCompanyId;
-        _orgaoDemandanteId = newCompanyId;
-        _syncControllerText(_orgaoDemandanteCtrl, newCompanyLabel);
-        _companyNonce++;
+        _tenantId = newTenantId;
+        _orgaoDemandanteId = newTenantId;
+        _syncControllerText(_orgaoDemandanteCtrl, newTenantLabel);
+        _tenantNonce++;
       });
 
       _emitChange();
     });
   }
 
-  static bool _isPlaceholder(String ch) => ch == '9' || ch == '#';
+  static bool _isPlaceholder(String ch) {
+    return ch == '9' || ch == '#';
+  }
 
-  static String _onlyDigits(String s) => s.replaceAll(RegExp(r'\D'), '');
+  static String _onlyDigits(String s) {
+    return s.replaceAll(RegExp(r'\D'), '');
+  }
 
   static int _countDigitsBefore(String text, int cursor) {
     final safeCursor = cursor.clamp(0, text.length);
+
     int count = 0;
+
     for (int i = 0; i < safeCursor; i++) {
       final cu = text.codeUnitAt(i);
-      if (cu >= 48 && cu <= 57) count++;
+
+      if (cu >= 48 && cu <= 57) {
+        count++;
+      }
     }
+
     return count;
   }
 
   static String _applyMask(String mask, String digits) {
     final buf = StringBuffer();
+
     var di = 0;
 
     for (int i = 0; i < mask.length && di < digits.length; i++) {
       final m = mask[i];
+
       if (_isPlaceholder(m)) {
         buf.write(digits[di++]);
       } else {
         buf.write(m);
       }
     }
+
     return buf.toString();
   }
 
@@ -313,13 +383,19 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     if (digitsCount <= 0) return 0;
 
     int seen = 0;
+
     for (int i = 0; i < formatted.length; i++) {
       final cu = formatted.codeUnitAt(i);
+
       if (cu >= 48 && cu <= 57) {
         seen++;
-        if (seen == digitsCount) return i + 1;
+
+        if (seen == digitsCount) {
+          return i + 1;
+        }
       }
     }
+
     return formatted.length;
   }
 
@@ -329,17 +405,18 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
       String mask,
       ) {
     final currentDigits = _onlyDigits(c.text);
+
     if (currentDigits == incomingDigits) return;
 
     final oldText = c.text;
     final oldCursor = c.selection.extentOffset;
 
     final digitsBefore = _countDigitsBefore(oldText, oldCursor);
-
     final formatted = _applyMask(mask, incomingDigits);
     final newCursor = _cursorPosForDigitsCount(formatted, digitsBefore);
 
     _syncing = true;
+
     c.value = TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(
@@ -347,20 +424,27 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
       ),
       composing: TextRange.empty,
     );
+
     _syncing = false;
   }
 
   void _emitChange() {
-    final cpfDigits = _cpfSolicitanteCtrl.text.replaceAll(RegExp(r'\D'), '');
-    final phoneDigits =
-    _telefoneSolicitanteCtrl.text.replaceAll(RegExp(r'\D'), '');
+    final cpfDigits = _cpfSolicitanteCtrl.text.replaceAll(
+      RegExp(r'\D'),
+      '',
+    );
+
+    final phoneDigits = _telefoneSolicitanteCtrl.text.replaceAll(
+      RegExp(r'\D'),
+      '',
+    );
 
     final updated = widget.data.copyWith(
       orgaoDemandante: _orgaoDemandanteCtrl.text,
       unidadeSolicitante: _unidadeSolicitanteCtrl.text,
-      companyId: _companyId,
+      companyId: _tenantId,
       unitId: _unitId,
-      orgaoDemandanteId: _orgaoDemandanteId ?? _companyId,
+      orgaoDemandanteId: _orgaoDemandanteId ?? _tenantId,
       unidadeSolicitanteId: _unidadeSolicitanteId ?? _unitId,
       solicitanteNome: _solicitanteCtrl.text,
       solicitanteUserId: _solicitanteUserId,
@@ -383,14 +467,18 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
           (c) => c.state.all,
     );
 
-    final setupCubit = context.read<SetupCubit>();
-    final setupState = context.watch<SetupCubit>().state;
-    final SetupData? company = setupState.companyProfile;
+    final tenantCubit = context.read<TenantCubit>();
 
-    _syncCompanyFromSetup(company);
+    final units = context.select<TenantCubit, List<TenantItemData>>(
+          (c) => c.state.units,
+    );
 
-    final List<SetupData> units = setupCubit.getUnits();
-    final hasCompanyConfigured = company != null;
+    final tenantState = context.watch<TenantCubit>().state;
+    final TenantData? tenant = tenantState.tenantProfile;
+
+    _syncTenantFromTenantProfile(tenant);
+
+    final hasTenantConfigured = tenant != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -410,14 +498,15 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     controller: _orgaoDemandanteCtrl,
                     enabled: false,
                     labelText: 'Contratante',
-                    hintText: hasCompanyConfigured
+                    hintText: hasTenantConfigured
                         ? null
                         : 'Configure o contratante em Configurações iniciais',
                     validator: widget.isEditable
                         ? (v) {
                       if ((v ?? '').trim().isEmpty) {
-                        return 'Configure o contratante no setup do sistema';
+                        return 'Configure o contratante no tenant';
                       }
+
                       return null;
                     }
                         : null,
@@ -426,14 +515,16 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                 SizedBox(
                   width: w4,
                   child: DropDownChange(
-                    key: ValueKey('units-$_companyNonce-${_companyId ?? "none"}'),
+                    key: ValueKey(
+                      'units-$_tenantNonce-${_tenantId ?? "none"}',
+                    ),
                     width: w4,
-                    tooltipMessage: !hasCompanyConfigured
-                        ? 'Configure primeiro o contratante no setup do sistema'
+                    tooltipMessage: !hasTenantConfigured
+                        ? 'Configure primeiro o contratante no tenant'
                         : null,
                     labelText: 'Unidade/Setor solicitante',
                     controller: _unidadeSolicitanteCtrl,
-                    enabled: widget.isEditable && hasCompanyConfigured,
+                    enabled: widget.isEditable && hasTenantConfigured,
                     validator: null,
                     showSpecialAlways: true,
                     specialItemLabel: 'Adicionar unidade',
@@ -445,54 +536,55 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                         setState(() {
                           _unitId = null;
                           _unidadeSolicitanteId = null;
+                          _unidadeSolicitanteCtrl.clear();
                         });
+
                         _emitChange();
                         return;
                       }
 
                       final selected = units.firstWhere(
                             (u) => u.label == label,
-                        orElse: () => units.first,
+                        orElse: () => const TenantItemData.empty(),
                       );
 
-                      final selectedUnitId = selected.id;
+                      if (selected.id.isEmpty) return;
 
                       setState(() {
-                        _unitId = selectedUnitId;
-                        _unidadeSolicitanteId = selectedUnitId;
+                        _unitId = selected.id;
+                        _unidadeSolicitanteId = selected.id;
                         _unidadeSolicitanteCtrl.text = selected.label;
                       });
 
                       _emitChange();
                     },
-                    onCreateNewItem: (widget.isEditable && hasCompanyConfigured)
+                    onCreateNewItem: widget.isEditable && hasTenantConfigured
                         ? (label) async {
-                      final created = await setupCubit.createUnit(label);
+                      final created = await tenantCubit.createUnit(label);
+
                       if (!mounted || created == null) return;
 
-                      final createdUnitId = created.id;
-
                       setState(() {
-                        _unitId = createdUnitId;
-                        _unidadeSolicitanteId = createdUnitId;
+                        _unitId = created.id;
+                        _unidadeSolicitanteId = created.id;
                         _unidadeSolicitanteCtrl.text = created.label;
                       });
 
                       _emitChange();
                     }
                         : null,
-                    onEditItem: (widget.isEditable && hasCompanyConfigured)
+                    onEditItem: widget.isEditable && hasTenantConfigured
                         ? (ctx, label) async {
-                      final list = setupCubit.getUnits();
+                      final list = tenantCubit.getUnits();
+
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
                             (u) => u.label == label,
-                        orElse: () => list.first,
+                        orElse: () => const TenantItemData.empty(),
                       );
 
-                      final id = target.id;
-                      if (id.isEmpty) return;
+                      if (target.id.isEmpty) return;
 
                       final newLabel = await _askNewLabel(
                         ctx,
@@ -500,42 +592,49 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                         initialValue: label,
                         labelText: 'Nome da unidade',
                       );
+
                       if (newLabel == null) return;
 
-                      final updated =
-                      await setupCubit.updateUnitName(id, newLabel);
+                      final updated = await tenantCubit.updateUnitName(
+                        target.id,
+                        newLabel,
+                      );
+
                       if (!mounted) return;
 
-                      if (updated != null && _unitId == id) {
-                        setState(
-                              () => _unidadeSolicitanteCtrl.text = updated.label,
-                        );
+                      if (updated != null && _unitId == target.id) {
+                        setState(() {
+                          _unidadeSolicitanteCtrl.text = updated.label;
+                        });
+
                         _emitChange();
                       }
                     }
                         : null,
-                    onDeleteItem: (widget.isEditable && hasCompanyConfigured)
+                    onDeleteItem: widget.isEditable && hasTenantConfigured
                         ? (ctx, label) async {
-                      final list = setupCubit.getUnits();
+                      final list = tenantCubit.getUnits();
+
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
                             (u) => u.label == label,
-                        orElse: () => list.first,
+                        orElse: () => const TenantItemData.empty(),
                       );
 
-                      final id = target.id;
-                      if (id.isEmpty) return;
+                      if (target.id.isEmpty) return;
 
-                      await setupCubit.deleteUnit(id);
+                      await tenantCubit.deleteUnit(target.id);
+
                       if (!mounted) return;
 
-                      if (_unitId == id) {
+                      if (_unitId == target.id) {
                         setState(() {
                           _unitId = null;
                           _unidadeSolicitanteId = null;
                           _unidadeSolicitanteCtrl.clear();
                         });
+
                         _emitChange();
                       }
                     }
@@ -553,10 +652,12 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     validator: null,
                     onChanged: (v) {
                       if (!widget.isEditable) return;
+
                       setState(() {
-                        _statusContrato = (v == null || v.isEmpty) ? null : v;
+                        _statusContrato = v == null || v.isEmpty ? null : v;
                         _statusContratoCtrl.text = _statusContrato ?? '';
                       });
+
                       _emitChange();
                     },
                   ),
@@ -575,12 +676,14 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     photoUrlOf: (u) => u.urlPhoto,
                     validator: (value) {
                       if (!widget.isEditable) return null;
+
                       return (_solicitanteUserId ?? '').isNotEmpty
                           ? null
                           : 'Selecione o solicitante';
                     },
                     onChanged: (userId) {
                       if (!widget.isEditable) return;
+
                       _solicitanteUserId = userId;
                       _emitChange();
                     },
@@ -616,11 +719,13 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                         : null,
                     onChanged: (v) {
                       if (!widget.isEditable) return;
+
                       setState(() {
                         _naturezaIntervencao = v ?? '';
                         _naturezaIntervencaoCtrl.text =
                             _naturezaIntervencao ?? '';
                       });
+
                       _emitChange();
                     },
                   ),
@@ -692,6 +797,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     initialValue: _dataSolicitacao,
                     onChanged: (dt) {
                       if (!widget.isEditable) return;
+
                       setState(() => _dataSolicitacao = dt);
                       _emitChange();
                     },

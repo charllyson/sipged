@@ -1,5 +1,8 @@
 import 'package:equatable/equatable.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
+
 import 'empenho_data.dart';
 
 enum EmpenhoStatus { initial, loading, success, failure }
@@ -11,21 +14,19 @@ class EmpenhoState extends Equatable {
   final String? contractId;
   final String? error;
 
-  // ---------------- FORM ----------------
+  final bool loadingDfds;
+  final List<DfdData> dfds;
+
   final String numero;
 
-  /// ✅ demanda (id + label)
   final String? demandContractId;
   final String demandLabel;
 
-  /// compat (legado)
   final String credor;
 
-  /// company
   final String? companyId;
   final String companyLabel;
 
-  /// fonte de recurso
   final String? fundingSourceId;
   final String fundingSourceLabel;
 
@@ -44,19 +45,16 @@ class EmpenhoState extends Equatable {
     this.selected,
     this.contractId,
     this.error,
+    this.loadingDfds = false,
+    this.dfds = const [],
     this.numero = '',
-
     this.demandContractId,
     this.demandLabel = '',
-
     this.credor = '',
-
     this.companyId,
     this.companyLabel = '',
-
     this.fundingSourceId,
     this.fundingSourceLabel = '',
-
     this.totalText = '',
     this.date,
     this.sliceLabels = const [],
@@ -65,40 +63,37 @@ class EmpenhoState extends Equatable {
     this.selectedSideIndex,
   });
 
-  factory EmpenhoState.initial() =>
-      const EmpenhoState(status: EmpenhoStatus.initial);
+  factory EmpenhoState.initial() {
+    return const EmpenhoState(status: EmpenhoStatus.initial);
+  }
 
   EmpenhoState copyWith({
     EmpenhoStatus? status,
     List<EmpenhoData>? items,
     EmpenhoData? selected,
-    String? contractId,
-    String? error,
     bool clearSelected = false,
+    String? contractId,
+    bool clearContractId = false,
+    String? error,
     bool clearError = false,
-
+    bool? loadingDfds,
+    List<DfdData>? dfds,
     String? numero,
-
     String? demandContractId,
     String? demandLabel,
     bool clearDemand = false,
-
-    // legado
     String? credor,
-
     String? companyId,
-    String? companyLabel,
     bool clearCompanyId = false,
-
+    String? companyLabel,
     String? fundingSourceId,
-    String? fundingSourceLabel,
     bool clearFundingSourceId = false,
-
+    String? fundingSourceLabel,
     String? totalText,
     DateTime? date,
+    bool clearDate = false,
     List<String>? sliceLabels,
     List<String>? sliceAmounts,
-
     List<Attachment>? attachments,
     int? selectedSideIndex,
     bool clearSelectedSideIndex = false,
@@ -109,30 +104,25 @@ class EmpenhoState extends Equatable {
       status: status ?? this.status,
       items: items ?? this.items,
       selected: clearSelected ? null : (selected ?? this.selected),
-      contractId: contractId ?? this.contractId,
+      contractId: clearContractId ? null : (contractId ?? this.contractId),
       error: clearError ? null : (error ?? this.error),
-
+      loadingDfds: loadingDfds ?? this.loadingDfds,
+      dfds: dfds ?? this.dfds,
       numero: numero ?? this.numero,
-
-      demandContractId: clearDemand ? null : (demandContractId ?? this.demandContractId),
+      demandContractId:
+      clearDemand ? null : (demandContractId ?? this.demandContractId),
       demandLabel: nextDemandLabel,
-
-      // legado espelhado (se não passar, usa demandLabel)
-      credor: (credor ?? nextDemandLabel),
-
+      credor: credor ?? nextDemandLabel,
       companyId: clearCompanyId ? null : (companyId ?? this.companyId),
       companyLabel: companyLabel ?? this.companyLabel,
-
       fundingSourceId: clearFundingSourceId
           ? null
           : (fundingSourceId ?? this.fundingSourceId),
       fundingSourceLabel: fundingSourceLabel ?? this.fundingSourceLabel,
-
       totalText: totalText ?? this.totalText,
-      date: date ?? this.date,
+      date: clearDate ? null : (date ?? this.date),
       sliceLabels: sliceLabels ?? this.sliceLabels,
       sliceAmounts: sliceAmounts ?? this.sliceAmounts,
-
       attachments: attachments ?? this.attachments,
       selectedSideIndex: clearSelectedSideIndex
           ? null
@@ -147,6 +137,8 @@ class EmpenhoState extends Equatable {
     selected,
     contractId,
     error,
+    loadingDfds,
+    dfds,
     numero,
     demandContractId,
     demandLabel,

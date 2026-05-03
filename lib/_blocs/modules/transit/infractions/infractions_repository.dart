@@ -9,44 +9,154 @@ class InfractionsRepository {
   InfractionsRepository({
     FirebaseFirestore? db,
     FirebaseAuth? auth,
+    String? tenantId,
+    String? baseCollectionPath,
+    bool enableLegacyFallback = true,
   })  : _db = db ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+        _auth = auth ?? FirebaseAuth.instance,
+        _tenantId = tenantId,
+        _baseCollectionPath = baseCollectionPath,
+        _enableLegacyFallback = enableLegacyFallback;
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
 
-  CollectionReference<Map<String, dynamic>> get _containers {
-    return _db.collection('trafficInfractions');
+  final String? _tenantId;
+  final String? _baseCollectionPath;
+  final bool _enableLegacyFallback;
+
+  /// ID fixo temporário para teste.
+  static const String _manualTenantIdForTest = 'SZQmefRUqdtLB14ahcuh';
+
+  /// Estrutura antiga.
+  static const String legacyCollectionPath = 'trafficInfractions';
+
+  /// Estrutura nova temporária para teste:
+  ///
+  /// tenants/SZQmefRUqdtLB14ahcuh/traffic/infractions/items
+  ///
+  /// Depois, remova o uso de [_manualTenantIdForTest] e volte para [_tenantId].
+  String get collectionPath {
+    final explicit = (_baseCollectionPath ?? '').trim();
+
+    if (explicit.isNotEmpty) {
+      return explicit;
+    }
+
+    final tenant = _manualTenantIdForTest.trim();
+
+    if (tenant.isNotEmpty) {
+      return 'tenants/$tenant/traffic/infractions/items';
+    }
+
+    final dynamicTenant = (_tenantId ?? '').trim();
+
+    if (dynamicTenant.isNotEmpty) {
+      return 'tenants/$dynamicTenant/traffic/infractions/items';
+    }
+
+    return 'traffic/infractions/items';
   }
 
-  Future<DocumentReference<Map<String, dynamic>>> _getOrCreateContainerForYear(
+  CollectionReference<Map<String, dynamic>> get _containers {
+    return _db.collection(collectionPath);
+  }
+
+  CollectionReference<Map<String, dynamic>> get _legacyContainers {
+    return _db.collection(legacyCollectionPath);
+  }
+
+  Future<DocumentReference<Map<String, dynamic>>?> _getContainerByYearFrom(
+      CollectionReference<Map<String, dynamic>> collection,
       int year,
       ) async {
-    final query = await _containers
-        .where('year', isEqualTo: year)
-        .limit(1)
-        .get();
+    final deterministicRef = collection.doc(year.toString());
+    final deterministicSnap = await deterministicRef.get();
+
+    if (deterministicSnap.exists) {
+      return deterministicRef;
+    }
+
+    final query = await collection.where('year', isEqualTo: year).limit(1).get();
 
     if (query.docs.isNotEmpty) {
       return query.docs.first.reference;
     }
 
-    final ref = _containers.doc();
+    return null;
+  }
 
-    await ref.set({
-      'year': year,
-      'createdAt': FieldValue.serverTimestamp(),
-      'createdBy': _auth.currentUser?.uid ?? '',
-    });
+  Future<DocumentReference<Map<String, dynamic>>?> _getContainerByYearCompat(
+      int year,
+      ) async {
+    final currentRef = await _getContainerByYearFrom(_containers, year);
+
+    if (currentRef != null) {
+      return currentRef;
+    }
+
+    if (!_enableLegacyFallback) {
+      return null;
+    }
+
+    return _getContainerByYearFrom(_legacyContainers, year);
+  }
+
+  Future<DocumentReference<Map<String, dynamic>>> _getOrCreateContainerForYear(
+      int year,
+      ) async {
+    final existing = await _getContainerByYearFrom(_containers, year);
+
+    if (existing != null) {
+      await existing.set(
+        {
+          'year': year,
+          'module': 'traffic',
+          'type': 'infractions',
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': _auth.currentUser?.uid ?? '',
+        },
+        SetOptions(merge: true),
+      );
+
+      return existing;
+    }
+
+    final ref = _containers.doc(year.toString());
+
+    await ref.set(
+      {
+        'year': year,
+        'module': 'traffic',
+        'type': 'infractions',
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': _auth.currentUser?.uid ?? '',
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _auth.currentUser?.uid ?? '',
+      },
+      SetOptions(merge: true),
+    );
 
     return ref;
   }
 
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
-  listYearContainers() async {
-    final query = await _containers.orderBy('year', descending: true).get();
-
+  _listYearContainersFrom(
+      CollectionReference<Map<String, dynamic>> collection,
+      ) async {
+    final query = await collection.orderBy('year', descending: true).get();
     return query.docs;
+  }
+
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  listYearContainers() async {
+    final current = await _listYearContainersFrom(_containers);
+
+    if (current.isNotEmpty || !_enableLegacyFallback) {
+      return current;
+    }
+
+    return _listYearContainersFrom(_legacyContainers);
   }
 
   Future<List<int>> listAvailableYears() async {
@@ -63,21 +173,10 @@ class InfractionsRepository {
     return years;
   }
 
-  Future<List<InfractionsData>> getAllInfractions() async {
-    final snapshot = await _db.collectionGroup('records').get();
-
-    return snapshot.docs.map((doc) {
-      return InfractionsData.fromMap(
-        doc.data(),
-        id: doc.id,
-      );
-    }).toList();
-  }
-
-  Future<List<InfractionsData>> getInfractionsByYear(int year) async {
-    final containers = await _containers
-        .where('year', isEqualTo: year)
-        .get();
+  Future<List<InfractionsData>> _getAllInfractionsFrom(
+      CollectionReference<Map<String, dynamic>> collection,
+      ) async {
+    final containers = await collection.get();
 
     final List<InfractionsData> results = <InfractionsData>[];
 
@@ -97,29 +196,52 @@ class InfractionsRepository {
     return results;
   }
 
+  Future<List<InfractionsData>> getAllInfractions() async {
+    final current = await _getAllInfractionsFrom(_containers);
+
+    if (current.isNotEmpty || !_enableLegacyFallback) {
+      return current;
+    }
+
+    return _getAllInfractionsFrom(_legacyContainers);
+  }
+
+  Future<List<InfractionsData>> getInfractionsByYear(int year) async {
+    final container = await _getContainerByYearCompat(year);
+
+    if (container == null) {
+      return <InfractionsData>[];
+    }
+
+    final records = await container.collection('records').get();
+
+    return records.docs.map((doc) {
+      return InfractionsData.fromMap(
+        doc.data(),
+        id: doc.id,
+      );
+    }).toList();
+  }
+
   Future<QuerySnapshot<Map<String, dynamic>>> pageRecordsByYear({
     required int year,
     DocumentSnapshot? lastDoc,
     int limit = 200,
   }) async {
-    final containers = await _containers
-        .where('year', isEqualTo: year)
-        .limit(1)
-        .get();
+    final container = await _getContainerByYearCompat(year);
 
-    if (containers.docs.isEmpty) {
-      return _containers.doc('fake').collection('records').limit(0).get();
+    if (container == null) {
+      return _containers.doc('__empty__').collection('records').limit(0).get();
     }
 
-    Query<Map<String, dynamic>> query = containers.docs.first.reference
-        .collection('records')
-        .orderBy('orderInfraction');
+    Query<Map<String, dynamic>> query =
+    container.collection('records').orderBy('orderInfraction');
 
     if (lastDoc != null) {
       query = query.startAfterDocument(lastDoc);
     }
 
-    return query.limit(limit).get();
+    return query.limit(limit.clamp(1, 500)).get();
   }
 
   Future<List<InfractionsData>> findDuplicatesByAitInYear(int year) async {
@@ -168,13 +290,18 @@ class InfractionsRepository {
 
     final snap = await docRef.get();
 
-    final bool hasCreatedAt =
-        snap.exists && snap.data()?['createdAt'] != null;
+    final bool hasCreatedAt = snap.exists && snap.data()?['createdAt'] != null;
 
     final Map<String, dynamic> json = data.toJson()
       ..addAll({
         'id': docRef.id,
         'year': year,
+        'yearDocId': containerRef.id,
+        'recordId': docRef.id,
+        'recordPath': docRef.path,
+        'sourcePath': docRef.path,
+        'module': 'traffic',
+        'type': 'infractions',
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': user?.uid ?? '',
       });
@@ -187,29 +314,38 @@ class InfractionsRepository {
       json.remove('createdBy');
     }
 
-    await docRef.set(
-      json,
-      SetOptions(merge: true),
-    );
+    await _db.runTransaction((tx) async {
+      tx.set(
+        containerRef,
+        {
+          'year': year,
+          'module': 'traffic',
+          'type': 'infractions',
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': user?.uid ?? '',
+        },
+        SetOptions(merge: true),
+      );
+
+      tx.set(
+        docRef,
+        json,
+        SetOptions(merge: true),
+      );
+    });
   }
 
   Future<void> deleteInfraction({
     required int year,
     required String recordId,
   }) async {
-    final containers = await _containers
-        .where('year', isEqualTo: year)
-        .limit(1)
-        .get();
+    final container = await _getContainerByYearCompat(year);
 
-    if (containers.docs.isEmpty) {
+    if (container == null) {
       throw Exception('Container do ano $year não encontrado.');
     }
 
-    await containers.docs.first.reference
-        .collection('records')
-        .doc(recordId)
-        .delete();
+    await container.collection('records').doc(recordId).delete();
   }
 
   Future<int> countByYear(int year) async {
@@ -218,61 +354,75 @@ class InfractionsRepository {
   }
 
   Future<List<InfractionsData>> searchByAit(String ait) async {
-    final query = await _db
-        .collectionGroup('records')
-        .where('aitNumber', isEqualTo: ait)
-        .get();
+    final cleanAit = ait.trim();
 
-    return query.docs.map((doc) {
-      return InfractionsData.fromMap(
-        doc.data(),
-        id: doc.id,
+    if (cleanAit.isEmpty) {
+      return <InfractionsData>[];
+    }
+
+    final containers = await listYearContainers();
+
+    final List<InfractionsData> results = <InfractionsData>[];
+
+    for (final container in containers) {
+      final query = await container.reference
+          .collection('records')
+          .where('aitNumber', isEqualTo: cleanAit)
+          .get();
+
+      results.addAll(
+        query.docs.map((doc) {
+          return InfractionsData.fromMap(
+            doc.data(),
+            id: doc.id,
+          );
+        }),
       );
-    }).toList();
+    }
+
+    return results;
   }
 
   Future<Map<String, List<String>>> debugYearSources(
       int year, {
         int sample = 5,
       }) async {
-    final containers = await _containers
-        .where('year', isEqualTo: year)
-        .get();
+    final container = await _getContainerByYearCompat(year);
 
     final Map<String, List<String>> duplicateKeyCount =
     <String, List<String>>{};
 
-    for (final container in containers.docs) {
-      final records = await container.reference.collection('records').get();
+    if (container == null) {
+      return duplicateKeyCount;
+    }
 
-      for (final doc in records.docs) {
-        final data = doc.data();
+    final records = await container.collection('records').get();
 
-        final String ait = (data['aitNumber'] ?? '')
-            .toString()
-            .trim()
-            .toUpperCase();
+    for (final doc in records.docs) {
+      final data = doc.data();
 
-        final dynamic ts = data['dateInfraction'];
+      final String ait =
+      (data['aitNumber'] ?? '').toString().trim().toUpperCase();
 
-        String stamp;
+      final dynamic ts = data['dateInfraction'];
 
-        if (ts is Timestamp) {
-          final dt = ts.toDate();
+      String stamp;
 
-          stamp = '${dt.year}-'
-              '${dt.month.toString().padLeft(2, '0')}-'
-              '${dt.day.toString().padLeft(2, '0')} '
-              '${dt.hour.toString().padLeft(2, '0')}:'
-              '${dt.minute.toString().padLeft(2, '0')}';
-        } else {
-          stamp = (ts ?? 'nodate').toString();
-        }
+      if (ts is Timestamp) {
+        final dt = ts.toDate();
 
-        final String key = '$ait|$stamp';
-
-        (duplicateKeyCount[key] ??= <String>[]).add(doc.reference.path);
+        stamp = '${dt.year}-'
+            '${dt.month.toString().padLeft(2, '0')}-'
+            '${dt.day.toString().padLeft(2, '0')} '
+            '${dt.hour.toString().padLeft(2, '0')}:'
+            '${dt.minute.toString().padLeft(2, '0')}';
+      } else {
+        stamp = (ts ?? 'nodate').toString();
       }
+
+      final String key = '$ait|$stamp';
+
+      (duplicateKeyCount[key] ??= <String>[]).add(doc.reference.path);
     }
 
     duplicateKeyCount.removeWhere((_, paths) => paths.length <= 1);

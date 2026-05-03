@@ -7,7 +7,7 @@ class TotalsAll {
   final double liquidado;
   final double pago;
 
-  TotalsAll({
+  const TotalsAll({
     required this.empenhado,
     required this.liquidado,
     required this.pago,
@@ -24,7 +24,7 @@ class FinanceTx {
   final DateTime date;
   final double amount;
 
-  FinanceTx({
+  const FinanceTx({
     required this.id,
     required this.empenhoId,
     required this.type,
@@ -37,35 +37,119 @@ class FinanceTx {
 class AllocationSlice {
   final String label;
   final double amount;
-  AllocationSlice({required this.label, required this.amount});
 
-  AllocationSlice copyWith({String? label, double? amount}) =>
-      AllocationSlice(label: label ?? this.label, amount: amount ?? this.amount);
+  const AllocationSlice({
+    required this.label,
+    required this.amount,
+  });
+
+  factory AllocationSlice.fromMap(Map<String, dynamic> map) {
+    return AllocationSlice(
+      label: (map['label'] ?? '').toString(),
+      amount: _toDouble(map['amount']) ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'label': label,
+      'amount': amount,
+    };
+  }
+
+  AllocationSlice copyWith({
+    String? label,
+    double? amount,
+  }) {
+    return AllocationSlice(
+      label: label ?? this.label,
+      amount: amount ?? this.amount,
+    );
+  }
+
+  static double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+
+    if (v is String) {
+      final raw = v.trim();
+      if (raw.isEmpty) return null;
+
+      final normalized = raw
+          .replaceAll('R\$', '')
+          .replaceAll(' ', '')
+          .replaceAll('.', '')
+          .replaceAll(',', '.');
+
+      return double.tryParse(normalized);
+    }
+
+    return null;
+  }
 }
 
 double toDoubleBr(String s) {
-  final cleaned = s.replaceAll('.', '').replaceAll(',', '.').trim();
+  final raw = s.trim();
+
+  if (raw.isEmpty) return 0.0;
+
+  final cleaned = raw
+      .replaceAll('R\$', '')
+      .replaceAll(' ', '')
+      .replaceAll('.', '')
+      .replaceAll(',', '.');
+
   return double.tryParse(cleaned) ?? 0.0;
 }
 
-double sumTx(List<FinanceTx> txs, String empenhoId, FinanceTxType type) {
+double sumTx(
+    List<FinanceTx> txs,
+    String empenhoId,
+    FinanceTxType type,
+    ) {
   return txs
       .where((t) => t.empenhoId == empenhoId && t.type == type)
       .fold<double>(0.0, (a, b) => a + b.amount);
 }
 
-double sumTxBySlice(List<FinanceTx> txs, String empenhoId, FinanceTxType type, String sliceLabel) {
+double sumTxBySlice(
+    List<FinanceTx> txs,
+    String empenhoId,
+    FinanceTxType type,
+    String sliceLabel,
+    ) {
   return txs
-      .where((t) => t.empenhoId == empenhoId && t.type == type && t.sliceLabel == sliceLabel)
+      .where(
+        (t) =>
+    t.empenhoId == empenhoId &&
+        t.type == type &&
+        t.sliceLabel == sliceLabel,
+  )
       .fold<double>(0.0, (a, b) => a + b.amount);
 }
 
-TotalsAll computeTotalsAll(List<EmpenhoData> empenhos, List<FinanceTx> txs) {
-  final empenhado = empenhos.fold<double>(0.0, (a, b) => a + b.empenhadoTotal);
-  final liquidado = txs.where((t) => t.type == FinanceTxType.liquidation).fold<double>(0.0, (a, b) => a + b.amount);
-  final pago = txs.where((t) => t.type == FinanceTxType.payment).fold<double>(0.0, (a, b) => a + b.amount);
+TotalsAll computeTotalsAll(
+    List<EmpenhoData> empenhos,
+    List<FinanceTx> txs,
+    ) {
+  final empenhado = empenhos.fold<double>(
+    0.0,
+        (a, b) => a + b.empenhadoTotal,
+  );
 
-  return TotalsAll(empenhado: empenhado, liquidado: liquidado, pago: pago);
+  final liquidado = txs
+      .where((t) => t.type == FinanceTxType.liquidation)
+      .fold<double>(0.0, (a, b) => a + b.amount);
+
+  final pago = txs
+      .where((t) => t.type == FinanceTxType.payment)
+      .fold<double>(0.0, (a, b) => a + b.amount);
+
+  return TotalsAll(
+    empenhado: empenhado,
+    liquidado: liquidado,
+    pago: pago,
+  );
 }
 
 double clampMin0(double v) => max<double>(0.0, v);

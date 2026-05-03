@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
-import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-import 'package:sipged/screens/common/setup/company_body_dialog.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 class SectionResultado extends StatefulWidget {
   final bool isEditable;
@@ -41,10 +40,14 @@ class _SectionResultadoState extends State<SectionResultado> {
   late final TextEditingController _adjudicacaoLinkCtrl;
   late final TextEditingController _homologacaoLinkCtrl;
 
+  bool _syncing = false;
+
   @override
   void initState() {
     super.initState();
+
     final d = widget.data;
+
     _vencedorCtrl = TextEditingController(text: d.vencedor);
     _vencedorCnpjCtrl = TextEditingController(text: d.vencedorCnpj);
     _valorVencedorCtrl = TextEditingController(text: d.valorVencedor);
@@ -54,23 +57,36 @@ class _SectionResultadoState extends State<SectionResultado> {
     _adjudicacaoLinkCtrl = TextEditingController(text: d.adjudicacaoLink);
     _homologacaoLinkCtrl = TextEditingController(text: d.homologacaoLink);
 
-    context.read<SetupCubit>().loadSystemSetup();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final tenantCubit = context.read<TenantCubit>();
+
+      tenantCubit.ensureTenantProfileLoaded();
+      tenantCubit.ensureTenantItemsLoaded();
+    });
   }
 
   @override
   void didUpdateWidget(covariant SectionResultado oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data != widget.data) {
-      final d = widget.data;
-      _vencedorCtrl.text = d.vencedor;
-      _vencedorCnpjCtrl.text = d.vencedorCnpj;
-      _valorVencedorCtrl.text = d.valorVencedor;
-      _dataResultadoCtrl.text = d.dataResultado;
-      _adjudicacaoDataCtrl.text = d.adjudicacaoData;
-      _homologacaoDataCtrl.text = d.homologacaoData;
-      _adjudicacaoLinkCtrl.text = d.adjudicacaoLink;
-      _homologacaoLinkCtrl.text = d.homologacaoLink;
-    }
+
+    if (oldWidget.data == widget.data) return;
+
+    final d = widget.data;
+
+    _syncing = true;
+
+    _syncController(_vencedorCtrl, d.vencedor);
+    _syncController(_vencedorCnpjCtrl, d.vencedorCnpj);
+    _syncController(_valorVencedorCtrl, d.valorVencedor);
+    _syncController(_dataResultadoCtrl, d.dataResultado);
+    _syncController(_adjudicacaoDataCtrl, d.adjudicacaoData);
+    _syncController(_homologacaoDataCtrl, d.homologacaoData);
+    _syncController(_adjudicacaoLinkCtrl, d.adjudicacaoLink);
+    _syncController(_homologacaoLinkCtrl, d.homologacaoLink);
+
+    _syncing = false;
   }
 
   @override
@@ -83,10 +99,19 @@ class _SectionResultadoState extends State<SectionResultado> {
     _homologacaoDataCtrl.dispose();
     _adjudicacaoLinkCtrl.dispose();
     _homologacaoLinkCtrl.dispose();
+
     super.dispose();
   }
 
+  void _syncController(TextEditingController controller, String value) {
+    if (controller.text == value) return;
+
+    controller.text = value;
+  }
+
   void _emitChange({bool? highlightWinner}) {
+    if (_syncing) return;
+
     final updated = widget.data.copyWith(
       vencedor: _vencedorCtrl.text,
       vencedorCnpj: _vencedorCnpjCtrl.text,
@@ -98,24 +123,152 @@ class _SectionResultadoState extends State<SectionResultado> {
       homologacaoLink: _homologacaoLinkCtrl.text,
       highlightWinner: highlightWinner ?? widget.data.highlightWinner,
     );
+
     widget.onChanged(updated);
+  }
+
+  TenantItemData? _findBodyByLabel(
+      List<TenantItemData> bodies,
+      String label,
+      ) {
+    final lower = label.trim().toLowerCase();
+
+    if (lower.isEmpty) return null;
+
+    for (final body in bodies) {
+      if (body.label.trim().toLowerCase() == lower) {
+        return body;
+      }
+    }
+
+    return null;
+  }
+
+  String? _cnpjFromBody(TenantItemData? body) {
+    final cnpj = body?.extra['cnpj']?.toString().trim();
+
+    if (cnpj == null || cnpj.isEmpty) return null;
+
+    return cnpj;
+  }
+
+  Future<String?> _showCreateTenantCompanyBodyDialog(
+      BuildContext context,
+      ) async {
+    final tenantCubit = context.read<TenantCubit>();
+
+    final nameCtrl = TextEditingController();
+    final cnpjCtrl = TextEditingController();
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          title: const Text('Adicionar empresa'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Nome da empresa',
+                ),
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: cnpjCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'CNPJ',
+                ),
+                keyboardType: TextInputType.number,
+                onSubmitted: (_) {
+                  Navigator.of(dialogCtx).pop({
+                    'label': nameCtrl.text.trim(),
+                    'cnpj': cnpjCtrl.text.trim(),
+                  });
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop({
+                  'label': nameCtrl.text.trim(),
+                  'cnpj': cnpjCtrl.text.trim(),
+                });
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    nameCtrl.dispose();
+    cnpjCtrl.dispose();
+
+    if (!mounted || result == null) return null;
+
+    final label = result['label']?.trim() ?? '';
+    final cnpj = result['cnpj']?.trim();
+
+    if (label.isEmpty) return null;
+
+    final created = await tenantCubit.createCompanyBody(
+      label,
+      cnpj: cnpj,
+    );
+
+    if (!mounted) return null;
+
+    return created?.label ?? label;
+  }
+
+  void _applyWinner({
+    required String? label,
+    required List<TenantItemData> bodies,
+  }) {
+    final value = label ?? '';
+
+    _vencedorCtrl.text = value;
+
+    final body = _findBodyByLabel(bodies, value);
+    final cnpj = _cnpjFromBody(body);
+
+    if (cnpj != null) {
+      _vencedorCnpjCtrl.text = cnpj;
+    } else if (value.isEmpty) {
+      _vencedorCnpjCtrl.clear();
+    }
+
+    _emitChange(
+      highlightWinner: value.trim().isNotEmpty,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final d = widget.data;
+    final data = widget.data;
     final isEditable = widget.isEditable;
 
-    final cs = Theme.of(context).colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final hasWinner =
-        d.vencedor.trim().isNotEmpty && d.highlightWinner == true;
+        data.vencedor.trim().isNotEmpty && data.highlightWinner == true;
 
     final baseBg = isDark
-        ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
+        ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)
         : Colors.grey.shade100;
-    final baseBorder = cs.outlineVariant;
+
+    final baseBorder = colorScheme.outlineVariant;
 
     final winnerBg = Colors.green.shade50;
     final winnerBorder = Colors.green.shade600;
@@ -123,28 +276,20 @@ class _SectionResultadoState extends State<SectionResultado> {
     final cardBg = hasWinner ? winnerBg : baseBg;
     final cardBorder = hasWinner ? winnerBorder : baseBorder;
 
-    final systemState = context.watch<SetupCubit>().state;
-    final List<SetupData> bodies = systemState.companyBodies;
+    final tenantState = context.watch<TenantCubit>().state;
+    final List<TenantItemData> bodies = tenantState.companyBodies;
 
-    final List<String> bodyLabels =
-    bodies.map((e) => e.label).toList(growable: false);
+    final bodyLabels = bodies.map((e) => e.label).where((e) {
+      return e.trim().isNotEmpty;
+    });
+
+    final currentWinner = _vencedorCtrl.text.trim();
 
     final List<String> allLabels = {
       ...bodyLabels,
-      if (_vencedorCtrl.text.trim().isNotEmpty) _vencedorCtrl.text.trim(),
+      if (currentWinner.isNotEmpty) currentWinner,
     }.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
-    SetupData? findBodyByLabel(String label) {
-      final lower = label.trim().toLowerCase();
-      try {
-        return bodies.firstWhere(
-              (c) => c.label.trim().toLowerCase() == lower,
-        );
-      } catch (_) {
-        return null;
-      }
-    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -183,12 +328,15 @@ class _SectionResultadoState extends State<SectionResultado> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const SectionTitle(text: 'Resultado'),
-                    const SizedBox(width: 8),
                     if (hasWinner)
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.emoji_events_outlined,
@@ -223,19 +371,12 @@ class _SectionResultadoState extends State<SectionResultado> {
                         showSpecialAlways: true,
                         specialItemLabel: 'Adicionar empresa',
                         onChanged: (label) {
-                          final val = label ?? '';
-                          _vencedorCtrl.text = val;
-
-                          final body = findBodyByLabel(val);
-                          if (body?.cnpjCompanyContracted != null &&
-                              body!.cnpjCompanyContracted!.trim().isNotEmpty) {
-                            _vencedorCnpjCtrl.text =
-                            body.cnpjCompanyContracted!;
-                          }
-
-                          _emitChange(highlightWinner: val.isNotEmpty);
+                          _applyWinner(
+                            label: label,
+                            bodies: bodies,
+                          );
                         },
-                        onAddNewItem: showCreateCompanyBodyDialog,
+                        onAddNewItem: _showCreateTenantCompanyBodyDialog,
                       ),
                     ),
                     SizedBox(

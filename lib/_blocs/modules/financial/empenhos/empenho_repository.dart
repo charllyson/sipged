@@ -1,69 +1,232 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+
 import 'empenho_data.dart';
 
 class EmpenhoRepository {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
 
+  /// Tenant temporário para testes.
+  ///
+  /// Depois que validarmos, remova esse fallback e injete o tenant real
+  /// pelo contexto da empresa logada.
+  static const String testTenantId = 'SZQmefRUqdtLB14ahcuh';
+
+  /// Se informado, usa:
+  /// tenants/{tenantId}/financial/empenhos/items
+  final String? tenantId;
+
+  /// Permite sobrescrever totalmente o caminho.
+  ///
+  /// Útil para testes, telas administrativas ou migrações.
+  final String? collectionPath;
+
   EmpenhoRepository({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
+    this.tenantId,
+    this.collectionPath,
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance;
 
-  CollectionReference<Map<String, dynamic>> _col() =>
-      _db.collection(EmpenhoData.collectionName);
+  String get resolvedTenantId {
+    final tid = tenantId?.trim() ?? '';
 
-  DocumentReference<Map<String, dynamic>> _doc(String id) => _col().doc(id);
+    if (tid.isNotEmpty) {
+      return tid;
+    }
+
+    // TEMPORÁRIO PARA TESTE
+    return testTenantId;
+  }
+
+  String get resolvedCollectionPath {
+    final customPath = collectionPath?.trim() ?? '';
+
+    if (customPath.isNotEmpty) {
+      return customPath;
+    }
+
+    return EmpenhoData.tenantCollectionPath(resolvedTenantId);
+  }
+
+  CollectionReference<Map<String, dynamic>> _col() {
+    return _db.collection(resolvedCollectionPath);
+  }
+
+  DocumentReference<Map<String, dynamic>> _doc(String id) {
+    return _col().doc(id);
+  }
 
   Future<List<EmpenhoData>> getAll() async {
     final qs = await _col().orderBy('date', descending: true).get();
+
     return qs.docs.map((d) => EmpenhoData.fromDocument(d)).toList();
   }
 
-  Future<List<EmpenhoData>> getAllByContract({required String contractId}) async {
+  Future<List<EmpenhoData>> getAllByContract({
+    required String contractId,
+  }) async {
+    final cid = contractId.trim();
+
+    if (cid.isEmpty) {
+      return <EmpenhoData>[];
+    }
+
     final qs = await _col()
-        .where('contractId', isEqualTo: contractId)
+        .where('contractId', isEqualTo: cid)
         .orderBy('date', descending: true)
         .get();
 
     return qs.docs.map((d) => EmpenhoData.fromDocument(d)).toList();
   }
 
-  Future<void> saveOrUpdate(EmpenhoData e) async {
+  Future<List<DfdData>> getAvailableDfds({
+    int limit = 1500,
+  }) async {
+    final snap = await _db.collectionGroup('objeto').limit(limit).get();
+
+    final map = <String, DfdData>{};
+    final currentTenantId = resolvedTenantId;
+
+    for (final doc in snap.docs) {
+      final data = doc.data();
+
+      final descricao = (data['descricaoObjeto'] ?? '').toString().trim();
+
+      if (descricao.isEmpty) {
+        continue;
+      }
+
+      final segments = doc.reference.path
+          .split('/')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+
+      final tenantIndex = segments.indexOf('tenants');
+
+      if (tenantIndex >= 0) {
+        if (tenantIndex + 1 >= segments.length ||
+            segments[tenantIndex + 1] != currentTenantId) {
+          continue;
+        }
+      }
+
+      String? contractId;
+
+      for (int i = 0; i < segments.length - 1; i++) {
+        if (segments[i] == 'contracts' && i + 1 < segments.length) {
+          contractId = segments[i + 1];
+          break;
+        }
+      }
+
+      final cid = (contractId ?? '').trim();
+
+      if (cid.isEmpty) {
+        continue;
+      }
+
+      final dfd = DfdData(
+        contractId: cid,
+        descricaoObjeto: descricao,
+      );
+
+      final key = '${currentTenantId}__${cid}__${descricao.toLowerCase()}';
+
+      map[key] = dfd;
+    }
+
+    final list = map.values.toList()
+      ..sort((a, b) {
+        final av = (a.descricaoObjeto ?? '').toLowerCase();
+        final bv = (b.descricaoObjeto ?? '').toLowerCase();
+
+        return av.compareTo(bv);
+      });
+
+    return list;
+  }
+
+  Future<String> saveOrUpdate(EmpenhoData e) async {
     final uid = _auth.currentUser?.uid ?? '';
 
-    final docRef =
-    (e.id != null && e.id!.isNotEmpty) ? _doc(e.id!) : _col().doc();
-    e.id ??= docRef.id;
+    final isUpdate = (e.id ?? '').trim().isNotEmpty;
 
-    final payload = e.toFirestore()
+    final docRef = isUpdate ? _doc(e.id!.trim()) : _col().doc();
+
+    final id = docRef.id;
+
+    final normalized = e.copyWith(id: id);
+
+    final payload = normalized.toFirestore()
       ..addAll({
-        'id': e.id,
+        'id': id,
+        'tenantId': resolvedTenantId,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': uid,
       });
 
-    final cid = e.contractId?.trim() ?? '';
+    final cid = normalized.contractId?.trim() ?? '';
+
     if (cid.isNotEmpty) {
       payload['contractId'] = cid;
     } else {
       payload.remove('contractId');
     }
 
+    final demandId = normalized.demandContractId?.trim() ?? '';
+
+    if (demandId.isNotEmpty) {
+      payload['demandContractId'] = demandId;
+    } else {
+      payload.remove('demandContractId');
+    }
+
+    final companyId = normalized.companyId?.trim() ?? '';
+
+    if (companyId.isNotEmpty) {
+      payload['companyId'] = companyId;
+    } else {
+      payload.remove('companyId');
+    }
+
+    final fundingSourceId = normalized.fundingSourceId?.trim() ?? '';
+
+    if (fundingSourceId.isNotEmpty) {
+      payload['fundingSourceId'] = fundingSourceId;
+    } else {
+      payload.remove('fundingSourceId');
+    }
+
     final existing = await docRef.get();
-    final hasCreatedAt = existing.exists && existing.data()?['createdAt'] != null;
+    final hasCreatedAt =
+        existing.exists && existing.data()?['createdAt'] != null;
+
     if (!hasCreatedAt) {
       payload['createdAt'] = FieldValue.serverTimestamp();
       payload['createdBy'] = uid;
+    } else {
+      payload.remove('createdAt');
+      payload.remove('createdBy');
     }
 
     await docRef.set(payload, SetOptions(merge: true));
+
+    return id;
   }
 
   Future<void> deleteById(String empenhoId) async {
-    await _doc(empenhoId).delete();
+    final id = empenhoId.trim();
+
+    if (id.isEmpty) {
+      return;
+    }
+
+    await _doc(id).delete();
   }
 }

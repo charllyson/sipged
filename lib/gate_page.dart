@@ -16,7 +16,9 @@ import 'package:sipged/_blocs/system/notification/preferences/notification_prefe
 import 'package:sipged/_blocs/system/notification/remote/notification_remote_cubit.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-import 'package:sipged/_blocs/system/setup/setup_state.dart';
+
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
 
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
@@ -38,22 +40,48 @@ class GatePage extends StatefulWidget {
 }
 
 class _GatePageState extends State<GatePage> {
-  Future<void>? _setupLoadFuture;
+  Future<void>? _startupLoadFuture;
   Future<UserData?>? _userLoadFuture;
 
   String? _loadedUserUid;
   String? _pushInitializedUserId;
   String? _notificationPreferencesInitializedUserId;
 
-  Future<void> _loadSetupOnce() {
-    _setupLoadFuture ??= context.read<SetupCubit>().loadSystemSetup().timeout(
+  Future<void> _loadStartupDataOnce() {
+    _startupLoadFuture ??= _loadStartupData().timeout(
       const Duration(seconds: 20),
       onTimeout: () {
-        debugPrint('[GatePage] Timeout ao carregar setup do sistema.');
+        debugPrint('[GatePage] Timeout ao carregar dados iniciais.');
+
+        throw TimeoutException(
+          'Tempo limite excedido ao carregar os dados iniciais.',
+          const Duration(seconds: 20),
+        );
       },
     );
 
-    return _setupLoadFuture!;
+    return _startupLoadFuture!;
+  }
+
+  Future<void> _loadStartupData() async {
+    final tenantCubit = context.read<TenantCubit>();
+    final setupCubit = context.read<SetupCubit>();
+
+    await Future.wait<void>([
+      tenantCubit.loadTenantProfile(),
+      setupCubit.loadSystemSetup(),
+    ]);
+
+    final tenantError = tenantCubit.state.error;
+    final setupError = setupCubit.state.error;
+
+    if (tenantError != null && tenantError.trim().isNotEmpty) {
+      throw StateError(tenantError);
+    }
+
+    if (setupError != null && setupError.trim().isNotEmpty) {
+      throw StateError(setupError);
+    }
   }
 
   Future<UserData?> _loadUserOnce({
@@ -67,6 +95,7 @@ class _GatePageState extends State<GatePage> {
         const Duration(seconds: 20),
         onTimeout: () {
           debugPrint('[GatePage] Timeout ao carregar usuário uid=$uid.');
+
           return null;
         },
       );
@@ -78,6 +107,7 @@ class _GatePageState extends State<GatePage> {
   void _resetCachedUser() {
     _loadedUserUid = null;
     _userLoadFuture = null;
+    _startupLoadFuture = null;
     _pushInitializedUserId = null;
     _notificationPreferencesInitializedUserId = null;
 
@@ -204,6 +234,7 @@ class _GatePageState extends State<GatePage> {
 
           if (shouldShowLogin) {
             _resetCachedUser();
+
             return const SignIn();
           }
 
@@ -243,6 +274,7 @@ class _GatePageState extends State<GatePage> {
 
               if (userData == null) {
                 _resetCachedUser();
+
                 return const SignIn();
               }
 
@@ -250,9 +282,9 @@ class _GatePageState extends State<GatePage> {
               unawaited(_initializePushForUser(uid));
 
               return FutureBuilder<void>(
-                future: _loadSetupOnce(),
-                builder: (context, setupLoadSnapshot) {
-                  if (setupLoadSnapshot.connectionState ==
+                future: _loadStartupDataOnce(),
+                builder: (context, startupSnapshot) {
+                  if (startupSnapshot.connectionState ==
                       ConnectionState.waiting) {
                     return const Scaffold(
                       body: LoadingTreeDots(
@@ -261,9 +293,10 @@ class _GatePageState extends State<GatePage> {
                     );
                   }
 
-                  if (setupLoadSnapshot.hasError) {
+                  if (startupSnapshot.hasError) {
                     debugPrint(
-                      '[GatePage] Erro ao carregar setup: ${setupLoadSnapshot.error}',
+                      '[GatePage] Erro ao carregar configuração inicial: '
+                          '${startupSnapshot.error}',
                     );
 
                     return _StartupErrorView(
@@ -272,18 +305,18 @@ class _GatePageState extends State<GatePage> {
                       'Verifique sua conexão e tente recarregar o sistema.',
                       onRetry: () {
                         setState(() {
-                          _setupLoadFuture = null;
+                          _startupLoadFuture = null;
                         });
                       },
                     );
                   }
 
-                  return BlocBuilder<SetupCubit, SetupState>(
-                    builder: (context, setupState) {
+                  return BlocBuilder<TenantCubit, TenantState>(
+                    builder: (context, tenantState) {
                       final base = const MenuListPage();
 
                       final needsSetup = kForceInitialSetupOverlay ||
-                          setupState.companyProfile == null;
+                          tenantState.tenantProfile == null;
 
                       if (!needsSetup) {
                         return base;

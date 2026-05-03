@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-import 'package:sipged/_blocs/system/setup/setup_state.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
+
 import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
 import 'package:sipged/screens/common/notification/notification_bell.dart';
 import 'package:sipged/screens/common/home/company_logo.dart';
@@ -21,19 +22,19 @@ class HeroHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = Colors.blue.shade900;
 
-    return BlocBuilder<SetupCubit, SetupState>(
-      builder: (context, setupState) {
-        final company = setupState.companyProfile;
+    return BlocBuilder<TenantCubit, TenantState>(
+      builder: (context, tenantState) {
+        final tenant = tenantState.tenantProfile;
 
-        final razaoSocial = (company?.companyName ?? '').trim().isNotEmpty
-            ? company!.companyName!.trim()
+        final razaoSocial = (tenant?.companyName ?? '').trim().isNotEmpty
+            ? tenant!.companyName!.trim()
             : 'SipGed';
 
-        final nomeFantasia = (company?.fantasyName ?? '').trim().isNotEmpty
-            ? company!.fantasyName!.trim()
+        final nomeFantasia = (tenant?.fantasyName ?? '').trim().isNotEmpty
+            ? tenant!.fantasyName!.trim()
             : 'Sistema Integrado de Planejamento e Gestão de Dados';
 
-        final logoUrl = (company?.logoUrl ?? '').trim();
+        final logoUrl = (tenant?.logoUrl ?? '').trim();
         final userName = (user?.name ?? '').trim();
         final userId = (user?.uid ?? '').trim();
 

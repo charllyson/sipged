@@ -1,6 +1,4 @@
-// lib/flavors.dart
-
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/system/login/login_area_config.dart';
 
 class Flavor {
   static const String _definedFlavor = String.fromEnvironment(
@@ -9,16 +7,27 @@ class Flavor {
   );
 
   static String get name {
-    if (_definedFlavor.trim().isNotEmpty) {
-      return _definedFlavor.trim();
+    final cleanFlavor = _definedFlavor.trim();
+
+    if (cleanFlavor.isNotEmpty) {
+      return cleanFlavor;
     }
 
-    return SetupData.flavorForArea(
-      SetupData.defaultModuleLabel,
+    return AppAreaConfig.flavorForArea(
+      AppAreaConfig.defaultAreaLabel,
     );
   }
 
-  static bool get isDER => name == 'der';
+  static bool get isDER {
+    return name.toLowerCase() == 'der';
+  }
 
-  static bool get isDNITRR => name == 'dnitro';
+  static bool get isDNITRO {
+    return name.toLowerCase() == 'dnitro';
+  }
+
+  /// Mantido apenas se em algum lugar antigo ainda estiver chamando `isDNITRR`.
+  static bool get isDNITRR {
+    return isDNITRO;
+  }
 }

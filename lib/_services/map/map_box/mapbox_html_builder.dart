@@ -1,5 +1,6 @@
 // lib/_services/map/map_box/mapbox_html_builder.dart
 import 'dart:convert';
+
 import 'package:sipged/_services/map/map_box/mapbox_data.dart';
 
 String buildMapboxHtml(
@@ -9,16 +10,16 @@ String buildMapboxHtml(
   final cfgJson = jsonEncode(config.toJsonForHtml());
 
   final initialMarkersJson = jsonEncode(
-    config.markers.map((m) => m.toJson()).toList(),
+    config.markers.map((m) => m.toJson()).toList(growable: false),
   );
 
   return '''
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Mapbox 3D in Flutter</title>
+  <title>Mapbox 3D - SIPGED</title>
 
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet"/>
@@ -31,12 +32,20 @@ String buildMapboxHtml(
       height: 100%;
       overflow: hidden;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: transparent;
     }
 
     #map {
       position: absolute;
       top: 0;
       left: 0;
+    }
+
+    .mapboxgl-popup-content {
+      font-size: 13px;
+      line-height: 1.25;
+      border-radius: 6px;
+      padding: 8px 10px;
     }
   </style>
 </head>
@@ -50,83 +59,154 @@ String buildMapboxHtml(
 
     mapboxgl.accessToken = cfg.accessToken;
 
-    let map;
+    let map = null;
     let flutterMarkers = [];
     let currentMarkersData = [];
+    let pendingMarkersData = $initialMarkersJson;
+
+    function safeNumber(value, fallback) {
+      return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    }
 
     function clearMarkers() {
-      flutterMarkers.forEach(m => m.remove());
+      for (const marker of flutterMarkers) {
+        try {
+          marker.remove();
+        } catch (e) {}
+      }
+
       flutterMarkers = [];
     }
 
     function notifyMarkerClick(payload) {
-      // Caso Web (iframe → Flutter)
       if (window.parent && window.parent !== window) {
         window.parent.postMessage(payload, '*');
       }
-      // Caso WebView (mobile) usando JavaScriptChannel
-      if (window.MapboxChannel && typeof window.MapboxChannel.postMessage === 'function') {
+
+      if (
+        window.MapboxChannel &&
+        typeof window.MapboxChannel.postMessage === 'function'
+      ) {
         window.MapboxChannel.postMessage(JSON.stringify(payload));
       }
     }
 
     function addMarkers(list) {
-      list.forEach(m => {
-        const marker = new mapboxgl.Marker({ color: m.color })
-          .setLngLat([m.lon, m.lat]);
+      if (!map || !Array.isArray(list)) return;
 
-        if (m.label && m.label.length > 0) {
-          marker.setPopup(new mapboxgl.Popup().setText(m.label));
+      for (const m of list) {
+        const lon = safeNumber(m.lon, null);
+        const lat = safeNumber(m.lat, null);
+
+        if (lon === null || lat === null) continue;
+        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
+
+        const markerColor = m.color || m.colorHex || '#ff3333';
+
+        const marker = new mapboxgl.Marker({
+          color: markerColor
+        }).setLngLat([lon, lat]);
+
+        if (m.label && String(m.label).length > 0) {
+          marker.setPopup(
+            new mapboxgl.Popup({
+              closeButton: true,
+              closeOnClick: false,
+              offset: 25
+            }).setText(String(m.label))
+          );
         }
 
         const el = marker.getElement();
-        el.addEventListener('click', () => {
+
+        el.style.cursor = 'pointer';
+
+        el.addEventListener('click', (event) => {
+          event.stopPropagation();
+
           const payload = {
             type: 'markerClick',
             viewId: SIGED_VIEW_ID,
             idExtra: m.idExtra || '',
             label: m.label || '',
-            lon: m.lon,
-            lat: m.lat,
+            lon: lon,
+            lat: lat
           };
+
           notifyMarkerClick(payload);
         });
 
         marker.addTo(map);
-        flutterMarkers.remote(marker);
-      });
+
+        // CORREÇÃO PRINCIPAL:
+        // antes estava flutterMarkers.remote(marker);
+        flutterMarkers.push(marker);
+      }
     }
 
     function updateMarkersFromFlutter(markers) {
+      if (!Array.isArray(markers)) return;
+
       currentMarkersData = markers.slice();
+
+      if (!map || !map.loaded()) {
+        pendingMarkersData = currentMarkersData;
+        return;
+      }
+
       clearMarkers();
-      addMarkers(markers);
+      addMarkers(currentMarkersData);
     }
 
     function applyTerrainAndFog() {
-      if (cfg.enableTerrain) {
-        if (!map.getSource('mapbox-dem')) {
-          map.addSource('mapbox-dem', {
-            type: 'raster-dem',
-            url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
-            tileSize: 512,
-            maxzoom: 14
+      if (!map) return;
+
+      try {
+        if (cfg.enableTerrain) {
+          if (!map.getSource('mapbox-dem')) {
+            map.addSource('mapbox-dem', {
+              type: 'raster-dem',
+              url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+              tileSize: 512,
+              maxzoom: 14
+            });
+          }
+
+          map.setTerrain({
+            source: 'mapbox-dem',
+            exaggeration: cfg.terrainExaggeration ?? 1.5
           });
+        } else {
+          map.setTerrain(null);
         }
-        map.setTerrain({ source: 'mapbox-dem', exaggeration: cfg.terrainExaggeration ?? 1.5 });
+      } catch (e) {
+        console.warn('Falha ao aplicar terreno:', e);
       }
 
-      if (cfg.enableFog) {
-        map.setFog({});
-      } else {
-        map.setFog(null);
+      try {
+        if (cfg.enableFog) {
+          map.setFog({});
+        } else {
+          map.setFog(null);
+        }
+      } catch (e) {
+        console.warn('Falha ao aplicar fog:', e);
       }
 
-      if (cfg.enable3DBuildings) {
-        const layer = map.getStyle().layer;
-        let labelLayerId;
-        for (const layer of layer) {
-          if (layer.type === 'symbol' && layer.layout && layer.layout['text-table']) {
+      try {
+        if (!cfg.enable3DBuildings) return;
+
+        const style = map.getStyle();
+        const layers = style && Array.isArray(style.layers) ? style.layers : [];
+
+        let labelLayerId = null;
+
+        for (const layer of layers) {
+          if (
+            layer.type === 'symbol' &&
+            layer.layout &&
+            layer.layout['text-field']
+          ) {
             labelLayerId = layer.id;
             break;
           }
@@ -147,15 +227,19 @@ String buildMapboxHtml(
                   'interpolate',
                   ['linear'],
                   ['zoom'],
-                  15, 0,
-                  15.05, ['get', 'height']
+                  15,
+                  0,
+                  15.05,
+                  ['get', 'height']
                 ],
                 'fill-extrusion-base': [
                   'interpolate',
                   ['linear'],
                   ['zoom'],
-                  15, 0,
-                  15.05, ['get', 'min_height']
+                  15,
+                  0,
+                  15.05,
+                  ['get', 'min_height']
                 ],
                 'fill-extrusion-opacity': 0.6
               }
@@ -163,21 +247,25 @@ String buildMapboxHtml(
             labelLayerId
           );
         }
+      } catch (e) {
+        console.warn('Falha ao aplicar prédios 3D:', e);
       }
     }
 
     function createMap(styleUrl) {
-      if (!styleUrl) {
-        styleUrl = cfg.styleUrl || 'mapbox://styles/mapbox/streets-v12';
-      }
+      const resolvedStyleUrl =
+        styleUrl || cfg.styleUrl || 'mapbox://styles/mapbox/streets-v12';
 
       map = new mapboxgl.Map({
         container: 'map',
-        style: styleUrl,
-        center: [cfg.centerLon, cfg.centerLat],
-        zoom: cfg.zoom,
-        pitch: cfg.pitch,
-        bearing: cfg.bearing,
+        style: resolvedStyleUrl,
+        center: [
+          safeNumber(cfg.centerLon, -36.5),
+          safeNumber(cfg.centerLat, -9.6)
+        ],
+        zoom: safeNumber(cfg.zoom, 5),
+        pitch: safeNumber(cfg.pitch, 0),
+        bearing: safeNumber(cfg.bearing, 0),
         antialias: true,
         minZoom: cfg.minZoom ?? 0,
         maxZoom: cfg.maxZoom ?? 22,
@@ -187,7 +275,7 @@ String buildMapboxHtml(
       map.addControl(
         new mapboxgl.AttributionControl({
           compact: true,
-          customAttribution: cfg.customAttribution || '© SipGed'
+          customAttribution: cfg.customAttribution || '© SIPGED'
         }),
         'bottom-right'
       );
@@ -195,9 +283,11 @@ String buildMapboxHtml(
       if (cfg.showNavigationControl) {
         map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
       }
+
       if (cfg.showScaleControl) {
         map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
       }
+
       if (cfg.showFullscreenControl) {
         map.addControl(new mapboxgl.FullscreenControl(), 'top-left');
       }
@@ -210,27 +300,33 @@ String buildMapboxHtml(
       map.on('load', () => {
         applyTerrainAndFog();
 
-        try {
-          const initial = $initialMarkersJson;
-          updateMarkersFromFlutter(initial);
-        } catch (e) {
-          console.error('Erro ao carregar marcadores iniciais', e);
-        }
+        const initial = Array.isArray(pendingMarkersData)
+          ? pendingMarkersData
+          : [];
+
+        currentMarkersData = initial.slice();
+
+        clearMarkers();
+        addMarkers(currentMarkersData);
       });
 
       map.on('style.load', () => {
         applyTerrainAndFog();
+
         if (currentMarkersData && currentMarkersData.length > 0) {
-          updateMarkersFromFlutter(currentMarkersData);
+          clearMarkers();
+          addMarkers(currentMarkersData);
         }
+      });
+
+      map.on('error', (e) => {
+        console.warn('Mapbox error:', e && e.error ? e.error : e);
       });
     }
 
-    // ------------------------------------------------------------------
-    // Funções chamadas pelo Flutter (WebView ou iframe)
-    // ------------------------------------------------------------------
     function handleCameraMessage(data) {
-      if (!map) return;
+      if (!map || !data) return;
+
       const method = data.method;
       const params = data.params || {};
 
@@ -238,15 +334,23 @@ String buildMapboxHtml(
         const bearing = typeof params.bearing === 'number'
           ? params.bearing
           : map.getBearing();
+
         const pitch = typeof params.pitch === 'number'
           ? params.pitch
           : map.getPitch();
+
         const zoom = typeof params.zoom === 'number'
           ? params.zoom
           : map.getZoom();
+
         const duration = params.durationMs ?? 0;
 
-        map.easeTo({ bearing, pitch, zoom, duration });
+        map.easeTo({
+          bearing: bearing,
+          pitch: Math.max(0, Math.min(80, pitch)),
+          zoom: zoom,
+          duration: duration
+        });
       }
 
       if (method === 'deltaCamera') {
@@ -259,7 +363,7 @@ String buildMapboxHtml(
           bearing: map.getBearing() + dBearing,
           pitch: Math.max(0, Math.min(80, map.getPitch() + dPitch)),
           zoom: map.getZoom() + dZoom,
-          duration
+          duration: duration
         });
       }
 
@@ -270,17 +374,21 @@ String buildMapboxHtml(
     }
 
     function handleUpdateMarkers(data) {
+      if (!data) return;
+
       if (Array.isArray(data.markers)) {
         updateMarkersFromFlutter(data.markers);
       }
     }
 
-    // Chamadas diretas do Flutter (mobile) via runJavaScript
     window.flutterMapboxCameraControl = function(data) {
       if (!data || typeof data !== 'object') return;
+
       if (data.type === 'cameraControl') {
         handleCameraMessage(data);
-      } else if (data.type === 'updateMarkers') {
+      }
+
+      if (data.type === 'updateMarkers') {
         handleUpdateMarkers(data);
       }
     };
@@ -290,9 +398,9 @@ String buildMapboxHtml(
       handleUpdateMarkers(data);
     };
 
-    // Mensagens vindas do Flutter na Web (iframe → postMessage)
     window.addEventListener('message', (event) => {
       const data = event.data;
+
       if (!data || typeof data !== 'object') return;
 
       if (data.type === 'updateMarkers') {
@@ -304,7 +412,6 @@ String buildMapboxHtml(
       }
     });
 
-    // Inicializa o mapa
     createMap(cfg.styleUrl);
   </script>
 </body>

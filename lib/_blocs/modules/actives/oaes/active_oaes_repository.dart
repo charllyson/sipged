@@ -1,4 +1,5 @@
 // lib/_blocs/modules/actives/oaes/active_oaes_repository.dart
+
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,21 +8,63 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
-
 import 'active_oaes_data.dart';
 
 class ActiveOaesRepository {
+  ActiveOaesRepository({
+    String? tenantId,
+    FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
+  })  : _tenantId = tenantId ?? _manualTenantIdForTest,
+        _firestore = firestore ?? FirebaseFirestore.instance,
+        _storage = storage ?? FirebaseStorage.instance;
+
+  /// ---------------------------------------------------------------------------
+  /// TESTE TEMPORÁRIO
+  /// ---------------------------------------------------------------------------
+  ///
+  /// Coloque aqui manualmente o ID do tenant enquanto o TenantContext/TenantCubit
+  /// ainda não foi implementado.
+  ///
+  /// Exemplo:
+  /// static const String? _manualTenantIdForTest = 'der-al';
+  ///
+  /// Quando quiser voltar para o comportamento antigo/automático:
+  /// static const String? _manualTenantIdForTest = null;
+  ///
+  static const String _manualTenantIdForTest = 'SZQmefRUqdtLB14ahcuh';
+
+  final String? _tenantId;
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
-  ActiveOaesRepository({
-    FirebaseFirestore? firestore,
-    FirebaseStorage? storage,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+  bool get _hasTenant {
+    return _tenantId != null && _tenantId.trim().isNotEmpty;
+  }
 
-  CollectionReference<Map<String, dynamic>> get _ref =>
-      _firestore.collection('actives_oaes');
+  String get effectiveTenantId {
+    return _tenantId?.trim() ?? '';
+  }
+
+  String get collectionPath {
+    if (_hasTenant) {
+      return 'tenants/$effectiveTenantId/assets/oaes/items';
+    }
+
+    return 'actives_oaes';
+  }
+
+  String get storageBasePath {
+    if (_hasTenant) {
+      return 'tenants/$effectiveTenantId/assets/oaes';
+    }
+
+    return 'actives_oaes';
+  }
+
+  CollectionReference<Map<String, dynamic>> get _ref {
+    return _firestore.collection(collectionPath);
+  }
 
   // ---------------------------------------------------------------------------
   // OAE DATA (Firestore)
@@ -29,38 +72,46 @@ class ActiveOaesRepository {
 
   Future<List<ActiveOaesData>> fetchAll() async {
     final snapshot = await _ref.orderBy('order').get();
-    return snapshot.docs
-        .map((doc) => ActiveOaesData.fromDocument(doc))
-        .toList();
+
+    return snapshot.docs.map((doc) {
+      return ActiveOaesData.fromDocument(doc);
+    }).toList();
   }
 
   Future<List<ActiveOaesData>> fetchPage({
     DocumentSnapshot? startAfter,
     int limit = 20,
   }) async {
-    Query query = _ref.orderBy('order').limit(limit);
+    Query<Map<String, dynamic>> query = _ref.orderBy('order').limit(limit);
+
     if (startAfter != null) {
       query = query.startAfterDocument(startAfter);
     }
+
     final snapshot = await query.get();
-    return snapshot.docs
-        .map((doc) => ActiveOaesData.fromDocument(doc))
-        .toList();
+
+    return snapshot.docs.map((doc) {
+      return ActiveOaesData.fromDocument(doc);
+    }).toList();
   }
 
   Future<ActiveOaesData> upsert(ActiveOaesData data) async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
+
     final docRef = data.id != null ? _ref.doc(data.id) : _ref.doc();
     data.id ??= docRef.id;
 
     final json = data.toMap()
       ..addAll({
+        'id': data.id,
+        if (_hasTenant) 'tenantId': effectiveTenantId,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': firebaseUser?.uid ?? '',
       });
 
     final snapshot = await docRef.get();
     final isNew = !snapshot.exists || snapshot.data()?['createdAt'] == null;
+
     if (isNew) {
       json['createdAt'] = FieldValue.serverTimestamp();
       json['createdBy'] = firebaseUser?.uid ?? '';
@@ -78,30 +129,40 @@ class ActiveOaesRepository {
 
   Future<ActiveOaesData?> getById(String id) async {
     final snap = await _ref.doc(id).get();
+
     if (!snap.exists) return null;
+
     return ActiveOaesData.fromDocument(snap);
   }
 
   // ---------------------------------------------------------------------------
-  // Helpers de nome/caminho para Storage (herdados do antigo StorageOnlyBloc)
+  // Helpers de nome/caminho para Storage
   // ---------------------------------------------------------------------------
 
-  String _sanitize(String s) =>
-      s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
+  String _sanitize(String s) {
+    return s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
+  }
 
   String _baseName(String name) {
     var s = name.trim();
+
     final q = s.indexOf('?');
     if (q != -1) s = s.substring(0, q);
+
     final h = s.indexOf('#');
     if (h != -1) s = s.substring(0, h);
+
     s = s.split('/').last;
+
     return s.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
   }
 
   String _extWithDot(String name) {
-    final m = RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
-        .firstMatch(name.trim());
+    final m = RegExp(
+      r'\.([a-z0-9]+)$',
+      caseSensitive: false,
+    ).firstMatch(name.trim());
+
     return m == null ? '' : '.${m.group(1)!.toLowerCase()}';
   }
 
@@ -112,15 +173,19 @@ class ActiveOaesRepository {
 
   String storedFileName(String originalName) {
     final base = _sanitize(_baseName(originalName));
+
     final rnd = (DateTime.now().millisecondsSinceEpoch % 1000000)
         .toString()
         .padLeft(6, '0');
+
     final ex = _extWithDot(originalName);
+
     return '$base-$rnd${ex.isEmpty ? ".bin" : ex}';
   }
 
   String _contentTypeForExt(String extNoDot) {
-    final e = (extNoDot).toLowerCase();
+    final e = extNoDot.toLowerCase();
+
     switch (e) {
       case 'pdf':
         return 'application/pdf';
@@ -133,8 +198,6 @@ class ActiveOaesRepository {
         return 'image/gif';
       case 'webp':
         return 'image/webp';
-      case 'pickers':
-        return 'image/pickers+xml';
       case 'json':
         return 'application/json';
       case 'csv':
@@ -161,7 +224,7 @@ class ActiveOaesRepository {
   }
 
   // ---------------------------------------------------------------------------
-  // Upload genérico (bytes ou FilePicker) para anexos
+  // Upload genérico
   // ---------------------------------------------------------------------------
 
   Future<Attachment> uploadBytes({
@@ -171,19 +234,25 @@ class ActiveOaesRepository {
     void Function(double progress)? onProgress,
     String? forcedLabel,
   }) async {
-    final dir =
-    baseDir.endsWith('/') ? baseDir.substring(0, baseDir.length - 1) : baseDir;
+    final dir = baseDir.endsWith('/')
+        ? baseDir.substring(0, baseDir.length - 1)
+        : baseDir;
+
     final name = storedFileName(originalName);
     final ref = _storage.ref('$dir/$name');
 
     final ext = _extNoDot(originalName);
     final label = forcedLabel ?? _baseName(originalName);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
 
     final task = ref.putData(
       bytes,
       SettableMetadata(
         contentType: _contentTypeForExt(ext),
-        customMetadata: {'originalName': originalName},
+        customMetadata: {
+          'originalName': originalName,
+          if (_hasTenant) 'tenantId': effectiveTenantId,
+        },
       ),
     );
 
@@ -209,9 +278,9 @@ class ActiveOaesRepository {
       ext: ext.isEmpty ? 'bin' : ext,
       size: meta.size?.toInt(),
       createdAt: now,
-      createdBy: FirebaseAuth.instance.currentUser?.uid,
+      createdBy: uid,
       updatedAt: now,
-      updatedBy: FirebaseAuth.instance.currentUser?.uid,
+      updatedBy: uid,
     );
   }
 
@@ -227,9 +296,11 @@ class ActiveOaesRepository {
       allowedExtensions: allowedExtensions,
       withData: true,
     );
+
     if (result == null || result.files.single.bytes == null) return null;
 
     final f = result.files.single;
+
     return uploadBytes(
       baseDir: baseDir,
       bytes: f.bytes!,
@@ -270,13 +341,13 @@ class ActiveOaesRepository {
   }
 
   // ---------------------------------------------------------------------------
-  // PHOTOS da OAE (campo "photos" no documento)
+  // PHOTOS da OAE
   // ---------------------------------------------------------------------------
 
   Future<List<Attachment>> loadPhotos(String oaeId) async {
     final snap = await _ref.doc(oaeId).get();
-    final data = (snap.data() ?? <String, dynamic>{});
-    final raw = (data['photos'] as List?) ?? const [];
+    final data = snap.data() ?? <String, dynamic>{};
+    final raw = data['photos'] as List? ?? const [];
 
     final list = raw.map<Attachment>((e) {
       if (e is Attachment) return e;
@@ -296,6 +367,8 @@ class ActiveOaesRepository {
     await _ref.doc(oaeId).set({
       'photos': photos.map((a) => a.toMap()).toList(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
+      if (_hasTenant) 'tenantId': effectiveTenantId,
     }, SetOptions(merge: true));
   }
 
@@ -306,7 +379,8 @@ class ActiveOaesRepository {
     void Function(double progress)? onProgress,
     String? forcedLabel,
   }) {
-    final baseDir = 'actives_oaes/$oaeId/photos';
+    final baseDir = '$storageBasePath/$oaeId/photos';
+
     return uploadBytes(
       baseDir: baseDir,
       bytes: bytes,

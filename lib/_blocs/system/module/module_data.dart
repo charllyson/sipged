@@ -36,15 +36,6 @@ enum ModuleItem {
 
   activeOAEsRegistration,
   activesOAEsNetwork,
-
-  activeAirportsRegistration,
-  activeAirportsNetwork,
-
-  activeRailwaysRegistration,
-  activeRailwaysNetwork,
-
-  activeRegistrationPorts,
-  activePortsNetwork,
 }
 
 /// Configuração de seções da HOME (título + grupos do drawer)
@@ -99,15 +90,6 @@ class ModuleData {
   static const String modActiveOAEsRecords = 'active-oaes-records';
   static const String modActiveOAEsNetwork = 'active-oaes-network';
 
-  static const String modActiveAirportsRecords = 'active-airports-records';
-  static const String modActiveAirportsNetwork = 'active-airports-network';
-
-  static const String modActiveRailwaysRecords = 'active-railways-records';
-  static const String modActiveRailwaysNetwork = 'active-railways-network';
-
-  static const String modActivePortsRecords = 'active-ports-records';
-  static const String modActivePortsNetwork = 'active-ports-network';
-
   /// (Opcional) helper: módulo “principal” que controla a página de demandas/lista de contratos
   /// Você pode trocar aqui caso a lista esteja em outro menu.
   static const String modContractsList = modHiringRecords;
@@ -152,15 +134,6 @@ class ModuleData {
 
     modActiveOAEsRecords,
     modActiveOAEsNetwork,
-
-    modActiveAirportsRecords,
-    modActiveAirportsNetwork,
-
-    modActiveRailwaysRecords,
-    modActiveRailwaysNetwork,
-
-    modActivePortsRecords,
-    modActivePortsNetwork,
   ];
 
   // ===========================================================================
@@ -391,66 +364,6 @@ class ModuleData {
           label: 'REGISTROS DAS OAE\'s',
           menuItem: ModuleItem.activeOAEsRegistration,
           permissionModule: modActiveOAEsRecords,
-          homeIcon: Icons.assignment_outlined,
-          homeColor: Color(0xFF334155),
-        ),
-      ],
-    ),
-    MenuDrawerItemModule(
-      label: 'AEROPORTOS',
-      icon: Icons.local_airport,
-      subItems: [
-        MenuDrawerSubItem(
-          label: 'MALHA AEROPORTUÁRIA',
-          menuItem: ModuleItem.activeAirportsNetwork,
-          permissionModule: modActiveAirportsNetwork,
-          homeIcon: Icons.flight_takeoff,
-          homeColor: Color(0xFF334155),
-        ),
-        MenuDrawerSubItem(
-          label: 'REGISTROS DOS AEROPORTOS',
-          menuItem: ModuleItem.activeAirportsRegistration,
-          permissionModule: modActiveAirportsRecords,
-          homeIcon: Icons.assignment_outlined,
-          homeColor: Color(0xFF334155),
-        ),
-      ],
-    ),
-    MenuDrawerItemModule(
-      label: 'FERROVIAS',
-      icon: Icons.train,
-      subItems: [
-        MenuDrawerSubItem(
-          label: 'MALHA FERROVIÁRIA',
-          menuItem: ModuleItem.activeRailwaysNetwork,
-          permissionModule: modActiveRailwaysNetwork,
-          homeIcon: Icons.train_outlined,
-          homeColor: Color(0xFF334155),
-        ),
-        MenuDrawerSubItem(
-          label: 'REGISTROS DAS FERROVIAS',
-          menuItem: ModuleItem.activeRailwaysRegistration,
-          permissionModule: modActiveRailwaysRecords,
-          homeIcon: Icons.assignment_outlined,
-          homeColor: Color(0xFF334155),
-        ),
-      ],
-    ),
-    MenuDrawerItemModule(
-      label: 'PORTOS E BALSAS',
-      icon: Icons.directions_boat,
-      subItems: [
-        MenuDrawerSubItem(
-          label: 'MALHA PORTUÁRIA',
-          menuItem: ModuleItem.activePortsNetwork,
-          permissionModule: modActivePortsNetwork,
-          homeIcon: Icons.sailing_outlined,
-          homeColor: Color(0xFF334155),
-        ),
-        MenuDrawerSubItem(
-          label: 'REGISTROS DOS PORTOS',
-          menuItem: ModuleItem.activeRegistrationPorts,
-          permissionModule: modActivePortsRecords,
           homeIcon: Icons.assignment_outlined,
           homeColor: Color(0xFF334155),
         ),

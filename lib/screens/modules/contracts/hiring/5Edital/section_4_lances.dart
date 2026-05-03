@@ -10,9 +10,8 @@ import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
-import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
-import 'package:sipged/screens/common/setup/company_body_dialog.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 
 class SectionLances extends StatefulWidget {
   final bool isEditable;
@@ -43,11 +42,13 @@ class _LanceRowControllers {
     dataHoraCtrl.text = (m['dataHora'] ?? '').toString();
   }
 
-  Map<String, dynamic> toMap() => {
-    'licitante': licitanteCtrl.text,
-    'valor': valorCtrl.text,
-    'dataHora': dataHoraCtrl.text,
-  };
+  Map<String, dynamic> toMap() {
+    return {
+      'licitante': licitanteCtrl.text,
+      'valor': valorCtrl.text,
+      'dataHora': dataHoraCtrl.text,
+    };
+  }
 
   void dispose() {
     licitanteCtrl.dispose();
@@ -62,13 +63,26 @@ class _SectionLancesState extends State<SectionLances> {
   @override
   void initState() {
     super.initState();
-    _rebuildFromData(widget.data);
-    context.read<SetupCubit>().loadSystemSetup();
+
+    _rebuildFromData(
+      widget.data,
+      shouldSetState: false,
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final tenantCubit = context.read<TenantCubit>();
+
+      tenantCubit.ensureTenantProfileLoaded();
+      tenantCubit.ensureTenantItemsLoaded();
+    });
   }
 
   @override
   void didUpdateWidget(covariant SectionLances oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.data.lancesItems != widget.data.lancesItems) {
       _rebuildFromData(widget.data);
     }
@@ -76,28 +90,37 @@ class _SectionLancesState extends State<SectionLances> {
 
   @override
   void dispose() {
-    for (final r in _rows) {
-      r.dispose();
+    for (final row in _rows) {
+      row.dispose();
     }
+
     super.dispose();
   }
 
-  void _rebuildFromData(EditalData data) {
-    for (final r in _rows) {
-      r.dispose();
+  void _rebuildFromData(
+      EditalData data, {
+        bool shouldSetState = true,
+      }) {
+    for (final row in _rows) {
+      row.dispose();
     }
-    _rows = data.lancesItems
-        .map((m) => _LanceRowControllers.fromMap(m))
-        .toList();
 
-    if (mounted) {
+    _rows = data.lancesItems.map((m) {
+      return _LanceRowControllers.fromMap(m);
+    }).toList();
+
+    if (shouldSetState && mounted) {
       setState(() {});
     }
   }
 
   void _emitChange() {
-    final updatedItems = _rows.map((r) => r.toMap()).toList();
-    final updated = widget.data.copyWith(lancesItems: updatedItems);
+    final updatedItems = _rows.map((row) => row.toMap()).toList();
+
+    final updated = widget.data.copyWith(
+      lancesItems: updatedItems,
+    );
+
     widget.onChanged(updated);
   }
 
@@ -105,47 +128,122 @@ class _SectionLancesState extends State<SectionLances> {
     setState(() {
       _rows.add(_LanceRowControllers());
     });
+
     _emitChange();
   }
 
   void _removeLance(int index) {
     if (index < 0 || index >= _rows.length) return;
-    final r = _rows.removeAt(index);
-    r.dispose();
+
+    final row = _rows.removeAt(index);
+    row.dispose();
+
     setState(() {});
+
     _emitChange();
+  }
+
+  Future<String?> _showCreateTenantCompanyBodyDialog(
+      BuildContext context,
+      ) async {
+    final tenantCubit = context.read<TenantCubit>();
+
+    final nameCtrl = TextEditingController();
+    final cnpjCtrl = TextEditingController();
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          title: const Text('Adicionar empresa'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Nome da empresa',
+                ),
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: cnpjCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'CNPJ',
+                ),
+                keyboardType: TextInputType.number,
+                onSubmitted: (_) {
+                  Navigator.of(dialogCtx).pop({
+                    'label': nameCtrl.text.trim(),
+                    'cnpj': cnpjCtrl.text.trim(),
+                  });
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop({
+                  'label': nameCtrl.text.trim(),
+                  'cnpj': cnpjCtrl.text.trim(),
+                });
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    nameCtrl.dispose();
+    cnpjCtrl.dispose();
+
+    if (!mounted || result == null) return null;
+
+    final label = result['label']?.trim() ?? '';
+    final cnpj = result['cnpj']?.trim();
+
+    if (label.isEmpty) return null;
+
+    final created = await tenantCubit.createCompanyBody(
+      label,
+      cnpj: cnpj,
+    );
+
+    if (!mounted) return null;
+
+    return created?.label ?? label;
   }
 
   @override
   Widget build(BuildContext context) {
     final isEditable = widget.isEditable;
 
-    final systemState = context.watch<SetupCubit>().state;
-    final List<SetupData> bodies = systemState.companyBodies;
+    final tenantState = context.watch<TenantCubit>().state;
+    final List<TenantItemData> bodies = tenantState.companyBodies;
 
-    final List<String> bodyLabels =
-    bodies.map((e) => e.label).toList(growable: false);
+    final bodyLabels = bodies.map((e) => e.label).where((e) {
+      return e.trim().isNotEmpty;
+    });
 
-    final Iterable<String> labelsFromRows = _rows
-        .map((r) => r.licitanteCtrl.text.trim())
-        .where((t) => t.isNotEmpty);
+    final labelsFromRows = _rows.map((row) {
+      return row.licitanteCtrl.text.trim();
+    }).where((e) {
+      return e.isNotEmpty;
+    });
 
     final List<String> allLabels = {
       ...bodyLabels,
       ...labelsFromRows,
     }.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
-    SetupData? findBodyByLabel(String label) {
-      final lower = label.trim().toLowerCase();
-      try {
-        return bodies.firstWhere(
-              (c) => c.label.trim().toLowerCase() == lower,
-        );
-      } catch (_) {
-        return null;
-      }
-    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -161,8 +259,11 @@ class _SectionLancesState extends State<SectionLances> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 const SectionTitle(text: 'Lances'),
                 OutlinedButton.icon(
@@ -174,7 +275,7 @@ class _SectionLancesState extends State<SectionLances> {
             ),
             const SizedBox(height: 8),
             ...List.generate(_rows.length, (i) {
-              final l = _rows[i];
+              final row = _rows[i];
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -196,25 +297,23 @@ class _SectionLancesState extends State<SectionLances> {
                         SizedBox(
                           width: w3,
                           child: DropDownChange(
-                            controller: l.licitanteCtrl,
+                            controller: row.licitanteCtrl,
                             labelText: 'Licitante',
                             enabled: isEditable,
                             items: allLabels,
                             showSpecialAlways: true,
                             specialItemLabel: 'Adicionar empresa',
                             onChanged: (label) {
-                              final val = label ?? '';
-                              l.licitanteCtrl.text = val;
-                              findBodyByLabel(val);
+                              row.licitanteCtrl.text = label ?? '';
                               _emitChange();
                             },
-                            onAddNewItem: showCreateCompanyBodyDialog,
+                            onAddNewItem: _showCreateTenantCompanyBodyDialog,
                           ),
                         ),
                         SizedBox(
                           width: w3,
                           child: CustomTextField(
-                            controller: l.valorCtrl,
+                            controller: row.valorCtrl,
                             labelText: 'Valor do lance',
                             enabled: isEditable,
                             keyboardType: TextInputType.number,
@@ -229,7 +328,7 @@ class _SectionLancesState extends State<SectionLances> {
                         SizedBox(
                           width: w3,
                           child: DateFieldChange(
-                            controller: l.dataHoraCtrl,
+                            controller: row.dataHoraCtrl,
                             labelText: 'Data/Hora',
                             enabled: isEditable,
                             onChanged: (_) => _emitChange(),
