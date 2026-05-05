@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 class InitialSetupLogo extends StatelessWidget {
@@ -6,6 +7,7 @@ class InitialSetupLogo extends StatelessWidget {
   final String? existingLogoUrl;
   final bool saving;
   final VoidCallback onTap;
+  final VoidCallback? onRemove;
 
   const InitialSetupLogo({
     super.key,
@@ -13,7 +15,12 @@ class InitialSetupLogo extends StatelessWidget {
     required this.existingLogoUrl,
     required this.saving,
     required this.onTap,
+    this.onRemove,
   });
+
+  bool get _hasLogo {
+    return logoBytes != null || (existingLogoUrl ?? '').trim().isNotEmpty;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,63 +28,91 @@ class InitialSetupLogo extends StatelessWidget {
 
     if (logoBytes != null) {
       child = ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Image.memory(
           logoBytes!,
           fit: BoxFit.contain,
         ),
       );
-    } else if ((existingLogoUrl ?? '').isNotEmpty) {
+    } else if ((existingLogoUrl ?? '').trim().isNotEmpty) {
       child = ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Image.network(
           existingLogoUrl!,
           fit: BoxFit.contain,
-          errorBuilder: (_, _, _) =>
-          const Icon(Icons.image_not_supported_outlined, size: 34),
+          errorBuilder: (_, _, _) {
+            return const Icon(
+              Icons.image_not_supported_outlined,
+              size: 34,
+              color: Color(0xFF98A2B3),
+            );
+          },
         ),
       );
     } else {
-      child = const Icon(Icons.image_outlined, size: 38);
+      child = const Icon(
+        Icons.image_outlined,
+        size: 38,
+        color: Color(0xFF98A2B3),
+      );
     }
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: saving ? null : onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 110,
-          height: 110,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.black12),
-            color: Colors.white,
-          ),
-          child: Stack(
-            children: [
-              Positioned.fill(child: child),
-              Positioned(
-                right: 6,
-                bottom: 6,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.65),
-                    shape: BoxShape.circle,
+    return SizedBox(
+      width: 118,
+      child: Column(
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: saving ? null : onTap,
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: const Color(0xFFE5E7EB),
                   ),
-                  child: Icon(
-                    (logoBytes != null || (existingLogoUrl ?? '').isNotEmpty)
-                        ? Icons.edit
-                        : Icons.add,
-                    size: 16,
-                    color: Colors.white,
-                  ),
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF101828).withValues(alpha: 0.06),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: child,
+                      ),
+                    ),
+                    Positioned(
+                      right: 7,
+                      bottom: 7,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF101828).withValues(alpha: 0.78),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _hasLogo ? Icons.edit_rounded : Icons.add_rounded,
+                          size: 15,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

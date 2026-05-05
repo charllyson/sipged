@@ -328,11 +328,50 @@ mixin SipGedValidation {
   }
 
   String? validateEmailLogin(String? text) {
-    const Pattern pattern =
-        r"^(([^<>()[\]\\.,;:\s@\']+(\.[^<>()[\]\\.,;:\s@\']+)*)|(\'.+\',))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$";
-    if (text == null || text.isEmpty || !text.contains(RegExp(pattern as String))) {
-      return 'Você deve informar um email válido';
+    final email = (text ?? '').trim().toLowerCase();
+
+    if (email.isEmpty) {
+      return 'Você deve informar um e-mail';
     }
+
+    if (email.contains(' ')) {
+      return 'O e-mail não pode conter espaços';
+    }
+
+    final emailRegex = RegExp(
+      r'^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$',
+      caseSensitive: false,
+    );
+
+    if (!emailRegex.hasMatch(email)) {
+      return 'Você deve informar um e-mail válido';
+    }
+
+    final parts = email.split('@');
+
+    if (parts.length != 2) {
+      return 'Você deve informar um e-mail válido';
+    }
+
+    final localPart = parts[0];
+    final domain = parts[1];
+
+    if (localPart.isEmpty || domain.isEmpty) {
+      return 'Você deve informar um e-mail válido';
+    }
+
+    if (localPart.startsWith('.') || localPart.endsWith('.')) {
+      return 'Você deve informar um e-mail válido';
+    }
+
+    if (domain.startsWith('.') || domain.endsWith('.')) {
+      return 'Você deve informar um e-mail válido';
+    }
+
+    if (localPart.contains('..') || domain.contains('..')) {
+      return 'Você deve informar um e-mail válido';
+    }
+
     return null;
   }
 

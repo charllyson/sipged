@@ -67,7 +67,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
     _kmFinalCtrl = TextEditingController(text: d.kmFinal ?? '');
 
     _tenantId = _normalizeId(d.companyId);
-    _regionDocId = _normalizeId(d.regionId);
+    _regionDocId = _normalizeId(d.regionId) ?? _normalizeId(d.regional);
 
     _initIbgeUfMunicipios();
 
@@ -102,8 +102,10 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
       _regionsNonce++;
     }
 
-    if (oldWidget.data.regionId != widget.data.regionId) {
-      _regionDocId = _normalizeId(widget.data.regionId);
+    if (oldWidget.data.regionId != widget.data.regionId ||
+        oldWidget.data.regional != widget.data.regional) {
+      _regionDocId = _normalizeId(widget.data.regionId) ??
+          _normalizeId(widget.data.regional);
     }
 
     _updateUfSelectionFromController();
@@ -124,6 +126,10 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
     final normalized = (value ?? '').trim();
 
     return normalized.isEmpty ? null : normalized;
+  }
+
+  String _s(Object? value) {
+    return (value is String ? value : value?.toString() ?? '').trim();
   }
 
   void _syncControllerText(TextEditingController controller, String value) {
@@ -153,16 +159,15 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
   }
 
   void _emitChange() {
+    final regionLabel = _regionalCtrl.text.trim();
+
     final updated = widget.data.copyWith(
       uf: _ufCtrl.text,
       municipio: _municipioCtrl.text,
-      regional: _regionalCtrl.text.isEmpty ? null : _regionalCtrl.text,
+      regional: regionLabel.isEmpty ? null : regionLabel,
       kmInicial: _kmInicialCtrl.text,
       kmFinal: _kmFinalCtrl.text,
-      regionId: _regionDocId ?? widget.data.regionId,
-
-      // Mantém compatibilidade com DfdData atual.
-      // O campo ainda se chama companyId, mas agora recebe o tenantId.
+      regionId: _regionDocId ?? regionLabel,
       companyId: _tenantId ?? widget.data.companyId,
     );
 
@@ -174,7 +179,6 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
       await _ibgeService.ensureStatesLoaded();
 
       final ufs = _ibgeService.ufsSigla;
-
       final currentUf = (widget.data.uf ?? '').trim().toUpperCase();
 
       final selectedUf = ufs.contains(currentUf)
@@ -281,7 +285,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
     _syncTenantFromProfile(tenant);
 
     final bool hasTenantConfigured = tenant != null;
-    final List<TenantItemData> regions = tenantState.regions;
+    final List<String> regions = tenantState.regions;
 
     final d = widget.data;
 
@@ -349,7 +353,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                         ? 'Configure o contratante no tenant'
                         : 'Clique no ícone de info para gerenciar municípios da região',
                     controller: _regionalCtrl,
-                    items: regions.map((e) => e.label).toList(),
+                    items: regions,
                     enabled: widget.isEditable && hasTenantConfigured,
                     validator: null,
                     specialItemLabel: 'Adicionar região/área',
@@ -358,19 +362,10 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                     onChanged: (value) {
                       if (!widget.isEditable) return;
 
-                      final label = value ?? '';
+                      final label = _s(value);
 
                       _regionalCtrl.text = label;
-
-                      final selected = regions.firstWhere(
-                            (region) => region.label == label,
-                        orElse: () => const TenantItemData(
-                          id: '',
-                          label: '',
-                        ),
-                      );
-
-                      _regionDocId = selected.id.isEmpty ? null : selected.id;
+                      _regionDocId = label.isEmpty ? null : label;
 
                       _emitChange();
                       setState(() {});
@@ -378,25 +373,10 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                     onDetailsTap: (ctx, label) async {
                       if (!hasTenantConfigured) return;
 
-                      final region = tenantCubit.state.regions.firstWhere(
-                            (item) => item.label == label,
-                        orElse: () => const TenantItemData(
-                          id: '',
-                          label: '',
-                        ),
-                      );
+                      final regionLabel = _s(label);
 
-                      if (region.id.isEmpty) return;
-
-                      final initialSelected = List<String>.from(
-                        region.municipios,
-                      );
-
-                      final lockedMunicipios = tenantCubit.state.regions
-                          .where((item) => item.id != region.id)
-                          .expand((item) => item.municipios)
-                          .toSet()
-                          .toList();
+                      if (regionLabel.isEmpty) return;
+                      if (!regions.contains(regionLabel)) return;
 
                       int initialUfCode = 27;
 
@@ -412,22 +392,22 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
 
                       final selectedMunicipios = await setupRegionMap(
                         ctx,
-                        title: 'Municípios da região "$label"',
-                        initialSelected: initialSelected,
-                        lockedMunicipios: lockedMunicipios,
+                        title: 'Municípios da região "$regionLabel"',
+                        initialSelected: const <String>[],
+                        lockedMunicipios: const <String>[],
                         initialUfCode: initialUfCode,
                       );
 
                       if (!mounted || selectedMunicipios == null) return;
 
-                      final updated = await tenantCubit.updateRegionMunicipios(
-                        region.id,
+                      await tenantCubit.updateRegionMunicipios(
+                        regionLabel,
                         selectedMunicipios,
                       );
 
-                      if (!mounted || updated == null) return;
+                      if (!mounted) return;
 
-                      if (_regionalCtrl.text == region.label) {
+                      if (_regionalCtrl.text == regionLabel) {
                         _emitChange();
                       }
 
@@ -436,37 +416,30 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                     onCreateNewItem: !widget.isEditable || !hasTenantConfigured
                         ? null
                         : (label) async {
+                      final newLabel = _s(label);
+
+                      if (newLabel.isEmpty) return;
+
                       final created = await tenantCubit.createRegion(
-                        label,
+                        newLabel,
                       );
 
                       if (!mounted || created == null) return;
 
                       setState(() {
-                        _regionDocId = created.id;
-                        _regionalCtrl.text = created.label;
+                        _regionDocId = created;
+                        _regionalCtrl.text = created;
+                        _regionsNonce++;
                       });
 
                       _emitChange();
                     },
                     onEditItem: widget.isEditable && hasTenantConfigured
-                        ? (ctx, oldLabel) async {
-                      final listBeforeDialog =
-                      List<TenantItemData>.from(
-                        tenantCubit.state.regions,
-                      );
+                        ? (ctx, oldLabelRaw) async {
+                      final oldLabel = _s(oldLabelRaw);
 
-                      if (listBeforeDialog.isEmpty) return;
-
-                      final target = listBeforeDialog.firstWhere(
-                            (region) => region.label == oldLabel,
-                        orElse: () => const TenantItemData(
-                          id: '',
-                          label: '',
-                        ),
-                      );
-
-                      if (target.id.isEmpty) return;
+                      if (oldLabel.isEmpty) return;
+                      if (!regions.contains(oldLabel)) return;
 
                       final newLabel = await _askNewRegionLabel(
                         ctx,
@@ -476,52 +449,46 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                       if (!mounted || newLabel == null) return;
 
                       final updated = await tenantCubit.updateRegionName(
-                        target.id,
+                        oldLabel,
                         newLabel,
                       );
 
                       if (!mounted || updated == null) return;
 
                       setState(() {
-                        if (_regionDocId == target.id) {
-                          _regionalCtrl.text = updated.label;
+                        if (_regionDocId == oldLabel ||
+                            _regionalCtrl.text == oldLabel) {
+                          _regionDocId = updated;
+                          _regionalCtrl.text = updated;
                         }
+
+                        _regionsNonce++;
                       });
 
                       _emitChange();
                     }
                         : null,
                     onDeleteItem: widget.isEditable && hasTenantConfigured
-                        ? (ctx, label) async {
-                      final listBeforeDelete =
-                      List<TenantItemData>.from(
-                        tenantCubit.state.regions,
-                      );
+                        ? (ctx, labelRaw) async {
+                      final label = _s(labelRaw);
 
-                      if (listBeforeDelete.isEmpty) return;
+                      if (label.isEmpty) return;
 
-                      final target = listBeforeDelete.firstWhere(
-                            (region) => region.label == label,
-                        orElse: () => const TenantItemData(
-                          id: '',
-                          label: '',
-                        ),
-                      );
-
-                      if (target.id.isEmpty) return;
-
-                      await tenantCubit.deleteRegion(target.id);
+                      await tenantCubit.deleteRegion(label);
 
                       if (!mounted) return;
 
-                      if (_regionDocId == target.id ||
+                      if (_regionDocId == label ||
                           _regionalCtrl.text == label) {
                         setState(() {
                           _regionDocId = null;
                           _regionalCtrl.clear();
+                          _regionsNonce++;
                         });
 
                         _emitChange();
+                      } else {
+                        setState(() => _regionsNonce++);
                       }
                     }
                         : null,

@@ -1,3 +1,6 @@
+// lib/screens/modules/contracts/additives/additive_page.dart
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,37 +10,47 @@ import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_state.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+
 import 'package:sipged/_blocs/system/notification/helpers/notification_additive.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
-
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
-
-import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'additive_form_section.dart';
 import 'additive_graph_section.dart';
 import 'additive_table_section.dart';
 
 class AdditivePage extends StatefulWidget {
-  final ProcessData contractData;
-
   const AdditivePage({
     super.key,
     required this.contractData,
   });
+
+  final ProcessData contractData;
 
   @override
   State<AdditivePage> createState() => _AdditivePageState();
 }
 
 class _AdditivePageState extends State<AdditivePage> {
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  static const String _route = 'contracts_additives';
+  static const String _notificationSource = 'contracts_additives';
+  static const String _source = 'additive_notification';
+
   final TextEditingController _orderCtrl = TextEditingController();
   final TextEditingController _processCtrl = TextEditingController();
   final TextEditingController _dateCtrl = TextEditingController();
@@ -52,33 +65,31 @@ class _AdditivePageState extends State<AdditivePage> {
   int? _selectedAttachmentIndex;
   bool _initialNextOrderApplied = false;
 
+  DfdData? _dfdData;
+  bool _loadingContractDisplay = false;
+
   String get _contractId => widget.contractData.id?.trim() ?? '';
 
   String get _contractSummary {
-    final data = widget.contractData;
+    final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
 
-    final summary = data.summarySubjectContract?.trim() ?? '';
-    if (summary.isNotEmpty) return summary;
+    if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
+      return descricaoObjeto;
+    }
 
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return 'Contrato $number';
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return 'Processo $process';
-
-    if (_contractId.isNotEmpty) return 'Contrato $_contractId';
+    if (_contractId.isNotEmpty) {
+      return 'Contrato $_contractId';
+    }
 
     return 'Contrato sem identificação';
   }
 
   String get _contractNumber {
-    final data = widget.contractData;
+    final processoAdministrativo = _dfdData?.processoAdministrativo?.trim();
 
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return number;
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return process;
+    if (processoAdministrativo != null && processoAdministrativo.isNotEmpty) {
+      return processoAdministrativo;
+    }
 
     return _contractId;
   }
@@ -87,9 +98,14 @@ class _AdditivePageState extends State<AdditivePage> {
   void initState() {
     super.initState();
 
+    final permissionState = context.read<PermissionCubit>().state;
+
     _cubit = AdditivesCubit(
       contract: widget.contractData,
       repository: AdditivesRepository(),
+      initialPermissions: permissionState.current,
+      tenantId: permissionState.activeTenantId,
+      moduleId: _route,
     );
 
     void recomputeValidity() {
@@ -111,7 +127,12 @@ class _AdditivePageState extends State<AdditivePage> {
     _addDaysExecCtrl.addListener(recomputeValidity);
     _addDaysContractCtrl.addListener(recomputeValidity);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      await _loadContractDisplayData();
+
+      if (!mounted) return;
       recomputeValidity();
     });
   }
@@ -131,6 +152,112 @@ class _AdditivePageState extends State<AdditivePage> {
     super.dispose();
   }
 
+  Future<void> _loadContractDisplayData() async {
+    if (_loadingContractDisplay) return;
+
+    final contractId = _contractId;
+
+    if (contractId.isEmpty) return;
+
+    setState(() {
+      _loadingContractDisplay = true;
+    });
+
+    try {
+      final dfd = await _loadDfd(contractId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = dfd;
+        _loadingContractDisplay = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingContractDisplay = false;
+      });
+    }
+  }
+
+  Future<DfdData?> _loadDfd(String contractId) async {
+    final candidatePaths = <String>[
+      'contracts/$contractId/hiring/00Dfd',
+      'contracts/$contractId/hiring/01Dfd',
+      'contracts/$contractId/hiring/dfd',
+      'contracts/$contractId/dfd/main',
+      'contracts/$contractId/demand/dfd',
+    ];
+
+    for (final path in candidatePaths) {
+      final data = await _tryReadDocument(path);
+
+      if (data == null) continue;
+
+      final parsed = _parseDfd(
+        data,
+        contractId: contractId,
+      );
+
+      if (parsed != null) return parsed;
+    }
+
+    return null;
+  }
+
+  DfdData? _parseDfd(
+      Map<String, dynamic> data, {
+        required String contractId,
+      }) {
+    final sectionsData = data['sectionsData'];
+    final sections = data['sections'];
+
+    if (sectionsData is Map) {
+      return DfdData.fromSectionsMap(
+        _toDynamicMap(sectionsData),
+        contractId: contractId,
+      );
+    }
+
+    if (sections is Map) {
+      return DfdData.fromSectionsMap(
+        _toDynamicMap(sections),
+        contractId: contractId,
+      );
+    }
+
+    return DfdData.fromMap(
+      data,
+      contractId: contractId,
+    );
+  }
+
+  Future<Map<String, dynamic>?> _tryReadDocument(String path) async {
+    try {
+      final snapshot = await _firestore.doc(path).get();
+
+      if (!snapshot.exists) return null;
+
+      final data = snapshot.data();
+
+      if (data == null || data.isEmpty) return null;
+
+      return Map<String, dynamic>.from(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Map<String, dynamic> _toDynamicMap(Map raw) {
+    return raw.map(
+          (key, value) => MapEntry(
+        key.toString(),
+        value is Map ? _toDynamicMap(value) : value,
+      ),
+    );
+  }
+
   String _resolveActorName(String? uid) {
     final currentUser = FirebaseAuth.instance.currentUser;
     final cleanUid = uid?.trim();
@@ -142,16 +269,19 @@ class _AdditivePageState extends State<AdditivePage> {
         final fullName = (meta['fullName'] ??
             meta['displayName'] ??
             meta['nameComplete'] ??
+            meta['nomeCompleto'] ??
+            meta['nome'] ??
             '')
             .toString()
             .trim();
 
         if (fullName.isNotEmpty) return fullName;
 
-        final name = (meta['name'] ?? '').toString().trim();
-        final surname = (meta['surname'] ?? '').toString().trim();
+        final name = (meta['name'] ?? meta['nome'] ?? '').toString().trim();
+        final surname =
+        (meta['surname'] ?? meta['sobrenome'] ?? '').toString().trim();
 
-        final composed = [name, surname]
+        final composed = <String>[name, surname]
             .where((item) => item.trim().isNotEmpty)
             .join(' ')
             .trim();
@@ -159,14 +289,17 @@ class _AdditivePageState extends State<AdditivePage> {
         if (composed.isNotEmpty) return composed;
 
         final email = (meta['email'] ?? '').toString().trim();
+
         if (email.isNotEmpty) return email;
       }
     }
 
     final displayName = currentUser?.displayName?.trim() ?? '';
+
     if (displayName.isNotEmpty) return displayName;
 
     final email = currentUser?.email?.trim() ?? '';
+
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
@@ -174,10 +307,7 @@ class _AdditivePageState extends State<AdditivePage> {
 
   DateTime? _parseDateTimeFromExtra(dynamic value) {
     if (value == null) return null;
-
-    if (value is DateTime) {
-      return value;
-    }
+    if (value is DateTime) return value;
 
     final text = value.toString().trim();
 
@@ -185,9 +315,7 @@ class _AdditivePageState extends State<AdditivePage> {
 
     final iso = DateTime.tryParse(text);
 
-    if (iso != null) {
-      return iso;
-    }
+    if (iso != null) return iso;
 
     final parts = text.split('/');
 
@@ -197,7 +325,13 @@ class _AdditivePageState extends State<AdditivePage> {
       final year = int.tryParse(parts[2]);
 
       if (day != null && month != null && year != null) {
-        return DateTime(year, month, day);
+        final parsed = DateTime(year, month, day);
+
+        if (parsed.day == day &&
+            parsed.month == month &&
+            parsed.year == year) {
+          return parsed;
+        }
       }
     }
 
@@ -206,7 +340,6 @@ class _AdditivePageState extends State<AdditivePage> {
 
   num? _parseNumFromExtra(dynamic value) {
     if (value == null) return null;
-
     if (value is num) return value;
 
     final text = value.toString().trim();
@@ -224,19 +357,25 @@ class _AdditivePageState extends State<AdditivePage> {
 
   int? _parseIntFromExtra(dynamic value) {
     if (value == null) return null;
-
     if (value is int) return value;
-
     if (value is num) return value.toInt();
 
-    return int.tryParse(value.toString().trim());
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    return int.tryParse(text.replaceAll(RegExp(r'[^0-9-]'), ''));
   }
 
   Future<void> _notify({
     required String title,
     String? subtitle,
     String? details,
-    NotificationStatus type = NotificationStatus.info,
+    NotificationStatus status = NotificationStatus.info,
+
+    /// Compatibilidade temporária com chamadas antigas.
+    NotificationStatus? type,
+
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -247,6 +386,10 @@ class _AdditivePageState extends State<AdditivePage> {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
 
+    final delivery = saveInBell || sendPush
+        ? NotificationDelivery.localBellAndPush
+        : NotificationDelivery.localOnly;
+
     await NotificationAdditive.show(
       context: context,
       contract: widget.contractData,
@@ -254,20 +397,19 @@ class _AdditivePageState extends State<AdditivePage> {
       subtitle: subtitle,
       details: details ?? _contractSummary,
       leadingLabel: 'Aditivo',
-      module: 'contracts_additives',
-      source: 'additive_notification',
-      notificationSource: 'contracts_additives',
-      status: type,
+      module: _route,
+      source: _source,
+      notificationSource: _notificationSource,
+      status: type ?? status,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
       actorId: currentUserId,
       actorName: actorName,
       includeCurrentUser: true,
-      delivery: NotificationDelivery.localBellAndPush,
+      delivery: delivery,
       additiveId: extra['additiveId']?.toString(),
-      additiveNumber:
-      extra['additiveNumber']?.toString() ??
+      additiveNumber: extra['additiveNumber']?.toString() ??
           extra['additiveProcess']?.toString(),
       additiveOrder: extra['additiveOrder']?.toString(),
       additiveType: extra['additiveType']?.toString(),
@@ -280,32 +422,79 @@ class _AdditivePageState extends State<AdditivePage> {
         extra['additiveValidityContractDays'],
       ),
       extra: <String, dynamic>{
-        'route': 'contracts_additives',
-        'module': 'contracts_additives',
+        'route': _route,
+        'module': _route,
+        'source': _source,
+        'sourceKey': _notificationSource,
+        'subSource': _notificationSource,
+        'notificationSource': _notificationSource,
+
+        /// Mantidos para o NotificationBell identificar usuário/foto.
+        'actorId': currentUserId,
+        'actorName': actorName,
+
         'contractId': _contractId,
         'contractNumber': _contractNumber,
+        'processNumber': _contractNumber,
+        'processoAdministrativo': _dfdData?.processoAdministrativo,
         'contractTitle': _contractSummary,
         'contractSummary': _contractSummary,
+        'descricaoObjeto': _dfdData?.descricaoObjeto,
         ...extra,
       },
     );
   }
 
-  void _fillForm(AdditivesData a) {
-    _lastFilledId = a.id;
+  Future<void> _safeNotify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationStatus status = NotificationStatus.info,
 
-    _orderCtrl.text = (a.additiveOrder ?? '').toString();
-    _processCtrl.text = a.additiveNumberProcess ?? '';
-    _dateCtrl.text = a.additiveDate != null
-        ? SipGedFormatDates.dateToDdMMyyyy(a.additiveDate!)
+    /// Compatibilidade temporária com chamadas antigas.
+    NotificationStatus? type,
+
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    bool sendPush = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    try {
+      await _notify(
+        title: title,
+        subtitle: subtitle,
+        details: details,
+        status: status,
+        type: type,
+        duration: duration,
+        saveInBell: saveInBell,
+        sendPush: sendPush,
+        extra: extra,
+      );
+    } catch (e, stack) {
+      debugPrint('Falha ao enviar notificação de aditivo: $e');
+      debugPrintStack(stackTrace: stack);
+    }
+  }
+
+  void _fillForm(AdditivesData additive) {
+    _lastFilledId = additive.id;
+
+    _orderCtrl.text = (additive.additiveOrder ?? '').toString();
+    _processCtrl.text = additive.additiveNumberProcess ?? '';
+    _dateCtrl.text = additive.additiveDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(additive.additiveDate!)
         : '';
-    _typeCtrl.text = a.typeOfAdditive ?? '';
+    _typeCtrl.text = additive.typeOfAdditive ?? '';
 
-    _valueCtrl.text =
-    a.additiveValue != null ? SipGedFormatMoney.brlNoSymbol(a.additiveValue) : '';
+    _valueCtrl.text = additive.additiveValue != null
+        ? SipGedFormatMoney.brlNoSymbol(additive.additiveValue)
+        : '';
 
-    _addDaysExecCtrl.text = a.additiveValidityExecutionDays?.toString() ?? '';
-    _addDaysContractCtrl.text = a.additiveValidityContractDays?.toString() ?? '';
+    _addDaysExecCtrl.text =
+        additive.additiveValidityExecutionDays?.toString() ?? '';
+    _addDaysContractCtrl.text =
+        additive.additiveValidityContractDays?.toString() ?? '';
 
     _cubit.updateFormValidity(
       typeText: _typeCtrl.text,
@@ -359,12 +548,12 @@ class _AdditivePageState extends State<AdditivePage> {
         FirebaseAuth.instance.currentUser?.uid,
       );
 
-      await _notify(
+      await _safeNotify(
         title: result.created ? 'Aditivo criado' : 'Aditivo atualizado',
         subtitle: result.created
             ? 'Aditivo ${_orderCtrl.text.trim()} salvo por $actorName.'
             : 'Aditivo ${_orderCtrl.text.trim()} atualizado por $actorName.',
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -382,13 +571,11 @@ class _AdditivePageState extends State<AdditivePage> {
         },
       );
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Erro ao salvar aditivo',
         subtitle: e.toString(),
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
-        saveInBell: false,
-        sendPush: false,
         extra: <String, dynamic>{
           'action': 'additive_save_error',
           'error': e.toString(),
@@ -441,10 +628,10 @@ class _AdditivePageState extends State<AdditivePage> {
         FirebaseAuth.instance.currentUser?.uid,
       );
 
-      await _notify(
+      await _safeNotify(
         title: 'Arquivo anexado ao aditivo',
         subtitle: '${result.attachment.label} enviado por $actorName.',
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -458,13 +645,11 @@ class _AdditivePageState extends State<AdditivePage> {
         },
       );
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Erro ao anexar arquivo',
         subtitle: e.toString(),
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
-        saveInBell: false,
-        sendPush: false,
         extra: <String, dynamic>{
           'action': 'additive_attachment_add_error',
           'error': e.toString(),
@@ -487,12 +672,12 @@ class _AdditivePageState extends State<AdditivePage> {
         FirebaseAuth.instance.currentUser?.uid,
       );
 
-      await _notify(
+      await _safeNotify(
         title: 'Arquivo removido do aditivo',
         subtitle: result.attachment != null
             ? '${result.attachment!.label} removido por $actorName.'
             : 'Arquivo removido por $actorName.',
-        type: NotificationStatus.warning,
+        status: NotificationStatus.warning,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -506,13 +691,11 @@ class _AdditivePageState extends State<AdditivePage> {
         },
       );
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Erro ao remover arquivo',
         subtitle: e.toString(),
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
-        saveInBell: false,
-        sendPush: false,
         extra: <String, dynamic>{
           'action': 'additive_attachment_delete_error',
           'error': e.toString(),
@@ -536,10 +719,10 @@ class _AdditivePageState extends State<AdditivePage> {
         FirebaseAuth.instance.currentUser?.uid,
       );
 
-      await _notify(
+      await _safeNotify(
         title: 'Anexo de aditivo renomeado',
         subtitle: '${result.newAttachment.label} renomeado por $actorName.',
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -557,13 +740,11 @@ class _AdditivePageState extends State<AdditivePage> {
 
       return true;
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Falha ao renomear anexo',
         subtitle: e.toString(),
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
-        saveInBell: false,
-        sendPush: false,
         extra: <String, dynamic>{
           'action': 'additive_attachment_rename_error',
           'error': e.toString(),
@@ -574,9 +755,9 @@ class _AdditivePageState extends State<AdditivePage> {
     }
   }
 
-  Future<void> _deleteAdditive(AdditivesData a) async {
+  Future<void> _deleteAdditive(AdditivesData additive) async {
     try {
-      _cubit.selectAdditive(a);
+      _cubit.selectAdditive(additive);
 
       final result = await _cubit.deleteSelectedAdditive();
 
@@ -584,12 +765,12 @@ class _AdditivePageState extends State<AdditivePage> {
         FirebaseAuth.instance.currentUser?.uid,
       );
 
-      await _notify(
+      await _safeNotify(
         title: 'Aditivo apagado',
         subtitle: result.order != null
             ? 'Aditivo ${result.order} removido por $actorName.'
             : 'O aditivo foi removido por $actorName.',
-        type: NotificationStatus.warning,
+        status: NotificationStatus.warning,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -605,13 +786,11 @@ class _AdditivePageState extends State<AdditivePage> {
         },
       );
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Erro ao apagar aditivo',
         subtitle: e.toString(),
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
-        saveInBell: false,
-        sendPush: false,
         extra: <String, dynamic>{
           'action': 'additive_delete_error',
           'error': e.toString(),
@@ -624,216 +803,233 @@ class _AdditivePageState extends State<AdditivePage> {
   Widget build(BuildContext context) {
     return BlocProvider<AdditivesCubit>.value(
       value: _cubit,
-      child: BlocBuilder<AdditivesCubit, AdditivesState>(
-        builder: (context, state) {
-          _applyInitialNextOrderOnce(state);
+      child: BlocListener<PermissionCubit, PermissionState>(
+        listenWhen: (previous, current) {
+          return previous.current != current.current ||
+              previous.activeTenantId != current.activeTenantId;
+        },
+        listener: (context, permissionState) {
+          _cubit.updateUser(
+            null,
+            permissions: permissionState.current,
+            tenantId: permissionState.activeTenantId,
+          );
+        },
+        child: BlocBuilder<AdditivesCubit, AdditivesState>(
+          builder: (context, state) {
+            _applyInitialNextOrderOnce(state);
 
-          if (state.selected == null && _lastFilledId != null) {
-            _clearForm(keepOrder: true);
-          }
+            if (state.selected == null && _lastFilledId != null) {
+              _clearForm(keepOrder: true);
+            }
 
-          if (state.selected != null && state.selected!.id != _lastFilledId) {
-            _fillForm(state.selected!);
-            _cubit.reloadAttachments();
-          }
+            if (state.selected != null && state.selected!.id != _lastFilledId) {
+              _fillForm(state.selected!);
+              _cubit.reloadAttachments();
+            }
 
-          final bool isLoading = state.status == AdditivesStatus.loading;
+            final bool isLoading = state.status == AdditivesStatus.loading;
 
-          final labels = state.additives
-              .map((e) => (e.additiveOrder ?? '').toString())
-              .toList();
+            final labels = state.additives
+                .map((item) => (item.additiveOrder ?? '').toString())
+                .toList();
 
-          final values = state.additives
-              .map((e) => (e.additiveValue ?? 0.0).toDouble())
-              .toList();
+            final values = state.additives
+                .map((item) => (item.additiveValue ?? 0.0).toDouble())
+                .toList();
 
-          return Stack(
-            children: [
-              Column(
-                children: [
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: constraints.maxHeight,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SectionTitle(
-                                  text: 'Cadastrar aditivos no sistema',
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
+            return Stack(
+              children: [
+                Column(
+                  children: [
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SectionTitle(
+                                    text: 'Cadastrar aditivos no sistema',
                                   ),
-                                  child: AdditiveFormSection(
-                                    isEditable: state.isEditable,
-                                    editingMode: state.editingMode,
-                                    formValidated: state.formValid,
-                                    selectedAdditive: state.selected,
-                                    currentAdditiveId: state.selected?.id,
-                                    contractData: widget.contractData,
-                                    orderController: _orderCtrl,
-                                    processController: _processCtrl,
-                                    dateController: _dateCtrl,
-                                    typeOfAdditiveCtrl: _typeCtrl,
-                                    valueController: _valueCtrl,
-                                    additionalDaysExecutionController:
-                                    _addDaysExecCtrl,
-                                    additionalDaysContractController:
-                                    _addDaysContractCtrl,
-                                    sideLoading: state.sideLoading,
-                                    uploadProgress: state.uploadProgress,
-                                    onSave: _save,
-                                    onClear: () {
-                                      _cubit.createNewAdditive();
-                                      _clearForm();
-
-                                      _orderCtrl.text =
-                                          state.nextAvailableOrder.toString();
-
-                                      _cubit.updateFormValidity(
-                                        typeText: _typeCtrl.text,
-                                        dateText: _dateCtrl.text,
-                                        processText: _processCtrl.text,
-                                        valueText: _valueCtrl.text,
-                                        addExecText: _addDaysExecCtrl.text,
-                                        addContractText:
-                                        _addDaysContractCtrl.text,
-                                      );
-                                    },
-                                    orderOptions: state.orderOptions,
-                                    greyOrderItems: state.greyOrderItems,
-                                    onChangedOrder: (v) {
-                                      if (v == null) return;
-
-                                      _orderCtrl.text = v;
-
-                                      final ord = int.tryParse(v.trim()) ?? 0;
-
-                                      _cubit.selectAdditiveByOrder(ord);
-                                      _cubit.reloadAttachments();
-
-                                      if (_cubit.state.selected == null) {
-                                        _clearForm(keepOrder: true);
-                                      } else {
-                                        _fillForm(_cubit.state.selected!);
-                                      }
-
-                                      _cubit.updateFormValidity(
-                                        typeText: _typeCtrl.text,
-                                        dateText: _dateCtrl.text,
-                                        processText: _processCtrl.text,
-                                        valueText: _valueCtrl.text,
-                                        addExecText: _addDaysExecCtrl.text,
-                                        addContractText:
-                                        _addDaysContractCtrl.text,
-                                      );
-                                    },
-                                    sideItems: state.sideAttachments,
-                                    selectedSideIndex:
-                                    _selectedAttachmentIndex,
-                                    onAddSideItem:
-                                    state.canAddFile ? _addAttachment : null,
-                                    onTapSideItem: (i) {
-                                      setState(() {
-                                        _selectedAttachmentIndex = i;
-                                      });
-                                    },
-                                    onDeleteSideItem: _deleteAttachment,
-                                    onSideItemsChanged: (newItems) {
-                                      _ensureSelectedAttachmentIndexValid(
-                                        newItems.length,
-                                      );
-                                    },
-                                    onRenamePersistSideItem:
-                                    _renameAttachment,
-                                  ),
-                                ),
-                                const SectionTitle(
-                                  text: 'Gráfico dos aditivos',
-                                ),
-                                if (!isLoading && state.additives.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.all(24),
-                                    child: Text(
-                                      'Nenhum aditivo cadastrado para exibir no gráfico.',
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
                                     ),
-                                  )
-                                else
-                                  AdditiveGraphSection(
-                                    labels: labels,
-                                    values: values,
-                                    selectedIndex: state.selectedIndex,
-                                    onSelectIndex: (index) {
-                                      if (index < 0) {
+                                    child: AdditiveFormSection(
+                                      isEditable: state.isEditable,
+                                      editingMode: state.editingMode,
+                                      formValidated: state.formValid,
+                                      selectedAdditive: state.selected,
+                                      currentAdditiveId: state.selected?.id,
+                                      contractData: widget.contractData,
+                                      orderController: _orderCtrl,
+                                      processController: _processCtrl,
+                                      dateController: _dateCtrl,
+                                      typeOfAdditiveCtrl: _typeCtrl,
+                                      valueController: _valueCtrl,
+                                      additionalDaysExecutionController:
+                                      _addDaysExecCtrl,
+                                      additionalDaysContractController:
+                                      _addDaysContractCtrl,
+                                      sideLoading: state.sideLoading,
+                                      uploadProgress: state.uploadProgress,
+                                      onSave: _save,
+                                      onClear: () {
                                         _cubit.createNewAdditive();
                                         _clearForm();
 
                                         _orderCtrl.text =
                                             state.nextAvailableOrder.toString();
 
-                                        return;
-                                      }
+                                        _cubit.updateFormValidity(
+                                          typeText: _typeCtrl.text,
+                                          dateText: _dateCtrl.text,
+                                          processText: _processCtrl.text,
+                                          valueText: _valueCtrl.text,
+                                          addExecText: _addDaysExecCtrl.text,
+                                          addContractText:
+                                          _addDaysContractCtrl.text,
+                                        );
+                                      },
+                                      orderOptions: state.orderOptions,
+                                      greyOrderItems: state.greyOrderItems,
+                                      onChangedOrder: (value) {
+                                        if (value == null) return;
 
-                                      _cubit.selectAdditiveByIndex(index);
+                                        _orderCtrl.text = value;
+
+                                        final order =
+                                            int.tryParse(value.trim()) ?? 0;
+
+                                        _cubit.selectAdditiveByOrder(order);
+                                        _cubit.reloadAttachments();
+
+                                        if (_cubit.state.selected == null) {
+                                          _clearForm(keepOrder: true);
+                                        } else {
+                                          _fillForm(_cubit.state.selected!);
+                                        }
+
+                                        _cubit.updateFormValidity(
+                                          typeText: _typeCtrl.text,
+                                          dateText: _dateCtrl.text,
+                                          processText: _processCtrl.text,
+                                          valueText: _valueCtrl.text,
+                                          addExecText: _addDaysExecCtrl.text,
+                                          addContractText:
+                                          _addDaysContractCtrl.text,
+                                        );
+                                      },
+                                      sideItems: state.sideAttachments,
+                                      selectedSideIndex:
+                                      _selectedAttachmentIndex,
+                                      onAddSideItem:
+                                      state.canAddFile ? _addAttachment : null,
+                                      onTapSideItem: (index) {
+                                        setState(() {
+                                          _selectedAttachmentIndex = index;
+                                        });
+                                      },
+                                      onDeleteSideItem: _deleteAttachment,
+                                      onSideItemsChanged: (newItems) {
+                                        _ensureSelectedAttachmentIndexValid(
+                                          newItems.length,
+                                        );
+                                      },
+                                      onRenamePersistSideItem:
+                                      _renameAttachment,
+                                    ),
+                                  ),
+                                  const SectionTitle(
+                                    text: 'Gráfico dos aditivos',
+                                  ),
+                                  if (!isLoading && state.additives.isEmpty)
+                                    const Padding(
+                                      padding: EdgeInsets.all(24),
+                                      child: Text(
+                                        'Nenhum aditivo cadastrado para exibir no gráfico.',
+                                      ),
+                                    )
+                                  else
+                                    AdditiveGraphSection(
+                                      labels: labels,
+                                      values: values,
+                                      selectedIndex: state.selectedIndex,
+                                      onSelectIndex: (index) {
+                                        if (index < 0) {
+                                          _cubit.createNewAdditive();
+                                          _clearForm();
+
+                                          _orderCtrl.text = state
+                                              .nextAvailableOrder
+                                              .toString();
+
+                                          return;
+                                        }
+
+                                        _cubit.selectAdditiveByIndex(index);
+                                        _cubit.reloadAttachments();
+
+                                        final selected =
+                                            _cubit.state.selected;
+
+                                        if (selected?.additiveOrder != null) {
+                                          _orderCtrl.text = selected!
+                                              .additiveOrder
+                                              .toString();
+                                        }
+                                      },
+                                    ),
+                                  const SectionTitle(
+                                    text: 'Aditivos cadastrados no sistema',
+                                  ),
+                                  AdditiveTableSection(
+                                    additives: state.additives,
+                                    isLoading: isLoading,
+                                    selectedItem: state.selected,
+                                    onTapItem: (additive) {
+                                      _cubit.selectAdditive(additive);
                                       _cubit.reloadAttachments();
 
-                                      final sel = _cubit.state.selected;
-
-                                      if (sel?.additiveOrder != null) {
-                                        _orderCtrl.text =
-                                            sel!.additiveOrder.toString();
+                                      if (additive.additiveOrder != null) {
+                                        _orderCtrl.text = additive.additiveOrder
+                                            .toString();
                                       }
                                     },
+                                    onDelete: _deleteAdditive,
                                   ),
-                                const SectionTitle(
-                                  text: 'Aditivos cadastrados no sistema',
-                                ),
-                                AdditiveTableSection(
-                                  additives: state.additives,
-                                  isLoading: isLoading,
-                                  selectedItem: state.selected,
-                                  onTapItem: (a) {
-                                    _cubit.selectAdditive(a);
-                                    _cubit.reloadAttachments();
-
-                                    if (a.additiveOrder != null) {
-                                      _orderCtrl.text =
-                                          a.additiveOrder.toString();
-                                    }
-                                  },
-                                  onDelete: _deleteAdditive,
-                                ),
-                                const SizedBox(height: 20),
-                              ],
+                                  const SizedBox(height: 20),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const FootBar(),
-                ],
-              ),
-              if (state.isSaving)
-                Stack(
-                  children: [
-                    ModalBarrier(
-                      dismissible: false,
-                      color: Colors.black.withValues(alpha: 0.4),
-                    ),
-                    const Center(
-                      child: LoadingTreeDots(size: 120),
-                    ),
+                    const FootBar(),
                   ],
                 ),
-            ],
-          );
-        },
+                if (state.isSaving || _loadingContractDisplay)
+                  Stack(
+                    children: [
+                      ModalBarrier(
+                        dismissible: false,
+                        color: Colors.black.withValues(alpha: 0.4),
+                      ),
+                      const Center(
+                        child: LoadingTreeDots(size: 120),
+                      ),
+                    ],
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

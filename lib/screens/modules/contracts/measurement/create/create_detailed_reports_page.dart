@@ -1,28 +1,31 @@
+// lib/screens/modules/contracts/measurement/create/create_detailed_reports_page.dart
+
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
-
-import 'package:sipged/screens/modules/contracts/measurement/create/launcher_pdf.dart';
-
-import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/buttons/circle_button_change.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
-import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
-
 import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
+import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
-import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
 import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
+import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
+
+import 'package:sipged/screens/modules/contracts/measurement/create/launcher_pdf.dart';
 import 'package:sipged/screens/modules/contracts/measurement/create/measurement_report_header.dart';
 
 import 'package:sipged/_services/pdf/pdf_preview_launcher_stub.dart'
@@ -51,8 +54,12 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     cellPadHorizontal: const EdgeInsets.symmetric(horizontal: 12).horizontal,
   );
 
+  final DfdRepository _dfdRepository = DfdRepository();
+
   bool _loading = true;
   String? _error;
+
+  DfdData? _dfdData;
 
   final Map<String, Map<String, dynamic>> _items = {};
   final Map<String, double> _lastSavedPeriod = {};
@@ -80,16 +87,11 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
   String get _contractId => widget.contractData.id?.trim() ?? '';
 
   String get _contractSummary {
-    final data = widget.contractData;
+    final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
 
-    final summary = data.summarySubjectContract?.trim() ?? '';
-    if (summary.isNotEmpty) return summary;
-
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return 'Contrato $number';
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return 'Processo $process';
+    if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
+      return descricaoObjeto;
+    }
 
     if (_contractId.isNotEmpty) return 'Contrato $_contractId';
 
@@ -97,13 +99,11 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
   }
 
   String get _contractNumber {
-    final data = widget.contractData;
+    final processoAdministrativo = _dfdData?.processoAdministrativo?.trim();
 
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return number;
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return process;
+    if (processoAdministrativo != null && processoAdministrativo.isNotEmpty) {
+      return processoAdministrativo;
+    }
 
     return _contractId;
   }
@@ -119,6 +119,25 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     _debounceSave?.cancel();
     _ctrl.removeListener(_onControllerChanged);
     super.dispose();
+  }
+
+  Future<void> _loadDfdDisplayData() async {
+    final contractId = _contractId;
+
+    if (contractId.isEmpty) return;
+
+    try {
+      final dfd = await _dfdRepository.readDataForContract(contractId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = dfd;
+      });
+    } catch (e, stack) {
+      debugPrint('Falha ao carregar DFD no boletim detalhado: $e');
+      debugPrintStack(stackTrace: stack);
+    }
   }
 
   String _resolveActorName(String? uid) {
@@ -184,7 +203,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
           perms['owner'] == true;
 
       if (!canRead) continue;
-      if (current != null && current.isNotEmpty && userId == current) continue;
+      if (current != null && current.isNotEmpty && userId == current) {
+        continue;
+      }
 
       ids.add(userId);
     }
@@ -192,7 +213,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     for (final userId in widget.contractData.participantsInfo.keys) {
       final clean = userId.trim();
       if (clean.isEmpty) continue;
-      if (current != null && current.isNotEmpty && clean == current) continue;
+      if (current != null && current.isNotEmpty && clean == current) {
+        continue;
+      }
 
       ids.add(clean);
     }
@@ -249,8 +272,6 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     return num.tryParse(normalized);
   }
 
-
-
   Future<void> _notify({
     required String title,
     String? subtitle,
@@ -289,6 +310,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       actorName: actorName,
       targetUserIds: recipients,
       includeCurrentUser: true,
+      delivery: NotificationDelivery.localBellAndPush,
       measurementId: extra['measurementId']?.toString() ?? measurement?.id,
       measurementNumber:
       extra['measurementProcess']?.toString() ?? measurement?.numberprocess,
@@ -303,8 +325,11 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         'module': 'contracts_measurement_report',
         'contractId': _contractId,
         'contractNumber': _contractNumber,
+        'processNumber': _contractNumber,
+        'processoAdministrativo': _dfdData?.processoAdministrativo,
         'contractTitle': _contractSummary,
         'contractSummary': _contractSummary,
+        'descricaoObjeto': _dfdData?.descricaoObjeto,
         'measurementKind': NotificationMeasurementKind.bulletin.name,
         'measurementId': measurement?.id,
         'measurementOrder': measurement?.order,
@@ -320,7 +345,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
 
     final measurement = widget.measurement;
 
-    if (measurement == null || measurement.id == null || measurement.id!.isEmpty) {
+    if (measurement == null ||
+        measurement.id == null ||
+        measurement.id!.isEmpty) {
       return;
     }
 
@@ -360,7 +387,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
   Future<void> _notifyPdfPreviewGenerated() async {
     final measurement = widget.measurement;
 
-    if (measurement == null || measurement.id == null || measurement.id!.isEmpty) {
+    if (measurement == null ||
+        measurement.id == null ||
+        measurement.id!.isEmpty) {
       return;
     }
 
@@ -370,7 +399,8 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
 
     await _notify(
       title: 'PDF do boletim gerado',
-      subtitle: 'Boletim ${measurement.order ?? '-'} pré-visualizado por $actorName.',
+      subtitle:
+      'Boletim ${measurement.order ?? '-'} pré-visualizado por $actorName.',
       type: NotificationStatus.info,
       saveInBell: true,
       sendPush: true,
@@ -526,6 +556,8 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     });
 
     try {
+      await _loadDfdDisplayData();
+
       final contractId = widget.contractData.id;
 
       if (contractId == null || contractId.trim().isEmpty) {

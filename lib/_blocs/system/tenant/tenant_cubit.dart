@@ -22,25 +22,144 @@ class TenantCubit extends Cubit<TenantState> {
 
   String get companyDocId => _repo.companyDocId;
 
+  String? get selectedTenantId => state.selectedTenantId;
+
+  List<TenantData> get availableTenants => state.availableTenants;
+
   TenantData? get tenantProfile => state.tenantProfile;
 
   TenantData? get companyProfile => state.tenantProfile;
 
-  List<TenantItemData> getUnits() => state.units;
+  List<String> getUnits() => state.units;
 
-  List<TenantItemData> getRoads() => state.roads;
+  List<String> getRoads() => state.roads;
 
-  List<TenantItemData> getRegions() => state.regions;
+  List<String> getRegions() => state.regions;
 
-  List<TenantItemData> getFundingSources() => state.fundingSources;
+  List<String> getFundingSources() => state.fundingSources;
 
-  List<TenantItemData> getPrograms() => state.programs;
+  List<String> getPrograms() => state.programs;
 
-  List<TenantItemData> getExpenseNatures() => state.expenseNatures;
+  List<String> getExpenseNatures() => state.expenseNatures;
 
-  List<TenantItemData> getCompanyBodies() => state.companyBodies;
+  List<String> getCompanyBodies() => state.companyBodies;
 
-  List<TenantItemData> getPartners() => state.companyBodies;
+  List<String> getPartners() => state.companyBodies;
+
+  Future<void> loadAvailableTenants() async {
+    try {
+      emit(
+        state.copyWith(
+          isLoading: true,
+          clearError: true,
+        ),
+      );
+
+      final tenants = await _repo.loadAvailableTenants();
+
+      final currentSelectedId = state.selectedTenantId?.trim();
+
+      String? selectedId = currentSelectedId;
+
+      if ((selectedId == null || selectedId.isEmpty) && tenants.isNotEmpty) {
+        selectedId = tenants.first.id;
+      }
+
+      if (selectedId != null && selectedId.isNotEmpty) {
+        _repo.setActiveTenantId(selectedId);
+      }
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          hasLoadedAvailableTenants: true,
+          selectedTenantId: selectedId,
+          availableTenants: tenants,
+        ),
+      );
+
+      if (selectedId != null && selectedId.isNotEmpty) {
+        await selectTenant(selectedId);
+      }
+    } on FirebaseException catch (e) {
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          hasLoadedAvailableTenants: true,
+          error: 'Firebase (${e.code}): ${e.message}',
+        ),
+      );
+    } catch (e) {
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          hasLoadedAvailableTenants: true,
+          error: e.toString(),
+        ),
+      );
+    }
+  }
+
+  Future<void> ensureAvailableTenantsLoaded() async {
+    if (state.hasLoadedAvailableTenants) return;
+
+    await loadAvailableTenants();
+  }
+
+  Future<void> selectTenant(String tenantId) async {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) return;
+
+    _repo.setActiveTenantId(cleanTenantId);
+
+    emit(
+      state.copyWith(
+        selectedTenantId: cleanTenantId,
+        hasLoadedTenant: false,
+        hasLoadedTenantItems: false,
+        clearTenantProfile: true,
+        units: const <String>[],
+        roads: const <String>[],
+        regions: const <String>[],
+        fundingSources: const <String>[],
+        programs: const <String>[],
+        expenseNatures: const <String>[],
+        companyBodies: const <String>[],
+        clearError: true,
+      ),
+    );
+
+    await loadTenantProfile();
+    await loadTenantItems();
+  }
+
+  Future<void> selectTenantByLabel(String label) async {
+    final cleanLabel = label.trim().toLowerCase();
+
+    if (cleanLabel.isEmpty) return;
+
+    TenantData? selected;
+
+    for (final tenant in state.availableTenants) {
+      final tenantLabel = tenant.label.trim().toLowerCase();
+      final companyName = (tenant.companyName ?? '').trim().toLowerCase();
+      final fantasyName = (tenant.fantasyName ?? '').trim().toLowerCase();
+
+      if (tenantLabel == cleanLabel ||
+          companyName == cleanLabel ||
+          fantasyName == cleanLabel) {
+        selected = tenant;
+        break;
+      }
+    }
+
+    if (selected == null) return;
+
+    await selectTenant(selected.id);
+  }
 
   Future<void> loadTenantProfile() async {
     try {
@@ -60,11 +179,7 @@ class TenantCubit extends Cubit<TenantState> {
           tenantProfile: profile,
         ),
       );
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'loadTenantProfile FirebaseException: ${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
+    } on FirebaseException catch (e) {
 
       emit(
         state.copyWith(
@@ -73,9 +188,7 @@ class TenantCubit extends Cubit<TenantState> {
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e, s) {
-      debugPrint('loadTenantProfile error: $e');
-      debugPrintStack(stackTrace: s);
+    } catch (e) {
 
       emit(
         state.copyWith(
@@ -144,9 +257,7 @@ class TenantCubit extends Cubit<TenantState> {
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e, s) {
-      debugPrint('loadTenantItems error: $e');
-      debugPrintStack(stackTrace: s);
+    } catch (e) {
 
       emit(
         state.copyWith(
@@ -167,6 +278,13 @@ class TenantCubit extends Cubit<TenantState> {
     String? logoContentType,
     bool removeLogo = false,
     String? oldLogoPath,
+    List<String>? units,
+    List<String>? roads,
+    List<String>? regions,
+    List<String>? fundingSources,
+    List<String>? programs,
+    List<String>? expenseNatures,
+    List<String>? companyBodies,
   }) async {
     try {
       emit(
@@ -185,22 +303,40 @@ class TenantCubit extends Cubit<TenantState> {
         logoContentType: logoContentType,
         removeLogo: removeLogo,
         oldLogoPath: oldLogoPath,
+        units: units ?? state.units,
+        roads: roads ?? state.roads,
+        regions: regions ?? state.regions,
+        fundingSources: fundingSources ?? state.fundingSources,
+        programs: programs ?? state.programs,
+        expenseNatures: expenseNatures ?? state.expenseNatures,
+        companyBodies: companyBodies ?? state.companyBodies,
+      );
+
+      final availableTenants = _replaceOrAppendTenant(
+        state.availableTenants,
+        saved,
       );
 
       emit(
         state.copyWith(
           isLoading: false,
           hasLoadedTenant: true,
+          hasLoadedTenantItems: true,
           tenantProfile: saved,
+          selectedTenantId: saved.id,
+          availableTenants: availableTenants,
+          units: saved.units,
+          roads: saved.roads,
+          regions: saved.regions,
+          fundingSources: saved.fundingSources,
+          programs: saved.programs,
+          expenseNatures: saved.expenseNatures,
+          companyBodies: saved.companyBodies,
         ),
       );
 
       return saved;
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'saveTenantProfile FirebaseException: ${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
+    } on FirebaseException catch (e) {
 
       emit(
         state.copyWith(
@@ -210,9 +346,7 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return null;
-    } catch (e, s) {
-      debugPrint('saveTenantProfile error: $e');
-      debugPrintStack(stackTrace: s);
+    } catch (e) {
 
       emit(
         state.copyWith(
@@ -234,6 +368,13 @@ class TenantCubit extends Cubit<TenantState> {
     String? logoContentType,
     bool removeLogo = false,
     String? oldLogoPath,
+    List<String>? units,
+    List<String>? roads,
+    List<String>? regions,
+    List<String>? fundingSources,
+    List<String>? programs,
+    List<String>? expenseNatures,
+    List<String>? companyBodies,
   }) {
     return saveTenantProfile(
       label: label,
@@ -244,6 +385,13 @@ class TenantCubit extends Cubit<TenantState> {
       logoContentType: logoContentType,
       removeLogo: removeLogo,
       oldLogoPath: oldLogoPath,
+      units: units,
+      roads: roads,
+      regions: regions,
+      fundingSources: fundingSources,
+      programs: programs,
+      expenseNatures: expenseNatures,
+      companyBodies: companyBodies,
     );
   }
 
@@ -264,20 +412,22 @@ class TenantCubit extends Cubit<TenantState> {
         fantasyName: fantasyName,
       );
 
+      final availableTenants = _replaceOrAppendTenant(
+        state.availableTenants,
+        updated,
+      );
+
       emit(
         state.copyWith(
           isLoading: false,
           hasLoadedTenant: true,
           tenantProfile: updated,
+          availableTenants: availableTenants,
         ),
       );
 
       return updated;
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'updateTenantName FirebaseException: ${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
+    } on FirebaseException catch (e) {
 
       emit(
         state.copyWith(
@@ -287,9 +437,7 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return null;
-    } catch (e, s) {
-      debugPrint('updateTenantName error: $e');
-      debugPrintStack(stackTrace: s);
+    } catch (e) {
 
       emit(
         state.copyWith(
@@ -332,20 +480,22 @@ class TenantCubit extends Cubit<TenantState> {
         oldLogoPath: state.tenantProfile?.logoPath,
       );
 
+      final availableTenants = _replaceOrAppendTenant(
+        state.availableTenants,
+        updated,
+      );
+
       emit(
         state.copyWith(
           isLoading: false,
           hasLoadedTenant: true,
           tenantProfile: updated,
+          availableTenants: availableTenants,
         ),
       );
 
       return updated;
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'updateTenantLogo FirebaseException: ${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
+    } on FirebaseException catch (e) {
 
       emit(
         state.copyWith(
@@ -355,9 +505,7 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return null;
-    } catch (e, s) {
-      debugPrint('updateTenantLogo error: $e');
-      debugPrintStack(stackTrace: s);
+    } catch (e) {
 
       emit(
         state.copyWith(
@@ -400,11 +548,7 @@ class TenantCubit extends Cubit<TenantState> {
           clearTenantProfile: true,
         ),
       );
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'deleteTenantProfile FirebaseException: ${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
+    } on FirebaseException catch (e) {
 
       emit(
         state.copyWith(
@@ -412,9 +556,7 @@ class TenantCubit extends Cubit<TenantState> {
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e, s) {
-      debugPrint('deleteTenantProfile error: $e');
-      debugPrintStack(stackTrace: s);
+    } catch (e) {
 
       emit(
         state.copyWith(
@@ -447,22 +589,25 @@ class TenantCubit extends Cubit<TenantState> {
     return null;
   }
 
-  List<TenantItemData> _replaceOrAppend(
-      List<TenantItemData> list,
-      TenantItemData item,
+  List<TenantData> _replaceOrAppendTenant(
+      List<TenantData> list,
+      TenantData item,
       ) {
     final index = list.indexWhere((e) => e.id == item.id);
 
     if (index < 0) {
       final updated = [...list, item];
+
       updated.sort(
             (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
       );
+
       return updated;
     }
 
     final updated = [...list];
     updated[index] = item;
+
     updated.sort(
           (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
     );
@@ -470,20 +615,83 @@ class TenantCubit extends Cubit<TenantState> {
     return updated;
   }
 
-  List<TenantItemData> _removeById(
-      List<TenantItemData> list,
-      String id,
+  List<String> _replaceOrAppendString(
+      List<String> list,
+      String value,
       ) {
-    return list.where((e) => e.id != id).toList();
+    final clean = value.trim();
+
+    if (clean.isEmpty) return list;
+
+    final updated = [...list];
+
+    final index = updated.indexWhere(
+          (e) => e.trim().toLowerCase() == clean.toLowerCase(),
+    );
+
+    if (index < 0) {
+      updated.add(clean);
+    } else {
+      updated[index] = clean;
+    }
+
+    updated.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    return updated;
   }
 
-  Future<TenantItemData?> createUnit(String label) async {
+  List<String> _replaceStringItem(
+      List<String> list, {
+        required String oldValue,
+        required String newValue,
+      }) {
+    final oldClean = oldValue.trim();
+    final newClean = newValue.trim();
+
+    if (oldClean.isEmpty || newClean.isEmpty) return list;
+
+    final updated = [...list];
+
+    final index = updated.indexWhere(
+          (e) => e.trim().toLowerCase() == oldClean.toLowerCase(),
+    );
+
+    if (index < 0) {
+      updated.add(newClean);
+    } else {
+      updated[index] = newClean;
+    }
+
+    updated.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    return updated;
+  }
+
+  List<String> _removeStringItem(
+      List<String> list,
+      String value,
+      ) {
+    final clean = value.trim().toLowerCase();
+
+    if (clean.isEmpty) return list;
+
+    final updated = list
+        .where((e) => e.trim().toLowerCase() != clean)
+        .toSet()
+        .toList();
+
+    updated.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    return updated;
+  }
+
+  Future<String?> createUnit(String label) async {
     try {
       final created = await _repo.createUnit(label);
 
       emit(
         state.copyWith(
-          units: _replaceOrAppend(state.units, created),
+          units: _replaceOrAppendString(state.units, created),
           hasLoadedTenantItems: true,
           clearError: true,
         ),
@@ -496,13 +704,18 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> updateUnitName(String id, String label) async {
+  Future<String?> updateUnitName(String oldLabel, String newLabel) async {
     try {
-      final updated = await _repo.updateUnitName(id, label);
+      final updated = await _repo.updateUnitName(oldLabel, newLabel);
 
       emit(
         state.copyWith(
-          units: _replaceOrAppend(state.units, updated),
+          units: _replaceStringItem(
+            state.units,
+            oldValue: oldLabel,
+            newValue: updated,
+          ),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -514,13 +727,14 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<void> deleteUnit(String id) async {
+  Future<void> deleteUnit(String label) async {
     try {
-      await _repo.deleteUnit(id);
+      await _repo.deleteUnit(label);
 
       emit(
         state.copyWith(
-          units: _removeById(state.units, id),
+          units: _removeStringItem(state.units, label),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -529,13 +743,13 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> createRoad(String label) async {
+  Future<String?> createRoad(String label) async {
     try {
       final created = await _repo.createRoad(label);
 
       emit(
         state.copyWith(
-          roads: _replaceOrAppend(state.roads, created),
+          roads: _replaceOrAppendString(state.roads, created),
           hasLoadedTenantItems: true,
           clearError: true,
         ),
@@ -548,13 +762,18 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> updateRoadName(String id, String label) async {
+  Future<String?> updateRoadName(String oldLabel, String newLabel) async {
     try {
-      final updated = await _repo.updateRoadName(id, label);
+      final updated = await _repo.updateRoadName(oldLabel, newLabel);
 
       emit(
         state.copyWith(
-          roads: _replaceOrAppend(state.roads, updated),
+          roads: _replaceStringItem(
+            state.roads,
+            oldValue: oldLabel,
+            newValue: updated,
+          ),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -566,13 +785,14 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<void> deleteRoad(String id) async {
+  Future<void> deleteRoad(String label) async {
     try {
-      await _repo.deleteRoad(id);
+      await _repo.deleteRoad(label);
 
       emit(
         state.copyWith(
-          roads: _removeById(state.roads, id),
+          roads: _removeStringItem(state.roads, label),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -581,7 +801,7 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> createRegion(
+  Future<String?> createRegion(
       String label, {
         List<String> municipios = const <String>[],
       }) async {
@@ -593,7 +813,7 @@ class TenantCubit extends Cubit<TenantState> {
 
       emit(
         state.copyWith(
-          regions: _replaceOrAppend(state.regions, created),
+          regions: _replaceOrAppendString(state.regions, created),
           hasLoadedTenantItems: true,
           clearError: true,
         ),
@@ -606,13 +826,18 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> updateRegionName(String id, String label) async {
+  Future<String?> updateRegionName(String oldLabel, String newLabel) async {
     try {
-      final updated = await _repo.updateRegionName(id, label);
+      final updated = await _repo.updateRegionName(oldLabel, newLabel);
 
       emit(
         state.copyWith(
-          regions: _replaceOrAppend(state.regions, updated),
+          regions: _replaceStringItem(
+            state.regions,
+            oldValue: oldLabel,
+            newValue: updated,
+          ),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -624,21 +849,14 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> updateRegionMunicipios(
-      String id,
+  Future<String?> updateRegionMunicipios(
+      String label,
       List<String> municipios,
       ) async {
     try {
       final updated = await _repo.updateRegionMunicipios(
-        id,
+        label,
         municipios,
-      );
-
-      emit(
-        state.copyWith(
-          regions: _replaceOrAppend(state.regions, updated),
-          clearError: true,
-        ),
       );
 
       return updated;
@@ -648,13 +866,14 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<void> deleteRegion(String id) async {
+  Future<void> deleteRegion(String label) async {
     try {
-      await _repo.deleteRegion(id);
+      await _repo.deleteRegion(label);
 
       emit(
         state.copyWith(
-          regions: _removeById(state.regions, id),
+          regions: _removeStringItem(state.regions, label),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -663,13 +882,16 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> createFundingSource(String label) async {
+  Future<String?> createFundingSource(String label) async {
     try {
       final created = await _repo.createFundingSource(label);
 
       emit(
         state.copyWith(
-          fundingSources: _replaceOrAppend(state.fundingSources, created),
+          fundingSources: _replaceOrAppendString(
+            state.fundingSources,
+            created,
+          ),
           hasLoadedTenantItems: true,
           clearError: true,
         ),
@@ -682,16 +904,24 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> updateFundingSourceName(
-      String id,
-      String label,
+  Future<String?> updateFundingSourceName(
+      String oldLabel,
+      String newLabel,
       ) async {
     try {
-      final updated = await _repo.updateFundingSourceName(id, label);
+      final updated = await _repo.updateFundingSourceName(
+        oldLabel,
+        newLabel,
+      );
 
       emit(
         state.copyWith(
-          fundingSources: _replaceOrAppend(state.fundingSources, updated),
+          fundingSources: _replaceStringItem(
+            state.fundingSources,
+            oldValue: oldLabel,
+            newValue: updated,
+          ),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -703,13 +933,14 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<void> deleteFundingSource(String id) async {
+  Future<void> deleteFundingSource(String label) async {
     try {
-      await _repo.deleteFundingSource(id);
+      await _repo.deleteFundingSource(label);
 
       emit(
         state.copyWith(
-          fundingSources: _removeById(state.fundingSources, id),
+          fundingSources: _removeStringItem(state.fundingSources, label),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -718,13 +949,13 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> createProgram(String label) async {
+  Future<String?> createProgram(String label) async {
     try {
       final created = await _repo.createProgram(label);
 
       emit(
         state.copyWith(
-          programs: _replaceOrAppend(state.programs, created),
+          programs: _replaceOrAppendString(state.programs, created),
           hasLoadedTenantItems: true,
           clearError: true,
         ),
@@ -737,13 +968,21 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> updateProgramName(String id, String label) async {
+  Future<String?> updateProgramName(
+      String oldLabel,
+      String newLabel,
+      ) async {
     try {
-      final updated = await _repo.updateProgramName(id, label);
+      final updated = await _repo.updateProgramName(oldLabel, newLabel);
 
       emit(
         state.copyWith(
-          programs: _replaceOrAppend(state.programs, updated),
+          programs: _replaceStringItem(
+            state.programs,
+            oldValue: oldLabel,
+            newValue: updated,
+          ),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -755,13 +994,14 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<void> deleteProgram(String id) async {
+  Future<void> deleteProgram(String label) async {
     try {
-      await _repo.deleteProgram(id);
+      await _repo.deleteProgram(label);
 
       emit(
         state.copyWith(
-          programs: _removeById(state.programs, id),
+          programs: _removeStringItem(state.programs, label),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -770,13 +1010,16 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> createExpenseNature(String label) async {
+  Future<String?> createExpenseNature(String label) async {
     try {
       final created = await _repo.createExpenseNature(label);
 
       emit(
         state.copyWith(
-          expenseNatures: _replaceOrAppend(state.expenseNatures, created),
+          expenseNatures: _replaceOrAppendString(
+            state.expenseNatures,
+            created,
+          ),
           hasLoadedTenantItems: true,
           clearError: true,
         ),
@@ -789,16 +1032,24 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> updateExpenseNatureName(
-      String id,
-      String label,
+  Future<String?> updateExpenseNatureName(
+      String oldLabel,
+      String newLabel,
       ) async {
     try {
-      final updated = await _repo.updateExpenseNatureName(id, label);
+      final updated = await _repo.updateExpenseNatureName(
+        oldLabel,
+        newLabel,
+      );
 
       emit(
         state.copyWith(
-          expenseNatures: _replaceOrAppend(state.expenseNatures, updated),
+          expenseNatures: _replaceStringItem(
+            state.expenseNatures,
+            oldValue: oldLabel,
+            newValue: updated,
+          ),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -810,13 +1061,14 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<void> deleteExpenseNature(String id) async {
+  Future<void> deleteExpenseNature(String label) async {
     try {
-      await _repo.deleteExpenseNature(id);
+      await _repo.deleteExpenseNature(label);
 
       emit(
         state.copyWith(
-          expenseNatures: _removeById(state.expenseNatures, id),
+          expenseNatures: _removeStringItem(state.expenseNatures, label),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -825,7 +1077,7 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> createCompanyBody(
+  Future<String?> createCompanyBody(
       String label, {
         String? cnpj,
       }) async {
@@ -837,7 +1089,10 @@ class TenantCubit extends Cubit<TenantState> {
 
       emit(
         state.copyWith(
-          companyBodies: _replaceOrAppend(state.companyBodies, created),
+          companyBodies: _replaceOrAppendString(
+            state.companyBodies,
+            created,
+          ),
           hasLoadedTenantItems: true,
           clearError: true,
         ),
@@ -850,7 +1105,7 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> createPartner(
+  Future<String?> createPartner(
       String label, {
         String? cnpj,
       }) {
@@ -860,16 +1115,24 @@ class TenantCubit extends Cubit<TenantState> {
     );
   }
 
-  Future<TenantItemData?> updateCompanyBodyName(
-      String id,
-      String label,
+  Future<String?> updateCompanyBodyName(
+      String oldLabel,
+      String newLabel,
       ) async {
     try {
-      final updated = await _repo.updateCompanyBodyName(id, label);
+      final updated = await _repo.updateCompanyBodyName(
+        oldLabel,
+        newLabel,
+      );
 
       emit(
         state.copyWith(
-          companyBodies: _replaceOrAppend(state.companyBodies, updated),
+          companyBodies: _replaceStringItem(
+            state.companyBodies,
+            oldValue: oldLabel,
+            newValue: updated,
+          ),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -881,31 +1144,43 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> updatePartnerName(
-      String id,
-      String label,
+  Future<String?> updatePartnerName(
+      String oldLabel,
+      String newLabel,
       ) {
-    return updateCompanyBodyName(id, label);
+    return updateCompanyBodyName(
+      oldLabel,
+      newLabel,
+    );
   }
 
-  Future<TenantItemData?> updateCompanyBodyData(
-      String id, {
+  Future<String?> updateCompanyBodyData(
+      String oldLabel, {
         String? label,
         String? cnpj,
       }) async {
     try {
       final updated = await _repo.updateCompanyBodyData(
-        id,
+        oldLabel,
         label: label,
         cnpj: cnpj,
       );
 
-      emit(
-        state.copyWith(
-          companyBodies: _replaceOrAppend(state.companyBodies, updated),
-          clearError: true,
-        ),
-      );
+      final newLabel = label?.trim();
+
+      if (newLabel != null && newLabel.isNotEmpty) {
+        emit(
+          state.copyWith(
+            companyBodies: _replaceStringItem(
+              state.companyBodies,
+              oldValue: oldLabel,
+              newValue: updated,
+            ),
+            hasLoadedTenantItems: true,
+            clearError: true,
+          ),
+        );
+      }
 
       return updated;
     } catch (e, s) {
@@ -914,25 +1189,26 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<TenantItemData?> updatePartnerData(
-      String id, {
+  Future<String?> updatePartnerData(
+      String oldLabel, {
         String? label,
         String? cnpj,
       }) {
     return updateCompanyBodyData(
-      id,
+      oldLabel,
       label: label,
       cnpj: cnpj,
     );
   }
 
-  Future<void> deleteCompanyBody(String id) async {
+  Future<void> deleteCompanyBody(String label) async {
     try {
-      await _repo.deleteCompanyBody(id);
+      await _repo.deleteCompanyBody(label);
 
       emit(
         state.copyWith(
-          companyBodies: _removeById(state.companyBodies, id),
+          companyBodies: _removeStringItem(state.companyBodies, label),
+          hasLoadedTenantItems: true,
           clearError: true,
         ),
       );
@@ -941,8 +1217,8 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<void> deletePartner(String id) {
-    return deleteCompanyBody(id);
+  Future<void> deletePartner(String label) {
+    return deleteCompanyBody(label);
   }
 
   void _handleItemError(
@@ -951,8 +1227,6 @@ class TenantCubit extends Cubit<TenantState> {
       StackTrace s,
       ) {
     if (e is FirebaseException) {
-      debugPrint('$method FirebaseException: ${e.code} - ${e.message}');
-      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -962,9 +1236,6 @@ class TenantCubit extends Cubit<TenantState> {
 
       return;
     }
-
-    debugPrint('$method error: $e');
-    debugPrintStack(stackTrace: s);
 
     emit(
       state.copyWith(

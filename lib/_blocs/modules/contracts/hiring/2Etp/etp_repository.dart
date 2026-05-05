@@ -1,97 +1,125 @@
 // lib/_blocs/modules/contracts/hiring/2Etp/etp_repository.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
-import 'etp_sections.dart';
 import 'etp_data.dart';
+import 'etp_sections.dart';
 
 class EtpRepository {
-  final FirebaseFirestore _db;
   EtpRepository({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> _col(String contractId) =>
-      _db.collection('contracts').doc(contractId).collection('etp');
+  final FirebaseFirestore _db;
 
+  CollectionReference<Map<String, dynamic>> _col(String contractId) {
+    return _db.collection('contracts').doc(contractId).collection('etp');
+  }
 
-  /// ===========================================================================
-  /// ESTRUTURA FIXA OTIMIZADA (igual ao DFD)
-  ///
-  /// Agora assumimos que:
-  ///   - o doc raiz SEMPRE é "main"
-  ///   - cada seção tem SEMPRE um doc "main" na subcoleção
-  ///
-  /// Portanto:
-  ///   - NÃO fazemos nenhum acesso ao Firestore aqui
-  ///   - NÃO migramos nada
-  ///   - somente montamos os IDs fixos em memória
-  /// ===========================================================================
   Future<({String etpId, SectionIds sectionIds})> ensureStructure(
       String contractId,
       ) async {
-    final SectionIds sectionIds = {
-      for (final sec in EtpSections.all) sec: 'main',
+    final id = contractId.trim();
+
+    if (id.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    final sectionIds = <String, String>{
+      for (final section in EtpSections.all) section: 'main',
     };
+
     return (etpId: 'main', sectionIds: sectionIds);
   }
 
-  /// Carrega todas as seções em um mapa {secao: Map}
-  ///   - Usa Future.wait para ler todas as seções em paralelo
-  ///   - Remove createdAt/updatedAt antes de devolver (mesmo padrão do DFD)
   Future<SectionsMap> loadAllSections({
     required String contractId,
     required String etpId,
     required SectionIds sectionIds,
   }) async {
-    final SectionsMap out = {};
-    final etpRef = _col(contractId).doc(etpId);
+    final cleanContractId = contractId.trim();
+    final cleanEtpId = etpId.trim();
 
-    final futures = sectionIds.entries.map((entry) async {
-      final secName = entry.key;
-      final secId = entry.value;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
 
-      final snap = await etpRef.collection(secName).doc(secId).get();
-      final data =
-      Map<String, dynamic>.from(snap.data() ?? <String, dynamic>{});
+    if (cleanEtpId.isEmpty) {
+      throw Exception('etpId não informado.');
+    }
 
-      data.remove('createdAt');
-      data.remove('updatedAt');
+    final etpRef = _col(cleanContractId).doc(cleanEtpId);
 
-      out[secName] = data;
-    }).toList();
+    final entries = await Future.wait(
+      sectionIds.entries.map((entry) async {
+        final sectionName = entry.key;
+        final sectionDocId = entry.value;
 
-    await Future.wait(futures);
-    return out;
+        final snap = await etpRef.collection(sectionName).doc(sectionDocId).get();
+
+        final data = Map<String, dynamic>.from(
+          snap.data() ?? const <String, dynamic>{},
+        );
+
+        data.remove('createdAt');
+        data.remove('updatedAt');
+        data.remove('createdBy');
+        data.remove('updatedBy');
+
+        return MapEntry<String, Map<String, dynamic>>(sectionName, data);
+      }),
+    );
+
+    return <String, Map<String, dynamic>>{
+      for (final entry in entries) entry.key: entry.value,
+    };
   }
 
-  /// Salva todas as seções em lote (batch), com updatedAt (padrão DFD)
   Future<void> saveSectionsBatch({
     required String contractId,
     required String etpId,
     required SectionIds sectionIds,
     required SectionsMap sectionsData,
   }) async {
-    final etpRef = _col(contractId).doc(etpId);
-    final wb = _db.batch();
+    final cleanContractId = contractId.trim();
+    final cleanEtpId = etpId.trim();
 
-    sectionsData.forEach((sec, data) {
-      final id = sectionIds[sec];
-      if (id == null) return;
-      final ref = etpRef.collection(sec).doc(id);
-      wb.set(
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanEtpId.isEmpty) {
+      throw Exception('etpId não informado.');
+    }
+
+    if (sectionsData.isEmpty) return;
+
+    final etpRef = _col(cleanContractId).doc(cleanEtpId);
+    final batch = _db.batch();
+
+    for (final entry in sectionsData.entries) {
+      final sectionKey = entry.key;
+      final sectionData = entry.value;
+      final sectionDocId = sectionIds[sectionKey];
+
+      if (sectionDocId == null || sectionDocId.trim().isEmpty) continue;
+
+      final ref = etpRef.collection(sectionKey).doc(sectionDocId);
+
+      batch.set(
         ref,
-        {
-          ...data,
+        <String, dynamic>{
+          ...sectionData,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
-    });
+    }
 
-    await wb.commit();
+    await batch.commit();
   }
 
-  /// Salva uma única seção (com updatedAt)
   Future<void> saveSection({
     required String contractId,
     required String etpId,
@@ -99,10 +127,34 @@ class EtpRepository {
     required String sectionDocId,
     required Map<String, dynamic> data,
   }) async {
-    final ref =
-    _col(contractId).doc(etpId).collection(sectionKey).doc(sectionDocId);
+    final cleanContractId = contractId.trim();
+    final cleanEtpId = etpId.trim();
+    final cleanSectionKey = sectionKey.trim();
+    final cleanSectionDocId = sectionDocId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanEtpId.isEmpty) {
+      throw Exception('etpId não informado.');
+    }
+
+    if (cleanSectionKey.isEmpty) {
+      throw Exception('sectionKey não informado.');
+    }
+
+    if (cleanSectionDocId.isEmpty) {
+      throw Exception('sectionDocId não informado.');
+    }
+
+    final ref = _col(cleanContractId)
+        .doc(cleanEtpId)
+        .collection(cleanSectionKey)
+        .doc(cleanSectionDocId);
+
     await ref.set(
-      {
+      <String, dynamic>{
         ...data,
         'updatedAt': FieldValue.serverTimestamp(),
       },
@@ -110,21 +162,21 @@ class EtpRepository {
     );
   }
 
-  /// Leitura direta de um EtpData completo para o contrato (útil pra dashboards, etc.)
-  ///
-  ///   - assume sempre etpId = "main" e sectionId = "main"
-  ///   - lê todas as seções em paralelo
-  ///   - se TODAS as seções vierem vazias, retorna null
   Future<EtpData?> readDataForContract(String contractId) async {
-    final ids = await ensureStructure(contractId);
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return null;
+
+    final ids = await ensureStructure(cleanContractId);
 
     final sections = await loadAllSections(
-      contractId: contractId,
+      contractId: cleanContractId,
       etpId: ids.etpId,
       sectionIds: ids.sectionIds,
     );
 
-    final hasAnyData = sections.values.any((m) => m.isNotEmpty);
+    final hasAnyData = sections.values.any((map) => map.isNotEmpty);
+
     if (!hasAnyData) return null;
 
     return EtpData.fromSectionsMap(sections);

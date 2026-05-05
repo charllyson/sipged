@@ -10,8 +10,6 @@ import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_repository.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
 
-import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
-
 import 'package:sipged/_utils/geometry/sipged_tile_math.dart';
 
 class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
@@ -566,17 +564,9 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     return 'Trecho: $initialSegment / $finalSegment, $extension km de extensão';
   }
 
-  void syncRegionsFromTenantItems(List<TenantItemData> tenantRegions) {
+  void syncRegionsFromTenantItems(List<String> tenantRegions) {
     final labels = tenantRegions
-        .map((region) {
-      final regionName = region.extra['regionName']?.toString().trim();
-
-      if (regionName != null && regionName.isNotEmpty) {
-        return regionName;
-      }
-
-      return region.label.trim();
-    })
+        .map((region) => region.trim())
         .where((label) => label.isNotEmpty)
         .toSet()
         .toList()
@@ -589,8 +579,7 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     );
   }
 
-  /// Alias temporário para telas antigas que ainda chamarem `syncRegionsFromSetup`.
-  void syncRegionsFromSetup(List<TenantItemData> tenantRegions) {
+  void syncRegionsFromSetup(List<String> tenantRegions) {
     syncRegionsFromTenantItems(tenantRegions);
   }
 

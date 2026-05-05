@@ -135,6 +135,39 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
     );
   }
 
+  Widget? _mergeSubtitleWithHint({
+    required String? subtitle,
+    required bool hasDetailsAction,
+  }) {
+    final cleanSubtitle = subtitle?.trim() ?? '';
+
+    if (!hasDetailsAction && cleanSubtitle.isEmpty) {
+      return null;
+    }
+
+    const hint = 'Toque para visualizar os detalhes da rodovia.';
+
+    final text = cleanSubtitle.isEmpty
+        ? hint
+        : hasDetailsAction
+        ? '$cleanSubtitle • $hint'
+        : cleanSubtitle;
+
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _titleText(String value) {
+    return Text(
+      value,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
   void _showRoadBalloon({
     required OverlayState overlayState,
     required ActiveRoadsData road,
@@ -162,6 +195,11 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
           return const SizedBox.shrink();
         }
 
+        final title = currentCubit.tooltipTitle(currentRoad).trim();
+        final subtitle = currentCubit.tooltipSubtitle(currentRoad).trim();
+
+        final safeTitle = title.isEmpty ? 'Rodovia' : title;
+
         return Stack(
           children: [
             Positioned.fill(
@@ -180,15 +218,18 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
               topGap: 0,
               screenMargin: 12,
               tipSide: BalloonTipSide.bottom,
-              title: currentCubit.tooltipTitle(currentRoad),
+              title: safeTitle,
               showAction: true,
               onAction: () => _showRoadDetails(currentRoad),
               emptyMessage: 'Nenhuma informação encontrada.',
               items: [
                 BalloonTileData(
                   id: currentRoad.id ?? currentRoad.roadCode ?? 'road',
-                  subtitle: currentCubit.tooltipSubtitle(currentRoad),
-                  details: 'Toque para visualizar os detalhes da rodovia.',
+                  title: _titleText(safeTitle),
+                  subtitle: _mergeSubtitleWithHint(
+                    subtitle: subtitle,
+                    hasDetailsAction: true,
+                  ),
                   icon: Icons.alt_route_rounded,
                   accentColor: Colors.blue.shade800,
                   onTap: () => _showRoadDetails(currentRoad),

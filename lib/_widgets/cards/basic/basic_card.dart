@@ -45,19 +45,23 @@ class BasicCard extends StatelessWidget {
   final Widget child;
   final bool isDark;
   final VoidCallback? onTap;
+
   final double borderRadius;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry margin;
   final AlignmentGeometry? alignment;
   final double? width;
   final double? height;
+
   final Color? backgroundColor;
   final Gradient? gradient;
   final Color? borderColor;
   final List<BoxShadow>? boxShadow;
+
   final bool enableShadow;
   final Duration animationDuration;
   final Clip clipBehavior;
+
   final bool useGlassEffect;
   final double blurSigmaX;
   final double blurSigmaY;
@@ -84,9 +88,12 @@ class BasicCard extends StatelessWidget {
                 : Colors.white.withValues(alpha: 0.18))
                 : (isDark ? const Color(0xFF1E1E1E) : Colors.white));
 
+    final shouldUseAutoGlassGradient =
+        useGlassEffect && backgroundColor == null && gradient == null;
+
     final resolvedGradient =
         gradient ??
-            (useGlassEffect
+            (shouldUseAutoGlassGradient
                 ? LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -138,25 +145,19 @@ class BasicCard extends StatelessWidget {
       child: child,
     );
 
-    if (useGlassEffect) {
-      content = ClipRRect(
-        borderRadius: radius,
-        clipBehavior: clipBehavior,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: blurSigmaX,
-            sigmaY: blurSigmaY,
-          ),
-          child: content,
+    content = ClipRRect(
+      borderRadius: radius,
+      clipBehavior: clipBehavior,
+      child: useGlassEffect
+          ? BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: blurSigmaX,
+          sigmaY: blurSigmaY,
         ),
-      );
-    } else {
-      content = ClipRRect(
-        borderRadius: radius,
-        clipBehavior: clipBehavior,
         child: content,
-      );
-    }
+      )
+          : content,
+    );
 
     if (onTap == null) return content;
 

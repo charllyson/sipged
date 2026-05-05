@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
 import 'package:sipged/_blocs/system/notification/helpers/notification_budget.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
@@ -31,21 +33,19 @@ class BudgetPage extends StatefulWidget {
 }
 
 class _BudgetPageState extends State<BudgetPage> {
+  final DfdRepository _dfdRepository = DfdRepository();
+
   bool _saving = false;
+  DfdData? _dfdData;
 
   String get _contractId => widget.contractData.id?.trim() ?? '';
 
   String get _contractSummary {
-    final data = widget.contractData;
+    final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
 
-    final summary = (data.summarySubjectContract ?? '').trim();
-    if (summary.isNotEmpty) return summary;
-
-    final number = (data.contractNumber ?? '').trim();
-    if (number.isNotEmpty) return 'Contrato $number';
-
-    final process = (data.processNumber ?? '').trim();
-    if (process.isNotEmpty) return 'Processo $process';
+    if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
+      return descricaoObjeto;
+    }
 
     if (_contractId.isNotEmpty) return 'Contrato $_contractId';
 
@@ -53,15 +53,37 @@ class _BudgetPageState extends State<BudgetPage> {
   }
 
   String get _contractNumber {
-    final data = widget.contractData;
+    final processoAdministrativo = _dfdData?.processoAdministrativo?.trim();
 
-    final number = (data.contractNumber ?? '').trim();
-    if (number.isNotEmpty) return number;
-
-    final process = (data.processNumber ?? '').trim();
-    if (process.isNotEmpty) return process;
+    if (processoAdministrativo != null && processoAdministrativo.isNotEmpty) {
+      return processoAdministrativo;
+    }
 
     return _contractId;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDfdDisplayData();
+  }
+
+  Future<void> _loadDfdDisplayData() async {
+    final contractId = _contractId;
+
+    if (contractId.isEmpty) return;
+
+    try {
+      final dfd = await _dfdRepository.readDataForContract(contractId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = dfd;
+      });
+    } catch (_) {
+      if (!mounted) return;
+    }
   }
 
   String _resolveActorName(String? uid) {
@@ -75,14 +97,17 @@ class _BudgetPageState extends State<BudgetPage> {
         final fullName = (meta['fullName'] ??
             meta['displayName'] ??
             meta['nameComplete'] ??
+            meta['nomeCompleto'] ??
+            meta['nome'] ??
             '')
             .toString()
             .trim();
 
         if (fullName.isNotEmpty) return fullName;
 
-        final name = (meta['name'] ?? '').toString().trim();
-        final surname = (meta['surname'] ?? '').toString().trim();
+        final name = (meta['name'] ?? meta['nome'] ?? '').toString().trim();
+        final surname =
+        (meta['surname'] ?? meta['sobrenome'] ?? '').toString().trim();
 
         final composed = <String>[
           name,
@@ -151,8 +176,11 @@ class _BudgetPageState extends State<BudgetPage> {
         'route': 'contracts_budget',
         'contractId': _contractId,
         'contractNumber': _contractNumber,
+        'processNumber': _contractNumber,
+        'processoAdministrativo': _dfdData?.processoAdministrativo,
         'contractSummary': _contractSummary,
         'contractTitle': _contractSummary,
+        'descricaoObjeto': _dfdData?.descricaoObjeto,
         'actorId': currentUserId,
         'actorName': actorName,
         'sendPush': sendPush,

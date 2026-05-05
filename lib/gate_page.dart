@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,11 +14,14 @@ import 'package:sipged/_blocs/system/notification/notification_push.dart';
 import 'package:sipged/_blocs/system/notification/preferences/notification_preferences_cubit.dart';
 import 'package:sipged/_blocs/system/notification/remote/notification_remote_cubit.dart';
 
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
 import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
 
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
@@ -44,43 +46,69 @@ class _GatePageState extends State<GatePage> {
   Future<UserData?>? _userLoadFuture;
 
   String? _loadedUserUid;
+  String? _loadedStartupUid;
+
   String? _pushInitializedUserId;
   String? _notificationPreferencesInitializedUserId;
 
-  Future<void> _loadStartupDataOnce() {
-    _startupLoadFuture ??= _loadStartupData().timeout(
-      const Duration(seconds: 20),
-      onTimeout: () {
-        debugPrint('[GatePage] Timeout ao carregar dados iniciais.');
+  Future<void> _loadStartupDataOnce({
+    required String uid,
+    required UserData userData,
+  }) {
+    if (_loadedStartupUid != uid || _startupLoadFuture == null) {
+      _loadedStartupUid = uid;
 
-        throw TimeoutException(
-          'Tempo limite excedido ao carregar os dados iniciais.',
-          const Duration(seconds: 20),
-        );
-      },
-    );
+      _startupLoadFuture = _loadStartupData(
+        uid: uid,
+        userData: userData,
+      ).timeout(
+        const Duration(seconds: 25),
+        onTimeout: () {
+          debugPrint('[GatePage] Timeout ao carregar dados iniciais.');
+
+          throw TimeoutException(
+            'Tempo limite excedido ao carregar os dados iniciais.',
+            const Duration(seconds: 25),
+          );
+        },
+      );
+    }
 
     return _startupLoadFuture!;
   }
 
-  Future<void> _loadStartupData() async {
+  Future<void> _loadStartupData({
+    required String uid,
+    required UserData userData,
+  }) async {
+    final userCubit = context.read<UserCubit>();
+    final permissionCubit = context.read<PermissionCubit>();
     final tenantCubit = context.read<TenantCubit>();
     final setupCubit = context.read<SetupCubit>();
 
-    await Future.wait<void>([
-      tenantCubit.loadTenantProfile(),
-      setupCubit.loadSystemSetup(),
-    ]);
+    userCubit.setCurrentUser(userData);
+
+    await permissionCubit.loadByUid(uid);
+
+    await tenantCubit.loadAvailableTenants();
 
     final tenantError = tenantCubit.state.error;
-    final setupError = setupCubit.state.error;
 
     if (tenantError != null && tenantError.trim().isNotEmpty) {
       throw StateError(tenantError);
     }
 
-    if (setupError != null && setupError.trim().isNotEmpty) {
-      throw StateError(setupError);
+    final hasTenant = tenantCubit.state.selectedTenantId != null &&
+        tenantCubit.state.selectedTenantId!.trim().isNotEmpty;
+
+    if (hasTenant) {
+      await setupCubit.loadSystemSetup();
+
+      final setupError = setupCubit.state.error;
+
+      if (setupError != null && setupError.trim().isNotEmpty) {
+        throw StateError(setupError);
+      }
     }
   }
 
@@ -95,7 +123,6 @@ class _GatePageState extends State<GatePage> {
         const Duration(seconds: 20),
         onTimeout: () {
           debugPrint('[GatePage] Timeout ao carregar usuário uid=$uid.');
-
           return null;
         },
       );
@@ -106,8 +133,11 @@ class _GatePageState extends State<GatePage> {
 
   void _resetCachedUser() {
     _loadedUserUid = null;
+    _loadedStartupUid = null;
+
     _userLoadFuture = null;
     _startupLoadFuture = null;
+
     _pushInitializedUserId = null;
     _notificationPreferencesInitializedUserId = null;
 
@@ -164,7 +194,6 @@ class _GatePageState extends State<GatePage> {
         userId: cleanUid,
         localCubit: localCubit,
         remoteCubit: remoteCubit,
-        onMessageOpened: _handlePushOpened,
       );
     } catch (e, s) {
       _pushInitializedUserId = null;
@@ -172,23 +201,6 @@ class _GatePageState extends State<GatePage> {
       debugPrint('[GatePage] Erro ao inicializar push: $e');
       debugPrintStack(stackTrace: s);
     }
-  }
-
-  void _handlePushOpened(RemoteMessage message) {
-    final data = message.data;
-
-    final route = data['route']?.toString();
-    final module = data['module']?.toString();
-    final contractId = data['contractId']?.toString();
-    final processId = data['processId']?.toString();
-    final notificationId = data['notificationId']?.toString();
-
-    debugPrint('[GatePage] Push aberta.');
-    debugPrint('[GatePage] route=$route');
-    debugPrint('[GatePage] module=$module');
-    debugPrint('[GatePage] contractId=$contractId');
-    debugPrint('[GatePage] processId=$processId');
-    debugPrint('[GatePage] notificationId=$notificationId');
   }
 
   @override
@@ -282,7 +294,10 @@ class _GatePageState extends State<GatePage> {
               unawaited(_initializePushForUser(uid));
 
               return FutureBuilder<void>(
-                future: _loadStartupDataOnce(),
+                future: _loadStartupDataOnce(
+                  uid: uid,
+                  userData: userData,
+                ),
                 builder: (context, startupSnapshot) {
                   if (startupSnapshot.connectionState ==
                       ConnectionState.waiting) {
@@ -305,6 +320,7 @@ class _GatePageState extends State<GatePage> {
                       'Verifique sua conexão e tente recarregar o sistema.',
                       onRetry: () {
                         setState(() {
+                          _loadedStartupUid = null;
                           _startupLoadFuture = null;
                         });
                       },

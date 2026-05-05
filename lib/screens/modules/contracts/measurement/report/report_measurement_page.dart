@@ -4,8 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_state.dart';
@@ -13,6 +15,10 @@ import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measur
 import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
@@ -49,8 +55,28 @@ class ReportMeasurement extends StatelessWidget {
     }
 
     return BlocProvider(
-      create: (_) => ReportMeasurementCubit()..loadByContract(contractId),
-      child: _ReportMeasurementView(contractData: contractData),
+      create: (context) {
+        final permissionState = context.read<PermissionCubit>().state;
+
+        return ReportMeasurementCubit(
+          initialPermissions: permissionState.current,
+          initialTenantId: permissionState.activeTenantId,
+          moduleId: 'operation_measurements',
+        )..loadByContract(contractId);
+      },
+      child: BlocListener<PermissionCubit, PermissionState>(
+        listenWhen: (previous, current) {
+          return previous.current != current.current ||
+              previous.activeTenantId != current.activeTenantId;
+        },
+        listener: (context, permissionState) {
+          context.read<ReportMeasurementCubit>().updatePermissions(
+            permissions: permissionState.current,
+            tenantId: permissionState.activeTenantId,
+          );
+        },
+        child: _ReportMeasurementView(contractData: contractData),
+      ),
     );
   }
 }
@@ -67,6 +93,10 @@ class _ReportMeasurementView extends StatefulWidget {
 }
 
 class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
+  final DfdRepository _dfdRepository = DfdRepository();
+
+  DfdData? _dfdData;
+
   double _valorDemanda = 0.0;
   double _totalAditivos = 0.0;
 
@@ -88,16 +118,11 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
   String get _contractId => widget.contractData.id?.trim() ?? '';
 
   String get _contractSummary {
-    final data = widget.contractData;
+    final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
 
-    final summary = data.summarySubjectContract?.trim() ?? '';
-    if (summary.isNotEmpty) return summary;
-
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return 'Contrato $number';
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return 'Processo $process';
+    if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
+      return descricaoObjeto;
+    }
 
     if (_contractId.isNotEmpty) return 'Contrato $_contractId';
 
@@ -105,13 +130,11 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
   }
 
   String get _contractNumber {
-    final data = widget.contractData;
+    final processoAdministrativo = _dfdData?.processoAdministrativo?.trim();
 
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return number;
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return process;
+    if (processoAdministrativo != null && processoAdministrativo.isNotEmpty) {
+      return processoAdministrativo;
+    }
 
     return _contractId;
   }
@@ -120,7 +143,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
   void initState() {
     super.initState();
 
-    _loadAggregates();
+    _loadDfdAndAggregates();
 
     orderCtrl.addListener(_validateForm);
     processCtrl.addListener(_validateForm);
@@ -147,6 +170,47 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       ..dispose();
 
     super.dispose();
+  }
+
+  Future<void> _loadDfdAndAggregates() async {
+    final cid = _contractId;
+
+    if (cid.isEmpty) return;
+
+    DfdData? dfd;
+    double valorDemanda = 0.0;
+    double totalAditivos = 0.0;
+
+    try {
+      dfd = await _dfdRepository.readDataForContract(cid);
+      valorDemanda = dfd?.valorDemanda ?? 0.0;
+    } catch (e, stack) {
+      debugPrint('Falha ao carregar DFD do contrato em medições: $e');
+      debugPrintStack(stackTrace: stack);
+      valorDemanda = 0.0;
+    }
+
+    try {
+      final additivesRepo = AdditivesRepository();
+      final list = await additivesRepo.ensureForContract(cid);
+
+      totalAditivos = list.fold<double>(
+        0.0,
+            (prev, item) => prev + (item.additiveValue ?? 0.0),
+      );
+    } catch (e, stack) {
+      debugPrint('Falha ao carregar aditivos do contrato em medições: $e');
+      debugPrintStack(stackTrace: stack);
+      totalAditivos = 0.0;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _dfdData = dfd;
+      _valorDemanda = valorDemanda;
+      _totalAditivos = totalAditivos;
+    });
   }
 
   String _resolveActorName(String? uid) {
@@ -188,6 +252,42 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
+  }
+
+  String _resolveActorPhotoUrl(String? uid) {
+    final cleanUid = uid?.trim();
+
+    if (cleanUid != null && cleanUid.isNotEmpty) {
+      final users = context.read<UserCubit>().state.all;
+
+      for (final item in users) {
+        if ((item.uid ?? '').trim() == cleanUid) {
+          final photo = item.urlPhoto?.trim() ?? '';
+          if (photo.isNotEmpty) return photo;
+        }
+      }
+
+      final meta = widget.contractData.participantsInfo[cleanUid];
+
+      if (meta != null) {
+        final photo = (meta['urlPhoto'] ??
+            meta['photoUrl'] ??
+            meta['photoURL'] ??
+            meta['profilePhotoUrl'] ??
+            '')
+            .toString()
+            .trim();
+
+        if (photo.isNotEmpty) return photo;
+      }
+    }
+
+    final firebasePhoto =
+        FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '';
+
+    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+
+    return '';
   }
 
   DateTime? _parseDateTimeFromExtra(dynamic value) {
@@ -247,7 +347,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
     /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -255,22 +354,27 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
   }) async {
     if (!mounted) return;
 
-    const route = 'contracts_measurement';
-    const notificationSource = 'contracts_measurement';
+    const route = 'operation_measurements';
+    const notificationSource = 'measurements';
 
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
+    final actorPhotoUrl = _resolveActorPhotoUrl(currentUserId);
+
+    final delivery = saveInBell || sendPush
+        ? NotificationDelivery.localBellAndPush
+        : NotificationDelivery.localOnly;
 
     await NotificationMeasurements.show(
       context: context,
       contract: widget.contractData,
       title: title,
-      subtitle: subtitle,
-      details: details ?? _contractSummary,
+      subtitle: subtitle ?? _contractSummary,
+      details: details,
       leadingLabel: 'Medição',
       module: route,
       notificationSource: notificationSource,
-      source: 'report_measurement_notification',
+      source: 'measurement_notification',
       kind: NotificationMeasurementKind.bulletin,
       status: type ?? status,
       duration: duration,
@@ -279,69 +383,70 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       actorId: currentUserId,
       actorName: actorName,
       includeCurrentUser: true,
-      delivery: NotificationDelivery.localBellAndPush,
+      delivery: delivery,
       measurementId:
       extra['measurementId']?.toString() ?? _selectedMeasurement?.id,
       measurementNumber: extra['measurementProcess']?.toString() ??
           _selectedMeasurement?.numberprocess,
       measurementOrder: extra['measurementOrder']?.toString() ??
           _selectedMeasurement?.order?.toString(),
-      measurementDate:
-      _parseDateTimeFromExtra(extra['measurementDate']) ??
+      measurementDate: _parseDateTimeFromExtra(extra['measurementDate']) ??
           _selectedMeasurement?.date,
-      measurementValue:
-      _parseNumFromExtra(extra['measurementValue']) ??
+      measurementValue: _parseNumFromExtra(extra['measurementValue']) ??
           _selectedMeasurement?.value,
       extra: <String, dynamic>{
         'route': route,
         'module': route,
-        'source': 'report_measurement_notification',
+        'source': 'measurement_notification',
         'sourceKey': notificationSource,
         'subSource': notificationSource,
         'notificationSource': notificationSource,
+        'actorId': currentUserId,
+        'actorName': actorName,
+        if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
         'contractId': _contractId,
         'contractNumber': _contractNumber,
+        'processNumber': _contractNumber,
+        'processoAdministrativo': _dfdData?.processoAdministrativo,
         'contractTitle': _contractSummary,
         'contractSummary': _contractSummary,
+        'descricaoObjeto': _dfdData?.descricaoObjeto,
+        'nomeDemanda': _contractSummary,
         'measurementKind': NotificationMeasurementKind.bulletin.name,
         ...extra,
       },
     );
   }
 
-  Future<void> _loadAggregates() async {
-    final cid = _contractId;
-
-    if (cid.isEmpty) return;
-
-    DfdCubit? dfdCubit;
-
+  Future<void> _safeNotify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationStatus status = NotificationStatus.info,
+    NotificationStatus? type,
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    bool sendPush = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
     try {
-      dfdCubit = DfdCubit();
-      final DfdData? dfd = await dfdCubit.getDataForContract(cid);
-      _valorDemanda = dfd?.valorDemanda ?? 0.0;
-    } catch (_) {
-      _valorDemanda = 0.0;
-    } finally {
-      try {
-        await dfdCubit?.close();
-      } catch (_) {}
-    }
-
-    try {
-      final additivesRepo = AdditivesRepository();
-      final list = await additivesRepo.ensureForContract(cid);
-
-      _totalAditivos = list.fold<double>(
-        0.0,
-            (prev, item) => prev + (item.additiveValue ?? 0.0),
+      await _notify(
+        title: title,
+        subtitle: subtitle,
+        details: details,
+        status: status,
+        type: type,
+        duration: duration,
+        saveInBell: saveInBell,
+        sendPush: sendPush,
+        extra: extra,
       );
-    } catch (_) {
-      _totalAditivos = 0.0;
-    }
-
-    if (mounted) {
-      setState(() {});
+    } catch (e, stack) {
+      debugPrint('Falha ao enviar notificação de medição: $e');
+      debugPrintStack(stackTrace: stack);
     }
   }
 
@@ -509,9 +614,14 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         _sideItems.isEmpty ? null : List<Attachment>.from(_sideItems);
       });
 
-      await _notify(
-        title: 'Arquivo removido',
-        subtitle: attachment.label,
+      final actorName = _resolveActorName(
+        FirebaseAuth.instance.currentUser?.uid,
+      );
+
+      await _safeNotify(
+        title: 'Arquivo removido da medição',
+        subtitle: _contractSummary,
+        details: '${attachment.label} removido por $actorName.',
         status: NotificationStatus.warning,
         saveInBell: true,
         sendPush: true,
@@ -520,12 +630,14 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
           'measurementId': measurement.id,
           'measurementOrder': measurement.order,
           'attachmentLabel': attachment.label,
+          'attachmentUrl': attachment.url,
         },
       );
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Erro ao remover arquivo',
-        subtitle: '$e',
+        subtitle: _contractSummary,
+        details: '$e',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -560,6 +672,23 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       builder: (context, state) {
         final cubit = context.read<ReportMeasurementCubit>();
         final navigator = Navigator.of(context);
+
+        if (state.status == ReportMeasurementStatus.loading &&
+            state.measurements.isEmpty) {
+          return const Center(
+            child: LoadingTreeDots(size: 110),
+          );
+        }
+
+        if (state.status == ReportMeasurementStatus.failure) {
+          return Center(
+            child: Text(
+              state.error ?? 'Erro ao carregar medições.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+          );
+        }
 
         final measurements = state.measurements;
         final uploading = state.uploading;
@@ -661,9 +790,10 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                               if (measurement == null ||
                                   measurement.id == null ||
                                   measurement.id!.isEmpty) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Salve a medição primeiro',
-                                  subtitle:
+                                  subtitle: _contractSummary,
+                                  details:
                                   'Depois você poderá anexar arquivos.',
                                   status: NotificationStatus.info,
                                 );
@@ -686,9 +816,15 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   List<Attachment>.from(_sideItems);
                                 });
 
-                                await _notify(
-                                  title: 'Arquivo anexado',
-                                  subtitle: attachment.label,
+                                final actorName = _resolveActorName(
+                                  FirebaseAuth.instance.currentUser?.uid,
+                                );
+
+                                await _safeNotify(
+                                  title: 'Arquivo anexado à medição',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  '${attachment.label} anexado por $actorName.',
                                   status: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
@@ -697,12 +833,14 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                     'measurementId': measurement.id,
                                     'measurementOrder': measurement.order,
                                     'attachmentLabel': attachment.label,
+                                    'attachmentUrl': attachment.url,
                                   },
                                 );
                               } catch (e) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Falha ao anexar arquivo',
-                                  subtitle: '$e',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
                                   status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
@@ -719,9 +857,21 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                               final date = _parseDate(dateCtrl.text);
 
                               if (date == null) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Data da medição inválida',
-                                  subtitle: 'Use o formato dd/MM/aaaa.',
+                                  subtitle: _contractSummary,
+                                  details: 'Use o formato dd/MM/aaaa.',
+                                  status: NotificationStatus.error,
+                                );
+                                return;
+                              }
+
+                              if (contractId.isEmpty) {
+                                await _safeNotify(
+                                  title: 'Contrato inválido',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  'Não foi possível identificar o contrato.',
                                   status: NotificationStatus.error,
                                 );
                                 return;
@@ -752,12 +902,14 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   FirebaseAuth.instance.currentUser?.uid,
                                 );
 
-                                await _notify(
+                                await _safeNotify(
                                   title: isNew
                                       ? 'Medição criada'
                                       : 'Medição atualizada',
-                                  subtitle:
-                                  'Boletim ${data.order ?? '-'} salvo por $actorName.',
+                                  subtitle: _contractSummary,
+                                  details: isNew
+                                      ? 'Boletim ${data.order ?? '-'} criado por $actorName.'
+                                      : 'Boletim ${data.order ?? '-'} atualizado por $actorName.',
                                   status: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
@@ -774,9 +926,10 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   },
                                 );
                               } catch (e) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Erro ao salvar medição',
-                                  subtitle: '$e',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
                                   status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
@@ -793,9 +946,10 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                               if (measurement == null ||
                                   measurement.id == null ||
                                   measurement.id!.isEmpty) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Selecione uma medição',
-                                  subtitle:
+                                  subtitle: _contractSummary,
+                                  details:
                                   'Selecione ou salve uma medição para abrir o boletim.',
                                   status: NotificationStatus.info,
                                 );
@@ -841,9 +995,15 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   newItem: newItem,
                                 );
 
-                                await _notify(
-                                  title: 'Anexo renomeado',
-                                  subtitle: newItem.label,
+                                final actorName = _resolveActorName(
+                                  FirebaseAuth.instance.currentUser?.uid,
+                                );
+
+                                await _safeNotify(
+                                  title: 'Anexo de medição renomeado',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  '${newItem.label} renomeado por $actorName.',
                                   status: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
@@ -853,14 +1013,16 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                     'measurementOrder': measurement.order,
                                     'oldAttachmentLabel': oldItem.label,
                                     'newAttachmentLabel': newItem.label,
+                                    'attachmentUrl': newItem.url,
                                   },
                                 );
 
                                 return true;
                               } catch (e) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Falha ao renomear anexo',
-                                  subtitle: '$e',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
                                   status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
@@ -900,10 +1062,20 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
                             if (!ok) return;
 
+                            if (contractId.isEmpty) {
+                              await _safeNotify(
+                                title: 'Contrato inválido',
+                                subtitle: _contractSummary,
+                                details:
+                                'Não foi possível identificar o contrato.',
+                                status: NotificationStatus.error,
+                              );
+                              return;
+                            }
+
                             if (!mounted) return;
 
-                            final deletedMeasurement =
-                            measurements.firstWhere(
+                            final deletedMeasurement = measurements.firstWhere(
                                   (item) => item.id == id,
                               orElse: () => ReportMeasurementData(id: id),
                             );
@@ -920,18 +1092,20 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 FirebaseAuth.instance.currentUser?.uid,
                               );
 
-                              await _notify(
+                              await _safeNotify(
                                 title: 'Medição apagada',
-                                subtitle: deletedMeasurement.order != null
+                                subtitle: _contractSummary,
+                                details: deletedMeasurement.order != null
                                     ? 'Boletim ${deletedMeasurement.order} removido por $actorName.'
-                                    : 'O boletim foi removido por $actorName.',
+                                    : 'Boletim removido por $actorName.',
                                 status: NotificationStatus.warning,
                                 saveInBell: true,
                                 sendPush: true,
                                 extra: <String, dynamic>{
                                   'action': 'measurement_deleted',
                                   'measurementId': id,
-                                  'measurementOrder': deletedMeasurement.order,
+                                  'measurementOrder':
+                                  deletedMeasurement.order,
                                   'measurementProcess':
                                   deletedMeasurement.numberprocess,
                                   'measurementValue':
@@ -941,9 +1115,10 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 },
                               );
                             } catch (e) {
-                              await _notify(
+                              await _safeNotify(
                                 title: 'Erro ao apagar medição',
-                                subtitle: '$e',
+                                subtitle: _contractSummary,
+                                details: '$e',
                                 status: NotificationStatus.error,
                                 duration: const Duration(seconds: 6),
                               );

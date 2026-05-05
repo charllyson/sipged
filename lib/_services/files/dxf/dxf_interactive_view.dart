@@ -8,7 +8,7 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'package:sipged/_services/files/dxf/dxf_enums.dart';
 
 // util de fit
-import 'package:sipged/screens/modules/operation/schedule/physical/vertical/schedule_civil_fit_utils.dart';
+import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_fit_utils.dart';
 
 // DXF controller + overlay (camada modularizada)
 import 'package:sipged/_services/files/dxf/dxf_controller.dart';

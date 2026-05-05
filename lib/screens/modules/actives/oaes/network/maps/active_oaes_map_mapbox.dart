@@ -1,8 +1,5 @@
 // lib/screens/modules/actives/oaes/network/maps/active_oaes_map_mapbox.dart
-
 import 'dart:math' as math;
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
@@ -143,20 +140,6 @@ class _ActiveOaesMapMapboxState extends State<ActiveOaesMapMapbox>
           idExtra: data.id,
         ),
       );
-    }
-
-    if (kDebugMode) {
-      final invalidCount = oaes.length - markers.length;
-      final uniqueCoords = countByCoord.length;
-      final overlappedCoords = countByCoord.values.where((v) => v > 1).length;
-
-      debugPrint('========== ActiveOaesMapMapbox ==========');
-      debugPrint('OAEs filtradas: ${oaes.length}');
-      debugPrint('No mapa: ${markers.length}');
-      debugPrint('Sem coordenada válida: $invalidCount');
-      debugPrint('Coordenadas únicas: $uniqueCoords');
-      debugPrint('Coordenadas sobrepostas: $overlappedCoords');
-      debugPrint('=========================================');
     }
 
     return markers;

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
 
 class StageGate extends StatelessWidget {
   final String stageKey;
@@ -22,7 +22,7 @@ class StageGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Reatividade fina: só reconstrói quando o "enabled" mudar.
-    final (loading, enabled) = context.select<PipelineProgressCubit, (bool, bool)>((cubit) {
+    final (loading, enabled) = context.select<PipelineCubit, (bool, bool)>((cubit) {
       final isEnabled = cubit.isStageEnabled(stageKey);
       return (cubit.state.loading, isEnabled);
     });

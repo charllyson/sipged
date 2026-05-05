@@ -10,8 +10,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
 
@@ -102,6 +102,35 @@ class _DfdPageState extends State<DfdPage>
     return _contract;
   }
 
+  String get _notificationDemandName {
+    final descricaoObjeto = _formData.descricaoObjeto?.trim();
+
+    if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
+      return descricaoObjeto;
+    }
+
+    final contractId = _stateOrWidgetContractId;
+    final displaySummary = _contract.displaySummary.trim();
+
+    if (displaySummary.isNotEmpty &&
+        displaySummary != 'Contrato $contractId' &&
+        !displaySummary.startsWith('Contrato ')) {
+      return displaySummary;
+    }
+
+    return 'Demanda sem identificação';
+  }
+
+  String get _processNumber {
+    final processoAdministrativo = _formData.processoAdministrativo?.trim();
+
+    if (processoAdministrativo != null && processoAdministrativo.isNotEmpty) {
+      return processoAdministrativo;
+    }
+
+    return _stateOrWidgetContractId;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -182,32 +211,54 @@ class _DfdPageState extends State<DfdPage>
     return 'Usuário';
   }
 
+  String _currentActorPhotoUrl() {
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid.trim() ?? '';
+
+    if (uid.isNotEmpty) {
+      final users = context.read<UserCubit>().state.all;
+
+      for (final item in users) {
+        if ((item.uid ?? '').trim() == uid) {
+          final photo = item.urlPhoto?.trim() ?? '';
+          if (photo.isNotEmpty) return photo;
+        }
+      }
+    }
+
+    final firebasePhoto = user?.photoURL?.trim() ?? '';
+    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+
+    return '';
+  }
+
   Future<void> _notify({
     required String title,
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade com chamadas antigas internas desta tela.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
-
     bool local = true,
     bool bell = false,
     bool push = false,
     bool email = false,
     bool sms = false,
-
-    /// Quando vazio, o helper deve resolver os usuários com permissão no contrato.
     Iterable<String> targetUserIds = const <String>[],
-
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
+    final actorId = user?.uid.trim();
+    final actorName = _currentActorName();
+    final actorPhotoUrl = _currentActorPhotoUrl();
+
     final effectiveContract = _effectiveContract;
+    final effectiveContractId =
+    (effectiveContract.id ?? _stateOrWidgetContractId).trim();
+
+    final demandName = _notificationDemandName;
 
     final channels = <NotificationChannel>{
       if (local) NotificationChannel.local,
@@ -225,22 +276,16 @@ class _DfdPageState extends State<DfdPage>
       title: title,
       subtitle: subtitle,
       details: details,
-      leadingLabel: 'DFD',
       module: _route,
       notificationSource: _notificationSource,
       source: 'dfd_notification',
       status: type ?? status,
       duration: duration,
-
-      /// Mantido como local + sino + push.
-      /// E-mail/SMS só terão efeito se o helper/dispatcher suportar esses canais.
       delivery: NotificationDelivery.localBellAndPush,
-
       sendPush: channels.contains(NotificationChannel.push),
       targetUserIds: targetUserIds,
-
-      actorId: user?.uid,
-      actorName: _currentActorName(),
+      actorId: actorId,
+      actorName: actorName,
       extra: <String, dynamic>{
         ...extra,
         'route': extra['route'] ?? _route,
@@ -250,10 +295,24 @@ class _DfdPageState extends State<DfdPage>
         'subSource': _notificationSource,
         'notificationSource': _notificationSource,
         'requestedChannels': channels.map((item) => item.key).toList(),
-        if ((effectiveContract.id ?? '').trim().isNotEmpty)
-          'contractId': effectiveContract.id,
-        if (effectiveContract.displaySummary.trim().isNotEmpty)
-          'contractSummary': effectiveContract.displaySummary,
+
+        'actorId': actorId,
+        'actorName': actorName,
+        if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
+
+        if (effectiveContractId.isNotEmpty) 'contractId': effectiveContractId,
+        'contractTitle': demandName,
+        'contractSummary': demandName,
+        'descricaoObjeto': demandName,
+        'nomeDemanda': demandName,
+
+        if (_processNumber.trim().isNotEmpty) 'contractNumber': _processNumber,
+        if (_processNumber.trim().isNotEmpty) 'processNumber': _processNumber,
+        if (_formData.processoAdministrativo?.trim().isNotEmpty == true)
+          'processoAdministrativo': _formData.processoAdministrativo,
       },
     );
   }
@@ -313,22 +372,15 @@ class _DfdPageState extends State<DfdPage>
       if (notifySuccess) {
         await _notify(
           title: 'DFD atualizado',
-          subtitle: 'Alterações salvas por ${_currentActorName()}.',
-          details: _effectiveContract.displaySummary,
+          subtitle: _notificationDemandName,
+          details: 'Alterado por ${_currentActorName()}.',
           status: NotificationStatus.success,
-
-          /// Solicita os canais principais.
-          /// O Dispatcher/helper filtra conforme preferência do usuário.
           local: true,
           bell: true,
           push: true,
           email: false,
           sms: false,
-
-          /// Importante:
-          /// vazio para o helper buscar todos que têm permissão no contrato.
           targetUserIds: const <String>[],
-
           extra: <String, dynamic>{
             'action': 'dfd_saved',
             'dfdId': cubit.state.dfdId,
@@ -358,7 +410,7 @@ class _DfdPageState extends State<DfdPage>
 
   Future<void> _saveApproveAndNext() async {
     final dfdCubit = context.read<DfdCubit>();
-    final pipeline = context.read<PipelineProgressCubit>();
+    final pipeline = context.read<PipelineCubit>();
     final tabController = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
@@ -370,8 +422,7 @@ class _DfdPageState extends State<DfdPage>
 
     final dfdState = dfdCubit.state;
     final dfdId = dfdState.dfdId;
-    final contractIdForApprove =
-    dfdState.contractId?.trim().isNotEmpty == true
+    final contractIdForApprove = dfdState.contractId?.trim().isNotEmpty == true
         ? dfdState.contractId!.trim()
         : widget.contractId.trim();
 
@@ -419,20 +470,15 @@ class _DfdPageState extends State<DfdPage>
 
       await _notify(
         title: 'DFD aprovado',
-        subtitle: 'Etapa concluída por $actorName.',
-        details: _effectiveContract.displaySummary,
+        subtitle: _notificationDemandName,
+        details: 'Aprovado por $actorName.',
         status: NotificationStatus.success,
-
         local: true,
         bell: true,
         push: true,
         email: false,
         sms: false,
-
-        /// Importante:
-        /// vazio para o helper buscar todos que têm permissão no contrato.
         targetUserIds: const <String>[],
-
         extra: <String, dynamic>{
           'action': 'dfd_approved',
           'dfdId': dfdId,
@@ -470,8 +516,7 @@ class _DfdPageState extends State<DfdPage>
 
     final dfdState = dfdCubit.state;
     final dfdId = dfdState.dfdId;
-    final contractIdForApprove =
-    dfdState.contractId?.trim().isNotEmpty == true
+    final contractIdForApprove = dfdState.contractId?.trim().isNotEmpty == true
         ? dfdState.contractId!.trim()
         : widget.contractId.trim();
 
@@ -502,20 +547,15 @@ class _DfdPageState extends State<DfdPage>
 
       await _notify(
         title: 'Aprovação do DFD atualizada',
-        subtitle: 'Atualizada por $actorName.',
-        details: _effectiveContract.displaySummary,
+        subtitle: _notificationDemandName,
+        details: 'Atualizado por $actorName.',
         status: NotificationStatus.success,
-
         local: true,
         bell: true,
         push: true,
         email: false,
         sms: false,
-
-        /// Importante:
-        /// vazio para o helper buscar todos que têm permissão no contrato.
         targetUserIds: const <String>[],
-
         extra: <String, dynamic>{
           'action': 'dfd_approval_updated',
           'dfdId': dfdId,

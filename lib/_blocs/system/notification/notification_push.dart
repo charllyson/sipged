@@ -1,3 +1,5 @@
+// lib/_blocs/system/notification/notification_push.dart
+
 import 'dart:async';
 import 'dart:io' show Platform;
 
@@ -18,9 +20,6 @@ Future<void> sipgedFirebaseMessagingBackgroundHandler(
     RemoteMessage message,
     ) async {
   await Firebase.initializeApp();
-
-  debugPrint('[Push Background] messageId=${message.messageId}');
-  debugPrint('[Push Background] data=${message.data}');
 }
 
 class NotificationPush {
@@ -38,6 +37,9 @@ class NotificationPush {
   StreamSubscription<String>? _tokenRefreshSub;
 
   String? _currentUserId;
+
+  final Set<String> _recentForegroundKeys = <String>{};
+  final Map<String, Timer> _recentForegroundTimers = <String, Timer>{};
 
   static const AndroidNotificationChannel _androidChannel =
   AndroidNotificationChannel(
@@ -59,7 +61,6 @@ class NotificationPush {
 
     _currentUserId = cleanUserId;
 
-    await _requestPermission();
     await _configureLocalNotifications();
     await _configureForegroundPresentation();
 
@@ -91,28 +92,17 @@ class NotificationPush {
 
     if (cleanUserId.isEmpty) return;
 
-    try {
-      final token = await _getTokenByPlatform();
+    final token = await _getTokenByPlatform();
 
-      if (token == null || token.trim().isEmpty) {
-        debugPrint('[Push] Token FCM não disponível.');
-        return;
-      }
-
-      debugPrint('================ FCM TOKEN ================');
-      debugPrint(token);
-      debugPrint('===========================================');
-
-      await remoteCubit.registerPushToken(
-        userId: cleanUserId,
-        token: token,
-        platform: _platformName(),
-      );
-
-      debugPrint('[Push] Token FCM registrado para userId=$cleanUserId');
-    } catch (e) {
-      debugPrint('[Push] Erro ao obter/registrar token FCM: $e');
+    if (token == null || token.trim().isEmpty) {
+      return;
     }
+
+    await remoteCubit.registerPushToken(
+      userId: cleanUserId,
+      token: token,
+      platform: _platformName(),
+    );
   }
 
   Future<String?> _getTokenByPlatform() async {
@@ -154,20 +144,6 @@ class NotificationPush {
     await _messaging.deleteToken();
   }
 
-  Future<void> _requestPermission() async {
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      announcement: false,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-    );
-
-    debugPrint('[Push] Permissão: ${settings.authorizationStatus}');
-  }
-
   Future<void> _configureLocalNotifications() async {
     if (kIsWeb) return;
 
@@ -185,9 +161,7 @@ class NotificationPush {
 
     await _localNotifications.initialize(
       settings: settings,
-      onDidReceiveNotificationResponse: (response) {
-        debugPrint('[Push Local Click] payload=${response.payload}');
-      },
+      onDidReceiveNotificationResponse: (response) {},
     );
 
     if (Platform.isAndroid) {
@@ -222,8 +196,6 @@ class NotificationPush {
         token: cleanToken,
         platform: _platformName(),
       );
-
-      debugPrint('[Push] Token FCM atualizado para userId=$userId');
     });
   }
 
@@ -233,10 +205,18 @@ class NotificationPush {
     _foregroundSub?.cancel();
 
     _foregroundSub = FirebaseMessaging.onMessage.listen((message) async {
-      debugPrint('[Push Foreground] messageId=${message.messageId}');
-      debugPrint('[Push Foreground] data=${message.data}');
+      if (_shouldSuppressForegroundToast(message)) {
+        return;
+      }
 
       final notification = _notificationFromRemoteMessage(message);
+      final key = _foregroundDedupKey(message, notification);
+
+      if (_wasRecentlyShown(key)) {
+        return;
+      }
+
+      _markRecentlyShown(key);
 
       localCubit.show(notification);
 
@@ -246,15 +226,97 @@ class NotificationPush {
     });
   }
 
+  bool _shouldSuppressForegroundToast(RemoteMessage message) {
+    final currentUserId = _currentUserId?.trim();
+
+    if (currentUserId == null || currentUserId.isEmpty) {
+      return false;
+    }
+
+    final data = message.data;
+
+    final actorId = _clean(data['actorId']?.toString());
+    final createdBy = _clean(data['createdBy']?.toString());
+    final senderId = _clean(data['senderId']?.toString());
+
+    if (actorId == currentUserId) return true;
+    if (createdBy == currentUserId) return true;
+    if (senderId == currentUserId) return true;
+
+    return false;
+  }
+
+  bool _wasRecentlyShown(String key) {
+    final cleanKey = key.trim();
+
+    if (cleanKey.isEmpty) return false;
+
+    return _recentForegroundKeys.contains(cleanKey);
+  }
+
+  void _markRecentlyShown(String key) {
+    final cleanKey = key.trim();
+
+    if (cleanKey.isEmpty) return;
+
+    _recentForegroundKeys.add(cleanKey);
+
+    _recentForegroundTimers[cleanKey]?.cancel();
+    _recentForegroundTimers[cleanKey] = Timer(
+      const Duration(seconds: 12),
+          () {
+        _recentForegroundKeys.remove(cleanKey);
+        _recentForegroundTimers.remove(cleanKey);
+      },
+    );
+  }
+
+  String _foregroundDedupKey(
+      RemoteMessage message,
+      NotificationData notification,
+      ) {
+    final data = message.data;
+
+    final messageId = message.messageId?.trim();
+
+    if (messageId != null && messageId.isNotEmpty) {
+      return 'message|$messageId';
+    }
+
+    final action = _clean(data['action']?.toString());
+    final measurementId = _clean(data['measurementId']?.toString());
+    final contractId = _clean(data['contractId']?.toString());
+    final measurementOrder = _clean(data['measurementOrder']?.toString());
+    final source = _clean(
+      (data['notificationSource'] ??
+          data['sourceKey'] ??
+          data['subSource'] ??
+          data['source'])
+          ?.toString(),
+    );
+
+    if (source.isNotEmpty && action.isNotEmpty && measurementId.isNotEmpty) {
+      return '$source|$action|$measurementId';
+    }
+
+    if (source.isNotEmpty &&
+        action.isNotEmpty &&
+        contractId.isNotEmpty &&
+        measurementOrder.isNotEmpty) {
+      return '$source|$action|$contractId|$measurementOrder';
+    }
+
+    final createdAt = notification.createdAt?.millisecondsSinceEpoch ?? 0;
+
+    return 'fallback|${notification.title}|${notification.subtitle}|$createdAt';
+  }
+
   void _listenOpenedMessages(
       void Function(RemoteMessage message)? onMessageOpened,
       ) {
     _openedSub?.cancel();
 
     _openedSub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      debugPrint('[Push Opened] messageId=${message.messageId}');
-      debugPrint('[Push Opened] data=${message.data}');
-
       onMessageOpened?.call(message);
     });
   }
@@ -343,14 +405,25 @@ class NotificationPush {
     return 'unknown';
   }
 
+  String _clean(String? value) {
+    return (value ?? '').trim();
+  }
+
   Future<void> dispose() async {
     await _foregroundSub?.cancel();
     await _openedSub?.cancel();
     await _tokenRefreshSub?.cancel();
 
+    for (final timer in _recentForegroundTimers.values) {
+      timer.cancel();
+    }
+
     _foregroundSub = null;
     _openedSub = null;
     _tokenRefreshSub = null;
     _currentUserId = null;
+
+    _recentForegroundKeys.clear();
+    _recentForegroundTimers.clear();
   }
 }

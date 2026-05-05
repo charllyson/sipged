@@ -1,21 +1,24 @@
+// lib/_blocs/modules/contracts/apostilles/apostilles_data.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
-/// 🧩 Modelo de apostilamento (somente dados, sem lógica de UI)
+/// Modelo de apostilamento.
 class ApostillesData {
   String? id;
   String? contractId;
+
   String? apostilleNumberProcess;
   int? apostilleOrder;
   DateTime? apostilleData;
   double? apostilleValue;
 
-  /// Legado: último PDF salvo no doc
+  /// Legado: último PDF salvo no documento.
   String? pdfUrl;
 
-  /// 🆕 múltiplos anexos com rótulo
+  /// Múltiplos anexos com rótulo.
   List<Attachment>? attachments;
 
   DateTime? createdAt;
@@ -42,129 +45,249 @@ class ApostillesData {
     this.deletedBy,
   });
 
-  // =========================
-  // Helpers locais
-  // =========================
+  // ---------------------------------------------------------------------------
+  // Helpers de parsing
+  // ---------------------------------------------------------------------------
 
-  static DateTime? _toDate(dynamic v) {
-    if (v is Timestamp) return v.toDate();
-    if (v is DateTime) return v;
-    if (v is String) return DateTime.tryParse(v);
-    return null;
-  }
+  static DateTime? _toDate(dynamic value) {
+    if (value == null) return null;
 
-  static int? _toInt(dynamic v) {
-    if (v is int) return v;
-    if (v is num) return v.toInt();
-    if (v is String) return int.tryParse(v);
-    return null;
-  }
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
 
-  static double? _toDouble(dynamic v) {
-    if (v is double) return v;
-    if (v is num) return v.toDouble();
-    if (v is String) return SipGedFormatNumbers.toDouble(v);
-    return null;
-  }
+    if (value is String) {
+      final text = value.trim();
 
-  static List<Attachment>? _toAttachments(dynamic v) {
-    if (v == null) return null;
-    if (v is List) {
-      return v
-          .map((e) => Attachment.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
+      if (text.isEmpty) return null;
+
+      final iso = DateTime.tryParse(text);
+      if (iso != null) return iso;
+
+      final parts = text.split('/');
+
+      if (parts.length == 3) {
+        final day = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        final year = int.tryParse(parts[2]);
+
+        if (day != null && month != null && year != null) {
+          final parsed = DateTime(year, month, day);
+
+          if (parsed.day == day &&
+              parsed.month == month &&
+              parsed.year == year) {
+            return parsed;
+          }
+        }
+      }
     }
+
     return null;
   }
 
-  // =========================
-  // FACTORY: Firestore Document
-  // =========================
-  factory ApostillesData.fromDocument({required DocumentSnapshot snapshot}) {
-    if (!snapshot.exists) throw Exception('Apostilamento não encontrado');
+  static int? _toInt(dynamic value) {
+    if (value == null) return null;
 
-    final Map<String, dynamic> data =
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+
+    if (value is String) {
+      final text = value.trim();
+
+      if (text.isEmpty) return null;
+
+      final onlyDigits = text.replaceAll(RegExp(r'[^\d-]'), '');
+      return int.tryParse(onlyDigits);
+    }
+
+    return null;
+  }
+
+  static double? _toDouble(dynamic value) {
+    if (value == null) return null;
+
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+
+    if (value is String) {
+      return SipGedFormatNumbers.toDouble(value);
+    }
+
+    return null;
+  }
+
+  static String? _toStringOrNull(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    return text.isEmpty ? null : text;
+  }
+
+  static List<Attachment>? _toAttachments(dynamic value) {
+    if (value == null) return null;
+    if (value is! List) return null;
+
+    final list = <Attachment>[];
+
+    for (final item in value) {
+      if (item == null) continue;
+
+      if (item is Map<String, dynamic>) {
+        list.add(Attachment.fromMap(item));
+        continue;
+      }
+
+      if (item is Map) {
+        list.add(
+          Attachment.fromMap(
+            Map<String, dynamic>.from(item),
+          ),
+        );
+      }
+    }
+
+    return list.isEmpty ? null : list;
+  }
+
+  static dynamic _pick(
+      Map<String, dynamic> map,
+      List<String> keys,
+      ) {
+    for (final key in keys) {
+      if (map.containsKey(key)) {
+        return map[key];
+      }
+    }
+
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Factory: Firestore Document
+  // ---------------------------------------------------------------------------
+
+  factory ApostillesData.fromDocument({
+    required DocumentSnapshot snapshot,
+  }) {
+    if (!snapshot.exists) {
+      throw Exception('Apostilamento não encontrado');
+    }
+
+    final data =
         (snapshot.data() as Map<String, dynamic>?) ?? <String, dynamic>{};
 
-    final String? contractIdFromPath = snapshot.reference.parent.parent?.id;
+    final contractIdFromPath = snapshot.reference.parent.parent?.id;
 
-    return ApostillesData(
+    return ApostillesData.fromMap(
+      data,
       id: snapshot.id,
-      contractId: (data['contractId'] ?? contractIdFromPath) as String?,
-      apostilleNumberProcess:
-      (data['apostillenumberprocess'] ?? data['apostilleNumberProcess'])
-      as String?,
-      apostilleOrder: _toInt(data['apostilleorder'] ?? data['apostilleOrder']),
-      apostilleData: _toDate(data['apostilledata'] ?? data['apostilleDate']),
-      apostilleValue:
-      _toDouble(data['apostillevalue'] ?? data['apostilleValue']) ?? 0.0,
-      pdfUrl: data['pdfUrl'] as String?,
-      attachments: _toAttachments(data['attachments']),
-      createdAt: _toDate(data['createdAt']),
-      createdBy: data['createdBy'] as String?,
-      updatedAt: _toDate(data['updatedAt']),
-      updatedBy: data['updatedBy'] as String?,
-      deletedAt: _toDate(data['deletedAt']),
-      deletedBy: data['deletedBy'] as String?,
+      fallbackContractId: contractIdFromPath,
     );
   }
 
-  // =========================
-  // FACTORY: Map genérico
-  // =========================
-  factory ApostillesData.fromMap(Map<String, dynamic> map, {String? id}) {
+  // ---------------------------------------------------------------------------
+  // Factory: Map genérico
+  // ---------------------------------------------------------------------------
+
+  factory ApostillesData.fromMap(
+      Map<String, dynamic> map, {
+        String? id,
+        String? fallbackContractId,
+      }) {
     return ApostillesData(
-      id: id ?? map['id'],
-      contractId: map['contractId'],
-      apostilleNumberProcess:
-      map['apostillenumberprocess'] ?? map['apostilleNumberProcess'],
-      apostilleOrder: _toInt(map['apostilleorder'] ?? map['apostilleOrder']),
-      apostilleData: _toDate(map['apostilledata'] ?? map['apostilleDate']),
-      apostilleValue:
-      _toDouble(map['apostillevalue'] ?? map['apostilleValue']) ?? 0.0,
-      pdfUrl: map['pdfUrl'] as String?,
-      attachments: _toAttachments(map['attachments']),
+      id: id ?? _toStringOrNull(_pick(map, const ['id'])),
+      contractId: _toStringOrNull(
+        _pick(
+          map,
+          const [
+            'contractId',
+            'uidContract',
+            'uidcontract',
+            'processId',
+          ],
+        ),
+      ) ??
+          fallbackContractId,
+      apostilleNumberProcess: _toStringOrNull(
+        _pick(
+          map,
+          const [
+            'apostillenumberprocess',
+            'apostilleNumberProcess',
+            'apostilleNumber',
+            'numberProcess',
+            'numberprocess',
+            'processNumber',
+          ],
+        ),
+      ),
+      apostilleOrder: _toInt(
+        _pick(
+          map,
+          const [
+            'apostilleorder',
+            'apostilleOrder',
+            'order',
+            'ordem',
+          ],
+        ),
+      ),
+      apostilleData: _toDate(
+        _pick(
+          map,
+          const [
+            'apostilledata',
+            'apostilleDate',
+            'apostilleData',
+            'date',
+            'data',
+          ],
+        ),
+      ),
+      apostilleValue: _toDouble(
+        _pick(
+          map,
+          const [
+            'apostillevalue',
+            'apostilleValue',
+            'value',
+            'valor',
+          ],
+        ),
+      ),
+      pdfUrl: _toStringOrNull(
+        _pick(
+          map,
+          const [
+            'pdfUrl',
+            'urlPdf',
+            'pdf',
+          ],
+        ),
+      ),
+      attachments: _toAttachments(
+        _pick(
+          map,
+          const [
+            'attachments',
+            'anexos',
+            'files',
+          ],
+        ),
+      ),
       createdAt: _toDate(map['createdAt']),
-      createdBy: map['createdBy'],
+      createdBy: _toStringOrNull(map['createdBy']),
       updatedAt: _toDate(map['updatedAt']),
-      updatedBy: map['updatedBy'],
+      updatedBy: _toStringOrNull(map['updatedBy']),
       deletedAt: _toDate(map['deletedAt']),
-      deletedBy: map['deletedBy'],
+      deletedBy: _toStringOrNull(map['deletedBy']),
     );
   }
 
-  /// ✅ Mapa enxuto para gravar/atualizar no Firestore (SEM forçar id/contractId vazios).
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      if (apostilleNumberProcess != null) 'apostillenumberprocess': apostilleNumberProcess,
-      if (apostilleOrder != null) 'apostilleorder': apostilleOrder,
-      if (apostilleData != null) 'apostilledata': apostilleData,
-      'apostillevalue': apostilleValue ?? 0.0,
-      'pdfUrl': pdfUrl,
-      if (attachments != null) 'attachments': attachments!.map((e) => e.toMap()).toList(),
-    };
-  }
-
-
-  /// Versão completa (caso precise em memória).
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'contractId': contractId,
-      'apostillenumberprocess': apostilleNumberProcess,
-      'apostilleorder': apostilleOrder,
-      'apostilledata': apostilleData,
-      'apostillevalue': apostilleValue ?? 0.0,
-      'pdfUrl': pdfUrl,
-      'attachments': attachments?.map((e) => e.toMap()).toList(),
-      'createdAt': createdAt,
-      'createdBy': createdBy,
-      'updatedAt': updatedAt,
-      'updatedBy': updatedBy,
-      'deletedAt': deletedAt,
-      'deletedBy': deletedBy,
-    };
-  }
+  // ---------------------------------------------------------------------------
+  // Copy
+  // ---------------------------------------------------------------------------
 
   ApostillesData copyWith({
     String? id,
@@ -181,22 +304,110 @@ class ApostillesData {
     String? updatedBy,
     DateTime? deletedAt,
     String? deletedBy,
+    bool clearId = false,
+    bool clearContractId = false,
+    bool clearApostilleNumberProcess = false,
+    bool clearApostilleOrder = false,
+    bool clearApostilleData = false,
+    bool clearApostilleValue = false,
+    bool clearPdfUrl = false,
+    bool clearAttachments = false,
+    bool clearCreatedAt = false,
+    bool clearCreatedBy = false,
+    bool clearUpdatedAt = false,
+    bool clearUpdatedBy = false,
+    bool clearDeletedAt = false,
+    bool clearDeletedBy = false,
   }) {
     return ApostillesData(
-      id: id ?? this.id,
-      contractId: contractId ?? this.contractId,
-      apostilleNumberProcess: apostilleNumberProcess ?? this.apostilleNumberProcess,
-      apostilleOrder: apostilleOrder ?? this.apostilleOrder,
-      apostilleData: apostilleData ?? this.apostilleData,
-      apostilleValue: apostilleValue ?? this.apostilleValue,
-      pdfUrl: pdfUrl ?? this.pdfUrl,
-      attachments: attachments ?? this.attachments,
-      createdAt: createdAt ?? this.createdAt,
-      createdBy: createdBy ?? this.createdBy,
-      updatedAt: updatedAt ?? this.updatedAt,
-      updatedBy: updatedBy ?? this.updatedBy,
-      deletedAt: deletedAt ?? this.deletedAt,
-      deletedBy: deletedBy ?? this.deletedBy,
+      id: clearId ? null : id ?? this.id,
+      contractId: clearContractId ? null : contractId ?? this.contractId,
+      apostilleNumberProcess: clearApostilleNumberProcess
+          ? null
+          : apostilleNumberProcess ?? this.apostilleNumberProcess,
+      apostilleOrder:
+      clearApostilleOrder ? null : apostilleOrder ?? this.apostilleOrder,
+      apostilleData:
+      clearApostilleData ? null : apostilleData ?? this.apostilleData,
+      apostilleValue:
+      clearApostilleValue ? null : apostilleValue ?? this.apostilleValue,
+      pdfUrl: clearPdfUrl ? null : pdfUrl ?? this.pdfUrl,
+      attachments: clearAttachments ? null : attachments ?? this.attachments,
+      createdAt: clearCreatedAt ? null : createdAt ?? this.createdAt,
+      createdBy: clearCreatedBy ? null : createdBy ?? this.createdBy,
+      updatedAt: clearUpdatedAt ? null : updatedAt ?? this.updatedAt,
+      updatedBy: clearUpdatedBy ? null : updatedBy ?? this.updatedBy,
+      deletedAt: clearDeletedAt ? null : deletedAt ?? this.deletedAt,
+      deletedBy: clearDeletedBy ? null : deletedBy ?? this.deletedBy,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Firestore
+  // ---------------------------------------------------------------------------
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      if (id != null && id!.trim().isNotEmpty) 'id': id,
+      if (contractId != null && contractId!.trim().isNotEmpty)
+        'contractId': contractId,
+
+      // Campos atuais usados no sistema.
+      'apostillenumberprocess': apostilleNumberProcess ?? '',
+      'apostilleorder': apostilleOrder ?? 0,
+      'apostilledata': apostilleData,
+      'apostillevalue': apostilleValue ?? 0.0,
+
+      // Compatibilidade/consulta futura.
+      'apostilleNumberProcess': apostilleNumberProcess ?? '',
+      'apostilleOrder': apostilleOrder ?? 0,
+      'apostilleDate': apostilleData,
+      'apostilleValue': apostilleValue ?? 0.0,
+
+      'pdfUrl': pdfUrl,
+      'attachments': attachments?.map((e) => e.toMap()).toList(),
+
+      if (createdAt != null) 'createdAt': createdAt,
+      if (createdBy != null && createdBy!.trim().isNotEmpty)
+        'createdBy': createdBy,
+      if (updatedAt != null) 'updatedAt': updatedAt,
+      if (updatedBy != null && updatedBy!.trim().isNotEmpty)
+        'updatedBy': updatedBy,
+      if (deletedAt != null) 'deletedAt': deletedAt,
+      if (deletedBy != null && deletedBy!.trim().isNotEmpty)
+        'deletedBy': deletedBy,
+    };
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'id': id,
+      'contractId': contractId,
+      'apostillenumberprocess': apostilleNumberProcess,
+      'apostilleorder': apostilleOrder,
+      'apostilledata': apostilleData,
+      'apostillevalue': apostilleValue,
+      'pdfUrl': pdfUrl,
+      'attachments': attachments?.map((e) => e.toMap()).toList(),
+      'createdAt': createdAt,
+      'createdBy': createdBy,
+      'updatedAt': updatedAt,
+      'updatedBy': updatedBy,
+      'deletedAt': deletedAt,
+      'deletedBy': deletedBy,
+    };
+  }
+
+  @override
+  String toString() {
+    return 'ApostillesData('
+        'id: $id, '
+        'contractId: $contractId, '
+        'apostilleOrder: $apostilleOrder, '
+        'apostilleNumberProcess: $apostilleNumberProcess, '
+        'apostilleData: $apostilleData, '
+        'apostilleValue: $apostilleValue, '
+        'attachments: ${attachments?.length ?? 0}'
+        ')';
   }
 }

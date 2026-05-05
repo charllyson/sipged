@@ -39,7 +39,8 @@ class ClusterMarker {
       BuildContext context,
       Marker marker,
       bool isSelected,
-      ) markerBuilder;
+      )
+  markerBuilder;
 
   final String Function(Marker marker)? titleBuilder;
   final String Function(Marker marker)? subTitleBuilder;
@@ -78,6 +79,51 @@ class ClusterMarker {
         (a.longitude - b.longitude).abs() < eps;
   }
 
+  String _entryValue(
+      List<MapEntry<String, String>> entries,
+      String key, {
+        String fallback = '',
+      }) {
+    return entries
+        .firstWhere(
+          (e) => e.key == key,
+      orElse: () => MapEntry(key, fallback),
+    )
+        .value
+        .trim();
+  }
+
+  Widget _tileText(String value) {
+    return Text(
+      value,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget? _tileSubtitle(
+      String value, {
+        required bool hasDetailsAction,
+      }) {
+    final clean = value.trim();
+
+    if (clean.isEmpty && !hasDetailsAction) {
+      return null;
+    }
+
+    final text = clean.isEmpty
+        ? 'Toque para visualizar os detalhes.'
+        : hasDetailsAction
+        ? '$clean • Toque para visualizar os detalhes.'
+        : clean;
+
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
   Marker build(BuildContext context) {
     final point = marker.point;
 
@@ -101,6 +147,17 @@ class ClusterMarker {
           subTitle!.trim(),
         ),
     ];
+
+    final tileTitle = _entryValue(
+      entries,
+      'title',
+      fallback: 'Detalhe',
+    );
+
+    final tileSubtitle = _entryValue(
+      entries,
+      'subtitle',
+    );
 
     final double markerW = math.max(pinW, inlineMaxWidth);
 
@@ -131,12 +188,7 @@ class ClusterMarker {
                   width: inlineMaxWidth,
                   maxHeight: inlineEstimatedHeight,
                   tipSide: BalloonTipSide.bottom,
-                  title: entries
-                      .firstWhere(
-                        (e) => e.key == 'title',
-                    orElse: () => const MapEntry('title', 'Detalhe'),
-                  )
-                      .value,
+                  title: tileTitle,
                   headerIcon: Icons.place_outlined,
                   actionLabel: onViewDetails == null ? null : 'Detalhes',
                   showAction: onViewDetails != null,
@@ -147,26 +199,11 @@ class ClusterMarker {
                   items: [
                     BalloonTileData(
                       id: marker.hashCode.toString(),
-                      title: entries
-                          .firstWhere(
-                            (e) => e.key == 'title',
-                        orElse: () => const MapEntry('title', 'Detalhe'),
-                      )
-                          .value,
-                      subtitle: () {
-                        final s = entries
-                            .firstWhere(
-                              (e) => e.key == 'subtitle',
-                          orElse: () => const MapEntry('subtitle', ''),
-                        )
-                            .value
-                            .trim();
-
-                        return s.isEmpty ? null : s;
-                      }(),
-                      details: onViewDetails == null
-                          ? null
-                          : 'Toque para visualizar os detalhes.',
+                      title: _tileText(tileTitle),
+                      subtitle: _tileSubtitle(
+                        tileSubtitle,
+                        hasDetailsAction: onViewDetails != null,
+                      ),
                       icon: Icons.place_outlined,
                       accentColor: Colors.blue.shade800,
                       onTap: onViewDetails == null
@@ -177,7 +214,6 @@ class ClusterMarker {
                 ),
               ),
             ),
-
           Positioned(
             bottom: 0,
             left: (markerW - pinW) / 2,
@@ -195,7 +231,6 @@ class ClusterMarker {
               ),
             ),
           ),
-
           Positioned(
             bottom: 0,
             left: (markerW - pinW) / 2,
@@ -207,14 +242,7 @@ class ClusterMarker {
                 onTap: () {
                   onMarkerSelected(marker);
 
-                  final currentTitle = entries
-                      .firstWhere(
-                        (e) => e.key == 'title',
-                    orElse: () => const MapEntry('title', 'Detalhe'),
-                  )
-                      .value;
-
-                  onTooltipRequested?.call(point, currentTitle);
+                  onTooltipRequested?.call(point, tileTitle);
 
                   if (onShowTooltipAcima != null && !inlineTooltip) {
                     onShowTooltipAcima!(

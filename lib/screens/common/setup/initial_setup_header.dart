@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:sipged/_utils/mask/sipged_masks.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 
 import 'initial_setup_logo.dart';
@@ -13,6 +14,7 @@ class InitialSetupHeader extends StatelessWidget {
   final Uint8List? logoBytes;
   final String? existingLogoUrl;
   final VoidCallback onPickLogo;
+  final VoidCallback? onRemoveLogo;
   final String? Function(String?) cnpjValidator;
 
   const InitialSetupHeader({
@@ -24,80 +26,151 @@ class InitialSetupHeader extends StatelessWidget {
     required this.logoBytes,
     required this.existingLogoUrl,
     required this.onPickLogo,
+    this.onRemoveLogo,
     required this.cnpjValidator,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.grey.withValues(alpha: 0.05),
+        color: Colors.white,
+        border: Border.all(
+          color: const Color(0xFFE5E7EB),
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF101828).withValues(alpha: 0.06),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InitialSetupLogo(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 720;
+
+          final logo = InitialSetupLogo(
             logoBytes: logoBytes,
             existingLogoUrl: existingLogoUrl,
             saving: saving,
             onTap: onPickLogo,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
+            onRemove: onRemoveLogo,
+          );
+
+          final fields = Column(
+            children: [
+              CustomTextField(
+                controller: empresaFantasiaCtrl,
+                labelText: 'Nome fantasia',
+                enabled: !saving,
+                validator: (v) {
+                  if ((v ?? '').trim().isEmpty) {
+                    return 'Informe o nome fantasia';
+                  }
+
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+              LayoutBuilder(
+                builder: (context, inner) {
+                  final twoColumns = inner.maxWidth >= 620;
+
+                  if (!twoColumns) {
+                    return Column(
+                      children: [
+                        CustomTextField(
+                          controller: empresaNomeCtrl,
+                          labelText: 'Razão social / Órgão principal',
+                          enabled: !saving,
+                          validator: (v) {
+                            if ((v ?? '').trim().isEmpty) {
+                              return 'Informe a razão social';
+                            }
+
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        CustomTextField(
+                          controller: empresaCnpjCtrl,
+                          labelText: 'CNPJ',
+                          enabled: !saving,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(14),
+                            SipGedMasks.cnpj,
+                          ],
+                          validator: cnpjValidator,
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: CustomTextField(
+                          controller: empresaNomeCtrl,
+                          labelText: 'Razão social / Órgão principal',
+                          enabled: !saving,
+                          validator: (v) {
+                            if ((v ?? '').trim().isEmpty) {
+                              return 'Informe a razão social';
+                            }
+
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: CustomTextField(
+                          controller: empresaCnpjCtrl,
+                          labelText: 'CNPJ',
+                          enabled: !saving,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(14),
+                            SipGedMasks.cnpj,
+                          ],
+                          validator: cnpjValidator,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          );
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CustomTextField(
-                  controller: empresaFantasiaCtrl,
-                  labelText: 'Nome fantasia',
-                  enabled: !saving,
-                  validator: (v) {
-                    if ((v ?? '').trim().isEmpty) {
-                      return 'Informe o nome fantasia';
-                    }
-                    return null;
-                  },
-                ),
+                Center(child: logo),
                 const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: CustomTextField(
-                        controller: empresaNomeCtrl,
-                        labelText: 'Razão social / Órgão principal',
-                        enabled: !saving,
-                        validator: (v) {
-                          if ((v ?? '').trim().isEmpty) {
-                            return 'Informe a razão social';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: CustomTextField(
-                        controller: empresaCnpjCtrl,
-                        labelText: 'CNPJ',
-                        enabled: !saving,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(14),
-                        ],
-                        validator: cnpjValidator,
-                      ),
-                    ),
-                  ],
-                ),
+                fields,
               ],
-            ),
-          ),
-        ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              logo,
+              const SizedBox(width: 18),
+              Expanded(child: fields),
+            ],
+          );
+        },
       ),
     );
   }

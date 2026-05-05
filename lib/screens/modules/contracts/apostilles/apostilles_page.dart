@@ -1,3 +1,6 @@
+// lib/screens/modules/contracts/apostilles/apostilles_page.dart
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,37 +11,44 @@ import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart'
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_state.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+
 import 'package:sipged/_blocs/system/notification/helpers/notification_apostilles.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
-
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
-
-import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'apostilles_form_section.dart';
 import 'apostilles_graph_section.dart';
 import 'apostilles_table_section.dart';
 
 class ApostillesPage extends StatefulWidget {
-  final ProcessData contractData;
-
   const ApostillesPage({
     super.key,
     required this.contractData,
   });
+
+  final ProcessData contractData;
 
   @override
   State<ApostillesPage> createState() => _ApostillesPageState();
 }
 
 class _ApostillesPageState extends State<ApostillesPage> {
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  static const String _route = 'contracts_apostilles';
+  static const String _notificationSource = 'contracts_apostilles';
+  static const String _source = 'apostille_notification';
+
   final TextEditingController _orderCtrl = TextEditingController();
   final TextEditingController _processCtrl = TextEditingController();
   final TextEditingController _dateCtrl = TextEditingController();
@@ -50,33 +60,31 @@ class _ApostillesPageState extends State<ApostillesPage> {
   int? _selectedAttachmentIndex;
   bool _initialNextOrderApplied = false;
 
+  DfdData? _dfdData;
+  bool _loadingContractDisplay = false;
+
   String get _contractId => widget.contractData.id?.trim() ?? '';
 
   String get _contractSummary {
-    final data = widget.contractData;
+    final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
 
-    final summary = data.summarySubjectContract?.trim() ?? '';
-    if (summary.isNotEmpty) return summary;
+    if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
+      return descricaoObjeto;
+    }
 
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return 'Contrato $number';
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return 'Processo $process';
-
-    if (_contractId.isNotEmpty) return 'Contrato $_contractId';
+    if (_contractId.isNotEmpty) {
+      return 'Contrato $_contractId';
+    }
 
     return 'Contrato sem identificação';
   }
 
   String get _contractNumber {
-    final data = widget.contractData;
+    final processoAdministrativo = _dfdData?.processoAdministrativo?.trim();
 
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return number;
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return process;
+    if (processoAdministrativo != null && processoAdministrativo.isNotEmpty) {
+      return processoAdministrativo;
+    }
 
     return _contractId;
   }
@@ -88,6 +96,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
     _cubit = ApostillesCubit(
       contract: widget.contractData,
       repository: ApostillesRepository(),
+      enforcePermissions: false,
     );
 
     void recomputeValidity() {
@@ -104,7 +113,12 @@ class _ApostillesPageState extends State<ApostillesPage> {
     _dateCtrl.addListener(recomputeValidity);
     _valueCtrl.addListener(recomputeValidity);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      await _loadContractDisplayData();
+
+      if (!mounted) return;
       recomputeValidity();
     });
   }
@@ -121,6 +135,112 @@ class _ApostillesPageState extends State<ApostillesPage> {
     super.dispose();
   }
 
+  Future<void> _loadContractDisplayData() async {
+    if (_loadingContractDisplay) return;
+
+    final contractId = _contractId;
+
+    if (contractId.isEmpty) return;
+
+    setState(() {
+      _loadingContractDisplay = true;
+    });
+
+    try {
+      final dfd = await _loadDfd(contractId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = dfd;
+        _loadingContractDisplay = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingContractDisplay = false;
+      });
+    }
+  }
+
+  Future<DfdData?> _loadDfd(String contractId) async {
+    final candidatePaths = <String>[
+      'contracts/$contractId/hiring/00Dfd',
+      'contracts/$contractId/hiring/01Dfd',
+      'contracts/$contractId/hiring/dfd',
+      'contracts/$contractId/dfd/main',
+      'contracts/$contractId/demand/dfd',
+    ];
+
+    for (final path in candidatePaths) {
+      final data = await _tryReadDocument(path);
+
+      if (data == null) continue;
+
+      final parsed = _parseDfd(
+        data,
+        contractId: contractId,
+      );
+
+      if (parsed != null) return parsed;
+    }
+
+    return null;
+  }
+
+  DfdData? _parseDfd(
+      Map<String, dynamic> data, {
+        required String contractId,
+      }) {
+    final sectionsData = data['sectionsData'];
+    final sections = data['sections'];
+
+    if (sectionsData is Map) {
+      return DfdData.fromSectionsMap(
+        _toDynamicMap(sectionsData),
+        contractId: contractId,
+      );
+    }
+
+    if (sections is Map) {
+      return DfdData.fromSectionsMap(
+        _toDynamicMap(sections),
+        contractId: contractId,
+      );
+    }
+
+    return DfdData.fromMap(
+      data,
+      contractId: contractId,
+    );
+  }
+
+  Future<Map<String, dynamic>?> _tryReadDocument(String path) async {
+    try {
+      final snapshot = await _firestore.doc(path).get();
+
+      if (!snapshot.exists) return null;
+
+      final data = snapshot.data();
+
+      if (data == null || data.isEmpty) return null;
+
+      return Map<String, dynamic>.from(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Map<String, dynamic> _toDynamicMap(Map raw) {
+    return raw.map(
+          (key, value) => MapEntry(
+        key.toString(),
+        value is Map ? _toDynamicMap(value) : value,
+      ),
+    );
+  }
+
   String _resolveActorName(String? uid) {
     final currentUser = FirebaseAuth.instance.currentUser;
     final cleanUid = uid?.trim();
@@ -132,16 +252,19 @@ class _ApostillesPageState extends State<ApostillesPage> {
         final fullName = (meta['fullName'] ??
             meta['displayName'] ??
             meta['nameComplete'] ??
+            meta['nomeCompleto'] ??
+            meta['nome'] ??
             '')
             .toString()
             .trim();
 
         if (fullName.isNotEmpty) return fullName;
 
-        final name = (meta['name'] ?? '').toString().trim();
-        final surname = (meta['surname'] ?? '').toString().trim();
+        final name = (meta['name'] ?? meta['nome'] ?? '').toString().trim();
+        final surname =
+        (meta['surname'] ?? meta['sobrenome'] ?? '').toString().trim();
 
-        final composed = [name, surname]
+        final composed = <String>[name, surname]
             .where((item) => item.trim().isNotEmpty)
             .join(' ')
             .trim();
@@ -149,14 +272,17 @@ class _ApostillesPageState extends State<ApostillesPage> {
         if (composed.isNotEmpty) return composed;
 
         final email = (meta['email'] ?? '').toString().trim();
+
         if (email.isNotEmpty) return email;
       }
     }
 
     final displayName = currentUser?.displayName?.trim() ?? '';
+
     if (displayName.isNotEmpty) return displayName;
 
     final email = currentUser?.email?.trim() ?? '';
+
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
@@ -164,10 +290,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
   DateTime? _parseDateTimeFromExtra(dynamic value) {
     if (value == null) return null;
-
-    if (value is DateTime) {
-      return value;
-    }
+    if (value is DateTime) return value;
 
     final text = value.toString().trim();
 
@@ -175,9 +298,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
     final iso = DateTime.tryParse(text);
 
-    if (iso != null) {
-      return iso;
-    }
+    if (iso != null) return iso;
 
     final parts = text.split('/');
 
@@ -187,7 +308,13 @@ class _ApostillesPageState extends State<ApostillesPage> {
       final year = int.tryParse(parts[2]);
 
       if (day != null && month != null && year != null) {
-        return DateTime(year, month, day);
+        final parsed = DateTime(year, month, day);
+
+        if (parsed.day == day &&
+            parsed.month == month &&
+            parsed.year == year) {
+          return parsed;
+        }
       }
     }
 
@@ -196,7 +323,6 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
   num? _parseNumFromExtra(dynamic value) {
     if (value == null) return null;
-
     if (value is num) return value;
 
     final text = value.toString().trim();
@@ -216,7 +342,11 @@ class _ApostillesPageState extends State<ApostillesPage> {
     required String title,
     String? subtitle,
     String? details,
-    NotificationStatus type = NotificationStatus.info,
+    NotificationStatus status = NotificationStatus.info,
+
+    /// Compatibilidade temporária com chamadas antigas.
+    NotificationStatus? type,
+
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -227,6 +357,10 @@ class _ApostillesPageState extends State<ApostillesPage> {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
 
+    final delivery = saveInBell || sendPush
+        ? NotificationDelivery.localBellAndPush
+        : NotificationDelivery.localOnly;
+
     await NotificationApostilles.show(
       context: context,
       contract: widget.contractData,
@@ -234,48 +368,91 @@ class _ApostillesPageState extends State<ApostillesPage> {
       subtitle: subtitle,
       details: details ?? _contractSummary,
       leadingLabel: 'Apostilamento',
-      module: 'contracts_apostilles',
-      source: 'apostille_notification',
-      notificationSource: 'contracts_apostilles',
-      status: type,
+      module: _route,
+      source: _source,
+      notificationSource: _notificationSource,
+      status: type ?? status,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
       actorId: currentUserId,
       actorName: actorName,
       includeCurrentUser: true,
-      delivery: NotificationDelivery.localBellAndPush,
+      delivery: delivery,
       apostilleId: extra['apostilleId']?.toString(),
-      apostilleNumber:
-      extra['apostilleNumber']?.toString() ??
+      apostilleNumber: extra['apostilleNumber']?.toString() ??
           extra['apostilleProcess']?.toString(),
       apostilleOrder: extra['apostilleOrder']?.toString(),
       apostilleType: extra['apostilleType']?.toString(),
       apostilleDate: _parseDateTimeFromExtra(extra['apostilleDate']),
       apostilleValue: _parseNumFromExtra(extra['apostilleValue']),
       extra: <String, dynamic>{
-        'route': 'contracts_apostilles',
-        'module': 'contracts_apostilles',
+        'route': _route,
+        'module': _route,
+        'source': _source,
+        'sourceKey': _notificationSource,
+        'subSource': _notificationSource,
+        'notificationSource': _notificationSource,
+
+        /// Mantidos para o NotificationBell identificar usuário/foto.
+        'actorId': currentUserId,
+        'actorName': actorName,
+
         'contractId': _contractId,
         'contractNumber': _contractNumber,
+        'processNumber': _contractNumber,
+        'processoAdministrativo': _dfdData?.processoAdministrativo,
         'contractTitle': _contractSummary,
         'contractSummary': _contractSummary,
+        'descricaoObjeto': _dfdData?.descricaoObjeto,
         ...extra,
       },
     );
   }
 
-  void _fillForm(ApostillesData a) {
-    _lastFilledId = a.id;
+  Future<void> _safeNotify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationStatus status = NotificationStatus.info,
 
-    _orderCtrl.text = (a.apostilleOrder ?? '').toString();
-    _processCtrl.text = a.apostilleNumberProcess ?? '';
-    _dateCtrl.text = a.apostilleData != null
-        ? SipGedFormatDates.dateToDdMMyyyy(a.apostilleData!)
+    /// Compatibilidade temporária com chamadas antigas.
+    NotificationStatus? type,
+
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    bool sendPush = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    try {
+      await _notify(
+        title: title,
+        subtitle: subtitle,
+        details: details,
+        status: status,
+        type: type,
+        duration: duration,
+        saveInBell: saveInBell,
+        sendPush: sendPush,
+        extra: extra,
+      );
+    } catch (e, stack) {
+      debugPrint('Falha ao enviar notificação de apostilamento: $e');
+      debugPrintStack(stackTrace: stack);
+    }
+  }
+
+  void _fillForm(ApostillesData apostille) {
+    _lastFilledId = apostille.id;
+
+    _orderCtrl.text = (apostille.apostilleOrder ?? '').toString();
+    _processCtrl.text = apostille.apostilleNumberProcess ?? '';
+    _dateCtrl.text = apostille.apostilleData != null
+        ? SipGedFormatDates.dateToDdMMyyyy(apostille.apostilleData!)
         : '';
 
-    _valueCtrl.text = a.apostilleValue != null
-        ? SipGedFormatMoney.brlNoSymbol(a.apostilleValue)
+    _valueCtrl.text = apostille.apostilleValue != null
+        ? SipGedFormatMoney.brlNoSymbol(apostille.apostilleValue)
         : '';
 
     _cubit.updateFormValidity(
@@ -296,6 +473,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
     _processCtrl.clear();
     _dateCtrl.clear();
     _valueCtrl.clear();
+
     _selectedAttachmentIndex = null;
 
     _cubit.updateFormValidity(
@@ -319,19 +497,17 @@ class _ApostillesPageState extends State<ApostillesPage> {
         FirebaseAuth.instance.currentUser?.uid,
       );
 
-      await _notify(
-        title: result.created
-            ? 'Apostilamento criado'
-            : 'Apostilamento atualizado',
+      await _safeNotify(
+        title:
+        result.created ? 'Apostilamento criado' : 'Apostilamento atualizado',
         subtitle: result.created
             ? 'Apostilamento ${_orderCtrl.text.trim()} salvo por $actorName.'
             : 'Apostilamento ${_orderCtrl.text.trim()} atualizado por $actorName.',
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
-          'action':
-          result.created ? 'apostille_created' : 'apostille_updated',
+          'action': result.created ? 'apostille_created' : 'apostille_updated',
           'apostilleId': result.apostilleId,
           'apostilleOrder': result.order,
           'apostilleProcess': _processCtrl.text.trim(),
@@ -340,13 +516,11 @@ class _ApostillesPageState extends State<ApostillesPage> {
         },
       );
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Erro ao salvar apostilamento',
         subtitle: e.toString(),
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
-        saveInBell: false,
-        sendPush: false,
         extra: <String, dynamic>{
           'action': 'apostille_save_error',
           'error': e.toString(),
@@ -366,7 +540,9 @@ class _ApostillesPageState extends State<ApostillesPage> {
     _initialNextOrderApplied = true;
     _orderCtrl.text = state.nextAvailableOrder.toString();
 
-    _cubit.createNewApostille();
+    try {
+      _cubit.createNewApostille();
+    } catch (_) {}
 
     _cubit.updateFormValidity(
       orderText: _orderCtrl.text,
@@ -391,10 +567,10 @@ class _ApostillesPageState extends State<ApostillesPage> {
         FirebaseAuth.instance.currentUser?.uid,
       );
 
-      await _notify(
+      await _safeNotify(
         title: 'Anexo de apostilamento renomeado',
         subtitle: '${result.newAttachment.label} renomeado por $actorName.',
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -412,13 +588,11 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
       return true;
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Falha ao renomear anexo',
         subtitle: e.toString(),
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
-        saveInBell: false,
-        sendPush: false,
         extra: <String, dynamic>{
           'action': 'apostille_attachment_rename_error',
           'error': e.toString(),
@@ -450,10 +624,10 @@ class _ApostillesPageState extends State<ApostillesPage> {
         FirebaseAuth.instance.currentUser?.uid,
       );
 
-      await _notify(
+      await _safeNotify(
         title: 'Arquivo anexado ao apostilamento',
         subtitle: '${result.attachment.label} enviado por $actorName.',
-        type: NotificationStatus.success,
+        status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -467,13 +641,11 @@ class _ApostillesPageState extends State<ApostillesPage> {
         },
       );
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Erro ao anexar arquivo',
         subtitle: e.toString(),
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
-        saveInBell: false,
-        sendPush: false,
         extra: <String, dynamic>{
           'action': 'apostille_attachment_add_error',
           'error': e.toString(),
@@ -496,12 +668,12 @@ class _ApostillesPageState extends State<ApostillesPage> {
         FirebaseAuth.instance.currentUser?.uid,
       );
 
-      await _notify(
+      await _safeNotify(
         title: 'Arquivo removido do apostilamento',
         subtitle: result.attachment != null
             ? '${result.attachment!.label} removido por $actorName.'
             : 'Arquivo removido por $actorName.',
-        type: NotificationStatus.warning,
+        status: NotificationStatus.warning,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -515,13 +687,11 @@ class _ApostillesPageState extends State<ApostillesPage> {
         },
       );
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Erro ao remover arquivo',
         subtitle: e.toString(),
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
-        saveInBell: false,
-        sendPush: false,
         extra: <String, dynamic>{
           'action': 'apostille_attachment_delete_error',
           'error': e.toString(),
@@ -530,9 +700,9 @@ class _ApostillesPageState extends State<ApostillesPage> {
     }
   }
 
-  Future<void> _deleteApostille(ApostillesData a) async {
+  Future<void> _deleteApostille(ApostillesData apostille) async {
     try {
-      _cubit.selectApostille(a);
+      _cubit.selectApostille(apostille);
 
       final result = await _cubit.deleteSelectedApostille();
 
@@ -540,12 +710,12 @@ class _ApostillesPageState extends State<ApostillesPage> {
         FirebaseAuth.instance.currentUser?.uid,
       );
 
-      await _notify(
+      await _safeNotify(
         title: 'Apostilamento apagado',
         subtitle: result.order != null
             ? 'Apostilamento ${result.order} removido por $actorName.'
             : 'O apostilamento foi removido por $actorName.',
-        type: NotificationStatus.warning,
+        status: NotificationStatus.warning,
         saveInBell: true,
         sendPush: true,
         extra: <String, dynamic>{
@@ -558,13 +728,11 @@ class _ApostillesPageState extends State<ApostillesPage> {
         },
       );
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Erro ao apagar apostilamento',
         subtitle: e.toString(),
-        type: NotificationStatus.error,
+        status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
-        saveInBell: false,
-        sendPush: false,
         extra: <String, dynamic>{
           'action': 'apostille_delete_error',
           'error': e.toString(),
@@ -590,14 +758,14 @@ class _ApostillesPageState extends State<ApostillesPage> {
             _cubit.reloadAttachments();
           }
 
-          final bool isLoading = state.status == ApostillesStatus.loading;
+          final isLoading = state.status == ApostillesStatus.loading;
 
           final labels = state.apostilles
-              .map((e) => (e.apostilleOrder ?? '').toString())
+              .map((item) => (item.apostilleOrder ?? '').toString())
               .toList();
 
           final values = state.apostilles
-              .map((e) => (e.apostilleValue ?? 0.0).toDouble())
+              .map((item) => (item.apostilleValue ?? 0.0).toDouble())
               .toList();
 
           return Stack(
@@ -635,7 +803,17 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                     valueController: _valueCtrl,
                                     onSave: _save,
                                     onClear: () {
-                                      _cubit.createNewApostille();
+                                      try {
+                                        _cubit.createNewApostille();
+                                      } catch (e) {
+                                        _safeNotify(
+                                          title: 'Sem permissão',
+                                          subtitle: e.toString(),
+                                          status: NotificationStatus.error,
+                                        );
+                                        return;
+                                      }
+
                                       _clearForm();
 
                                       _orderCtrl.text =
@@ -650,14 +828,15 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                     },
                                     orderNumberOptions: state.orderOptions,
                                     greyOrderItems: state.greyOrderItems,
-                                    onChangedOrderNumber: (v) {
-                                      if (v == null) return;
+                                    onChangedOrderNumber: (value) {
+                                      if (value == null) return;
 
-                                      _orderCtrl.text = v;
+                                      _orderCtrl.text = value;
 
-                                      final ord = int.tryParse(v.trim()) ?? 0;
+                                      final order =
+                                          int.tryParse(value.trim()) ?? 0;
 
-                                      _cubit.selectApostilleByOrder(ord);
+                                      _cubit.selectApostilleByOrder(order);
                                       _cubit.reloadAttachments();
 
                                       if (_cubit.state.selected == null) {
@@ -678,9 +857,9 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                     _selectedAttachmentIndex,
                                     onAddSideItem:
                                     state.canAddFile ? _addAttachment : null,
-                                    onTapSideItem: (i) {
+                                    onTapSideItem: (index) {
                                       setState(() {
-                                        _selectedAttachmentIndex = i;
+                                        _selectedAttachmentIndex = index;
                                       });
                                     },
                                     onDeleteSideItem: _deleteAttachment,
@@ -710,7 +889,17 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                     selectedIndex: state.selectedIndex,
                                     onSelectIndex: (index) {
                                       if (index < 0) {
-                                        _cubit.createNewApostille();
+                                        try {
+                                          _cubit.createNewApostille();
+                                        } catch (e) {
+                                          _safeNotify(
+                                            title: 'Sem permissão',
+                                            subtitle: e.toString(),
+                                            status: NotificationStatus.error,
+                                          );
+                                          return;
+                                        }
+
                                         _clearForm();
 
                                         _orderCtrl.text =
@@ -722,11 +911,12 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       _cubit.selectApostilleByIndex(index);
                                       _cubit.reloadAttachments();
 
-                                      final sel = _cubit.state.selected;
+                                      final selected = _cubit.state.selected;
 
-                                      if (sel?.apostilleOrder != null) {
-                                        _orderCtrl.text =
-                                            sel!.apostilleOrder.toString();
+                                      if (selected?.apostilleOrder != null) {
+                                        _orderCtrl.text = selected!
+                                            .apostilleOrder
+                                            .toString();
                                       }
                                     },
                                   ),
@@ -741,13 +931,14 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                     apostilles: state.apostilles,
                                     isLoading: isLoading,
                                     selectedItem: state.selected,
-                                    onTapItem: (a) {
-                                      _cubit.selectApostille(a);
+                                    onTapItem: (apostille) {
+                                      _cubit.selectApostille(apostille);
                                       _cubit.reloadAttachments();
 
-                                      if (a.apostilleOrder != null) {
-                                        _orderCtrl.text =
-                                            a.apostilleOrder.toString();
+                                      if (apostille.apostilleOrder != null) {
+                                        _orderCtrl.text = apostille
+                                            .apostilleOrder
+                                            .toString();
                                       }
                                     },
                                     onDelete: _deleteApostille,
@@ -764,7 +955,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
                   const FootBar(),
                 ],
               ),
-              if (state.isSaving)
+              if (state.isSaving || isLoading || _loadingContractDisplay)
                 Stack(
                   children: [
                     ModalBarrier(

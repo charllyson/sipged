@@ -1,4 +1,3 @@
-// lib/_blocs/system/user/user_cubit.dart
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -56,6 +55,7 @@ class UserCubit extends Cubit<UserState> {
       }
     } catch (err) {
       if (isClosed) return;
+
       emit(state.copyWith(
         isLoadingUsers: false,
         loadUsersError: '$err',
@@ -70,6 +70,7 @@ class UserCubit extends Cubit<UserState> {
       if (listenRealtime && _usersSub == null) {
         await setRealtimeEnabled(true);
       }
+
       return;
     }
 
@@ -103,6 +104,7 @@ class UserCubit extends Cubit<UserState> {
       ));
     } catch (err) {
       if (isClosed) return;
+
       emit(state.copyWith(
         isLoadingUsers: false,
         loadUsersError: '$err',
@@ -115,11 +117,17 @@ class UserCubit extends Cubit<UserState> {
       if (_usersSub == null) {
         _attachUsersStream();
       }
-      emit(state.copyWith(realtimeEnabled: true));
+
+      emit(state.copyWith(
+        realtimeEnabled: true,
+      ));
     } else {
       await _usersSub?.cancel();
       _usersSub = null;
-      emit(state.copyWith(realtimeEnabled: false));
+
+      emit(state.copyWith(
+        realtimeEnabled: false,
+      ));
     }
   }
 
@@ -128,16 +136,23 @@ class UserCubit extends Cubit<UserState> {
       if (_meSub == null) {
         _attachMeStream();
       }
-      emit(state.copyWith(currentBindEnabled: true));
+
+      emit(state.copyWith(
+        currentBindEnabled: true,
+      ));
     } else {
       await _meSub?.cancel();
       _meSub = null;
-      emit(state.copyWith(currentBindEnabled: false));
+
+      emit(state.copyWith(
+        currentBindEnabled: false,
+      ));
     }
   }
 
   Future<UserData?> fetchById(String uid) async {
     final id = uid.trim();
+
     if (id.isEmpty) return null;
 
     final cached = state.byId[id];
@@ -145,6 +160,7 @@ class UserCubit extends Cubit<UserState> {
 
     try {
       final user = await repo.getById(id);
+
       if (user == null) return null;
 
       final all = [...state.all];
@@ -157,6 +173,7 @@ class UserCubit extends Cubit<UserState> {
       }
 
       final byId = Map<String, UserData>.from(state.byId);
+
       if ((user.uid ?? '').isNotEmpty) {
         byId[user.uid!] = user;
       }
@@ -190,11 +207,12 @@ class UserCubit extends Cubit<UserState> {
       }
 
       final byId = Map<String, UserData>.from(state.byId);
+
       if (id.isNotEmpty) {
         byId[id] = user;
       }
 
-      final current = (state.current?.uid == id) ? user : state.current;
+      final current = state.current?.uid == id ? user : state.current;
 
       emit(state.copyWith(
         all: all,
@@ -202,8 +220,63 @@ class UserCubit extends Cubit<UserState> {
         current: current,
       ));
     } catch (_) {
-      // Se quiser, depois podemos expor saveError no estado
+      // Opcional: expor saveError no UserState.
     }
+  }
+
+  Future<void> deactivateUser(String uid) async {
+    final id = uid.trim();
+
+    if (id.isEmpty) return;
+
+    await repo.deactivateUser(id);
+    await refreshUsers();
+  }
+
+  Future<void> reactivateUser(String uid) async {
+    final id = uid.trim();
+
+    if (id.isEmpty) return;
+
+    await repo.reactivateUser(id);
+    await refreshUsers();
+  }
+
+  Future<void> blockUser(String uid) async {
+    final id = uid.trim();
+
+    if (id.isEmpty) return;
+
+    await repo.blockUser(id);
+    await refreshUsers();
+  }
+
+  Future<void> softDeleteUser(String uid) async {
+    final id = uid.trim();
+
+    if (id.isEmpty) return;
+
+    await repo.softDeleteUser(id);
+    await refreshUsers();
+  }
+
+  Future<void> hardDeleteUserDocument(String uid) async {
+    final id = uid.trim();
+
+    if (id.isEmpty) return;
+
+    await repo.hardDeleteUserDocument(id);
+
+    final all = [...state.all]..removeWhere((u) => u.uid == id);
+    final byId = Map<String, UserData>.from(state.byId)..remove(id);
+
+    final isCurrentDeleted = state.current?.uid == id;
+
+    emit(state.copyWith(
+      all: all,
+      byId: byId,
+      setCurrentNull: isCurrentDeleted,
+    ));
   }
 
   Future<void> markNotificationSeen({
@@ -213,20 +286,32 @@ class UserCubit extends Cubit<UserState> {
     try {
       await repo.markNotificationSeen(uid, notificationId);
     } catch (_) {
-      // silencioso
+      // Silencioso.
     }
   }
 
   void setCurrentUser(UserData? user) {
-    emit(state.copyWith(current: user));
+    if (user == null) {
+      emit(state.copyWith(
+        setCurrentNull: true,
+      ));
+      return;
+    }
+
+    emit(state.copyWith(
+      current: user,
+    ));
   }
 
   void clearCurrentUser() {
-    emit(state.copyWith(current: UserData.empty()));
+    emit(state.copyWith(
+      setCurrentNull: true,
+    ));
   }
 
   void _attachUsersStream() {
     _usersSub?.cancel();
+
     _usersSub = repo.usersStream().listen(
           (list) {
         if (isClosed) return;
@@ -239,25 +324,44 @@ class UserCubit extends Cubit<UserState> {
         emit(state.copyWith(
           all: list,
           byId: byId,
+          initialized: true,
           loadUsersError: '',
         ));
       },
       onError: (err, [st]) {
         if (isClosed) return;
-        emit(state.copyWith(loadUsersError: err.toString()));
+
+        emit(state.copyWith(
+          loadUsersError: err.toString(),
+        ));
       },
     );
   }
 
   void _attachMeStream() {
     _meSub?.cancel();
+
     _meSub = repo.currentUserStream().listen(
           (user) {
         if (isClosed) return;
-        emit(state.copyWith(current: user));
+
+        if (user == null) {
+          emit(state.copyWith(
+            setCurrentNull: true,
+          ));
+          return;
+        }
+
+        emit(state.copyWith(
+          current: user,
+        ));
       },
       onError: (err, [st]) {
-        // opcional: logar erro
+        if (isClosed) return;
+
+        emit(state.copyWith(
+          setCurrentNull: true,
+        ));
       },
     );
   }

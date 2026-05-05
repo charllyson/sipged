@@ -20,11 +20,16 @@ import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_data.dart';
@@ -60,10 +65,13 @@ class _DotacaoPageState extends State<DotacaoPage>
   static const String _route = 'contracts_hiring_dotacao';
   static const String _notificationSource = 'contracts_hiring_dotacao';
 
+  final DfdRepository _dfdRepository = DfdRepository();
+
   late final ProgressCubit _progressBloc;
 
   DotacaoData _formData = const DotacaoData.empty();
   ProcessData _contract = ProcessData.empty();
+  DfdData? _dfdData;
 
   bool _hydrated = false;
   bool _loadingContract = false;
@@ -82,6 +90,34 @@ class _DotacaoPageState extends State<DotacaoPage>
     return _contract;
   }
 
+  String get _notificationDemandName {
+    final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
+
+    if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
+      return descricaoObjeto;
+    }
+
+    final displaySummary = _contract.displaySummary.trim();
+
+    if (displaySummary.isNotEmpty &&
+        displaySummary != 'Contrato $_contractId' &&
+        !displaySummary.startsWith('Contrato ')) {
+      return displaySummary;
+    }
+
+    return 'Demanda sem identificação';
+  }
+
+  String get _processNumber {
+    final processoAdministrativo = _dfdData?.processoAdministrativo?.trim();
+
+    if (processoAdministrativo != null && processoAdministrativo.isNotEmpty) {
+      return processoAdministrativo;
+    }
+
+    return _contractId;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -94,6 +130,7 @@ class _DotacaoPageState extends State<DotacaoPage>
       if (_contractId.isNotEmpty) {
         context.read<DotacaoCubit>().load(_contractId);
         unawaited(_loadContract(_contractId));
+        unawaited(_loadDfdData(_contractId));
       }
     });
   }
@@ -128,8 +165,9 @@ class _DotacaoPageState extends State<DotacaoPage>
 
         _loadingContract = false;
       });
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('[DotacaoPage] Erro ao carregar contrato $cid: $e');
+      debugPrintStack(stackTrace: stack);
 
       if (!mounted) return;
 
@@ -137,6 +175,24 @@ class _DotacaoPageState extends State<DotacaoPage>
         _contract = ProcessData.empty().copyWith(id: cid);
         _loadingContract = false;
       });
+    }
+  }
+
+  Future<void> _loadDfdData(String contractId) async {
+    final cid = contractId.trim();
+    if (cid.isEmpty) return;
+
+    try {
+      final data = await _dfdRepository.readDataForContract(cid);
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = data;
+      });
+    } catch (e, stack) {
+      debugPrint('[DotacaoPage] Falha ao carregar DFD do contrato: $e');
+      debugPrintStack(stackTrace: stack);
     }
   }
 
@@ -150,6 +206,27 @@ class _DotacaoPageState extends State<DotacaoPage>
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
+  }
+
+  String _currentActorPhotoUrl() {
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid.trim() ?? '';
+
+    if (uid.isNotEmpty) {
+      final users = context.read<UserCubit>().state.all;
+
+      for (final item in users) {
+        if ((item.uid ?? '').trim() == uid) {
+          final photo = item.urlPhoto?.trim() ?? '';
+          if (photo.isNotEmpty) return photo;
+        }
+      }
+    }
+
+    final firebasePhoto = user?.photoURL?.trim() ?? '';
+    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+
+    return '';
   }
 
   Future<void> _notify({
@@ -173,7 +250,13 @@ class _DotacaoPageState extends State<DotacaoPage>
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
+    final actorId = user?.uid.trim();
+    final actorName = _currentActorName();
+    final actorPhotoUrl = _currentActorPhotoUrl();
+
     final effectiveContract = _effectiveContract;
+    final effectiveContractId = (effectiveContract.id ?? _contractId).trim();
+    final demandName = _notificationDemandName;
 
     await NotificationHiring.show(
       context: context,
@@ -181,7 +264,6 @@ class _DotacaoPageState extends State<DotacaoPage>
       title: title,
       subtitle: subtitle,
       details: details,
-      leadingLabel: 'Dotação',
       module: _route,
       notificationSource: _notificationSource,
       source: 'dotacao_notification',
@@ -191,8 +273,8 @@ class _DotacaoPageState extends State<DotacaoPage>
       sendPush: sendPush,
       delivery: NotificationDelivery.localBellAndPush,
       targetUserIds: targetUserIds,
-      actorId: user?.uid,
-      actorName: _currentActorName(),
+      actorId: actorId,
+      actorName: actorName,
       extra: <String, dynamic>{
         ...extra,
         'route': extra['route'] ?? _route,
@@ -201,10 +283,21 @@ class _DotacaoPageState extends State<DotacaoPage>
         'sourceKey': _notificationSource,
         'subSource': _notificationSource,
         'notificationSource': _notificationSource,
-        if ((effectiveContract.id ?? '').trim().isNotEmpty)
-          'contractId': effectiveContract.id,
-        if (effectiveContract.displaySummary.trim().isNotEmpty)
-          'contractSummary': effectiveContract.displaySummary,
+        'actorId': actorId,
+        'actorName': actorName,
+        if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
+        if (effectiveContractId.isNotEmpty) 'contractId': effectiveContractId,
+        'contractTitle': demandName,
+        'contractSummary': demandName,
+        'descricaoObjeto': demandName,
+        'nomeDemanda': demandName,
+        if (_processNumber.trim().isNotEmpty) 'contractNumber': _processNumber,
+        if (_processNumber.trim().isNotEmpty) 'processNumber': _processNumber,
+        if (_dfdData?.processoAdministrativo?.trim().isNotEmpty == true)
+          'processoAdministrativo': _dfdData?.processoAdministrativo,
       },
     );
   }
@@ -246,6 +339,7 @@ class _DotacaoPageState extends State<DotacaoPage>
       }
 
       await _loadContract(_contractId);
+      await _loadDfdData(_contractId);
 
       if (!mounted) return false;
 
@@ -257,8 +351,8 @@ class _DotacaoPageState extends State<DotacaoPage>
       if (notifySuccess) {
         await _notify(
           title: 'Dotação atualizada',
-          subtitle: 'Alterações salvas por ${_currentActorName()}.',
-          details: _effectiveContract.displaySummary,
+          subtitle: _notificationDemandName,
+          details: 'Alterado por ${_currentActorName()}.',
           status: NotificationStatus.success,
           saveInBell: true,
           sendPush: true,
@@ -291,7 +385,7 @@ class _DotacaoPageState extends State<DotacaoPage>
 
   Future<void> _saveApproveAndNext() async {
     final dotacaoCubit = context.read<DotacaoCubit>();
-    final pipeline = context.read<PipelineProgressCubit>();
+    final pipeline = context.read<PipelineCubit>();
     final tab = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
@@ -342,8 +436,8 @@ class _DotacaoPageState extends State<DotacaoPage>
 
       await _notify(
         title: 'Dotação aprovada',
-        subtitle: 'Etapa concluída por $actorName.',
-        details: _effectiveContract.displaySummary,
+        subtitle: _notificationDemandName,
+        details: 'Aprovado por $actorName.',
         status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
@@ -408,8 +502,8 @@ class _DotacaoPageState extends State<DotacaoPage>
 
       await _notify(
         title: 'Aprovação da Dotação atualizada',
-        subtitle: 'Atualizada por $actorName.',
-        details: _effectiveContract.displaySummary,
+        subtitle: _notificationDemandName,
+        details: 'Atualizado por $actorName.',
         status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
@@ -470,6 +564,7 @@ class _DotacaoPageState extends State<DotacaoPage>
 
             if ((_contract.id ?? '') != _contractId) {
               unawaited(_loadContract(_contractId));
+              unawaited(_loadDfdData(_contractId));
             }
           }
         },

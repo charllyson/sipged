@@ -1,90 +1,151 @@
-// lib/_blocs/modules/contracts/hiring/2Tr/tr_cubit.dart
+// lib/_blocs/modules/contracts/hiring/3Tr/tr_cubit.dart
+
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_state.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
+import 'tr_data.dart';
+import 'tr_repository.dart';
+import 'tr_state.dart';
+
 class TrCubit extends Cubit<TrState> {
+  TrCubit(TrRepository repo)
+      : repo = repo,
+        super(TrState.initial());
+
   final TrRepository repo;
 
-  TrCubit(this.repo) : super(TrState.initial());
+  int _loadSeq = 0;
+  int _saveSeq = 0;
 
-  // ===========================================================
-  // HELPER PÚBLICO: obter TrData pelo contractId (igual DFD)
-  // ===========================================================
+  bool get _alive => !isClosed;
+
   Future<TrData?> getDataForContract(String contractId) {
-    return repo.readDataForContract(contractId);
+    final id = contractId.trim();
+    if (id.isEmpty) return Future<TrData?>.value(null);
+
+    return repo.readDataForContract(id);
   }
 
-  // ===========================================================
-  // LOAD
-  // ===========================================================
   Future<void> load(String contractId) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      emit(
+        state.copyWith(
+          loading: false,
+          saving: false,
+          saveSuccess: false,
+          error: 'Contrato não informado.',
+          clearContractId: true,
+          clearTrId: true,
+          sectionIds: const <String, String>{},
+          sectionsData: const <String, Map<String, dynamic>>{},
+        ),
+      );
+      return;
+    }
+
+    final reqId = ++_loadSeq;
+
     emit(
       state.copyWith(
         loading: true,
-        error: null,
+        saving: false,
         saveSuccess: false,
+        contractId: cleanContractId,
+        clearError: true,
       ),
     );
 
     try {
-      // estrutura fixa: trId = "main", sectionIds = {sec: "main"}
-      final ids = await repo.ensureStructure(contractId);
+      final ids = await repo.ensureStructure(cleanContractId);
+
+      if (!_alive || reqId != _loadSeq) return;
 
       final data = await repo.loadAllSections(
-        contractId: contractId,
+        contractId: cleanContractId,
         trId: ids.trId,
         sectionIds: ids.sectionIds,
       );
 
+      if (!_alive || reqId != _loadSeq) return;
+
       emit(
         state.copyWith(
           loading: false,
+          saving: false,
+          saveSuccess: false,
+          contractId: cleanContractId,
           trId: ids.trId,
           sectionIds: ids.sectionIds,
           sectionsData: data,
+          clearError: true,
         ),
       );
     } catch (err) {
+      if (!_alive || reqId != _loadSeq) return;
+
       emit(
         state.copyWith(
           loading: false,
+          saving: false,
+          saveSuccess: false,
           error: err.toString(),
         ),
       );
     }
   }
 
-  // ===========================================================
-  // SAVE ALL SECTIONS
-  // ===========================================================
   Future<void> saveAll({
     required String contractId,
     required SectionsMap sectionsData,
   }) async {
-    if (!state.hasValidPath) return;
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      emit(
+        state.copyWith(
+          saving: false,
+          saveSuccess: false,
+          error: 'Contrato não informado.',
+        ),
+      );
+      return;
+    }
+
+    final reqId = ++_saveSeq;
 
     emit(
       state.copyWith(
         saving: true,
+        loading: false,
         saveSuccess: false,
-        error: null,
+        contractId: cleanContractId,
+        clearError: true,
       ),
     );
 
     try {
+      final ids = await repo.ensureStructure(cleanContractId);
+
+      if (!_alive || reqId != _saveSeq) return;
+
       await repo.saveSectionsBatch(
-        contractId: contractId,
-        trId: state.trId!,
-        sectionIds: state.sectionIds,
+        contractId: cleanContractId,
+        trId: ids.trId,
+        sectionIds: ids.sectionIds,
         sectionsData: sectionsData,
       );
 
-      final merged = {...state.sectionsData};
+      if (!_alive || reqId != _saveSeq) return;
+
+      final merged = <String, Map<String, dynamic>>{
+        ...state.sectionsData,
+      };
+
       sectionsData.forEach((key, value) {
-        merged[key] = {
+        merged[key] = <String, dynamic>{
           ...(merged[key] ?? const <String, dynamic>{}),
           ...value,
         };
@@ -94,10 +155,16 @@ class TrCubit extends Cubit<TrState> {
         state.copyWith(
           saving: false,
           saveSuccess: true,
+          contractId: cleanContractId,
+          trId: ids.trId,
+          sectionIds: ids.sectionIds,
           sectionsData: merged,
+          clearError: true,
         ),
       );
     } catch (err) {
+      if (!_alive || reqId != _saveSeq) return;
+
       emit(
         state.copyWith(
           saving: false,
@@ -108,42 +175,85 @@ class TrCubit extends Cubit<TrState> {
     }
   }
 
-  // ===========================================================
-  // SAVE ONE SECTION
-  // ===========================================================
   Future<void> saveOneSection({
     required String contractId,
     required String sectionKey,
     required Map<String, dynamic> data,
   }) async {
-    if (!state.hasValidPath) return;
+    final cleanContractId = contractId.trim();
+    final cleanSectionKey = sectionKey.trim();
 
-    final sectionId = state.sectionIds[sectionKey];
-    if (sectionId == null) {
-      emit(state.copyWith(error: 'Seção inválida: $sectionKey'));
+    if (cleanContractId.isEmpty) {
+      emit(
+        state.copyWith(
+          saving: false,
+          saveSuccess: false,
+          error: 'Contrato não informado.',
+        ),
+      );
       return;
     }
+
+    if (cleanSectionKey.isEmpty) {
+      emit(
+        state.copyWith(
+          saving: false,
+          saveSuccess: false,
+          error: 'Seção não informada.',
+        ),
+      );
+      return;
+    }
+
+    final reqId = ++_saveSeq;
 
     emit(
       state.copyWith(
         saving: true,
+        loading: false,
         saveSuccess: false,
-        error: null,
+        contractId: cleanContractId,
+        clearError: true,
       ),
     );
 
     try {
+      final ids = await repo.ensureStructure(cleanContractId);
+      final sectionId = ids.sectionIds[cleanSectionKey];
+
+      if (sectionId == null) {
+        if (!_alive || reqId != _saveSeq) return;
+
+        emit(
+          state.copyWith(
+            saving: false,
+            saveSuccess: false,
+            error: 'Seção inválida: $cleanSectionKey',
+            trId: ids.trId,
+            sectionIds: ids.sectionIds,
+          ),
+        );
+        return;
+      }
+
+      if (!_alive || reqId != _saveSeq) return;
+
       await repo.saveSection(
-        contractId: contractId,
-        trId: state.trId!,
-        sectionKey: sectionKey,
+        contractId: cleanContractId,
+        trId: ids.trId,
+        sectionKey: cleanSectionKey,
         sectionDocId: sectionId,
         data: data,
       );
 
-      final merged = {...state.sectionsData};
-      merged[sectionKey] = {
-        ...(merged[sectionKey] ?? const <String, dynamic>{}),
+      if (!_alive || reqId != _saveSeq) return;
+
+      final merged = <String, Map<String, dynamic>>{
+        ...state.sectionsData,
+      };
+
+      merged[cleanSectionKey] = <String, dynamic>{
+        ...(merged[cleanSectionKey] ?? const <String, dynamic>{}),
         ...data,
       };
 
@@ -151,10 +261,16 @@ class TrCubit extends Cubit<TrState> {
         state.copyWith(
           saving: false,
           saveSuccess: true,
+          contractId: cleanContractId,
+          trId: ids.trId,
+          sectionIds: ids.sectionIds,
           sectionsData: merged,
+          clearError: true,
         ),
       );
     } catch (err) {
+      if (!_alive || reqId != _saveSeq) return;
+
       emit(
         state.copyWith(
           saving: false,
@@ -165,12 +281,15 @@ class TrCubit extends Cubit<TrState> {
     }
   }
 
-  // ===========================================================
-  // CLEAR SUCCESS FLAG
-  // ===========================================================
   void clearSuccessFlag() {
     if (state.saveSuccess) {
       emit(state.copyWith(saveSuccess: false));
+    }
+  }
+
+  void clearError() {
+    if (state.error != null) {
+      emit(state.copyWith(clearError: true));
     }
   }
 }

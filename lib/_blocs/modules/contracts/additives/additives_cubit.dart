@@ -7,9 +7,8 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 
-import 'package:sipged/_blocs/system/module/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/_blocs/system/user/user_permission.dart' as roles;
 
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
@@ -96,19 +95,31 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     required this.contract,
     required this.repository,
     UserData? initialUser,
+    UserPermissionData? initialPermissions,
+    String? tenantId,
+    this.moduleId = 'contracts_additives',
   })  : _currentUser = initialUser,
+        _currentPermissions = initialPermissions,
+        _tenantId = tenantId,
         super(AdditivesState.initial()) {
     _init();
 
-    if (initialUser != null) {
-      updateUser(initialUser);
+    if (initialUser != null || initialPermissions != null) {
+      updateUser(
+        initialUser,
+        permissions: initialPermissions,
+        tenantId: tenantId,
+      );
     }
   }
 
   final ProcessData contract;
   final AdditivesRepository repository;
+  final String moduleId;
 
   UserData? _currentUser;
+  UserPermissionData? _currentPermissions;
+  String? _tenantId;
 
   Future<void> _init() async {
     if (contract.id == null || contract.id!.isEmpty) {
@@ -132,41 +143,100 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     await loadAdditives();
   }
 
-  // =========================
-  // Permissões
-  // =========================
+  void updateUser(
+      UserData? user, {
+        UserPermissionData? permissions,
+        String? tenantId,
+      }) {
+    _currentUser = user ?? _currentUser;
+    _currentPermissions = permissions ?? _permissionsFromUser(user) ?? _currentPermissions;
+    _tenantId = tenantId ?? _tenantId;
 
-  void updateUser(UserData? user) {
-    _currentUser = user;
-    final editable = _canEditUser(user);
+    final editable = _canWrite();
+
     emit(state.copyWith(isEditable: editable));
   }
 
-  bool _canEditUser(UserData? user) {
-    if (user == null) return false;
+  UserPermissionData? _permissionsFromUser(UserData? user) {
+    if (user == null) return null;
 
-    if (roles.roleForUser(user) == roles.UserProfile.administrador) {
+    final uid = (user.uid ?? '').trim();
+
+    if (uid.isEmpty) return null;
+
+    final raw = user.userSnap?.data();
+
+    if (raw is Map<String, dynamic>) {
+      return UserPermissionData.fromMap(
+        uid: uid,
+        map: raw,
+      );
+    }
+
+    return UserPermissionData(uid: uid);
+  }
+
+  bool get isEditable => _canWrite();
+
+  bool _canWrite() {
+    final permissions = _currentPermissions;
+
+    if (permissions == null) return false;
+
+    if (permissions.isSuperUserForTenant(_tenantId)) {
       return true;
     }
 
-    final canEdit = perms.userCanModule(
-      user: user,
-      module: 'additives',
-      action: 'edit',
-    );
-
-    final canCreate = perms.userCanModule(
-      user: user,
-      module: 'additives',
+    return permissions.canModuleString(
+      module: moduleId,
       action: 'create',
-    );
-
-    return canEdit || canCreate;
+      tenantId: _tenantId,
+    ) ||
+        permissions.canModuleString(
+          module: moduleId,
+          action: 'edit',
+          tenantId: _tenantId,
+        ) ||
+        permissions.canModuleString(
+          module: moduleId,
+          action: 'delete',
+          tenantId: _tenantId,
+        );
   }
 
-  // =========================
-  // Carregamento / seleção
-  // =========================
+  bool _canDelete() {
+    final permissions = _currentPermissions;
+
+    if (permissions == null) return false;
+
+    if (permissions.isSuperUserForTenant(_tenantId)) {
+      return true;
+    }
+
+    return permissions.canModuleString(
+      module: moduleId,
+      action: 'delete',
+      tenantId: _tenantId,
+    );
+  }
+
+  void _assertCanWrite() {
+    if (_canWrite()) return;
+
+    throw Exception(
+      'Usuário sem permissão para alterar aditivos. '
+          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+    );
+  }
+
+  void _assertCanDelete() {
+    if (_canDelete()) return;
+
+    throw Exception(
+      'Usuário sem permissão para apagar aditivos. '
+          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+    );
+  }
 
   Future<void> loadAdditives() async {
     if (contract.id == null || contract.id!.isEmpty) {
@@ -200,6 +270,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           additives: list,
           existingOrders: orders,
           nextAvailableOrder: next,
+          isEditable: _canWrite(),
         ),
       );
     } catch (e) {
@@ -327,10 +398,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     );
   }
 
-  // =========================
-  // Regras de formulário
-  // =========================
-
   void updateFormValidity({
     required String typeText,
     required String dateText,
@@ -356,10 +423,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       emit(state.copyWith(formValid: valid));
     }
   }
-
-  // =========================
-  // Salvamento / atualização
-  // =========================
 
   String _onlyDigits(String s) {
     return s.replaceAll(RegExp(r'[^\d]'), '');
@@ -405,6 +468,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     required String processText,
     required String typeText,
   }) async {
+    _assertCanWrite();
+
     if (contract.id == null || contract.id!.trim().isEmpty) {
       throw Exception('Contrato não informado para salvar o aditivo.');
     }
@@ -472,6 +537,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   Future<AdditiveDeleteResult> deleteSelectedAdditive() async {
+    _assertCanDelete();
+
     final selected = state.selected;
 
     if (contract.id == null || contract.id!.trim().isEmpty) {
@@ -506,9 +573,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       createNewAdditive();
 
       return result;
-    } catch (e, st) {
-      debugPrint('>>> ERRO em deleteSelectedAdditive: $e\n$st');
-
+    } catch (e) {
       emit(
         state.copyWith(
           isSaving: false,
@@ -521,10 +586,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       emit(state.copyWith(isSaving: false));
     }
   }
-
-  // =========================
-  // Attachments
-  // =========================
 
   Future<void> reloadAttachments() async {
     final selected = state.selected;
@@ -602,24 +663,9 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         attachments: list,
       );
 
-      final updatedSelected = AdditivesData(
-        id: selected.id,
-        contractId: selected.contractId,
-        additiveNumberProcess: selected.additiveNumberProcess,
-        additiveOrder: selected.additiveOrder,
-        additiveDate: selected.additiveDate,
-        typeOfAdditive: selected.typeOfAdditive,
-        additiveValue: selected.additiveValue,
-        additiveValidityContractDays: selected.additiveValidityContractDays,
-        additiveValidityExecutionDays: selected.additiveValidityExecutionDays,
+      final updatedSelected = selected.copyWith(
         pdfUrl: null,
         attachments: list,
-        createdAt: selected.createdAt,
-        createdBy: selected.createdBy,
-        updatedAt: selected.updatedAt,
-        updatedBy: selected.updatedBy,
-        deletedAt: selected.deletedAt,
-        deletedBy: selected.deletedBy,
       );
 
       emit(
@@ -650,6 +696,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   Future<AttachmentAddResult> addAttachmentWithPicker(
       BuildContext context,
       ) async {
+    _assertCanWrite();
+
     final cId = contract.id;
     final a = state.selected;
 
@@ -677,8 +725,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       final (Uint8List bytes, String originalName) =
       await repository.pickFileBytes();
 
-      final suggestion = _suggestLabelFromName(a, originalName);
-      final label = suggestion;
+      final label = _suggestLabelFromName(a, originalName);
 
       final att = await repository.uploadAttachmentBytes(
         contract: contract,
@@ -702,24 +749,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         attachments: current,
       );
 
-      final updatedSelected = AdditivesData(
-        id: a.id,
-        contractId: a.contractId,
-        additiveNumberProcess: a.additiveNumberProcess,
-        additiveOrder: a.additiveOrder,
-        additiveDate: a.additiveDate,
-        typeOfAdditive: a.typeOfAdditive,
-        additiveValue: a.additiveValue,
-        additiveValidityContractDays: a.additiveValidityContractDays,
-        additiveValidityExecutionDays: a.additiveValidityExecutionDays,
-        pdfUrl: a.pdfUrl,
+      final updatedSelected = a.copyWith(
         attachments: current,
-        createdAt: a.createdAt,
-        createdBy: a.createdBy,
-        updatedAt: a.updatedAt,
-        updatedBy: a.updatedBy,
-        deletedAt: a.deletedAt,
-        deletedBy: a.deletedBy,
       );
 
       emit(
@@ -736,7 +767,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         additiveOrder: a.additiveOrder,
         attachment: att,
       );
-    } catch (e) {
+    } catch (_) {
       emit(
         state.copyWith(
           sideLoading: false,
@@ -753,6 +784,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     required int index,
     required String newLabel,
   }) async {
+    _assertCanWrite();
+
     final a = state.selected;
 
     if (a == null || a.id == null || a.id!.trim().isEmpty) {
@@ -799,24 +832,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         attachments: list,
       );
 
-      final updatedSelected = AdditivesData(
-        id: a.id,
-        contractId: a.contractId,
-        additiveNumberProcess: a.additiveNumberProcess,
-        additiveOrder: a.additiveOrder,
-        additiveDate: a.additiveDate,
-        typeOfAdditive: a.typeOfAdditive,
-        additiveValue: a.additiveValue,
-        additiveValidityContractDays: a.additiveValidityContractDays,
-        additiveValidityExecutionDays: a.additiveValidityExecutionDays,
-        pdfUrl: a.pdfUrl,
+      final updatedSelected = a.copyWith(
         attachments: list,
-        createdAt: a.createdAt,
-        createdBy: a.createdBy,
-        updatedAt: a.updatedAt,
-        updatedBy: a.updatedBy,
-        deletedAt: a.deletedAt,
-        deletedBy: a.deletedBy,
       );
 
       emit(
@@ -834,7 +851,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         oldAttachment: oldAtt,
         newAttachment: updated,
       );
-    } catch (e) {
+    } catch (_) {
       emit(
         state.copyWith(
           sideLoading: false,
@@ -848,6 +865,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   Future<AttachmentDeleteResult> deleteAttachment(int index) async {
+    _assertCanWrite();
+
     final a = state.selected;
 
     if (a == null || a.id == null || contract.id == null) {
@@ -867,13 +886,11 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         a.attachments ?? const <Attachment>[],
       );
 
-      Attachment? removed;
-
       if (index < 0 || index >= atts.length) {
         throw Exception('Índice de anexo inválido.');
       }
 
-      removed = atts.removeAt(index);
+      final removed = atts.removeAt(index);
 
       if (removed.path.isNotEmpty) {
         await repository.deleteStorageByPath(removed.path);
@@ -885,24 +902,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         attachments: atts,
       );
 
-      final updatedSelected = AdditivesData(
-        id: a.id,
-        contractId: a.contractId,
-        additiveNumberProcess: a.additiveNumberProcess,
-        additiveOrder: a.additiveOrder,
-        additiveDate: a.additiveDate,
-        typeOfAdditive: a.typeOfAdditive,
-        additiveValue: a.additiveValue,
-        additiveValidityContractDays: a.additiveValidityContractDays,
-        additiveValidityExecutionDays: a.additiveValidityExecutionDays,
-        pdfUrl: a.pdfUrl,
+      final updatedSelected = a.copyWith(
         attachments: atts,
-        createdAt: a.createdAt,
-        createdBy: a.createdBy,
-        updatedAt: a.updatedAt,
-        updatedBy: a.updatedBy,
-        deletedAt: a.deletedAt,
-        deletedBy: a.deletedBy,
       );
 
       emit(
@@ -919,7 +920,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         additiveOrder: a.additiveOrder,
         attachment: removed,
       );
-    } catch (e) {
+    } catch (_) {
       emit(
         state.copyWith(
           sideLoading: false,
@@ -931,10 +932,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       rethrow;
     }
   }
-
-  // =========================
-  // Helpers de ordem
-  // =========================
 
   Set<int> _extractExistingOrders(List<AdditivesData> list) {
     return list

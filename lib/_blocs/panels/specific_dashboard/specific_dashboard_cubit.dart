@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -10,7 +9,7 @@ import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.d
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_repository.dart';
 
 import 'specific_dashboard_state.dart';
@@ -146,16 +145,12 @@ class SpecificDashboardCubit extends Cubit<SpecificDashboardState> {
       ) async {
     final sw = Stopwatch()..start();
 
-    if (kDebugMode) {
-      debugPrint('[BenchmarkStats] START natureza="$natureza" (CONTRATADO)');
-    }
 
     // seeds: contratos que têm localizacao com natureza exata + km direto do doc
     final seeds =
     await dfdRepository.listBenchmarkSeedsByNaturezaIntervencao(natureza);
 
     if (seeds.isEmpty) {
-      if (kDebugMode) debugPrint('[BenchmarkStats] EMPTY seeds');
       return (mediaPonderada: 0.0, tetoMax: 0.0);
     }
 
@@ -169,9 +164,6 @@ class SpecificDashboardCubit extends Cubit<SpecificDashboardState> {
     // - dentro do contrato, lê em paralelo base/aditivos/apostilas
     const int batchSize = 12;
 
-    int ok = 0;
-    int skipKmZero = 0;
-    int err = 0;
 
     for (int i = 0; i < seeds.length; i += batchSize) {
       final batch = seeds.sublist(i, math.min(i + batchSize, seeds.length));
@@ -207,16 +199,13 @@ class SpecificDashboardCubit extends Cubit<SpecificDashboardState> {
 
       for (final r in results) {
         if (!r.ok) {
-          err += 1;
           continue;
         }
 
         if (r.km <= 0) {
-          skipKmZero += 1;
           continue;
         }
 
-        ok += 1;
 
         // ✅ média ponderada (somatório / somatório km)
         sumValor += r.total;
@@ -226,27 +215,11 @@ class SpecificDashboardCubit extends Cubit<SpecificDashboardState> {
         final custoPorKmContrato = r.total / r.km;
         if (custoPorKmContrato > tetoMax) tetoMax = custoPorKmContrato;
       }
-
-      if (kDebugMode) {
-        debugPrint(
-          '[BenchmarkStats] batch ${(i ~/ batchSize) + 1} '
-              'sumKm=${sumKm.toStringAsFixed(2)} tetoMax=${tetoMax.toStringAsFixed(2)}',
-        );
-      }
     }
 
     final mediaPonderada = (sumKm > 0) ? (sumValor / sumKm) : 0.0;
 
     sw.stop();
-    if (kDebugMode) {
-      debugPrint(
-        '[BenchmarkStats] DONE natureza="$natureza" (CONTRATADO) seeds=${seeds.length} '
-            'ok=$ok skipKmZero=$skipKmZero err=$err '
-            'sumValor=${sumValor.toStringAsFixed(2)} sumKm=${sumKm.toStringAsFixed(2)} '
-            'media=${mediaPonderada.toStringAsFixed(2)} teto=${tetoMax.toStringAsFixed(2)} '
-            'elapsed=${sw.elapsedMilliseconds}ms',
-      );
-    }
 
     return (mediaPonderada: mediaPonderada, tetoMax: tetoMax);
   }

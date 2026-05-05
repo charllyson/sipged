@@ -78,4 +78,6 @@ class UserState extends Equatable {
     realtimeEnabled,
     currentBindEnabled,
   ];
+
+
 }

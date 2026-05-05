@@ -12,7 +12,7 @@ class ToastCard extends StatefulWidget {
     required this.onClose,
     this.subtitle,
     this.details,
-    this.leadingLabel,
+    this.leading,
     this.icon = Icons.notifications_rounded,
     this.accentColor = const Color(0xFF1565C0),
     this.backgroundColor = Colors.white,
@@ -26,7 +26,10 @@ class ToastCard extends StatefulWidget {
   final String title;
   final String? subtitle;
   final String? details;
-  final String? leadingLabel;
+
+  /// Widget livre para o lado esquerdo do toast.
+  /// Pode ser Icon, CircleAvatar, Image, MiniAvatar etc.
+  final Widget? leading;
 
   final IconData icon;
   final Color accentColor;
@@ -48,11 +51,6 @@ class _ToastCardState extends State<ToastCard>
   late final Animation<Offset> _slideAnimation;
   late final Animation<double> _fadeAnimation;
   late final Animation<double> _scaleAnimation;
-
-  String get _safeLeadingLabel {
-    final value = (widget.leadingLabel ?? '').trim();
-    return value.isNotEmpty ? value : 'Notificação';
-  }
 
   @override
   void initState() {
@@ -95,6 +93,23 @@ class _ToastCardState extends State<ToastCard>
   void _close() {
     HapticFeedback.lightImpact();
     widget.onClose();
+  }
+
+  Widget _buildDefaultLeading() {
+    return Icon(
+      widget.icon,
+      color: widget.accentColor,
+      size: 26,
+    );
+  }
+
+  Widget _buildLeading() {
+    return SizedBox(
+      width: 44,
+      child: Center(
+        child: widget.leading ?? _buildDefaultLeading(),
+      ),
+    );
   }
 
   @override
@@ -178,33 +193,7 @@ class _ToastCardState extends State<ToastCard>
                                     ),
                                     child: Row(
                                       children: [
-                                        SizedBox(
-                                          width: 44,
-                                          child: Column(
-                                            mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                widget.icon,
-                                                color: widget.accentColor,
-                                                size: 22,
-                                              ),
-                                              const SizedBox(height: 5),
-                                              Text(
-                                                _safeLeadingLabel,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontSize: 9.5,
-                                                  letterSpacing: .1,
-                                                  color: Colors.black54,
-                                                  decoration:
-                                                  TextDecoration.none,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                        _buildLeading(),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: Column(

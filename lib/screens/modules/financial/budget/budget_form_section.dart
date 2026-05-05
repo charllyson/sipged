@@ -133,8 +133,8 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
     });
   }
 
-  TenantItemData? _findByLabel(
-      List<TenantItemData> list,
+  String? _findByLabel(
+      List<String> list,
       String label,
       ) {
     final target = label.trim().toLowerCase();
@@ -142,8 +142,8 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
     if (target.isEmpty) return null;
 
     for (final item in list) {
-      if (item.label.trim().toLowerCase() == target) {
-        return item;
+      if (item.trim().toLowerCase() == target) {
+        return item.trim();
       }
     }
 
@@ -263,7 +263,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       tooltipMessage: !companyConfigured
                           ? 'Configure o contratante no setup do sistema'
                           : null,
-                      items: fundingSources.map((e) => e.label).toList(),
+                      items: fundingSources,
                       specialItemLabel: 'Adicionar fonte',
                       menuMaxHeight: 260,
                       onChanged: (label) {
@@ -284,8 +284,8 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
 
                         if (selected == null) return;
 
-                        localBudgetCubit.setFundingSourceLabel(selected.label);
-                        localBudgetCubit.setFundingSourceId(selected.id.trim());
+                        localBudgetCubit.setFundingSourceLabel(selected);
+                        localBudgetCubit.setFundingSourceId(selected);
                       },
                       onCreateNewItem: companyConfigured
                           ? (label) async {
@@ -302,10 +302,8 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
 
                         if (!mounted || created == null) return;
 
-                        localBudgetCubit
-                            .setFundingSourceLabel(created.label);
-                        localBudgetCubit
-                            .setFundingSourceId(created.id.trim());
+                        localBudgetCubit.setFundingSourceLabel(created);
+                        localBudgetCubit.setFundingSourceId(created);
 
                         setState(() => _fundingNonce++);
                       }
@@ -338,7 +336,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
 
                         final updated =
                         await tenantCubit.updateFundingSourceName(
-                          target.id,
+                          target,
                           newLabel,
                         );
 
@@ -346,11 +344,10 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
 
                         if (_fonteCtrl.text.trim().toLowerCase() ==
                             oldL.toLowerCase()) {
-                          _fonteCtrl.text = updated.label;
+                          _fonteCtrl.text = updated;
                           localBudgetCubit
-                              .setFundingSourceLabel(updated.label);
-                          localBudgetCubit
-                              .setFundingSourceId(updated.id.trim());
+                              .setFundingSourceLabel(updated);
+                          localBudgetCubit.setFundingSourceId(updated);
                         }
 
                         setState(() => _fundingNonce++);
@@ -373,7 +370,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
 
                         if (target == null) return;
 
-                        await tenantCubit.deleteFundingSource(target.id);
+                        await tenantCubit.deleteFundingSource(target);
 
                         if (!mounted) return;
 

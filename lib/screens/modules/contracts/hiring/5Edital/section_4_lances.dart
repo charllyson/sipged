@@ -11,7 +11,6 @@ import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
-import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 
 class SectionLances extends StatefulWidget {
   final bool isEditable;
@@ -219,7 +218,7 @@ class _SectionLancesState extends State<SectionLances> {
 
     if (!mounted) return null;
 
-    return created?.label ?? label;
+    return created ?? label;
   }
 
   @override
@@ -227,9 +226,9 @@ class _SectionLancesState extends State<SectionLances> {
     final isEditable = widget.isEditable;
 
     final tenantState = context.watch<TenantCubit>().state;
-    final List<TenantItemData> bodies = tenantState.companyBodies;
+    final List<String> bodies = tenantState.companyBodies;
 
-    final bodyLabels = bodies.map((e) => e.label).where((e) {
+    final bodyLabels = bodies.where((e) {
       return e.trim().isNotEmpty;
     });
 

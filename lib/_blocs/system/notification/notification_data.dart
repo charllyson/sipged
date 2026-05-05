@@ -1,5 +1,3 @@
-// lib/_blocs/system/notification/notification_data.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -241,10 +239,7 @@ class NotificationData {
     addIfNotEmpty('module', cleanExtra['module']?.toString());
     addIfNotEmpty('action', cleanExtra['action']?.toString());
     addIfNotEmpty('source', cleanExtra['source']?.toString());
-    addIfNotEmpty(
-      'notificationSource',
-      cleanExtra['notificationSource']?.toString(),
-    );
+    addIfNotEmpty('notificationSource', cleanExtra['notificationSource']?.toString());
 
     addIfNotEmpty('contractId', cleanExtra['contractId']?.toString());
     addIfNotEmpty('contractNumber', cleanExtra['contractNumber']?.toString());
@@ -256,6 +251,11 @@ class NotificationData {
 
     addIfNotEmpty('actorId', cleanExtra['actorId']?.toString());
     addIfNotEmpty('actorName', cleanExtra['actorName']?.toString());
+    addIfNotEmpty('actorPhotoUrl', cleanExtra['actorPhotoUrl']?.toString());
+    addIfNotEmpty('photoUrl', cleanExtra['photoUrl']?.toString());
+    addIfNotEmpty('photoURL', cleanExtra['photoURL']?.toString());
+    addIfNotEmpty('profilePhotoUrl', cleanExtra['profilePhotoUrl']?.toString());
+    addIfNotEmpty('urlPhoto', cleanExtra['urlPhoto']?.toString());
 
     final targetUserIds = cleanExtra['targetUserIds'];
 
@@ -363,9 +363,7 @@ class NotificationData {
       pushSentAt: resolvedPushSentAt,
       pushError: map['pushError']?.toString(),
       recipientUserId: map['recipientUserId']?.toString(),
-      extra: map['extra'] is Map
-          ? Map<String, dynamic>.from(map['extra'] as Map)
-          : _extraFromRootMap(map),
+      extra: _mergedExtraFromMap(map),
     );
   }
 
@@ -376,6 +374,21 @@ class NotificationData {
       doc.data() ?? const <String, dynamic>{},
       id: doc.id,
     );
+  }
+
+  static Map<String, dynamic> _mergedExtraFromMap(Map<String, dynamic> map) {
+    final rootExtra = _extraFromRootMap(map);
+
+    final nestedExtra = map['extra'] is Map
+        ? sanitizeExtra(
+      Map<String, dynamic>.from(map['extra'] as Map),
+    )
+        : const <String, dynamic>{};
+
+    return sanitizeExtra(<String, dynamic>{
+      ...rootExtra,
+      ...nestedExtra,
+    });
   }
 
   static Map<String, dynamic> _extraFromRootMap(Map<String, dynamic> map) {
@@ -395,18 +408,40 @@ class NotificationData {
     addIfExists('module');
     addIfExists('action');
     addIfExists('source');
+    addIfExists('sourceKey');
+    addIfExists('subSource');
     addIfExists('notificationSource');
 
     addIfExists('contractId');
     addIfExists('contractNumber');
     addIfExists('contractSummary');
     addIfExists('contractTitle');
+    addIfExists('summarySubjectContract');
+    addIfExists('descricaoObjeto');
+    addIfExists('nomeDemanda');
+    addIfExists('demandaNome');
+    addIfExists('demandName');
 
     addIfExists('processId');
     addIfExists('processNumber');
+    addIfExists('processSummary');
+    addIfExists('processoAdministrativo');
 
     addIfExists('actorId');
     addIfExists('actorName');
+    addIfExists('actorPhotoUrl');
+    addIfExists('photoUrl');
+    addIfExists('photoURL');
+    addIfExists('profilePhotoUrl');
+    addIfExists('urlPhoto');
+    addIfExists('avatarUrl');
+    addIfExists('imageUrl');
+
+    addIfExists('measurementId');
+    addIfExists('measurementNumber');
+    addIfExists('measurementOrder');
+    addIfExists('measurementDate');
+    addIfExists('measurementValue');
 
     addIfExists('targetUserIds');
 

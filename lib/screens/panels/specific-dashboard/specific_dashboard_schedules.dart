@@ -6,9 +6,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // Schedule rodoviário
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
 
 // Widget que renderiza GERAL + serviços
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_schedules_details.dart';

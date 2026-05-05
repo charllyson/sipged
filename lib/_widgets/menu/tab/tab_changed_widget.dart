@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
@@ -9,13 +16,15 @@ import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
 import 'package:sipged/_widgets/menu/tab/tab_banner.dart';
-
 import 'package:sipged/_widgets/menu/tab/tab_blocked.dart';
 
 class ContractTabDescriptor {
   final String label;
   final Widget Function(ProcessData? contract) builder;
   final bool requireSavedContract;
+
+  /// Mantido por compatibilidade.
+  /// Não é usado no banner.
   final String? textBanner;
 
   const ContractTabDescriptor({
@@ -42,14 +51,17 @@ class StampConfig {
     required this.approved,
     this.approvedLabel,
     this.pendingLabel,
-    this.approvedIcon,
     this.pendingIcon,
+    this.approvedIcon,
     this.approvedColor,
     this.pendingColor,
     this.scaleFactor = 1.0,
   });
 
-  static const hidden = StampConfig(show: false, approved: false);
+  static const hidden = StampConfig(
+    show: false,
+    approved: false,
+  );
 }
 
 typedef ResolveStampForTab = StampConfig Function({
@@ -61,16 +73,33 @@ class TabChanged extends StatefulWidget {
   final UserData? userData;
   final ProcessData? contractData;
   final ProcessCubit? contractsCubit;
+
+  /// Cubit oficial da publicação.
+  ///
+  /// Se não for informado, tenta buscar no contexto:
+  final PublicacaoExtratoCubit? publicacaoExtratoCubit;
+
+  /// DFD já carregado, caso a tela pai possua.
+  final DfdData? dfdData;
+
+  /// Loader oficial para carregar DFD pelo contractId.
+  ///
+  /// Use assim na chamada:
+  ///
+  /// dfdLoader: (contractId) {
+  /// },
+  ///
+  /// Se não for informado, este widget agora também tenta buscar automaticamente:
+  final Future<DfdData?> Function(String contractId)? dfdLoader;
+
   final int initialTabIndex;
   final List<ContractTabDescriptor> tabs;
-  final String Function(ProcessData c)? bannerTitleBuilder;
 
-  /// Monta o texto do número exibido antes do resumo no banner.
-  ///
-  /// Exemplo:
-  /// Contrato nº 012/2026
-  /// Processo nº E:05500.000000/2026
+  /// Mantidos por compatibilidade.
+  /// Não são usados no banner.
+  final String Function(ProcessData c)? bannerTitleBuilder;
   final String Function(ProcessData c)? contractNumberBuilder;
+  final String? textBanner;
 
   final String blockedMessage;
 
@@ -90,13 +119,15 @@ class TabChanged extends StatefulWidget {
 
   final Widget? trailing;
   final ResolveStampForTab? resolveStampForTab;
-  final String? textBanner;
 
   const TabChanged({
     super.key,
     this.userData,
     this.contractData,
     this.contractsCubit,
+    this.publicacaoExtratoCubit,
+    this.dfdData,
+    this.dfdLoader,
     this.initialTabIndex = 0,
     required this.tabs,
     this.bannerTitleBuilder,
@@ -127,19 +158,46 @@ class TabChanged extends StatefulWidget {
 class _TabChangedState extends State<TabChanged> {
   late ProcessData? _contractData;
 
+  PublicacaoExtratoData? _resolvedPublicacaoExtrato;
+  DfdData? _resolvedDfdData;
+
+  String? _lastResolvedContractId;
+  bool _resolvingDisplay = false;
+
   @override
   void initState() {
     super.initState();
+
     _contractData = widget.contractData;
+    _resolvedDfdData = widget.dfdData;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resolveBannerData();
+    });
   }
 
   @override
   void didUpdateWidget(covariant TabChanged oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.contractData?.id != widget.contractData?.id ||
-        oldWidget.contractData != widget.contractData) {
+    final oldId = oldWidget.contractData?.id;
+    final newId = widget.contractData?.id;
+
+    final shouldReload = oldId != newId ||
+        oldWidget.contractData != widget.contractData ||
+        oldWidget.publicacaoExtratoCubit != widget.publicacaoExtratoCubit ||
+        oldWidget.dfdData != widget.dfdData ||
+        oldWidget.dfdLoader != widget.dfdLoader;
+
+    if (shouldReload) {
       _contractData = widget.contractData;
+      _resolvedPublicacaoExtrato = null;
+      _resolvedDfdData = widget.dfdData;
+      _lastResolvedContractId = null;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _resolveBannerData();
+      });
     }
   }
 
@@ -150,47 +208,107 @@ class _TabChangedState extends State<TabChanged> {
     return id == null || id.isEmpty;
   }
 
-  String? _resolveBannerTitle(ProcessData contract) {
-    final customTitle = widget.bannerTitleBuilder?.call(contract).trim();
-
-    if (customTitle != null && customTitle.isNotEmpty) {
-      return customTitle;
+  PublicacaoExtratoCubit? _getPublicacaoExtratoCubit() {
+    if (widget.publicacaoExtratoCubit != null) {
+      return widget.publicacaoExtratoCubit;
     }
 
-    final textBanner = widget.textBanner?.trim();
-    if (textBanner != null && textBanner.isNotEmpty) {
-      return textBanner;
+    try {
+      return context.read<PublicacaoExtratoCubit>();
+    } catch (_) {
+      return null;
     }
-
-    final summary = contract.displaySummary.trim();
-    if (summary.isNotEmpty) return summary;
-
-    return null;
   }
 
-  String? _resolveContractNumber(ProcessData contract) {
-    final customNumber = widget.contractNumberBuilder?.call(contract).trim();
+  DfdCubit? _getDfdCubit() {
+    try {
+      return context.read<DfdCubit>();
+    } catch (_) {
+      return null;
+    }
+  }
 
-    if (customNumber != null && customNumber.isNotEmpty) {
-      return customNumber;
+  Future<DfdData?> _loadDfdForBanner(String contractId) async {
+    if (widget.dfdData != null) {
+      return widget.dfdData;
     }
 
-    final number = contract.displayNumber.trim();
-    if (number.isEmpty) return null;
-
-    final hasContractNumber =
-        (contract.contractNumber ?? '').trim().isNotEmpty;
-    final hasProcessNumber = (contract.processNumber ?? '').trim().isNotEmpty;
-
-    if (hasContractNumber) {
-      return 'Contrato nº $number';
+    if (widget.dfdLoader != null) {
+      return widget.dfdLoader!(contractId);
     }
 
-    if (hasProcessNumber) {
-      return 'Processo nº $number';
+    final dfdCubit = _getDfdCubit();
+
+    if (dfdCubit == null) {
+      return null;
     }
 
-    return number;
+    return dfdCubit.getDataForContract(contractId);
+  }
+
+  Future<PublicacaoExtratoData?> _loadPublicacaoForBanner(
+      String contractId,
+      ) async {
+    final publicacaoCubit = _getPublicacaoExtratoCubit();
+
+    if (publicacaoCubit == null) {
+      return null;
+    }
+
+    return publicacaoCubit.getDataForContract(contractId);
+  }
+
+  Future<void> _resolveBannerData() async {
+    final contract = _contractData;
+    final contractId = contract?.id?.trim();
+
+    if (!mounted) return;
+    if (contract == null) return;
+    if (contractId == null || contractId.isEmpty) return;
+    if (_resolvingDisplay) return;
+    if (_lastResolvedContractId == contractId) return;
+
+    setState(() {
+      _resolvingDisplay = true;
+    });
+
+    try {
+      final results = await Future.wait<dynamic>([
+        _loadPublicacaoForBanner(contractId),
+        _loadDfdForBanner(contractId),
+      ]);
+
+      final publicacao = results[0] as PublicacaoExtratoData?;
+      final dfd = results[1] as DfdData?;
+
+      if (!mounted) return;
+
+      setState(() {
+        _resolvedPublicacaoExtrato = publicacao;
+        _resolvedDfdData = dfd;
+        _lastResolvedContractId = contractId;
+        _resolvingDisplay = false;
+      });
+
+      debugPrint(
+        'TabChanged banner carregado: '
+            'contractId=$contractId | '
+            'numeroContrato=${publicacao?.numeroContrato} | '
+            'processoPublicacao=${publicacao?.processo} | '
+            'processoDfd=${dfd?.processoAdministrativo} | '
+            'descricaoObjeto=${dfd?.descricaoObjeto}',
+      );
+    } catch (e, stack) {
+      debugPrint('Falha ao carregar dados do banner: $e');
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) return;
+
+      setState(() {
+        _lastResolvedContractId = contractId;
+        _resolvingDisplay = false;
+      });
+    }
   }
 
   @override
@@ -233,17 +351,17 @@ class _TabChangedState extends State<TabChanged> {
                             return TabBanner(
                               contract: contract,
                               contractsCubit: widget.contractsCubit,
-                              titleText: _resolveBannerTitle(contract),
-                              contractNumberText:
-                              _resolveContractNumber(contract),
+                              publicacaoExtratoData:
+                              _resolvedPublicacaoExtrato,
+                              dfdData: _resolvedDfdData,
                               showStamp: cfg.show,
                               stampApproved: cfg.approved,
                               stampApprovedLabel:
                               cfg.approvedLabel ?? 'Aprovado',
                               stampPendingLabel:
                               cfg.pendingLabel ?? 'Pendente',
-                              stampApprovedIcon:
-                              cfg.approvedIcon ?? Icons.verified_outlined,
+                              stampApprovedIcon: cfg.approvedIcon ??
+                                  Icons.verified_outlined,
                               stampPendingIcon: cfg.pendingIcon ??
                                   Icons.verified_user_outlined,
                               stampApprovedColor: cfg.approvedColor,

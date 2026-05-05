@@ -9,13 +9,12 @@ class PublicacaoExtratoData extends Equatable {
   // 1) Metadados
   final String? tipoExtrato;
   final String? numeroContrato;
+
   final String? processo;
   final String? objetoResumo;
-
-  // 2) Partes / Valores / Vigência
+  final double? valor;      // ex.: 12345.67
   final String? contratadaRazao;
   final String? contratadaCnpj;
-  final double? valor;      // ex.: 12345.67
   final int? vigencia;      // ex.: 12 (meses ou dias, conforme uso)
   final String? cnoRef;
 

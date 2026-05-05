@@ -25,7 +25,7 @@ class DropDownChange extends StatefulWidget {
     // Callbacks
     this.onChanged,
 
-    // ==== NOVO: callback genérico para "Adicionar novo" ====
+    // Callback genérico para "Adicionar novo"
     this.onAddNewItem,
     this.onCreateNewItem,
     this.promptForNewItem,
@@ -41,20 +41,17 @@ class DropDownChange extends StatefulWidget {
     this.onDeleteItem,
   });
 
-  // Dados básicos
   final TextEditingController controller;
   final List<String> items;
   final bool? enabled;
   final String? Function(String?)? validator;
   final double? width;
 
-  // UI
   final String? labelText;
   final Set<String> greyItems;
   final double menuMaxHeight;
   final String? tooltipMessage;
 
-  // Callbacks
   final void Function(String?)? onChanged;
 
   final Future<void> Function(String label)? onCreateNewItem;
@@ -78,21 +75,23 @@ class DropDownChange extends StatefulWidget {
 class _DropDownChangeState extends State<DropDownChange> {
   static const String _kSpecialValue = '__dropdown_action__';
 
-  late List<String> _items; // labels (sem duplicados)
-  String? _selected;        // label selecionado
-
+  late List<String> _items;
+  String? _selected;
   String? _lastControllerText;
+
+  bool _handlingSpecialAction = false;
 
   @override
   void initState() {
     super.initState();
+
     _items = _dedupe(widget.items);
     _applySort();
 
-    _lastControllerText = widget.controller.text;
+    _lastControllerText = widget.controller.text.trim();
 
-    if (_items.contains(widget.controller.text)) {
-      _selected = widget.controller.text;
+    if (_items.contains(_lastControllerText)) {
+      _selected = _lastControllerText;
     } else {
       _selected = null;
     }
@@ -102,35 +101,52 @@ class _DropDownChangeState extends State<DropDownChange> {
   void didUpdateWidget(covariant DropDownChange oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Quando a lista de itens muda
+    bool shouldUpdate = false;
+
     if (oldWidget.items != widget.items) {
       _items = _dedupe(widget.items);
       _applySort();
 
-      if (_items.contains(widget.controller.text)) {
-        _selected = widget.controller.text;
-      } else if (widget.controller.text.isEmpty) {
+      final currentText = widget.controller.text.trim();
+
+      if (_items.contains(currentText)) {
+        _selected = currentText;
+      } else if (currentText.isEmpty) {
+        _selected = null;
+      } else if (_selected != null && !_items.contains(_selected)) {
         _selected = null;
       }
-      setState(() {});
+
+      shouldUpdate = true;
     }
 
-    // Quando o texto do controller muda por fora
-    if (widget.controller.text != _lastControllerText) {
-      _lastControllerText = widget.controller.text;
+    final currentControllerText = widget.controller.text.trim();
 
-      if (_items.contains(widget.controller.text)) {
-        _selected = widget.controller.text;
-      } else if (widget.controller.text.isEmpty) {
+    if (currentControllerText != _lastControllerText) {
+      _lastControllerText = currentControllerText;
+
+      if (_items.contains(currentControllerText)) {
+        _selected = currentControllerText;
+      } else if (currentControllerText.isEmpty) {
         _selected = null;
       }
+
+      shouldUpdate = true;
+    }
+
+    if (shouldUpdate && mounted) {
       setState(() {});
     }
   }
 
-  // Remove duplicados preservando ordem
   List<String> _dedupe(List<String> source) {
-    return LinkedHashSet<String>.from(source).toList();
+    if (widget.allowDuplicates) {
+      return source.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    }
+
+    return LinkedHashSet<String>.from(
+      source.map((e) => e.trim()).where((e) => e.isNotEmpty),
+    ).toList();
   }
 
   void _applySort() {
@@ -139,8 +155,13 @@ class _DropDownChangeState extends State<DropDownChange> {
     }
   }
 
+  String _s(Object? value) {
+    return (value is String ? value : value?.toString() ?? '').trim();
+  }
+
   TextStyle _styleFor(String value, {bool asSelected = false}) {
     final isGrey = widget.greyItems.contains(value);
+
     return TextStyle(
       color: isGrey ? Colors.grey : Colors.black,
       fontWeight: asSelected ? FontWeight.w500 : FontWeight.normal,
@@ -198,7 +219,7 @@ class _DropDownChangeState extends State<DropDownChange> {
       );
     }
 
-    final canShowSpecial = widget.specialItemLabel.isNotEmpty &&
+    final canShowSpecial = widget.specialItemLabel.trim().isNotEmpty &&
         (widget.showSpecialAlways ||
             (widget.showSpecialWhenEmpty && _items.isEmpty));
 
@@ -228,8 +249,32 @@ class _DropDownChangeState extends State<DropDownChange> {
     return list;
   }
 
-  Future<void> _handleAddNewItem() async {
+  Future<void> _handleAddNewItem({
+    required String? previousSelected,
+    required String previousControllerText,
+  }) async {
+    if (_handlingSpecialAction) return;
+
+    _handlingSpecialAction = true;
+
+    if (mounted) {
+      setState(() {
+        _selected = previousSelected;
+        widget.controller.text = previousControllerText;
+        _lastControllerText = previousControllerText;
+      });
+    }
+
+    // Essencial: espera o menu do Dropdown fechar antes de abrir o Dialog.
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+
+    if (!mounted) {
+      _handlingSpecialAction = false;
+      return;
+    }
+
     String? label;
+
     if (widget.onAddNewItem != null) {
       label = await widget.onAddNewItem!(context);
     } else if (widget.promptForNewItem != null) {
@@ -238,44 +283,73 @@ class _DropDownChangeState extends State<DropDownChange> {
       label = await _defaultPrompt(context);
     }
 
-    if (label == null) return;
-    final trimmed = label.trim();
-    if (trimmed.isEmpty) return;
+    if (!mounted) {
+      _handlingSpecialAction = false;
+      return;
+    }
+
+    final trimmed = _s(label);
+
+    if (trimmed.isEmpty) {
+      setState(() {
+        _selected = previousSelected;
+        widget.controller.text = previousControllerText;
+        _lastControllerText = previousControllerText;
+      });
+
+      _handlingSpecialAction = false;
+      return;
+    }
 
     if (!widget.allowDuplicates &&
         _items.any((e) => e.toLowerCase() == trimmed.toLowerCase())) {
+      final existing = _items.firstWhere(
+            (e) => e.toLowerCase() == trimmed.toLowerCase(),
+      );
+
       setState(() {
-        _selected = _items.firstWhere(
-              (e) => e.toLowerCase() == trimmed.toLowerCase(),
-        );
-        widget.controller.text = _selected!;
-        _lastControllerText = _selected!;
+        _selected = existing;
+        widget.controller.text = existing;
+        _lastControllerText = existing;
       });
-      widget.onChanged?.call(_selected);
+
+      widget.onChanged?.call(existing);
+
+      _handlingSpecialAction = false;
       return;
     }
 
     if (widget.onCreateNewItem != null) {
       await widget.onCreateNewItem!(trimmed);
+
+      if (!mounted) {
+        _handlingSpecialAction = false;
+        return;
+      }
+
+      _handlingSpecialAction = false;
       return;
     }
 
     setState(() {
       _items = _dedupe([..._items, trimmed]);
       _applySort();
+
       _selected = trimmed;
       widget.controller.text = trimmed;
       _lastControllerText = trimmed;
     });
 
     widget.onChanged?.call(trimmed);
+
+    _handlingSpecialAction = false;
   }
 
   Future<String?> _defaultPrompt(BuildContext context) async {
     final ctrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    return showDialog<String>(
+    final result = await showDialog<String>(
       context: context,
       barrierDismissible: true,
       builder: (dialogCtx) {
@@ -295,6 +369,7 @@ class _DropDownChangeState extends State<DropDownChange> {
                     if (v == null || v.trim().isEmpty) {
                       return 'Informe um nome';
                     }
+
                     return null;
                   },
                   onSubmitted: (v) {
@@ -315,8 +390,7 @@ class _DropDownChangeState extends State<DropDownChange> {
                     FilledButton(
                       onPressed: () {
                         if (formKey.currentState?.validate() ?? false) {
-                          Navigator.of(dialogCtx)
-                              .pop(ctrl.text.trim());
+                          Navigator.of(dialogCtx).pop(ctrl.text.trim());
                         }
                       },
                       child: const Text('Salvar'),
@@ -329,17 +403,20 @@ class _DropDownChangeState extends State<DropDownChange> {
         );
       },
     );
+
+    ctrl.dispose();
+
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
     final isEnabled = widget.enabled ?? true;
 
-    // Gera a lista UMA vez por build
     final items = _buildItemsInternal();
 
-    // Garante que o value SEMPRE exista nos items (ou seja null)
-    final safeSelected = items.any((e) => e.value == _selected)
+    final safeSelected = items.any((e) => e.value == _selected) &&
+        _selected != _kSpecialValue
         ? _selected
         : null;
 
@@ -348,26 +425,35 @@ class _DropDownChangeState extends State<DropDownChange> {
       child: Tooltip(
         message: widget.tooltipMessage ?? '',
         child: DropdownButtonFormField<String>(
+          key: ValueKey(
+            'dropdown-${widget.labelText ?? ""}-${safeSelected ?? "null"}-${_items.length}',
+          ),
           isDense: true,
           isExpanded: true,
           menuMaxHeight: widget.menuMaxHeight,
+          dropdownColor: Colors.white,
+
+          // Mantém controlado e impede o valor especial de ficar selecionado.
+          initialValue: safeSelected,
+
           validator: (val) {
             if (val == _kSpecialValue) return null;
             return widget.validator?.call(val);
           },
-          dropdownColor: Colors.white,
-          initialValue: safeSelected,
           selectedItemBuilder: (ctx) {
             final values = items.map((e) => e.value!).toList();
+
             return values.map((v) {
-              final text =
-              v == _kSpecialValue ? widget.specialItemLabel : v;
-              final style = v == _kSpecialValue
+              final isSpecial = v == _kSpecialValue;
+              final text = isSpecial ? widget.specialItemLabel : v;
+
+              final style = isSpecial
                   ? const TextStyle(
                 fontWeight: FontWeight.w100,
                 color: Colors.grey,
               )
                   : _styleFor(v, asSelected: true);
+
               return Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -381,19 +467,26 @@ class _DropDownChangeState extends State<DropDownChange> {
             }).toList();
           },
           items: items,
-          onChanged: !isEnabled
+          onChanged: !isEnabled || _handlingSpecialAction
               ? null
               : (selected) async {
+            final previousSelected = _selected;
+            final previousControllerText = widget.controller.text;
+
             if (selected == _kSpecialValue) {
-              await _handleAddNewItem();
-              setState(() {});
+              await _handleAddNewItem(
+                previousSelected: previousSelected,
+                previousControllerText: previousControllerText,
+              );
               return;
             }
+
             setState(() {
               _selected = selected;
               widget.controller.text = selected ?? '';
               _lastControllerText = selected ?? '';
             });
+
             widget.onChanged?.call(selected);
           },
           iconSize: 20,
@@ -429,6 +522,10 @@ class _DropDownChangeState extends State<DropDownChange> {
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderSide: BorderSide(color: Colors.red.shade700),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey.shade400),
               borderRadius: BorderRadius.circular(10),
             ),
             border: OutlineInputBorder(

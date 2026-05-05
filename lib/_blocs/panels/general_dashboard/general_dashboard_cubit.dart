@@ -12,7 +12,7 @@ import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.d
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';

@@ -1,21 +1,100 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
+
 import 'revision_measurement_data.dart';
 import 'revision_measurement_repository.dart';
 import 'revision_measurement_state.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
-  final RevisionMeasurementRepository _repo;
-
-  RevisionMeasurementCubit({RevisionMeasurementRepository? repository})
-      : _repo = repository ?? RevisionMeasurementRepository(),
+  RevisionMeasurementCubit({
+    RevisionMeasurementRepository? repository,
+    UserPermissionData? initialPermissions,
+    String? initialTenantId,
+    this.moduleId = 'operation_measurements_revisions',
+  })  : _repo = repository ?? RevisionMeasurementRepository(),
+        _currentPermissions = initialPermissions,
+        _tenantId = initialTenantId,
         super(RevisionMeasurementState.initial());
 
-  // ---------------------------------------------------------------------------
-  // Load
-  // ---------------------------------------------------------------------------
+  final RevisionMeasurementRepository _repo;
+
+  final String moduleId;
+
+  UserPermissionData? _currentPermissions;
+  String? _tenantId;
+
+  void updatePermissions({
+    UserPermissionData? permissions,
+    String? tenantId,
+  }) {
+    _currentPermissions = permissions;
+    _tenantId = tenantId;
+  }
+
+  bool get isEditable => _canWrite();
+
+  bool _canWrite() {
+    final permissions = _currentPermissions;
+
+    if (permissions == null) return false;
+
+    if (permissions.isSuperUserForTenant(_tenantId)) {
+      return true;
+    }
+
+    return permissions.canModuleString(
+      module: moduleId,
+      action: 'create',
+      tenantId: _tenantId,
+    ) ||
+        permissions.canModuleString(
+          module: moduleId,
+          action: 'edit',
+          tenantId: _tenantId,
+        ) ||
+        permissions.canModuleString(
+          module: moduleId,
+          action: 'delete',
+          tenantId: _tenantId,
+        );
+  }
+
+  bool _canDelete() {
+    final permissions = _currentPermissions;
+
+    if (permissions == null) return false;
+
+    if (permissions.isSuperUserForTenant(_tenantId)) {
+      return true;
+    }
+
+    return permissions.canModuleString(
+      module: moduleId,
+      action: 'delete',
+      tenantId: _tenantId,
+    );
+  }
+
+  void _assertCanWrite() {
+    if (_canWrite()) return;
+
+    throw Exception(
+      'Usuário sem permissão para alterar revisões. '
+          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+    );
+  }
+
+  void _assertCanDelete() {
+    if (_canDelete()) return;
+
+    throw Exception(
+      'Usuário sem permissão para apagar revisões. '
+          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+    );
+  }
 
   Future<void> loadByContract(String contractId) async {
     emit(
@@ -32,7 +111,9 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
     );
 
     try {
-      final list = await _repo.getAllRevisionsOfContract(uidContract: contractId);
+      final list = await _repo.getAllRevisionsOfContract(
+        uidContract: contractId,
+      );
 
       emit(
         state.copyWith(
@@ -54,25 +135,21 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // CollectionGroup (Dashboard)
-  // ---------------------------------------------------------------------------
-
   Future<List<RevisionMeasurementData>> getAllRevisionsCollectionGroup() {
     return _repo.getAllRevisionsCollectionGroup();
   }
 
-  double sum(List<RevisionMeasurementData> list) => _repo.sumRevisions(list);
-
-  // ---------------------------------------------------------------------------
-  // CRUD
-  // ---------------------------------------------------------------------------
+  double sum(List<RevisionMeasurementData> list) {
+    return _repo.sumRevisions(list);
+  }
 
   Future<void> saveOrUpdate({
     required String contractId,
     required String revisionMeasurementId,
     required RevisionMeasurementData data,
   }) async {
+    _assertCanWrite();
+
     emit(
       state.copyWith(
         status: RevisionMeasurementStatus.saving,
@@ -85,13 +162,21 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
       await _repo.saveOrUpdateRevision(
         contractId: contractId,
         revisionMeasurementId: revisionMeasurementId,
-        rev: data,
+        rev: data.copyWith(
+          id: revisionMeasurementId,
+          contractId: contractId,
+        ),
       );
 
       if (state.contractId == null || state.contractId == contractId) {
         await loadByContract(contractId);
       } else {
-        emit(state.copyWith(status: RevisionMeasurementStatus.loaded, isSaving: false));
+        emit(
+          state.copyWith(
+            status: RevisionMeasurementStatus.loaded,
+            isSaving: false,
+          ),
+        );
       }
     } catch (e) {
       emit(
@@ -101,6 +186,7 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
           errorMessage: e.toString(),
         ),
       );
+
       rethrow;
     }
   }
@@ -109,6 +195,8 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
     required String contractId,
     required String revisionId,
   }) async {
+    _assertCanDelete();
+
     emit(
       state.copyWith(
         status: RevisionMeasurementStatus.saving,
@@ -118,12 +206,20 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
     );
 
     try {
-      await _repo.deleteRevision(contractId: contractId, revisionId: revisionId);
+      await _repo.deleteRevision(
+        contractId: contractId,
+        revisionId: revisionId,
+      );
 
       if (state.contractId == null || state.contractId == contractId) {
         await loadByContract(contractId);
       } else {
-        emit(state.copyWith(status: RevisionMeasurementStatus.loaded, isSaving: false));
+        emit(
+          state.copyWith(
+            status: RevisionMeasurementStatus.loaded,
+            isSaving: false,
+          ),
+        );
       }
     } catch (e) {
       emit(
@@ -133,24 +229,14 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
           errorMessage: e.toString(),
         ),
       );
+
       rethrow;
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Seleção
-  // ---------------------------------------------------------------------------
-
   void selectByIndex(int index) {
     if (index < 0 || index >= state.revisions.length) {
-      emit(
-        state.copyWith(
-          selected: null,
-          selectedIndex: null,
-          attachments: const [],
-          selectedAttachmentIndex: null,
-        ),
-      );
+      clearSelection();
       return;
     }
 
@@ -183,19 +269,24 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
       emit(state.copyWith(selectedAttachmentIndex: null));
       return;
     }
+
     emit(state.copyWith(selectedAttachmentIndex: index));
   }
 
-  // ---------------------------------------------------------------------------
-  // Attachments
-  // ---------------------------------------------------------------------------
-
   Future<void> updateAttachments(List<Attachment> attachments) async {
+    _assertCanWrite();
+
     final selected = state.selected;
     final contractId = state.contractId;
+
     if (contractId == null || selected?.id == null) return;
 
-    emit(state.copyWith(isSaving: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        errorMessage: null,
+      ),
+    );
 
     try {
       await _repo.setAttachments(
@@ -205,6 +296,7 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
       );
 
       final updatedSelected = selected.copyWith(attachments: attachments);
+
       final updatedList = state.revisions.map((e) {
         if (e.id == updatedSelected.id) return updatedSelected;
         return e;
@@ -220,7 +312,14 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
         ),
       );
     } catch (e) {
-      emit(state.copyWith(isSaving: false, errorMessage: e.toString()));
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: e.toString(),
+        ),
+      );
+
+      rethrow;
     }
   }
 
@@ -229,13 +328,21 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
     String label = '',
     void Function(double progress)? onProgress,
   }) async {
+    _assertCanWrite();
+
     final selected = state.selected;
     final contractId = state.contractId;
+
     if (contractId == null || selected?.id == null) {
       throw Exception('Selecione uma revisão antes de anexar arquivos.');
     }
 
-    emit(state.copyWith(isSaving: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        errorMessage: null,
+      ),
+    );
 
     try {
       final (bytes, originalName) = await _repo.pickFileBytes();
@@ -258,6 +365,7 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
       );
 
       final updatedSelected = selected.copyWith(attachments: next);
+
       final updatedList = state.revisions.map((e) {
         if (e.id == updatedSelected.id) return updatedSelected;
         return e;
@@ -272,26 +380,39 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
         ),
       );
     } catch (e) {
-      emit(state.copyWith(isSaving: false, errorMessage: e.toString()));
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: e.toString(),
+        ),
+      );
+
       rethrow;
     }
   }
 
   Future<void> deleteAttachmentAt(int index) async {
+    _assertCanWrite();
+
     final selected = state.selected;
     final contractId = state.contractId;
-    if (contractId == null || selected?.id == null) return;
 
+    if (contractId == null || selected?.id == null) return;
     if (index < 0 || index >= state.attachments.length) return;
 
-    emit(state.copyWith(isSaving: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        errorMessage: null,
+      ),
+    );
 
     try {
       final next = List<Attachment>.from(state.attachments);
       final removed = next.removeAt(index);
 
-      // tenta remover no storage (se tiver path)
       final storagePath = removed.path;
+
       if (storagePath.trim().isNotEmpty) {
         await _repo.deleteStorageByPath(storagePath);
       }
@@ -303,6 +424,7 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
       );
 
       final updatedSelected = selected.copyWith(attachments: next);
+
       final updatedList = state.revisions.map((e) {
         if (e.id == updatedSelected.id) return updatedSelected;
         return e;
@@ -318,18 +440,31 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
         ),
       );
     } catch (e) {
-      emit(state.copyWith(isSaving: false, errorMessage: e.toString()));
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: e.toString(),
+        ),
+      );
+
       rethrow;
     }
   }
 
-  /// Migração simples: zera pdfUrl legado (se quiser)
   Future<void> clearLegacyPdfUrl() async {
+    _assertCanWrite();
+
     final selected = state.selected;
     final contractId = state.contractId;
+
     if (contractId == null || selected?.id == null) return;
 
-    emit(state.copyWith(isSaving: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        errorMessage: null,
+      ),
+    );
 
     try {
       await _repo.salvarUrlPdfDaRevisionMeasurement(
@@ -354,7 +489,14 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
         ),
       );
     } catch (e) {
-      emit(state.copyWith(isSaving: false, errorMessage: e.toString()));
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: e.toString(),
+        ),
+      );
+
+      rethrow;
     }
   }
 }

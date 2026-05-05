@@ -6,7 +6,6 @@ import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart'
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
-import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -170,8 +169,8 @@ class _SectionPropostasState extends State<SectionPropostas> {
     widget.onChanged(updated);
   }
 
-  TenantItemData? _findBodyByLabel(
-      List<TenantItemData> bodies,
+  String? _findBodyByLabel(
+      List<String> bodies,
       String label,
       ) {
     final lower = label.trim().toLowerCase();
@@ -179,20 +178,12 @@ class _SectionPropostasState extends State<SectionPropostas> {
     if (lower.isEmpty) return null;
 
     for (final body in bodies) {
-      if (body.label.trim().toLowerCase() == lower) {
-        return body;
+      if (body.trim().toLowerCase() == lower) {
+        return body.trim();
       }
     }
 
     return null;
-  }
-
-  String? _cnpjFromBody(TenantItemData? body) {
-    final cnpj = body?.extra['cnpj']?.toString().trim();
-
-    if (cnpj == null || cnpj.isEmpty) return null;
-
-    return cnpj;
   }
 
   Future<String?> _showCreateTenantCompanyBodyDialog(
@@ -271,24 +262,21 @@ class _SectionPropostasState extends State<SectionPropostas> {
 
     if (!mounted) return null;
 
-    return created?.label ?? label;
+    return created ?? label;
   }
 
   void _applyLicitante({
     required _PropostaRowControllers row,
     required String? label,
-    required List<TenantItemData> bodies,
+    required List<String> bodies,
   }) {
     final value = label ?? '';
 
     row.licitanteCtrl.text = value;
 
     final body = _findBodyByLabel(bodies, value);
-    final cnpj = _cnpjFromBody(body);
 
-    if (cnpj != null) {
-      row.cnpjCtrl.text = cnpj;
-    } else if (value.isEmpty) {
+    if (body == null && value.isEmpty) {
       row.cnpjCtrl.clear();
     }
 
@@ -304,9 +292,9 @@ class _SectionPropostasState extends State<SectionPropostas> {
         data.vencedor.trim().isNotEmpty && data.highlightWinner == true;
 
     final tenantState = context.watch<TenantCubit>().state;
-    final List<TenantItemData> bodies = tenantState.companyBodies;
+    final List<String> bodies = tenantState.companyBodies;
 
-    final bodyLabels = bodies.map((e) => e.label).where((e) {
+    final bodyLabels = bodies.where((e) {
       return e.trim().isNotEmpty;
     });
 
@@ -545,8 +533,9 @@ class _SectionPropostasState extends State<SectionPropostas> {
                           child: CustomTextField(
                             controller: row.cnpjCtrl,
                             labelText: 'CNPJ',
-                            enabled: false,
-                            readOnly: true,
+                            enabled: true,
+                            readOnly: !isEditable,
+                            onChanged: (_) => _emitChange(),
                           ),
                         ),
                         SizedBox(

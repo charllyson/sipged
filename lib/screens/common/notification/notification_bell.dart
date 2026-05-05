@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,7 +17,7 @@ class NotificationBell extends StatefulWidget {
     required this.userId,
     this.iconColor = Colors.white,
     this.badgeColor = const Color(0xFFD32F2F),
-    this.menuWidth = 300,
+    this.menuWidth = 320,
     this.maxMenuHeight = 440,
     this.tooltip = 'Notificações',
   });
@@ -46,6 +47,11 @@ class _NotificationBellState extends State<NotificationBell>
 
   static const double _menuTopGap = 0;
   static const double _screenMargin = 8;
+
+  final Map<String, _NotificationActorProfile> _actorProfileCache =
+  <String, _NotificationActorProfile>{};
+
+  final Set<String> _loadingActorIds = <String>{};
 
   String? get _resolvedUserId {
     final fromWidget = widget.userId?.trim();
@@ -132,7 +138,9 @@ class _NotificationBellState extends State<NotificationBell>
 
   void _requestBalloonPositionUpdate() {
     if (_overlayEntry == null) return;
+
     _positionTick.value++;
+    _overlayEntry?.markNeedsBuild();
   }
 
   void _startWatchingIfNeeded() {
@@ -193,8 +201,10 @@ class _NotificationBellState extends State<NotificationBell>
               value: cubit,
               child: BlocBuilder<NotificationBellCubit, NotificationBellState>(
                 buildWhen: (previous, current) {
-                  return previous.unreadUserNotifications !=
-                      current.unreadUserNotifications ||
+                  return previous.userBellNotifications !=
+                      current.userBellNotifications ||
+                      previous.unreadUserNotifications !=
+                          current.unreadUserNotifications ||
                       previous.systemNotifications !=
                           current.systemNotifications ||
                       previous.loading != current.loading ||
@@ -221,7 +231,7 @@ class _NotificationBellState extends State<NotificationBell>
                     screenMargin: _screenMargin,
                     title: 'Notificações',
                     headerIcon: Icons.notifications_none_rounded,
-                    actionLabel: 'Marcar todas como vistas',
+                    actionLabel: 'Marcar como vistas',
                     showAction: canMarkAllAsSeen,
                     loading: state.loading,
                     error: state.error,
@@ -240,7 +250,7 @@ class _NotificationBellState extends State<NotificationBell>
                         userId: id,
                       );
 
-                      _removeOverlay();
+                      _requestBalloonPositionUpdate();
                     },
                   );
                 },
@@ -273,12 +283,55 @@ class _NotificationBellState extends State<NotificationBell>
         notification: notification,
       );
 
+      final title = _friendlyTitle(notification);
+      final subtitle = _friendlyDemandName(notification);
+      final details = _friendlyActionDetails(notification);
+      final info = _friendlyCreatedAt(notification.createdAt);
+
+      final actorId = _notificationActorId(notification);
+      final actorName = _notificationActorName(notification);
+
+      if (actorId != null && actorId.isNotEmpty) {
+        _loadActorProfileIfNeeded(actorId);
+      }
+
       return BalloonTileData(
         id: _tileId(notification),
-        title: _friendlyTitle(notification),
-        subtitle: _friendlySubtitle(notification),
-        details: _friendlyDetails(notification),
+        title: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: subtitle == null || subtitle.trim().isEmpty
+            ? null
+            : Text(
+          subtitle.trim(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        details: details == null || details.trim().isEmpty
+            ? null
+            : Text(
+          details.trim(),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        info: info == null || info.trim().isEmpty
+            ? null
+            : Text(
+          info.trim(),
+          maxLines: 2,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+        ),
         icon: notification.resolvedIcon,
+        leading: _buildActorLeading(
+          actorId: actorId,
+          actorName: actorName,
+          notificationPhotoUrl: _notificationActorPhotoUrl(notification),
+          fallbackIcon: notification.resolvedIcon,
+          accentColor: notification.resolvedAccentColor,
+        ),
         accentColor: notification.resolvedAccentColor,
         highlighted: isUnread,
         onTap: () async {
@@ -292,6 +345,157 @@ class _NotificationBellState extends State<NotificationBell>
         },
       );
     }).toList();
+  }
+
+  Widget _buildActorLeading({
+    required String? actorId,
+    required String? actorName,
+    required IconData fallbackIcon,
+    required Color accentColor,
+    String? notificationPhotoUrl,
+  }) {
+    final cleanActorId = actorId?.trim();
+
+    final profile = cleanActorId == null || cleanActorId.isEmpty
+        ? null
+        : _actorProfileCache[cleanActorId];
+
+    final photoUrlFromProfile = profile?.photoUrl.trim() ?? '';
+    final photoUrlFromNotification = notificationPhotoUrl?.trim() ?? '';
+
+    final photoUrl = photoUrlFromProfile.isNotEmpty
+        ? photoUrlFromProfile
+        : photoUrlFromNotification;
+
+    final name = (profile?.displayName.trim().isNotEmpty == true)
+        ? profile!.displayName.trim()
+        : (actorName ?? '').trim();
+
+    final initials = _initialsFromName(name);
+
+    return _ActorPhotoLeading(
+      photoUrl: photoUrl,
+      initials: initials,
+      fallbackIcon: fallbackIcon,
+      accentColor: accentColor,
+    );
+  }
+
+  void _loadActorProfileIfNeeded(String actorId) {
+    final cleanActorId = actorId.trim();
+
+    if (cleanActorId.isEmpty) return;
+    if (_actorProfileCache.containsKey(cleanActorId)) return;
+    if (_loadingActorIds.contains(cleanActorId)) return;
+
+    _loadingActorIds.add(cleanActorId);
+
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(cleanActorId)
+        .get()
+        .then((snapshot) {
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data();
+      if (data == null) return;
+
+      final name = _clean(data['name']?.toString());
+      final surname = _clean(data['surname']?.toString());
+
+      final fullName = _clean(
+        (data['fullName'] ??
+            data['displayName'] ??
+            data['nameComplete'] ??
+            data['nomeCompleto'])
+            ?.toString(),
+      );
+
+      final displayName = fullName.isNotEmpty
+          ? fullName
+          : [name, surname]
+          .where((item) => item.trim().isNotEmpty)
+          .join(' ')
+          .trim();
+
+      final email = _clean(data['email']?.toString());
+
+      final photoUrl = _clean(
+        (data['urlPhoto'] ??
+            data['photoUrl'] ??
+            data['photoURL'] ??
+            data['profilePhotoUrl'] ??
+            data['photo'] ??
+            data['avatar'] ??
+            data['avatarUrl'] ??
+            data['imageUrl'])
+            ?.toString(),
+      );
+
+      if (!mounted) return;
+
+      _actorProfileCache[cleanActorId] = _NotificationActorProfile(
+        uid: cleanActorId,
+        displayName: displayName.isNotEmpty ? displayName : email,
+        photoUrl: photoUrl,
+      );
+
+      if (photoUrl.isNotEmpty) {
+        precacheImage(
+          NetworkImage(photoUrl),
+          context,
+        ).catchError((_) {});
+      }
+
+      setState(() {});
+
+      _requestBalloonPositionUpdate();
+    }).catchError((Object error, StackTrace stack) {
+      debugPrint('Falha ao carregar usuário da notificação: $error');
+      debugPrintStack(stackTrace: stack);
+    }).whenComplete(() {
+      _loadingActorIds.remove(cleanActorId);
+    });
+  }
+
+  String? _notificationActorId(NotificationData notification) {
+    final extra = notification.extra;
+
+    final actorId = _clean(extra['actorId']?.toString());
+
+    if (actorId.isNotEmpty) return actorId;
+
+    return null;
+  }
+
+  String? _notificationActorName(NotificationData notification) {
+    final extra = notification.extra;
+
+    final actorName = _clean(extra['actorName']?.toString());
+
+    if (actorName.isNotEmpty) return actorName;
+
+    return null;
+  }
+
+  String? _notificationActorPhotoUrl(NotificationData notification) {
+    final extra = notification.extra;
+
+    final candidates = <String>[
+      _clean(extra['actorPhotoUrl']?.toString()),
+      _clean(extra['photoUrl']?.toString()),
+      _clean(extra['photoURL']?.toString()),
+      _clean(extra['profilePhotoUrl']?.toString()),
+      _clean(extra['urlPhoto']?.toString()),
+      _clean(extra['avatarUrl']?.toString()),
+      _clean(extra['imageUrl']?.toString()),
+    ];
+
+    for (final value in candidates) {
+      if (value.isNotEmpty) return value;
+    }
+
+    return null;
   }
 
   Future<void> _handleNotificationTap({
@@ -313,20 +517,9 @@ class _NotificationBellState extends State<NotificationBell>
         userId: cleanUserId,
         notificationId: cleanNotificationId,
       );
+
+      _requestBalloonPositionUpdate();
     }
-
-    _removeOverlay();
-
-    final route = _clean(notification.extra['route']?.toString());
-    final module = _clean(notification.extra['module']?.toString());
-    final contractId = _clean(notification.extra['contractId']?.toString());
-    final processId = _clean(notification.extra['processId']?.toString());
-
-    debugPrint('[NotificationBell] Notificação clicada.');
-    debugPrint('[NotificationBell] route=$route');
-    debugPrint('[NotificationBell] module=$module');
-    debugPrint('[NotificationBell] contractId=$contractId');
-    debugPrint('[NotificationBell] processId=$processId');
   }
 
   bool _isUnreadNotification({
@@ -356,60 +549,378 @@ class _NotificationBellState extends State<NotificationBell>
   String _friendlyTitle(NotificationData notification) {
     final title = notification.title.trim();
 
-    if (title.isNotEmpty) return title;
+    if (title.isNotEmpty && title.toLowerCase() != 'notificação') {
+      return title;
+    }
+
+    final action = _clean(notification.extra['action']?.toString());
+
+    if (action.isNotEmpty) {
+      return _actionToFriendlyTitle(action);
+    }
 
     return 'Notificação';
   }
 
-  String? _friendlySubtitle(NotificationData notification) {
-    final subtitle = _clean(notification.subtitle);
+  String? _friendlyDemandName(NotificationData notification) {
+    final extra = notification.extra;
 
-    if (subtitle.isNotEmpty) return subtitle;
+    final candidates = <String>[
+      _clean(notification.subtitle),
+      _clean(extra['nomeDemanda']?.toString()),
+      _clean(extra['demandaNome']?.toString()),
+      _clean(extra['demandName']?.toString()),
+      _clean(extra['descricaoObjeto']?.toString()),
+      _clean(extra['summarySubjectContract']?.toString()),
+      _clean(extra['contractSummary']?.toString()),
+      _clean(extra['contractTitle']?.toString()),
+      _clean(extra['processSummary']?.toString()),
+    ];
 
-    final actorName = _clean(notification.extra['actorName']?.toString());
-    final action = _clean(notification.extra['action']?.toString());
-
-    if (actorName.isNotEmpty && action.isNotEmpty) {
-      return '$actorName • $action';
+    for (final value in candidates) {
+      if (_isUsefulDemandName(value)) return value;
     }
-
-    if (actorName.isNotEmpty) return actorName;
 
     return null;
   }
 
-  String? _friendlyDetails(NotificationData notification) {
+  String? _friendlyActionDetails(NotificationData notification) {
     final extra = notification.extra;
-
-    final contractSummary = _clean(extra['contractSummary']?.toString());
-    final contractTitle = _clean(extra['contractTitle']?.toString());
-    final processSummary = _clean(extra['processSummary']?.toString());
-    final module = _clean(extra['module']?.toString());
-
-    if (contractSummary.isNotEmpty) return contractSummary;
-    if (contractTitle.isNotEmpty) return contractTitle;
-    if (processSummary.isNotEmpty) return processSummary;
 
     final details = _clean(notification.details);
 
-    if (details.isEmpty) {
-      return module.isNotEmpty ? module : null;
+    if (_isUsefulDetails(details) && !_sameAsDemand(notification, details)) {
+      return details;
     }
 
-    final lower = details.toLowerCase();
+    final actorName = _clean(extra['actorName']?.toString());
+    final action = _clean(extra['action']?.toString());
 
-    final looksLikeId = details.length >= 18 &&
-        !details.contains(' ') &&
-        RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(details);
+    final friendlyAction = _actionToFriendlyVerb(action);
 
-    final looksLikeLongContractId =
-        lower.startsWith('contrato ') && details.length > 25;
-
-    if (looksLikeId || looksLikeLongContractId) {
-      return module.isNotEmpty ? module : null;
+    if (actorName.isNotEmpty && friendlyAction.isNotEmpty) {
+      return '$friendlyAction por $actorName';
     }
 
-    return details;
+    if (actorName.isNotEmpty) {
+      return 'Por $actorName';
+    }
+
+    if (friendlyAction.isNotEmpty) {
+      return friendlyAction;
+    }
+
+    return null;
+  }
+
+  String? _friendlyCreatedAt(DateTime? createdAt) {
+    if (createdAt == null) return null;
+
+    final now = DateTime.now();
+    final local = createdAt.toLocal();
+
+    final sameDay = now.year == local.year &&
+        now.month == local.month &&
+        now.day == local.day;
+
+    final yesterday = DateTime(now.year, now.month, now.day).subtract(
+      const Duration(days: 1),
+    );
+
+    final isYesterday = yesterday.year == local.year &&
+        yesterday.month == local.month &&
+        yesterday.day == local.day;
+
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+
+    if (sameDay) {
+      return 'Hoje\n$hour:$minute';
+    }
+
+    if (isYesterday) {
+      return 'Ontem\n$hour:$minute';
+    }
+
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+
+    return '$day/$month\n$hour:$minute';
+  }
+
+  String _actionToFriendlyTitle(String action) {
+    final clean = action.trim().toLowerCase();
+
+    switch (clean) {
+      case 'dfd_created':
+        return 'DFD criado';
+      case 'dfd_updated':
+        return 'DFD atualizado';
+      case 'dfd_deleted':
+        return 'DFD apagado';
+
+      case 'measurement_created':
+        return 'Medição criada';
+      case 'measurement_updated':
+        return 'Medição atualizada';
+      case 'measurement_deleted':
+        return 'Medição apagada';
+      case 'measurement_attachment_created':
+        return 'Arquivo anexado à medição';
+      case 'measurement_attachment_deleted':
+        return 'Arquivo removido da medição';
+      case 'measurement_attachment_renamed':
+        return 'Anexo de medição renomeado';
+
+      case 'additive_created':
+        return 'Aditivo criado';
+      case 'additive_updated':
+        return 'Aditivo atualizado';
+      case 'additive_deleted':
+        return 'Aditivo apagado';
+      case 'additive_attachment_added':
+      case 'additive_attachment_created':
+        return 'Arquivo anexado ao aditivo';
+      case 'additive_attachment_deleted':
+        return 'Arquivo removido do aditivo';
+      case 'additive_attachment_renamed':
+        return 'Anexo de aditivo renomeado';
+
+      case 'apostille_created':
+        return 'Apostilamento criado';
+      case 'apostille_updated':
+        return 'Apostilamento atualizado';
+      case 'apostille_deleted':
+        return 'Apostilamento apagado';
+      case 'apostille_attachment_added':
+      case 'apostille_attachment_created':
+        return 'Arquivo anexado ao apostilamento';
+      case 'apostille_attachment_deleted':
+        return 'Arquivo removido do apostilamento';
+      case 'apostille_attachment_renamed':
+        return 'Anexo de apostilamento renomeado';
+
+      case 'validity_created':
+        return 'Validade criada';
+      case 'validity_updated':
+        return 'Validade atualizada';
+      case 'validity_deleted':
+        return 'Validade apagada';
+      case 'validity_attachment_created':
+        return 'Arquivo anexado à validade';
+      case 'validity_attachment_deleted':
+        return 'Arquivo removido da validade';
+      case 'validity_attachment_renamed':
+        return 'Anexo de validade renomeado';
+
+      case 'revision_created':
+        return 'Revisão criada';
+      case 'revision_updated':
+        return 'Revisão atualizada';
+      case 'revision_deleted':
+        return 'Revisão apagada';
+      case 'revision_attachment_created':
+        return 'Arquivo anexado à revisão';
+      case 'revision_attachment_deleted':
+        return 'Arquivo removido da revisão';
+      case 'revision_attachment_renamed':
+        return 'Anexo de revisão renomeado';
+
+      case 'adjustment_created':
+        return 'Reajuste criado';
+      case 'adjustment_updated':
+        return 'Reajuste atualizado';
+      case 'adjustment_deleted':
+        return 'Reajuste apagado';
+      case 'adjustment_attachment_added':
+      case 'adjustment_attachment_created':
+        return 'Arquivo anexado ao reajuste';
+      case 'adjustment_attachment_deleted':
+        return 'Arquivo removido do reajuste';
+      case 'adjustment_attachment_renamed':
+        return 'Anexo de reajuste renomeado';
+
+      default:
+        return _humanizeAction(action);
+    }
+  }
+
+  String _actionToFriendlyVerb(String action) {
+    final clean = action.trim().toLowerCase();
+
+    switch (clean) {
+      case 'dfd_created':
+        return 'Criado';
+      case 'dfd_updated':
+        return 'Atualizado';
+      case 'dfd_deleted':
+        return 'Apagado';
+
+      case 'measurement_created':
+      case 'additive_created':
+      case 'apostille_created':
+      case 'validity_created':
+      case 'revision_created':
+      case 'adjustment_created':
+        return 'Criado';
+
+      case 'measurement_updated':
+      case 'additive_updated':
+      case 'apostille_updated':
+      case 'validity_updated':
+      case 'revision_updated':
+      case 'adjustment_updated':
+        return 'Atualizado';
+
+      case 'measurement_deleted':
+      case 'additive_deleted':
+      case 'apostille_deleted':
+      case 'validity_deleted':
+      case 'revision_deleted':
+      case 'adjustment_deleted':
+        return 'Removido';
+
+      case 'measurement_attachment_created':
+      case 'additive_attachment_added':
+      case 'additive_attachment_created':
+      case 'apostille_attachment_added':
+      case 'apostille_attachment_created':
+      case 'validity_attachment_created':
+      case 'revision_attachment_created':
+      case 'adjustment_attachment_added':
+      case 'adjustment_attachment_created':
+        return 'Anexado';
+
+      case 'measurement_attachment_deleted':
+      case 'additive_attachment_deleted':
+      case 'apostille_attachment_deleted':
+      case 'validity_attachment_deleted':
+      case 'revision_attachment_deleted':
+      case 'adjustment_attachment_deleted':
+        return 'Removido';
+
+      case 'measurement_attachment_renamed':
+      case 'additive_attachment_renamed':
+      case 'apostille_attachment_renamed':
+      case 'validity_attachment_renamed':
+      case 'revision_attachment_renamed':
+      case 'adjustment_attachment_renamed':
+        return 'Renomeado';
+
+      default:
+        if (clean.isEmpty) return '';
+        return _humanizeAction(action);
+    }
+  }
+
+  String _humanizeAction(String action) {
+    final clean = action
+        .trim()
+        .replaceAll('_', ' ')
+        .replaceAll('-', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
+
+    if (clean.isEmpty) return '';
+
+    return clean[0].toUpperCase() + clean.substring(1);
+  }
+
+  bool _sameAsDemand(NotificationData notification, String value) {
+    final demand = _friendlyDemandName(notification);
+
+    if (demand == null) return false;
+
+    return _normalizeCompare(demand) == _normalizeCompare(value);
+  }
+
+  bool _isUsefulDemandName(String value) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) return false;
+    if (_looksLikeContractId(clean)) return false;
+    if (_looksLikeContratoWithId(clean)) return false;
+    if (_looksLikeModule(clean)) return false;
+
+    return true;
+  }
+
+  bool _isUsefulDetails(String value) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) return false;
+    if (_looksLikeContractId(clean)) return false;
+    if (_looksLikeContratoWithId(clean)) return false;
+    if (_looksLikeModule(clean)) return false;
+
+    return true;
+  }
+
+  bool _looksLikeContratoWithId(String value) {
+    final clean = value.trim();
+    final lower = clean.toLowerCase();
+
+    if (!lower.startsWith('contrato ')) return false;
+
+    final after = clean.substring(9).trim();
+
+    return _looksLikeContractId(after);
+  }
+
+  bool _looksLikeContractId(String value) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) return false;
+
+    final hasNoSpaces = !clean.contains(RegExp(r'\s'));
+    final isLong = clean.length >= 16;
+    final isFirebaseLike = RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(clean);
+
+    return hasNoSpaces && isLong && isFirebaseLike;
+  }
+
+  bool _looksLikeModule(String value) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) return false;
+
+    final lower = clean.toLowerCase();
+
+    final knownPrefixes = <String>[
+      'contracts_',
+      'operation_',
+      'traffic_',
+      'planning_',
+      'financial_',
+      'assets_',
+    ];
+
+    return knownPrefixes.any(lower.startsWith);
+  }
+
+  String _normalizeCompare(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  String _initialsFromName(String value) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) return '';
+
+    final parts = clean
+        .split(RegExp(r'\s+'))
+        .where((item) => item.trim().isNotEmpty)
+        .toList();
+
+    if (parts.isEmpty) return '';
+
+    if (parts.length == 1) {
+      return parts.first.characters.take(2).toString().toUpperCase();
+    }
+
+    final first = parts.first.characters.take(1).toString();
+    final last = parts.last.characters.take(1).toString();
+
+    return '$first$last'.toUpperCase();
   }
 
   String _clean(String? value) {
@@ -420,8 +931,8 @@ class _NotificationBellState extends State<NotificationBell>
   Widget build(BuildContext context) {
     return BlocBuilder<NotificationBellCubit, NotificationBellState>(
       buildWhen: (previous, current) {
-        return previous.unreadUserNotifications !=
-            current.unreadUserNotifications ||
+        return previous.userBellNotifications != current.userBellNotifications ||
+            previous.unreadUserNotifications != current.unreadUserNotifications ||
             previous.systemNotifications != current.systemNotifications ||
             previous.loading != current.loading ||
             previous.error != current.error;
@@ -461,6 +972,131 @@ class _NotificationBellState extends State<NotificationBell>
           ),
         );
       },
+    );
+  }
+}
+
+class _NotificationActorProfile {
+  const _NotificationActorProfile({
+    required this.uid,
+    required this.displayName,
+    required this.photoUrl,
+  });
+
+  final String uid;
+  final String displayName;
+  final String photoUrl;
+}
+
+class _ActorPhotoLeading extends StatelessWidget {
+  const _ActorPhotoLeading({
+    required this.photoUrl,
+    required this.initials,
+    required this.fallbackIcon,
+    required this.accentColor,
+  });
+
+  final String photoUrl;
+  final String initials;
+  final IconData fallbackIcon;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = photoUrl.trim().isNotEmpty;
+    final hasInitials = initials.trim().isNotEmpty;
+
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.16),
+          width: 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: hasPhoto
+          ? Image.network(
+        photoUrl.trim(),
+        width: 38,
+        height: 38,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded || frame != null) {
+            return child;
+          }
+
+          return _ActorFallbackLeading(
+            initials: initials,
+            fallbackIcon: fallbackIcon,
+            accentColor: accentColor,
+          );
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+
+          return _ActorFallbackLeading(
+            initials: initials,
+            fallbackIcon: fallbackIcon,
+            accentColor: accentColor,
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return _ActorFallbackLeading(
+            initials: hasInitials ? initials : '',
+            fallbackIcon: fallbackIcon,
+            accentColor: accentColor,
+          );
+        },
+      )
+          : _ActorFallbackLeading(
+        initials: hasInitials ? initials : '',
+        fallbackIcon: fallbackIcon,
+        accentColor: accentColor,
+      ),
+    );
+  }
+}
+
+class _ActorFallbackLeading extends StatelessWidget {
+  const _ActorFallbackLeading({
+    required this.initials,
+    required this.fallbackIcon,
+    required this.accentColor,
+  });
+
+  final String initials;
+  final IconData fallbackIcon;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasInitials = initials.trim().isNotEmpty;
+
+    if (hasInitials) {
+      return Center(
+        child: Text(
+          initials.trim(),
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: TextStyle(
+            color: accentColor,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.3,
+          ),
+        ),
+      );
+    }
+
+    return Icon(
+      fallbackIcon,
+      color: accentColor,
+      size: 21,
     );
   }
 }

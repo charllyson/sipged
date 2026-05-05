@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
+
+import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/ia/ai_chat_sheet.dart';
 import 'package:sipged/_widgets/ia/ai_futuristic_button.dart';
+import 'package:sipged/screens/common/login/sign_up/sign_up.dart';
+
+enum FootBarMode {
+  defaultMode,
+  signIn,
+}
 
 class FootBar extends StatefulWidget {
-  const FootBar({super.key});
+  const FootBar({
+    super.key,
+    this.mode = FootBarMode.defaultMode,
+  });
+
+  final FootBarMode mode;
 
   @override
   State<FootBar> createState() => _FootBarState();
@@ -12,6 +25,8 @@ class FootBar extends StatefulWidget {
 
 class _FootBarState extends State<FootBar> {
   bool _showIaProgress = false;
+
+  bool get _isSignInMode => widget.mode == FootBarMode.signIn;
 
   Future<void> _openAiChat(BuildContext context) async {
     setState(() {
@@ -32,114 +47,149 @@ class _FootBarState extends State<FootBar> {
     });
   }
 
+  Future<void> _openSignUp(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SignUp(
+          userData: UserData.empty(),
+          mode: SignUpMode.selfRegister,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSignInContent(BuildContext context) {
+    return Center(
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        runSpacing: 2,
+        children: [
+          const Text(
+            'Ainda não tem conta?',
+            style: TextStyle(
+              color: Color(0xFF475467),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.1,
+            ),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 4,
+                vertical: 0,
+              ),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+            onPressed: () => _openSignUp(context),
+            child: const Text(
+              'Cadastre-se',
+              style: TextStyle(
+                color: Color(0xFF2563EB),
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDefaultContent(BuildContext context) {
+    const textStyle = TextStyle(
+      color: Color(0xFF475467),
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.2,
+    );
+
+    return Stack(
+      children: [
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 72),
+            child: FutureBuilder<int>(
+              future: null,
+              builder: (context, snapshot) {
+                final buildText =
+                snapshot.hasData ? ' • Build nº ${snapshot.data}' : '';
+
+                return Text(
+                  'Desenvolvido por C.A.S Engenharia & Tecnologia • Versão 1.0.0$buildText',
+                  style: textStyle,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                );
+              },
+            ),
+          ),
+        ),
+        Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: AiFuturisticButton(
+              onTap: () => _openAiChat(context),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final textStyle = TextStyle(
-      color: isDark ? Colors.white70 : Colors.black54,
-      fontSize: 11,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0.2,
-    );
-
-    return Material(
-      color: Colors.transparent,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 2,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                child: _showIaProgress
-                    ? LinearProgressIndicator(
-                  key: const ValueKey('ia-progress'),
-                  minHeight: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Colors.blue.shade200,
-                  ),
-                  backgroundColor: Colors.transparent,
-                )
-                    : const SizedBox(
-                  key: ValueKey('no-progress'),
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 2,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: _showIaProgress && !_isSignInMode
+                  ? LinearProgressIndicator(
+                key: const ValueKey('ia-progress'),
+                minHeight: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Colors.blue.shade200,
                 ),
+                backgroundColor: Colors.transparent,
+              )
+                  : const SizedBox(
+                key: ValueKey('no-progress'),
               ),
             ),
-            BasicCard(
-              isDark: isDark,
-              height: 38,
-              padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
-              borderRadius: 0,
-              useGlassEffect: true,
-              blurSigmaX: 18,
-              blurSigmaY: 18,
-              backgroundColor: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : Colors.white.withValues(alpha: 0.12),
-              borderColor: isDark
-                  ? Colors.white.withValues(alpha: 0.16)
-                  : Colors.white.withValues(alpha: 0.35),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isDark
-                    ? [
-                  Colors.white.withValues(alpha: 0.10),
-                  Colors.white.withValues(alpha: 0.03),
-                ]
-                    : [
-                  Colors.white.withValues(alpha: 0.22),
-                  Colors.white.withValues(alpha: 0.08),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.10),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-              child: Stack(
-                children: [
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 72),
-                      child: FutureBuilder<int>(
-                        future: null,
-                        builder: (context, snapshot) {
-                          final buildText = snapshot.hasData
-                              ? ' • Build nº ${snapshot.data}'
-                              : '';
-
-                          return Text(
-                            'Desenvolvido por C.A.S Engenharia & Tecnologia • Versão 1.0.0$buildText',
-                            style: textStyle,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: AiFuturisticButton(
-                        onTap: () => _openAiChat(context),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          ),
+          BasicCard(
+            isDark: isDark,
+            height: _isSignInMode ? 42 : 35,
+            padding: EdgeInsets.symmetric(
+              vertical: _isSignInMode ? 6 : 3,
+              horizontal: _isSignInMode ? 10 : 6,
             ),
-          ],
-        ),
+            borderRadius: 0,
+            useGlassEffect: false,
+            backgroundColor: Colors.white,
+            gradient: null,
+            borderColor: const Color(0xFFE4E7EC),
+            enableShadow: false,
+            child: _isSignInMode
+                ? _buildSignInContent(context)
+                : _buildDefaultContent(context),
+          ),
+        ],
       ),
     );
   }

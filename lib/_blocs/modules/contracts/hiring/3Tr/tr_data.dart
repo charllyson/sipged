@@ -17,7 +17,7 @@ class TrData extends Equatable {
   // 3) Local / Prazos / Cronograma
   final String? localExecucao;
   final String? prazoExecucaoDias;
-  final String? vigenciaMeses;
+  final String? vigenciaDias;
   final String? cronogramaFisico;
 
   // 4) Medição / Aceite / Indicadores
@@ -68,7 +68,7 @@ class TrData extends Equatable {
     // 3) Local / Prazos / Cronograma
     this.localExecucao,
     this.prazoExecucaoDias,
-    this.vigenciaMeses,
+    this.vigenciaDias,
     this.cronogramaFisico,
 
     // 4) Medição / Aceite / Indicadores
@@ -105,7 +105,6 @@ class TrData extends Equatable {
     this.linksDocumentos,
   });
 
-  /// Construtor "vazio" no padrão DfdData.empty / EtpData.empty
   const TrData.empty()
       : objeto = '',
         justificativa = '',
@@ -116,7 +115,7 @@ class TrData extends Equatable {
         especificacoesNormas = '',
         localExecucao = '',
         prazoExecucaoDias = '',
-        vigenciaMeses = '',
+        vigenciaDias = '',
         cronogramaFisico = '',
         criteriosMedicao = '',
         criteriosAceite = '',
@@ -140,8 +139,37 @@ class TrData extends Equatable {
         demaisCondicoes = '',
         linksDocumentos = '';
 
+  /// Compatibilidade temporária com telas/códigos antigos.
+  ///
+  /// Antes o campo era tratado como meses.
+  /// Agora o valor correto deve ser sempre em dias.
+  String? get vigenciaMeses => vigenciaDias;
+
+  static String _text(dynamic value) {
+    return (value ?? '').toString();
+  }
+
+  static String _firstText(
+      Map<String, dynamic> map,
+      List<String> keys,
+      ) {
+    for (final key in keys) {
+      final value = map[key];
+
+      if (value == null) continue;
+
+      final text = value.toString();
+
+      if (text.trim().isNotEmpty) {
+        return text;
+      }
+    }
+
+    return '';
+  }
+
   // ---------------------------------------------------------------------------
-  // Map "flat" (sem seções) — compat direto com Firestore se quiser salvar assim
+  // Map "flat" — compat direto com Firestore se quiser salvar assim
   // ---------------------------------------------------------------------------
   Map<String, dynamic> toMap() => {
     // 1) Objeto e Fundamentação
@@ -158,7 +186,7 @@ class TrData extends Equatable {
     // 3) Local / Prazos / Cronograma
     'localExecucao': localExecucao,
     'prazoExecucaoDias': prazoExecucaoDias,
-    'vigenciaMeses': vigenciaMeses,
+    'vigenciaDias': vigenciaDias,
     'cronogramaFisico': cronogramaFisico,
 
     // 4) Medição / Aceite / Indicadores
@@ -200,179 +228,157 @@ class TrData extends Equatable {
 
     return TrData(
       // 1) Objeto e Fundamentação
-      objeto: (map['objeto'] ?? '').toString(),
-      justificativa: (map['justificativa'] ?? '').toString(),
-      tipoContratacao: (map['tipoContratacao'] ?? '').toString(),
-      regimeExecucao: (map['regimeExecucao'] ?? '').toString(),
+      objeto: _text(map['objeto']),
+      justificativa: _text(map['justificativa']),
+      tipoContratacao: _text(map['tipoContratacao']),
+      regimeExecucao: _text(map['regimeExecucao']),
 
       // 2) Escopo / Requisitos
-      escopoDetalhado: (map['escopoDetalhado'] ?? '').toString(),
-      requisitosTecnicos:
-      (map['requisitosTecnicos'] ?? '').toString(),
-      especificacoesNormas:
-      (map['especificacoesNormas'] ?? '').toString(),
+      escopoDetalhado: _text(map['escopoDetalhado']),
+      requisitosTecnicos: _text(map['requisitosTecnicos']),
+      especificacoesNormas: _text(map['especificacoesNormas']),
 
       // 3) Local / Prazos / Cronograma
-      localExecucao: (map['localExecucao'] ?? '').toString(),
-      prazoExecucaoDias:
-      (map['prazoExecucaoDias'] ?? '').toString(),
-      vigenciaMeses: (map['vigenciaMeses'] ?? '').toString(),
-      cronogramaFisico:
-      (map['cronogramaFisico'] ?? '').toString(),
+      localExecucao: _text(map['localExecucao']),
+      prazoExecucaoDias: _text(map['prazoExecucaoDias']),
+      vigenciaDias: _firstText(
+        map,
+        const <String>[
+          'vigenciaDias',
+          'vigenciaContratualDias',
+          'vigenciaExecucaoDias',
+
+          // leitura retrocompatível de registros antigos
+          'vigenciaMeses',
+        ],
+      ),
+      cronogramaFisico: _text(map['cronogramaFisico']),
 
       // 4) Medição / Aceite / Indicadores
-      criteriosMedicao:
-      (map['criteriosMedicao'] ?? '').toString(),
-      criteriosAceite:
-      (map['criteriosAceite'] ?? '').toString(),
-      indicadoresDesempenho:
-      (map['indicadoresDesempenho'] ?? '').toString(),
+      criteriosMedicao: _text(map['criteriosMedicao']),
+      criteriosAceite: _text(map['criteriosAceite']),
+      indicadoresDesempenho: _text(map['indicadoresDesempenho']),
 
       // 5) Obrigações / Equipe / Gestão
-      obrigacoesContratada:
-      (map['obrigacoesContratada'] ?? '').toString(),
-      obrigacoesContratante:
-      (map['obrigacoesContratante'] ?? '').toString(),
-      equipeMinima: (map['equipeMinima'] ?? '').toString(),
-      fiscalNome: (map['fiscalNome'] ?? '').toString(),
+      obrigacoesContratada: _text(map['obrigacoesContratada']),
+      obrigacoesContratante: _text(map['obrigacoesContratante']),
+      equipeMinima: _text(map['equipeMinima']),
+      fiscalNome: _text(map['fiscalNome']),
       fiscalUserId: map['fiscalUserId']?.toString(),
-      gestorNome: (map['gestorNome'] ?? '').toString(),
+      gestorNome: _text(map['gestorNome']),
       gestorUserId: map['gestorUserId']?.toString(),
 
       // 6) Licenciamento / Segurança / Sustentabilidade
-      licenciamentoAmbiental:
-      (map['licenciamentoAmbiental'] ?? '').toString(),
-      segurancaTrabalho:
-      (map['segurancaTrabalho'] ?? '').toString(),
-      sustentabilidade:
-      (map['sustentabilidade'] ?? '').toString(),
+      licenciamentoAmbiental: _text(map['licenciamentoAmbiental']),
+      segurancaTrabalho: _text(map['segurancaTrabalho']),
+      sustentabilidade: _text(map['sustentabilidade']),
 
       // 7) Preços / Pagamento / Reajuste / Garantia
-      estimativaValor:
-      (map['estimativaValor'] ?? '').toString(),
-      reajusteIndice:
-      (map['reajusteIndice'] ?? '').toString(),
-      condicoesPagamento:
-      (map['condicoesPagamento'] ?? '').toString(),
-      garantia: (map['garantia'] ?? '').toString(),
+      estimativaValor: _text(map['estimativaValor']),
+      reajusteIndice: _text(map['reajusteIndice']),
+      condicoesPagamento: _text(map['condicoesPagamento']),
+      garantia: _text(map['garantia']),
 
       // 8) Riscos / Penalidades / Demais
-      matrizRiscos: (map['matrizRiscos'] ?? '').toString(),
-      penalidades: (map['penalidades'] ?? '').toString(),
-      demaisCondicoes:
-      (map['demaisCondicoes'] ?? '').toString(),
+      matrizRiscos: _text(map['matrizRiscos']),
+      penalidades: _text(map['penalidades']),
+      demaisCondicoes: _text(map['demaisCondicoes']),
 
       // 9) Documentos / Referências
-      linksDocumentos:
-      (map['linksDocumentos'] ?? '').toString(),
+      linksDocumentos: _text(map['linksDocumentos']),
     );
   }
 
-  /// Mesmo padrão do DfdData.fromSectionsMap / EtpData.fromSectionsMap
   factory TrData.fromSectionsMap(
       Map<String, Map<String, dynamic>> sections,
       ) {
     final obj = sections[TrSections.objetoFundamentacao] ??
         const <String, dynamic>{};
+
     final esc = sections[TrSections.escopoRequisitos] ??
         const <String, dynamic>{};
-    final loc =
-        sections[TrSections.localPrazosCronograma] ??
-            const <String, dynamic>{};
-    final med =
-        sections[TrSections.medicaoAceiteIndicadores] ??
-            const <String, dynamic>{};
-    final obr =
-        sections[TrSections.obrigacoesEquipeGestao] ??
-            const <String, dynamic>{};
-    final lic = sections[
-    TrSections.licenciamentoSegurancaSustentabilidade] ??
+
+    final loc = sections[TrSections.localPrazosCronograma] ??
         const <String, dynamic>{};
-    final pre =
-        sections[TrSections.precosPagamentoReajuste] ??
-            const <String, dynamic>{};
-    final ris =
-        sections[TrSections.riscosPenalidadesCondicoes] ??
-            const <String, dynamic>{};
-    final doc =
-        sections[TrSections.documentosReferencias] ??
-            const <String, dynamic>{};
+
+    final med = sections[TrSections.medicaoAceiteIndicadores] ??
+        const <String, dynamic>{};
+
+    final obr = sections[TrSections.obrigacoesEquipeGestao] ??
+        const <String, dynamic>{};
+
+    final lic = sections[TrSections.licenciamentoSegurancaSustentabilidade] ??
+        const <String, dynamic>{};
+
+    final pre = sections[TrSections.precosPagamentoReajuste] ??
+        const <String, dynamic>{};
+
+    final ris = sections[TrSections.riscosPenalidadesCondicoes] ??
+        const <String, dynamic>{};
+
+    final doc = sections[TrSections.documentosReferencias] ??
+        const <String, dynamic>{};
 
     return TrData(
       // 1) Objeto e Fundamentação
-      objeto: (obj['objeto'] ?? '').toString(),
-      justificativa:
-      (obj['justificativa'] ?? '').toString(),
-      tipoContratacao:
-      (obj['tipoContratacao'] ?? '').toString(),
-      regimeExecucao:
-      (obj['regimeExecucao'] ?? '').toString(),
+      objeto: _text(obj['objeto']),
+      justificativa: _text(obj['justificativa']),
+      tipoContratacao: _text(obj['tipoContratacao']),
+      regimeExecucao: _text(obj['regimeExecucao']),
 
       // 2) Escopo / Requisitos
-      escopoDetalhado:
-      (esc['escopoDetalhado'] ?? '').toString(),
-      requisitosTecnicos:
-      (esc['requisitosTecnicos'] ?? '').toString(),
-      especificacoesNormas:
-      (esc['especificacoesNormas'] ?? '').toString(),
+      escopoDetalhado: _text(esc['escopoDetalhado']),
+      requisitosTecnicos: _text(esc['requisitosTecnicos']),
+      especificacoesNormas: _text(esc['especificacoesNormas']),
 
       // 3) Local / Prazos / Cronograma
-      localExecucao:
-      (loc['localExecucao'] ?? '').toString(),
-      prazoExecucaoDias:
-      (loc['prazoExecucaoDias'] ?? '').toString(),
-      vigenciaMeses:
-      (loc['vigenciaMeses'] ?? '').toString(),
-      cronogramaFisico:
-      (loc['cronogramaFisico'] ?? '').toString(),
+      localExecucao: _text(loc['localExecucao']),
+      prazoExecucaoDias: _text(loc['prazoExecucaoDias']),
+      vigenciaDias: _firstText(
+        loc,
+        const <String>[
+          'vigenciaDias',
+          'vigenciaContratualDias',
+          'vigenciaExecucaoDias',
+
+          // leitura retrocompatível de registros antigos
+          'vigenciaMeses',
+        ],
+      ),
+      cronogramaFisico: _text(loc['cronogramaFisico']),
 
       // 4) Medição / Aceite / Indicadores
-      criteriosMedicao:
-      (med['criteriosMedicao'] ?? '').toString(),
-      criteriosAceite:
-      (med['criteriosAceite'] ?? '').toString(),
-      indicadoresDesempenho:
-      (med['indicadoresDesempenho'] ?? '').toString(),
+      criteriosMedicao: _text(med['criteriosMedicao']),
+      criteriosAceite: _text(med['criteriosAceite']),
+      indicadoresDesempenho: _text(med['indicadoresDesempenho']),
 
       // 5) Obrigações / Equipe / Gestão
-      obrigacoesContratada:
-      (obr['obrigacoesContratada'] ?? '').toString(),
-      obrigacoesContratante:
-      (obr['obrigacoesContratante'] ?? '').toString(),
-      equipeMinima:
-      (obr['equipeMinima'] ?? '').toString(),
-      fiscalNome: (obr['fiscalNome'] ?? '').toString(),
+      obrigacoesContratada: _text(obr['obrigacoesContratada']),
+      obrigacoesContratante: _text(obr['obrigacoesContratante']),
+      equipeMinima: _text(obr['equipeMinima']),
+      fiscalNome: _text(obr['fiscalNome']),
       fiscalUserId: obr['fiscalUserId']?.toString(),
-      gestorNome: (obr['gestorNome'] ?? '').toString(),
+      gestorNome: _text(obr['gestorNome']),
       gestorUserId: obr['gestorUserId']?.toString(),
 
       // 6) Licenciamento / Segurança / Sustentabilidade
-      licenciamentoAmbiental:
-      (lic['licenciamentoAmbiental'] ?? '').toString(),
-      segurancaTrabalho:
-      (lic['segurancaTrabalho'] ?? '').toString(),
-      sustentabilidade:
-      (lic['sustentabilidade'] ?? '').toString(),
+      licenciamentoAmbiental: _text(lic['licenciamentoAmbiental']),
+      segurancaTrabalho: _text(lic['segurancaTrabalho']),
+      sustentabilidade: _text(lic['sustentabilidade']),
 
       // 7) Preços / Pagamento / Reajuste / Garantia
-      estimativaValor:
-      (pre['estimativaValor'] ?? '').toString(),
-      reajusteIndice:
-      (pre['reajusteIndice'] ?? '').toString(),
-      condicoesPagamento:
-      (pre['condicoesPagamento'] ?? '').toString(),
-      garantia: (pre['garantia'] ?? '').toString(),
+      estimativaValor: _text(pre['estimativaValor']),
+      reajusteIndice: _text(pre['reajusteIndice']),
+      condicoesPagamento: _text(pre['condicoesPagamento']),
+      garantia: _text(pre['garantia']),
 
       // 8) Riscos / Penalidades / Demais
-      matrizRiscos:
-      (ris['matrizRiscos'] ?? '').toString(),
-      penalidades: (ris['penalidades'] ?? '').toString(),
-      demaisCondicoes:
-      (ris['demaisCondicoes'] ?? '').toString(),
+      matrizRiscos: _text(ris['matrizRiscos']),
+      penalidades: _text(ris['penalidades']),
+      demaisCondicoes: _text(ris['demaisCondicoes']),
 
       // 9) Documentos / Referências
-      linksDocumentos:
-      (doc['linksDocumentos'] ?? '').toString(),
+      linksDocumentos: _text(doc['linksDocumentos']),
     );
   }
 
@@ -386,7 +392,12 @@ class TrData extends Equatable {
     String? especificacoesNormas,
     String? localExecucao,
     String? prazoExecucaoDias,
+    String? vigenciaDias,
+
+    /// Compatibilidade temporária com chamadas antigas.
+    /// O valor será tratado como dias.
     String? vigenciaMeses,
+
     String? cronogramaFisico,
     String? criteriosMedicao,
     String? criteriosAceite,
@@ -416,18 +427,13 @@ class TrData extends Equatable {
       tipoContratacao: tipoContratacao ?? this.tipoContratacao,
       regimeExecucao: regimeExecucao ?? this.regimeExecucao,
       escopoDetalhado: escopoDetalhado ?? this.escopoDetalhado,
-      requisitosTecnicos:
-      requisitosTecnicos ?? this.requisitosTecnicos,
-      especificacoesNormas:
-      especificacoesNormas ?? this.especificacoesNormas,
+      requisitosTecnicos: requisitosTecnicos ?? this.requisitosTecnicos,
+      especificacoesNormas: especificacoesNormas ?? this.especificacoesNormas,
       localExecucao: localExecucao ?? this.localExecucao,
-      prazoExecucaoDias:
-      prazoExecucaoDias ?? this.prazoExecucaoDias,
-      vigenciaMeses: vigenciaMeses ?? this.vigenciaMeses,
-      cronogramaFisico:
-      cronogramaFisico ?? this.cronogramaFisico,
-      criteriosMedicao:
-      criteriosMedicao ?? this.criteriosMedicao,
+      prazoExecucaoDias: prazoExecucaoDias ?? this.prazoExecucaoDias,
+      vigenciaDias: vigenciaDias ?? vigenciaMeses ?? this.vigenciaDias,
+      cronogramaFisico: cronogramaFisico ?? this.cronogramaFisico,
+      criteriosMedicao: criteriosMedicao ?? this.criteriosMedicao,
       criteriosAceite: criteriosAceite ?? this.criteriosAceite,
       indicadoresDesempenho:
       indicadoresDesempenho ?? this.indicadoresDesempenho,
@@ -442,21 +448,16 @@ class TrData extends Equatable {
       gestorUserId: gestorUserId ?? this.gestorUserId,
       licenciamentoAmbiental:
       licenciamentoAmbiental ?? this.licenciamentoAmbiental,
-      segurancaTrabalho:
-      segurancaTrabalho ?? this.segurancaTrabalho,
-      sustentabilidade:
-      sustentabilidade ?? this.sustentabilidade,
+      segurancaTrabalho: segurancaTrabalho ?? this.segurancaTrabalho,
+      sustentabilidade: sustentabilidade ?? this.sustentabilidade,
       estimativaValor: estimativaValor ?? this.estimativaValor,
       reajusteIndice: reajusteIndice ?? this.reajusteIndice,
-      condicoesPagamento:
-      condicoesPagamento ?? this.condicoesPagamento,
+      condicoesPagamento: condicoesPagamento ?? this.condicoesPagamento,
       garantia: garantia ?? this.garantia,
       matrizRiscos: matrizRiscos ?? this.matrizRiscos,
       penalidades: penalidades ?? this.penalidades,
-      demaisCondicoes:
-      demaisCondicoes ?? this.demaisCondicoes,
-      linksDocumentos:
-      linksDocumentos ?? this.linksDocumentos,
+      demaisCondicoes: demaisCondicoes ?? this.demaisCondicoes,
+      linksDocumentos: linksDocumentos ?? this.linksDocumentos,
     );
   }
 
@@ -471,7 +472,7 @@ class TrData extends Equatable {
     especificacoesNormas,
     localExecucao,
     prazoExecucaoDias,
-    vigenciaMeses,
+    vigenciaDias,
     cronogramaFisico,
     criteriosMedicao,
     criteriosAceite,
@@ -498,7 +499,7 @@ class TrData extends Equatable {
 }
 
 // -----------------------------------------------------------------------------
-// Mapeamento p/ estrutura em seções (mesma usada no Firestore)
+// Mapeamento p/ estrutura em seções usada no Firestore
 // -----------------------------------------------------------------------------
 extension TrDataSections on TrData {
   Map<String, Map<String, dynamic>> toSectionsMap() {
@@ -517,7 +518,7 @@ extension TrDataSections on TrData {
       TrSections.localPrazosCronograma: {
         'localExecucao': localExecucao,
         'prazoExecucaoDias': prazoExecucaoDias,
-        'vigenciaMeses': vigenciaMeses,
+        'vigenciaDias': vigenciaDias,
         'cronogramaFisico': cronogramaFisico,
       },
       TrSections.medicaoAceiteIndicadores: {

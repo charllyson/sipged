@@ -1,20 +1,23 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_data.dart';
+
 import 'package:sipged/_widgets/images/mini_avatars/mini_avatars.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
-import 'package:sipged/_widgets/list/search/search_user_permission_widget.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
-import 'package:sipged/_blocs/system/module/module_permission.dart' as perms;
-import 'package:sipged/_blocs/system/user/user_permission.dart' as roles;
-import 'package:sipged/_blocs/modules/contracts/_process/contract_permission.dart'
-as acl;
+import 'package:sipged/_widgets/list/search/search_user_permission_widget.dart';
 
 import 'package:sipged/_widgets/stamp/stamp.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
@@ -23,8 +26,8 @@ class TabBanner extends StatefulWidget {
   const TabBanner({
     super.key,
     required this.contract,
-    this.titleText,
-    this.contractNumberText,
+    this.publicacaoExtratoData,
+    this.dfdData,
     this.onTap,
     this.interactive = true,
     this.userData,
@@ -38,21 +41,29 @@ class TabBanner extends StatefulWidget {
     this.stampPendingIcon = Icons.verified_user_outlined,
     this.stampApprovedColor,
     this.stampPendingColor,
+
+    /// Mantidos apenas por compatibilidade.
+    /// Não são usados para montar o texto do banner.
+    this.titleText,
+    this.contractNumberText,
   });
 
   final ProcessData contract;
 
-  /// Texto principal do banner.
-  ///
-  /// Exemplo:
-  /// Recuperação funcional da rodovia AL-101
+  /// Usado apenas para:
+  /// 1. numeroContrato
+  /// 2. processo
+  final PublicacaoExtratoData? publicacaoExtratoData;
+
+  /// Usado para:
+  /// 1. processoAdministrativo, caso não exista número do contrato
+  /// 2. descricaoObjeto, como descrição ao lado do número
+  final DfdData? dfdData;
+
+  /// Não usado.
   final String? titleText;
 
-  /// Texto exibido antes do resumo.
-  ///
-  /// Exemplo:
-  /// Contrato nº 012/2026
-  /// Processo nº E:05500.000000/2026
+  /// Não usado.
   final String? contractNumberText;
 
   final VoidCallback? onTap;
@@ -98,29 +109,206 @@ class _TabBannerState extends State<TabBanner> {
     return widget.userData ?? st.current;
   }
 
-  bool _can(String action, {ProcessData? c}) {
-    final u = _currentUser();
-    if (u == null) return false;
+  UserPermissionData? _permissionDataForUser(UserData? user) {
+    if (user == null) return null;
 
-    return acl.ContractPermissions.can(
-      user: u,
-      contract: c ?? _contractData,
-      action: action,
+    final uid = (user.uid ?? '').trim();
+    if (uid.isEmpty) return null;
+
+    final permissionState = context.read<PermissionCubit>().state;
+    final currentPermissions = permissionState.current;
+
+    if (currentPermissions != null && currentPermissions.uid == uid) {
+      return currentPermissions;
+    }
+
+    return UserPermissionData.fromMap(
+      uid: uid,
+      map: user.userSnap?.data(),
     );
   }
 
-  String _composeTitle({
-    required String number,
-    required String title,
-  }) {
-    final cleanNumber = number.trim();
-    final cleanTitle = title.trim();
+  bool _can(String action, {ProcessData? c}) {
+    final user = _currentUser();
+    final permissionData = _permissionDataForUser(user);
 
-    if (cleanNumber.isEmpty && cleanTitle.isEmpty) return '';
-    if (cleanNumber.isEmpty) return cleanTitle;
-    if (cleanTitle.isEmpty) return cleanNumber;
+    if (permissionData == null) return false;
 
-    return '$cleanNumber — $cleanTitle';
+    final permissionCubit = context.read<PermissionCubit>();
+    final activeTenantId = permissionCubit.state.activeTenantId;
+
+    return SystemPermission.canContract(
+      permissions: permissionData,
+      contract: c ?? _contractData,
+      action: action,
+      tenantId: activeTenantId,
+    );
+  }
+
+  SystemUserRole _roleForUser(UserData? user, String uid) {
+    if (user == null) {
+      return SystemUserRole.leitor;
+    }
+
+    final snapData = user.userSnap?.data();
+
+    if (snapData != null) {
+      return UserPermissionData.fromMap(
+        uid: (user.uid ?? uid).trim(),
+        map: snapData,
+      ).globalRole;
+    }
+
+    return SystemRoleCodec.parse(
+      user.baseRole ?? user.baseProfile,
+    );
+  }
+
+  String _normalizeForCompare(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'\s+'), '')
+        .replaceAll('nº', '')
+        .replaceAll('n°', '')
+        .replaceAll('n.', '')
+        .replaceAll('n', '')
+        .replaceAll('contrato', '')
+        .replaceAll('processo', '')
+        .replaceAll(':', '')
+        .replaceAll('-', '')
+        .replaceAll('—', '')
+        .replaceAll('/', '')
+        .replaceAll('.', '')
+        .replaceAll('_', '')
+        .trim();
+  }
+
+  bool _isDatabaseIdText(String? value) {
+    final raw = value?.trim();
+    final id = _contractData.id?.trim();
+
+    if (raw == null || raw.isEmpty) return false;
+    if (id == null || id.isEmpty) return false;
+
+    if (raw == id) return true;
+
+    final normalizedValue = _normalizeForCompare(raw);
+    final normalizedId = _normalizeForCompare(id);
+
+    if (normalizedValue.isEmpty || normalizedId.isEmpty) return false;
+
+    return normalizedValue == normalizedId;
+  }
+
+  bool _isProbablyFirestoreId(String? value) {
+    final clean = value?.trim();
+
+    if (clean == null || clean.isEmpty) return false;
+
+    if (clean.length < 16) return false;
+    if (clean.contains('/')) return false;
+    if (clean.contains('.')) return false;
+    if (clean.contains(' ')) return false;
+
+    return RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(clean);
+  }
+
+  String _cleanText(String? value) {
+    final clean = value?.trim();
+
+    if (clean == null || clean.isEmpty) return '';
+
+    if (_isDatabaseIdText(clean)) return '';
+
+    if (_isProbablyFirestoreId(clean)) return '';
+
+    return clean;
+  }
+
+  String _removeLeadingContractLabel(String value) {
+    return value
+        .replaceFirst(
+      RegExp(
+        r'^contrato\s*(n[º°.]?)?\s*[:\-—]?\s*',
+        caseSensitive: false,
+      ),
+      '',
+    )
+        .trim();
+  }
+
+  String _removeLeadingProcessLabel(String value) {
+    return value
+        .replaceFirst(
+      RegExp(
+        r'^processo\s*(n[º°.]?)?\s*[:\-—]?\s*',
+        caseSensitive: false,
+      ),
+      '',
+    )
+        .trim();
+  }
+
+  String _resolveNumberText() {
+    final numeroContrato = _cleanText(
+      widget.publicacaoExtratoData?.numeroContrato,
+    );
+
+    if (numeroContrato.isNotEmpty) {
+      final clean = _removeLeadingContractLabel(numeroContrato);
+
+      if (clean.isNotEmpty &&
+          !_isDatabaseIdText(clean) &&
+          !_isProbablyFirestoreId(clean)) {
+        return 'Contrato nº $clean';
+      }
+    }
+
+    final processoPublicacao = _cleanText(
+      widget.publicacaoExtratoData?.processo,
+    );
+
+    if (processoPublicacao.isNotEmpty) {
+      final clean = _removeLeadingProcessLabel(processoPublicacao);
+
+      if (clean.isNotEmpty &&
+          !_isDatabaseIdText(clean) &&
+          !_isProbablyFirestoreId(clean)) {
+        return 'Processo nº $clean';
+      }
+    }
+
+    final processoDfd = _cleanText(
+      widget.dfdData?.processoAdministrativo,
+    );
+
+    if (processoDfd.isNotEmpty) {
+      final clean = _removeLeadingProcessLabel(processoDfd);
+
+      if (clean.isNotEmpty &&
+          !_isDatabaseIdText(clean) &&
+          !_isProbablyFirestoreId(clean)) {
+        return 'Processo nº $clean';
+      }
+    }
+
+    return '';
+  }
+
+  String _resolveDescricaoObjetoText() {
+    return _cleanText(widget.dfdData?.descricaoObjeto);
+  }
+
+  String _composeTitle() {
+    final numberText = _resolveNumberText();
+    final descricaoObjeto = _resolveDescricaoObjetoText();
+
+    if (numberText.isEmpty && descricaoObjeto.isEmpty) return '';
+    if (numberText.isEmpty) return descricaoObjeto;
+    if (descricaoObjeto.isEmpty) return numberText;
+
+    return '$numberText — $descricaoObjeto';
   }
 
   Future<void> _openParticipantsDialogFromBanner(
@@ -129,6 +317,7 @@ class _TabBannerState extends State<TabBanner> {
       ) async {
     final ProcessCubit contractCubit =
         widget.contractsCubit ?? context.read<ProcessCubit>();
+
     final userState = context.read<UserCubit>().state;
     final mediaQuery = MediaQuery.of(context);
 
@@ -155,14 +344,12 @@ class _TabBannerState extends State<TabBanner> {
         labelFor: (uid) => userState.labelFor(uid),
         getRole: (uid) {
           final u = userState.byId[uid];
-          final base =
-          (u != null) ? roles.roleForUser(u) : roles.UserProfile.leitor;
-
-          return roles.UserRoleCodec.label(base);
+          final role = _roleForUser(u, uid);
+          return SystemRoleCodec.label(role);
         },
         getPerms: (uid) {
           final raw = contrato.permissionContractId[uid];
-          return perms.normalizePermMap(raw);
+          return SystemPermission.normalizeDocPerms(raw);
         },
         roleOptions: const [],
         onChangeRole: null,
@@ -185,7 +372,7 @@ class _TabBannerState extends State<TabBanner> {
 
           for (final uid in uids) {
             if (!atuais.containsKey(uid)) {
-              final initialPerms = perms.initialDocPerms();
+              final initialPerms = SystemPermission.initialDocPerms();
 
               await contractCubit.addParticipant(
                 contractId: contrato.id!,
@@ -206,22 +393,22 @@ class _TabBannerState extends State<TabBanner> {
 
   Future<void> _refreshLocalContract(ProcessData contrato) async {
     final cubit = widget.contractsCubit ?? context.read<ProcessCubit>();
+
     if (contrato.id == null) return;
 
     final fresh = await cubit.getById(contrato.id!);
+
     if (fresh == null || !mounted) return;
 
-    setState(() => _contractData = fresh);
+    setState(() {
+      _contractData = fresh;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final contract = _contractData;
-
-    final titleText = _composeTitle(
-      number: widget.contractNumberText ?? '',
-      title: widget.titleText ?? '',
-    );
+    final titleText = _composeTitle();
 
     if (titleText.isEmpty) return const SizedBox.shrink();
 
@@ -253,7 +440,7 @@ class _TabBannerState extends State<TabBanner> {
         ? primary!.email!
         : (primary?.uid ?? 'usuário'));
 
-    final others = (users.length > 1) ? users.length - 1 : 0;
+    final others = users.length > 1 ? users.length - 1 : 0;
 
     final width = MediaQuery.of(context).size.width;
     final isMobile = width < 720;
@@ -305,7 +492,10 @@ class _TabBannerState extends State<TabBanner> {
       onTap: widget.onTap ??
               () async {
             if (widget.interactive) {
-              await _openParticipantsDialogFromBanner(context, _contractData);
+              await _openParticipantsDialogFromBanner(
+                context,
+                _contractData,
+              );
             }
           },
       borderRadius: BorderRadius.circular(4),

@@ -1,17 +1,11 @@
-// lib/_blocs/system/user/user_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/screens/menus/drawer_palette.dart';
 
-/// Modelo de usuário SEM responsabilidades de permissão.
-///
-/// Toda a lógica de papéis/permissões deve ficar em:
-/// - lib/_utils/user_permission.dart
-/// - lib/_utils/module_permission.dart
 class UserData extends ChangeNotifier {
-  // ===== Identificação e perfil =====
   String? uid;
   String? name;
   String? surname;
@@ -20,21 +14,17 @@ class UserData extends ChangeNotifier {
   String? password;
   String? gender;
 
-  // ===== Foto =====
   String? urlPhoto;
-  XFile? filePhoto; // uso em runtime, não persiste
+  XFile? filePhoto;
 
-  // ===== Contato =====
   String? cellPhone;
 
   String? baseRole;
   String? baseProfile;
 
-  // ===== Datas =====
   DateTime? createUser;
   DateTime? dateToBirthday;
 
-  // ===== Preferências / localização =====
   bool? themeDark;
   GeoPoint? geoPoint;
 
@@ -43,74 +33,17 @@ class UserData extends ChangeNotifier {
   bool? profileWork;
   bool? profileLegal;
 
-  static BgPalette paletteForUser(UserData? user) {
-    final isWorks = user?.profileWork == true;
-    final isLegal = user?.profileLegal == true;
+  bool? isActive;
+  bool? isBlocked;
+  bool? isDeleted;
 
-    if (isWorks) {
-      return const BgPalette(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFF7FBFF),
-            Color(0xFFE3F2FD),
-          ],
-        ),
-      );
-    }
+  DateTime? deactivatedAt;
+  DateTime? blockedAt;
+  DateTime? deletedAt;
 
-    if (isLegal) {
-      return const BgPalette(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFEF6F8),
-            Color(0xFFFDECEF),
-          ],
-        ),
-      );
-    }
-
-    return const BgPalette(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFFDFDFD),
-          Color(0xFFF5F5F5),
-        ],
-      ),
-    );
-  }
-
-  static DrawerPalette drawerPaletteForUser(UserData? user) {
-    final isWorks = user?.profileWork == true;
-    final isLegal = user?.profileLegal == true;
-
-    if (isWorks) {
-      return const DrawerPalette(
-        background: Color(0xFF1B2033),
-        sectionTitle: Colors.white70,
-        sectionSubtitle: Colors.white38,
-      );
-    }
-
-    if (isLegal) {
-      return const DrawerPalette(
-        background: Color(0xFF3B0012),
-        sectionTitle: Colors.white70,
-        sectionSubtitle: Colors.white38,
-      );
-    }
-
-    return const DrawerPalette(
-      background: Color(0xFF202124),
-      sectionTitle: Colors.white70,
-      sectionSubtitle: Colors.white38,
-    );
-  }
+  String? deactivatedReason;
+  String? blockedReason;
+  String? deletedReason;
 
   UserData({
     this.uid,
@@ -132,7 +65,84 @@ class UserData extends ChangeNotifier {
     this.baseProfile,
     this.profileWork = false,
     this.profileLegal = false,
+    this.isActive = true,
+    this.isBlocked = false,
+    this.isDeleted = false,
+    this.deactivatedAt,
+    this.blockedAt,
+    this.deletedAt,
+    this.deactivatedReason,
+    this.blockedReason,
+    this.deletedReason,
   });
+
+  bool get isDeletedStatus => isDeleted == true;
+
+  bool get isBlockedStatus => isBlocked == true && isDeleted != true;
+
+  bool get isInactiveStatus {
+    return isActive == false && isBlocked != true && isDeleted != true;
+  }
+
+  bool get hasStatusRestriction {
+    return isInactiveStatus || isBlockedStatus || isDeletedStatus;
+  }
+
+  String get statusLabel {
+    if (isDeletedStatus) return 'APAGADO';
+    if (isBlockedStatus) return 'BLOQUEADO';
+    if (isInactiveStatus) return 'INATIVO';
+    return 'ATIVO';
+  }
+
+  IconData get statusIcon {
+    if (isDeletedStatus) return Icons.delete_forever_rounded;
+    if (isBlockedStatus) return Icons.block_rounded;
+    if (isInactiveStatus) return Icons.person_off_rounded;
+    return Icons.check_circle_rounded;
+  }
+
+  Color get statusColor {
+    if (isDeletedStatus) return const Color(0xFF991B1B);
+    if (isBlockedStatus) return const Color(0xFFDC2626);
+    if (isInactiveStatus) return const Color(0xFF667085);
+    return const Color(0xFF2563EB);
+  }
+
+  Color get statusLightColor {
+    if (isDeletedStatus) return const Color(0xFFFEE2E2);
+    if (isBlockedStatus) return const Color(0xFFFEE2E2);
+    if (isInactiveStatus) return const Color(0xFFF2F4F7);
+    return const Color(0xFFEFF6FF);
+  }
+
+  Color get statusBorderColor {
+    if (isDeletedStatus) return const Color(0xFFFCA5A5);
+    if (isBlockedStatus) return const Color(0xFFFCA5A5);
+    if (isInactiveStatus) return const Color(0xFFD0D5DD);
+    return const Color(0xFFBFDBFE);
+  }
+
+  static BgPalette paletteForUser(UserData? user) {
+    return const BgPalette(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFFF7FBFF),
+          Color(0xFFE3F2FD),
+        ],
+      ),
+    );
+  }
+
+  static DrawerPalette drawerPaletteForUser(UserData? user) {
+    return const DrawerPalette(
+      background: Color(0xFF1B2033),
+      sectionTitle: Colors.white70,
+      sectionSubtitle: Colors.white38,
+    );
+  }
 
   factory UserData.fromDocument({
     required DocumentSnapshot<Map<String, dynamic>> snapshot,
@@ -142,6 +152,7 @@ class UserData extends ChangeNotifier {
     }
 
     final data = snapshot.data();
+
     if (data == null) {
       throw Exception('Dados do usuário estão vazios');
     }
@@ -154,7 +165,10 @@ class UserData extends ChangeNotifier {
       email: data['email'] as String?,
       password: data['password'] as String?,
       gender: data['gender'] as String?,
-      urlPhoto: data['photo'] as String?,
+      urlPhoto: (data['photo'] ??
+          data['photoUrl'] ??
+          data['photoURL'] ??
+          data['profilePhotoUrl']) as String?,
       cellPhone: data['cellPhone'] as String?,
       themeDark: data['themeDark'] as bool? ?? false,
       dateToBirthday: (data['dateToBirthday'] as Timestamp?)?.toDate(),
@@ -165,6 +179,15 @@ class UserData extends ChangeNotifier {
       userSnap: snapshot,
       profileWork: data['profileWork'] as bool? ?? false,
       profileLegal: data['profileLegal'] as bool? ?? false,
+      isActive: data['isActive'] as bool? ?? true,
+      isBlocked: data['isBlocked'] as bool? ?? false,
+      isDeleted: data['isDeleted'] as bool? ?? false,
+      deactivatedAt: (data['deactivatedAt'] as Timestamp?)?.toDate(),
+      blockedAt: (data['blockedAt'] as Timestamp?)?.toDate(),
+      deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
+      deactivatedReason: data['deactivatedReason'] as String?,
+      blockedReason: data['blockedReason'] as String?,
+      deletedReason: data['deletedReason'] as String?,
     );
   }
 
@@ -177,6 +200,9 @@ class UserData extends ChangeNotifier {
       'password': password,
       'gender': gender,
       'photo': urlPhoto,
+      'photoUrl': urlPhoto,
+      'photoURL': urlPhoto,
+      'profilePhotoUrl': urlPhoto,
       'cellPhone': cellPhone,
       'themeDark': themeDark ?? false,
       'geoPoint': geoPoint,
@@ -185,13 +211,54 @@ class UserData extends ChangeNotifier {
       'createUser':
       createUser != null ? Timestamp.fromDate(createUser!) : Timestamp.now(),
       'lastSignIn': Timestamp.now(),
-
-      // CAMPOS IMPORTANTES QUE PRECISAM PERSISTIR
       'baseRole': baseRole,
       'baseProfile': baseProfile,
       'profileWork': profileWork ?? false,
       'profileLegal': profileLegal ?? false,
+      'isActive': isActive ?? true,
+      'isBlocked': isBlocked ?? false,
+      'isDeleted': isDeleted ?? false,
+      'deactivatedAt':
+      deactivatedAt != null ? Timestamp.fromDate(deactivatedAt!) : null,
+      'blockedAt': blockedAt != null ? Timestamp.fromDate(blockedAt!) : null,
+      'deletedAt': deletedAt != null ? Timestamp.fromDate(deletedAt!) : null,
+      'deactivatedReason': deactivatedReason,
+      'blockedReason': blockedReason,
+      'deletedReason': deletedReason,
     };
+  }
+
+  UserData copyDetached() {
+    return UserData(
+      uid: uid,
+      name: name,
+      surname: surname,
+      cpf: cpf,
+      email: email,
+      password: password,
+      gender: gender,
+      urlPhoto: urlPhoto,
+      filePhoto: filePhoto,
+      cellPhone: cellPhone,
+      createUser: createUser,
+      dateToBirthday: dateToBirthday,
+      themeDark: themeDark,
+      geoPoint: geoPoint,
+      userSnap: userSnap,
+      baseRole: baseRole,
+      baseProfile: baseProfile,
+      profileWork: profileWork,
+      profileLegal: profileLegal,
+      isActive: isActive,
+      isBlocked: isBlocked,
+      isDeleted: isDeleted,
+      deactivatedAt: deactivatedAt,
+      blockedAt: blockedAt,
+      deletedAt: deletedAt,
+      deactivatedReason: deactivatedReason,
+      blockedReason: blockedReason,
+      deletedReason: deletedReason,
+    );
   }
 
   void update({
@@ -210,6 +277,9 @@ class UserData extends ChangeNotifier {
     String? baseProfile,
     bool? profileWork,
     bool? profileLegal,
+    bool? isActive,
+    bool? isBlocked,
+    bool? isDeleted,
   }) {
     this.name = name ?? this.name;
     this.surname = surname ?? this.surname;
@@ -226,6 +296,9 @@ class UserData extends ChangeNotifier {
     this.baseProfile = baseProfile ?? this.baseProfile;
     this.profileWork = profileWork ?? this.profileWork;
     this.profileLegal = profileLegal ?? this.profileLegal;
+    this.isActive = isActive ?? this.isActive;
+    this.isBlocked = isBlocked ?? this.isBlocked;
+    this.isDeleted = isDeleted ?? this.isDeleted;
 
     notifyListeners();
   }
@@ -251,12 +324,16 @@ class UserData extends ChangeNotifier {
       baseProfile: null,
       profileWork: false,
       profileLegal: false,
+      isActive: true,
+      isBlocked: false,
+      isDeleted: false,
     );
   }
 
   String get fullName {
     final n = (name ?? '').trim();
     final s = (surname ?? '').trim();
+
     return [n, s].where((e) => e.isNotEmpty).join(' ').trim();
   }
 

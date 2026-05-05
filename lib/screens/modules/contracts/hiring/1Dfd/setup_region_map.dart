@@ -311,9 +311,8 @@ class _RegionMunicipiosSelectorBodyState
               items: [
                 BalloonTileData(
                   id: 'locked_$regionName',
-                  title: regionName,
-                  subtitle: 'Este município já está vinculado a outra região.',
-                  details: 'Remova o vínculo anterior para selecionar aqui.',
+                  title: Text(regionName),
+                  subtitle: Text('Este município já está vinculado a outra região.'),
                   icon: Icons.lock_outline_rounded,
                   accentColor: Colors.orange.shade800,
                 ),

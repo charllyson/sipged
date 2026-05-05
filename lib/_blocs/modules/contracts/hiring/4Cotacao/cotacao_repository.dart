@@ -1,36 +1,38 @@
-// lib/_blocs/modules/contracts/hiring/3Cotacao/cotacao_repository.dart
+// lib/_blocs/modules/contracts/hiring/4Cotacao/cotacao_repository.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_sections.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
+import 'cotacao_data.dart';
+import 'cotacao_sections.dart';
+
 class CotacaoRepository {
-  final FirebaseFirestore _db;
   CotacaoRepository({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> _col(String contractId) =>
-      _db.collection('contracts').doc(contractId).collection('cotacao');
+  final FirebaseFirestore _db;
 
-  /// ===========================================================================
-  /// ESTRUTURA FIXA OTIMIZADA (mesmo padrão do DFD/TR)
-  ///
-  /// Agora assumimos que:
-  ///   - o doc raiz SEMPRE é "main"
-  ///   - cada seção tem SEMPRE um doc "main" na subcoleção
-  ///
-  /// Não faz leitura nem criação prévia no Firestore, apenas monta em memória.
-  /// ===========================================================================
+  CollectionReference<Map<String, dynamic>> _col(String contractId) {
+    return _db.collection('contracts').doc(contractId).collection('cotacao');
+  }
+
   Future<({String cotacaoId, SectionIds sectionIds})> ensureStructure(
       String contractId,
       ) async {
-    final SectionIds sectionIds = {
-      for (final sec in CotacaoSections.all) sec: 'main',
+    final id = contractId.trim();
+
+    if (id.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    final sectionIds = <String, String>{
+      for (final section in CotacaoSections.all) section: 'main',
     };
+
     return (cotacaoId: 'main', sectionIds: sectionIds);
   }
 
-  /// Salva uma seção específica
   Future<void> saveSection({
     required String contractId,
     required String cotacaoId,
@@ -38,12 +40,34 @@ class CotacaoRepository {
     required String sectionDocId,
     required Map<String, dynamic> data,
   }) async {
-    await _col(contractId)
-        .doc(cotacaoId)
-        .collection(sectionKey)
-        .doc(sectionDocId)
-        .set(
-      {
+    final cleanContractId = contractId.trim();
+    final cleanCotacaoId = cotacaoId.trim();
+    final cleanSectionKey = sectionKey.trim();
+    final cleanSectionDocId = sectionDocId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanCotacaoId.isEmpty) {
+      throw Exception('cotacaoId não informado.');
+    }
+
+    if (cleanSectionKey.isEmpty) {
+      throw Exception('sectionKey não informado.');
+    }
+
+    if (cleanSectionDocId.isEmpty) {
+      throw Exception('sectionDocId não informado.');
+    }
+
+    final ref = _col(cleanContractId)
+        .doc(cleanCotacaoId)
+        .collection(cleanSectionKey)
+        .doc(cleanSectionDocId);
+
+    await ref.set(
+      <String, dynamic>{
         ...data,
         'updatedAt': FieldValue.serverTimestamp(),
       },
@@ -51,75 +75,106 @@ class CotacaoRepository {
     );
   }
 
-  /// Salva várias seções de uma vez (batch)
   Future<void> saveSectionsBatch({
     required String contractId,
     required String cotacaoId,
     required SectionIds sectionIds,
     required SectionsMap sectionsData,
   }) async {
-    final batch = _db.batch();
-    final ref = _col(contractId).doc(cotacaoId);
+    final cleanContractId = contractId.trim();
+    final cleanCotacaoId = cotacaoId.trim();
 
-    sectionsData.forEach((key, data) {
-      final id = sectionIds[key];
-      if (id == null) return;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanCotacaoId.isEmpty) {
+      throw Exception('cotacaoId não informado.');
+    }
+
+    if (sectionsData.isEmpty) return;
+
+    final batch = _db.batch();
+    final ref = _col(cleanContractId).doc(cleanCotacaoId);
+
+    for (final entry in sectionsData.entries) {
+      final sectionKey = entry.key;
+      final sectionData = entry.value;
+      final sectionDocId = sectionIds[sectionKey];
+
+      if (sectionDocId == null || sectionDocId.trim().isEmpty) continue;
+
       batch.set(
-        ref.collection(key).doc(id),
-        {
-          ...data,
+        ref.collection(sectionKey).doc(sectionDocId),
+        <String, dynamic>{
+          ...sectionData,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
-    });
+    }
 
     await batch.commit();
   }
 
-  /// Carrega todas as seções (padrão DFD/TR: Future.wait + limpa campos técnicos)
   Future<SectionsMap> loadAllSections({
     required String contractId,
     required String cotacaoId,
     required SectionIds sectionIds,
   }) async {
-    final SectionsMap out = {};
-    final ref = _col(contractId).doc(cotacaoId);
+    final cleanContractId = contractId.trim();
+    final cleanCotacaoId = cotacaoId.trim();
 
-    final futures = sectionIds.entries.map((entry) async {
-      final secName = entry.key;
-      final secId = entry.value;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
 
-      final snap = await ref.collection(secName).doc(secId).get();
-      final data =
-      Map<String, dynamic>.from(snap.data() ?? <String, dynamic>{});
+    if (cleanCotacaoId.isEmpty) {
+      throw Exception('cotacaoId não informado.');
+    }
 
-      data.remove('createdAt');
-      data.remove('updatedAt');
+    final ref = _col(cleanContractId).doc(cleanCotacaoId);
 
-      out[secName] = data;
-    }).toList();
+    final entries = await Future.wait(
+      sectionIds.entries.map((entry) async {
+        final sectionName = entry.key;
+        final sectionDocId = entry.value;
 
-    await Future.wait(futures);
-    return out;
+        final snap = await ref.collection(sectionName).doc(sectionDocId).get();
+
+        final data = Map<String, dynamic>.from(
+          snap.data() ?? const <String, dynamic>{},
+        );
+
+        data.remove('createdAt');
+        data.remove('updatedAt');
+        data.remove('createdBy');
+        data.remove('updatedBy');
+
+        return MapEntry<String, Map<String, dynamic>>(sectionName, data);
+      }),
+    );
+
+    return <String, Map<String, dynamic>>{
+      for (final entry in entries) entry.key: entry.value,
+    };
   }
 
-  /// Leitura direta de uma CotacaoData completa para o contrato
-  ///
-  /// - chama ensureStructure (cotacaoId = "main" e sectionIds = {sec: "main"})
-  /// - lê todas as seções
-  /// - se tudo estiver vazio, retorna null
-  /// - monta CotacaoData.fromSectionsMap(sections)
   Future<CotacaoData?> readDataForContract(String contractId) async {
-    final ids = await ensureStructure(contractId);
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return null;
+
+    final ids = await ensureStructure(cleanContractId);
 
     final sections = await loadAllSections(
-      contractId: contractId,
+      contractId: cleanContractId,
       cotacaoId: ids.cotacaoId,
       sectionIds: ids.sectionIds,
     );
 
-    final hasAnyData = sections.values.any((m) => m.isNotEmpty);
+    final hasAnyData = sections.values.any((map) => map.isNotEmpty);
+
     if (!hasAnyData) return null;
 
     return CotacaoData.fromSectionsMap(sections);

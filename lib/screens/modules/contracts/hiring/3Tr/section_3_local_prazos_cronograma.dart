@@ -1,4 +1,3 @@
-// lib/screens/modules/contracts/hiring/3Tr/section_3_local_prazos_cronograma.dart
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/texts/section_text_name.dart';
@@ -27,36 +26,52 @@ class _SectionLocalPrazosCronogramaState
     extends State<SectionLocalPrazosCronograma> {
   late final TextEditingController _localCtrl;
   late final TextEditingController _prazoDiasCtrl;
-  late final TextEditingController _vigenciaMesesCtrl;
+  late final TextEditingController _vigenciaDiasCtrl;
   late final TextEditingController _cronogramaCtrl;
 
   @override
   void initState() {
     super.initState();
+
     final d = widget.data;
-    _localCtrl = TextEditingController(text: d.localExecucao ?? '');
-    _prazoDiasCtrl =
-        TextEditingController(text: d.prazoExecucaoDias ?? '');
-    _vigenciaMesesCtrl =
-        TextEditingController(text: d.vigenciaMeses ?? '');
-    _cronogramaCtrl =
-        TextEditingController(text: d.cronogramaFisico ?? '');
+
+    _localCtrl = TextEditingController(
+      text: d.localExecucao ?? '',
+    );
+
+    _prazoDiasCtrl = TextEditingController(
+      text: d.prazoExecucaoDias ?? '',
+    );
+
+    _vigenciaDiasCtrl = TextEditingController(
+      text: d.vigenciaDias ?? '',
+    );
+
+    _cronogramaCtrl = TextEditingController(
+      text: d.cronogramaFisico ?? '',
+    );
   }
 
   @override
   void didUpdateWidget(
-      covariant SectionLocalPrazosCronograma oldWidget) {
+      covariant SectionLocalPrazosCronograma oldWidget,
+      ) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      void sync(TextEditingController c, String? v) {
-        final nv = v ?? '';
-        if (c.text != nv) c.text = nv;
+
+      void sync(TextEditingController controller, String? value) {
+        final nextValue = value ?? '';
+
+        if (controller.text != nextValue) {
+          controller.text = nextValue;
+        }
       }
 
       sync(_localCtrl, d.localExecucao);
       sync(_prazoDiasCtrl, d.prazoExecucaoDias);
-      sync(_vigenciaMesesCtrl, d.vigenciaMeses);
+      sync(_vigenciaDiasCtrl, d.vigenciaDias);
       sync(_cronogramaCtrl, d.cronogramaFisico);
     }
   }
@@ -65,8 +80,9 @@ class _SectionLocalPrazosCronogramaState
   void dispose() {
     _localCtrl.dispose();
     _prazoDiasCtrl.dispose();
-    _vigenciaMesesCtrl.dispose();
+    _vigenciaDiasCtrl.dispose();
     _cronogramaCtrl.dispose();
+
     super.dispose();
   }
 
@@ -74,9 +90,10 @@ class _SectionLocalPrazosCronogramaState
     final updated = widget.data.copyWith(
       localExecucao: _localCtrl.text,
       prazoExecucaoDias: _prazoDiasCtrl.text,
-      vigenciaMeses: _vigenciaMesesCtrl.text,
+      vigenciaDias: _vigenciaDiasCtrl.text,
       cronogramaFisico: _cronogramaCtrl.text,
     );
+
     widget.onChanged(updated);
   }
 
@@ -116,8 +133,8 @@ class _SectionLocalPrazosCronogramaState
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
-                    controller: _vigenciaMesesCtrl,
-                    labelText: 'Vigência contratual (meses)',
+                    controller: _vigenciaDiasCtrl,
+                    labelText: 'Vigência contratual (dias)',
                     enabled: widget.isEditable,
                     keyboardType: TextInputType.number,
                     onChanged: (_) => _emitChange(),
@@ -127,8 +144,7 @@ class _SectionLocalPrazosCronogramaState
                   width: w4,
                   child: CustomTextField(
                     controller: _cronogramaCtrl,
-                    labelText:
-                    'Cronograma físico preliminar (marcos/etapas)',
+                    labelText: 'Cronograma físico preliminar (marcos/etapas)',
                     maxLines: 1,
                     enabled: widget.isEditable,
                     onChanged: (_) => _emitChange(),

@@ -1,67 +1,79 @@
 // lib/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_repository.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
-import 'publicacao_extrato_sections.dart';
 import 'publicacao_extrato_data.dart';
+import 'publicacao_extrato_sections.dart';
 
 class PublicacaoExtratoRepository {
-  final FirebaseFirestore _db;
   PublicacaoExtratoRepository({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> _col(String contractId) =>
-      _db.collection('contracts').doc(contractId).collection('publicacao');
+  final FirebaseFirestore _db;
 
+  CollectionReference<Map<String, dynamic>> _col(String contractId) {
+    return _db.collection('contracts').doc(contractId).collection('publicacao');
+  }
 
-  /// ===========================================================================
-  /// ESTRUTURA FIXA OTIMIZADA
-  ///
-  /// Agora assumimos que:
-  ///   - o doc raiz SEMPRE é "main"
-  ///   - cada seção tem SEMPRE um doc "main" na subcoleção
-  ///
-  /// Portanto:
-  ///   - NÃO fazemos nenhum acesso ao Firestore aqui
-  ///   - NÃO migramos nada
-  ///   - apenas montamos os IDs fixos em memória
-  /// ===========================================================================
   Future<({String pubId, SectionIds sectionIds})> ensureStructure(
       String contractId,
       ) async {
-    final SectionIds sectionIds = {
-      for (final sec in PublicacaoExtratoSections.all) sec: 'main',
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    final sectionIds = <String, String>{
+      for (final section in PublicacaoExtratoSections.all) section: 'main',
     };
+
     return (pubId: 'main', sectionIds: sectionIds);
   }
 
-  /// Carrega todas as seções em um mapa {secao: Map}
-  ///   - Usa Future.wait para ler todas as seções em paralelo
-  ///   - Remove createdAt/updatedAt antes de devolver
   Future<SectionsMap> loadAllSections({
     required String contractId,
     required String pubId,
     required SectionIds sectionIds,
   }) async {
-    final SectionsMap out = {};
-    final pubRef = _col(contractId).doc(pubId);
+    final cleanContractId = contractId.trim();
+    final cleanPubId = pubId.trim();
 
-    final futures = sectionIds.entries.map((entry) async {
-      final secName = entry.key;
-      final secId = entry.value;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
 
-      final snap = await pubRef.collection(secName).doc(secId).get();
-      final data =
-      Map<String, dynamic>.from(snap.data() ?? <String, dynamic>{});
+    if (cleanPubId.isEmpty) {
+      throw Exception('pubId não informado.');
+    }
 
-      data.remove('createdAt');
-      data.remove('updatedAt');
+    final root = _col(cleanContractId).doc(cleanPubId);
 
-      out[secName] = data;
-    }).toList();
+    final entries = await Future.wait(
+      sectionIds.entries.map((entry) async {
+        final sectionName = entry.key;
+        final sectionDocId = entry.value;
 
-    await Future.wait(futures);
-    return out;
+        final snap = await root.collection(sectionName).doc(sectionDocId).get();
+
+        final data = Map<String, dynamic>.from(
+          snap.data() ?? const <String, dynamic>{},
+        );
+
+        data.remove('createdAt');
+        data.remove('updatedAt');
+        data.remove('createdBy');
+        data.remove('updatedBy');
+
+        return MapEntry<String, Map<String, dynamic>>(sectionName, data);
+      }),
+    );
+
+    return <String, Map<String, dynamic>>{
+      for (final entry in entries) entry.key: entry.value,
+    };
   }
 
   Future<void> saveSectionsBatch({
@@ -70,24 +82,40 @@ class PublicacaoExtratoRepository {
     required SectionIds sectionIds,
     required SectionsMap sectionsData,
   }) async {
-    final pubRef = _col(contractId).doc(pubId);
-    final wb = _db.batch();
+    final cleanContractId = contractId.trim();
+    final cleanPubId = pubId.trim();
 
-    sectionsData.forEach((sec, data) {
-      final id = sectionIds[sec];
-      if (id == null) return;
-      final ref = pubRef.collection(sec).doc(id);
-      wb.set(
-        ref,
-        {
-          ...data,
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanPubId.isEmpty) {
+      throw Exception('pubId não informado.');
+    }
+
+    if (sectionsData.isEmpty) return;
+
+    final batch = _db.batch();
+    final root = _col(cleanContractId).doc(cleanPubId);
+
+    for (final entry in sectionsData.entries) {
+      final sectionKey = entry.key;
+      final sectionData = entry.value;
+      final sectionDocId = sectionIds[sectionKey];
+
+      if (sectionDocId == null || sectionDocId.trim().isEmpty) continue;
+
+      batch.set(
+        root.collection(sectionKey).doc(sectionDocId),
+        <String, dynamic>{
+          ...sectionData,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
-    });
+    }
 
-    await wb.commit();
+    await batch.commit();
   }
 
   Future<void> saveSection({
@@ -97,10 +125,34 @@ class PublicacaoExtratoRepository {
     required String sectionDocId,
     required Map<String, dynamic> data,
   }) async {
-    final ref =
-    _col(contractId).doc(pubId).collection(sectionKey).doc(sectionDocId);
+    final cleanContractId = contractId.trim();
+    final cleanPubId = pubId.trim();
+    final cleanSectionKey = sectionKey.trim();
+    final cleanSectionDocId = sectionDocId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanPubId.isEmpty) {
+      throw Exception('pubId não informado.');
+    }
+
+    if (cleanSectionKey.isEmpty) {
+      throw Exception('sectionKey não informado.');
+    }
+
+    if (cleanSectionDocId.isEmpty) {
+      throw Exception('sectionDocId não informado.');
+    }
+
+    final ref = _col(cleanContractId)
+        .doc(cleanPubId)
+        .collection(cleanSectionKey)
+        .doc(cleanSectionDocId);
+
     await ref.set(
-      {
+      <String, dynamic>{
         ...data,
         'updatedAt': FieldValue.serverTimestamp(),
       },
@@ -108,23 +160,21 @@ class PublicacaoExtratoRepository {
     );
   }
 
-  /// Leitura direta de um PublicacaoExtratoData completo para o contrato
-  ///
-  ///   - assume sempre pubId = "main" e sectionId = "main"
-  ///   - lê todas as seções em paralelo
-  ///   - se TODAS as seções vierem vazias, retorna null
-  Future<PublicacaoExtratoData?> readDataForContract(
-      String contractId,
-      ) async {
-    final ids = await ensureStructure(contractId);
+  Future<PublicacaoExtratoData?> readDataForContract(String contractId) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return null;
+
+    final ids = await ensureStructure(cleanContractId);
 
     final sections = await loadAllSections(
-      contractId: contractId,
+      contractId: cleanContractId,
       pubId: ids.pubId,
       sectionIds: ids.sectionIds,
     );
 
-    final hasAnyData = sections.values.any((m) => m.isNotEmpty);
+    final hasAnyData = sections.values.any((map) => map.isNotEmpty);
+
     if (!hasAnyData) return null;
 
     return PublicacaoExtratoData.fromSectionsMap(sections);

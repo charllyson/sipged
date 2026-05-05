@@ -5,14 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_state.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_state.dart';
 
 import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
@@ -45,10 +52,29 @@ class AdjustmentMeasurement extends StatelessWidget {
     }
 
     return BlocProvider(
-      create: (_) => AdjustmentMeasurementCubit(
-        repository: AdjustmentMeasurementRepository(),
-      )..loadByContract(contractId),
-      child: _AdjustmentMeasurementView(contractData: contractData),
+      create: (context) {
+        final permissionState = context.read<PermissionCubit>().state;
+
+        return AdjustmentMeasurementCubit(
+          repository: AdjustmentMeasurementRepository(),
+          initialPermissions: permissionState.current,
+          initialTenantId: permissionState.activeTenantId,
+          moduleId: 'operation_measurements_adjustments',
+        )..loadByContract(contractId);
+      },
+      child: BlocListener<PermissionCubit, PermissionState>(
+        listenWhen: (previous, current) {
+          return previous.current != current.current ||
+              previous.activeTenantId != current.activeTenantId;
+        },
+        listener: (context, permissionState) {
+          context.read<AdjustmentMeasurementCubit>().updatePermissions(
+            permissions: permissionState.current,
+            tenantId: permissionState.activeTenantId,
+          );
+        },
+        child: _AdjustmentMeasurementView(contractData: contractData),
+      ),
     );
   }
 }
@@ -65,12 +91,15 @@ class _AdjustmentMeasurementView extends StatefulWidget {
       _AdjustmentMeasurementViewState();
 }
 
-class _AdjustmentMeasurementViewState
-    extends State<_AdjustmentMeasurementView> {
+class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> {
   final orderCtrl = TextEditingController();
   final processCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
   final dateCtrl = TextEditingController();
+
+  final DfdRepository _dfdRepository = DfdRepository();
+
+  DfdData? _dfdData;
 
   bool formValidated = false;
 
@@ -79,16 +108,11 @@ class _AdjustmentMeasurementViewState
   String get _contractId => widget.contractData.id?.trim() ?? '';
 
   String get _contractSummary {
-    final data = widget.contractData;
+    final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
 
-    final summary = data.summarySubjectContract?.trim() ?? '';
-    if (summary.isNotEmpty) return summary;
-
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return 'Contrato $number';
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return 'Processo $process';
+    if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
+      return descricaoObjeto;
+    }
 
     if (_contractId.isNotEmpty) return 'Contrato $_contractId';
 
@@ -96,13 +120,11 @@ class _AdjustmentMeasurementViewState
   }
 
   String get _contractNumber {
-    final data = widget.contractData;
+    final processoAdministrativo = _dfdData?.processoAdministrativo?.trim();
 
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return number;
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return process;
+    if (processoAdministrativo != null && processoAdministrativo.isNotEmpty) {
+      return processoAdministrativo;
+    }
 
     return _contractId;
   }
@@ -110,6 +132,8 @@ class _AdjustmentMeasurementViewState
   @override
   void initState() {
     super.initState();
+
+    _loadDfdDisplayData();
 
     orderCtrl.addListener(_validateForm);
     processCtrl.addListener(_validateForm);
@@ -136,6 +160,25 @@ class _AdjustmentMeasurementViewState
       ..dispose();
 
     super.dispose();
+  }
+
+  Future<void> _loadDfdDisplayData() async {
+    final contractId = _contractId;
+
+    if (contractId.isEmpty) return;
+
+    try {
+      final dfd = await _dfdRepository.readDataForContract(contractId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = dfd;
+      });
+    } catch (e, stack) {
+      debugPrint('Falha ao carregar DFD do contrato em reajuste: $e');
+      debugPrintStack(stackTrace: stack);
+    }
   }
 
   String _resolveActorName(String? uid) {
@@ -177,6 +220,42 @@ class _AdjustmentMeasurementViewState
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
+  }
+
+  String _resolveActorPhotoUrl(String? uid) {
+    final cleanUid = uid?.trim();
+
+    if (cleanUid != null && cleanUid.isNotEmpty) {
+      final users = context.read<UserCubit>().state.all;
+
+      for (final item in users) {
+        if ((item.uid ?? '').trim() == cleanUid) {
+          final photo = item.urlPhoto?.trim() ?? '';
+          if (photo.isNotEmpty) return photo;
+        }
+      }
+
+      final meta = widget.contractData.participantsInfo[cleanUid];
+
+      if (meta != null) {
+        final photo = (meta['urlPhoto'] ??
+            meta['photoUrl'] ??
+            meta['photoURL'] ??
+            meta['profilePhotoUrl'] ??
+            '')
+            .toString()
+            .trim();
+
+        if (photo.isNotEmpty) return photo;
+      }
+    }
+
+    final firebasePhoto =
+        FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '';
+
+    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+
+    return '';
   }
 
   DateTime? _parseDateTimeFromExtra(dynamic value) {
@@ -245,7 +324,6 @@ class _AdjustmentMeasurementViewState
 
     /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -253,18 +331,23 @@ class _AdjustmentMeasurementViewState
   }) async {
     if (!mounted) return;
 
-    const route = 'contracts_adjustment_measurement';
-    const notificationSource = 'contracts_adjustment_measurement';
+    const route = 'operation_measurements_adjustments';
+    const notificationSource = 'measurementsAdjustments';
 
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
+    final actorPhotoUrl = _resolveActorPhotoUrl(currentUserId);
+
+    final delivery = saveInBell || sendPush
+        ? NotificationDelivery.localBellAndPush
+        : NotificationDelivery.localOnly;
 
     await NotificationMeasurements.show(
       context: context,
       contract: widget.contractData,
       title: title,
-      subtitle: subtitle,
-      details: details ?? _contractSummary,
+      subtitle: subtitle ?? _contractSummary,
+      details: details,
       leadingLabel: 'Reajuste',
       module: route,
       notificationSource: notificationSource,
@@ -277,7 +360,7 @@ class _AdjustmentMeasurementViewState
       actorId: currentUserId,
       actorName: actorName,
       includeCurrentUser: true,
-      delivery: NotificationDelivery.localBellAndPush,
+      delivery: delivery,
       measurementId: extra['adjustmentId']?.toString(),
       measurementNumber: extra['adjustmentProcess']?.toString(),
       measurementOrder: extra['adjustmentOrder']?.toString(),
@@ -290,14 +373,53 @@ class _AdjustmentMeasurementViewState
         'sourceKey': notificationSource,
         'subSource': notificationSource,
         'notificationSource': notificationSource,
+        'actorId': currentUserId,
+        'actorName': actorName,
+        if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
         'contractId': _contractId,
         'contractNumber': _contractNumber,
+        'processNumber': _contractNumber,
+        'processoAdministrativo': _dfdData?.processoAdministrativo,
         'contractTitle': _contractSummary,
         'contractSummary': _contractSummary,
+        'descricaoObjeto': _dfdData?.descricaoObjeto,
+        'nomeDemanda': _contractSummary,
         'measurementKind': NotificationMeasurementKind.adjustment.name,
         ...extra,
       },
     );
+  }
+
+  Future<void> _safeNotify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationStatus status = NotificationStatus.info,
+    NotificationStatus? type,
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    bool sendPush = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    try {
+      await _notify(
+        title: title,
+        subtitle: subtitle,
+        details: details,
+        status: status,
+        type: type,
+        duration: duration,
+        saveInBell: saveInBell,
+        sendPush: sendPush,
+        extra: extra,
+      );
+    } catch (e, stack) {
+      debugPrint('Falha ao enviar notificação de reajuste: $e');
+      debugPrintStack(stackTrace: stack);
+    }
   }
 
   void _validateForm() {
@@ -462,7 +584,7 @@ class _AdjustmentMeasurementViewState
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: AdjustmentMeasurementFormSection(
-                            isEditable: true,
+                            isEditable: cubit.isEditable,
                             formValidated: formValidated,
                             selectedAdjustmentMeasurement: state.selected,
                             currentAdjustmentMeasurementId: state.selected?.id,
@@ -491,18 +613,20 @@ class _AdjustmentMeasurementViewState
                               final date = _parseDate(dateCtrl.text);
 
                               if (date == null) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Data do reajuste inválida',
-                                  subtitle: 'Use o formato dd/MM/aaaa.',
+                                  subtitle: _contractSummary,
+                                  details: 'Use o formato dd/MM/aaaa.',
                                   status: NotificationStatus.error,
                                 );
                                 return;
                               }
 
                               if (contractId == null || contractId.isEmpty) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Contrato inválido',
-                                  subtitle:
+                                  subtitle: _contractSummary,
+                                  details:
                                   'Não foi possível identificar o contrato.',
                                   status: NotificationStatus.error,
                                 );
@@ -529,12 +653,14 @@ class _AdjustmentMeasurementViewState
                                   FirebaseAuth.instance.currentUser?.uid,
                                 );
 
-                                await _notify(
+                                await _safeNotify(
                                   title: isNew
                                       ? 'Reajuste criado'
                                       : 'Reajuste atualizado',
-                                  subtitle:
-                                  'Reajuste ${data.order ?? '-'} salvo por $actorName.',
+                                  subtitle: _contractSummary,
+                                  details: isNew
+                                      ? 'Reajuste ${data.order ?? '-'} criado por $actorName.'
+                                      : 'Reajuste ${data.order ?? '-'} atualizado por $actorName.',
                                   status: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
@@ -551,9 +677,10 @@ class _AdjustmentMeasurementViewState
                                   },
                                 );
                               } catch (e) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Erro ao salvar reajuste',
-                                  subtitle: '$e',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
                                   status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
@@ -588,14 +715,22 @@ class _AdjustmentMeasurementViewState
                                       : null;
                                 });
 
+                                final uploaded =
+                                cubit.state.attachments.isNotEmpty
+                                    ? cubit.state.attachments.last
+                                    : null;
+
                                 final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
+                                  FirebaseAuth
+                                      .instance.currentUser?.uid,
                                 );
 
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Arquivo anexado ao reajuste',
-                                  subtitle:
-                                  'Upload concluído por $actorName.',
+                                  subtitle: _contractSummary,
+                                  details: uploaded != null
+                                      ? '${uploaded.label} anexado por $actorName.'
+                                      : 'Upload concluído por $actorName.',
                                   status: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
@@ -605,15 +740,17 @@ class _AdjustmentMeasurementViewState
                                     'adjustmentId': state.selected!.id,
                                     'adjustmentOrder':
                                     state.selected!.order,
+                                    'attachmentLabel': uploaded?.label,
+                                    'attachmentUrl': uploaded?.url,
                                   },
                                 );
                               } catch (e) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Falha ao anexar arquivo',
-                                  subtitle: '$e',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
                                   status: NotificationStatus.error,
-                                  duration:
-                                  const Duration(seconds: 6),
+                                  duration: const Duration(seconds: 6),
                                 );
                               }
                             }
@@ -657,9 +794,10 @@ class _AdjustmentMeasurementViewState
                                   FirebaseAuth.instance.currentUser?.uid,
                                 );
 
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Arquivo removido do reajuste',
-                                  subtitle:
+                                  subtitle: _contractSummary,
+                                  details:
                                   '${attachment.label} removido por $actorName.',
                                   status: NotificationStatus.warning,
                                   saveInBell: true,
@@ -674,9 +812,10 @@ class _AdjustmentMeasurementViewState
                                   },
                                 );
                               } catch (e) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Erro ao remover arquivo',
-                                  subtitle: '$e',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
                                   status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
@@ -707,9 +846,10 @@ class _AdjustmentMeasurementViewState
                                   FirebaseAuth.instance.currentUser?.uid,
                                 );
 
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Anexo de reajuste renomeado',
-                                  subtitle:
+                                  subtitle: _contractSummary,
+                                  details:
                                   '${newItem.label} renomeado por $actorName.',
                                   status: NotificationStatus.success,
                                   saveInBell: true,
@@ -727,9 +867,10 @@ class _AdjustmentMeasurementViewState
 
                                 return true;
                               } catch (e) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Falha ao renomear anexo',
-                                  subtitle: '$e',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
                                   status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
@@ -798,13 +939,19 @@ class _AdjustmentMeasurementViewState
                             if (!ok) return;
 
                             if (contractId == null || contractId.isEmpty) {
+                              await _safeNotify(
+                                title: 'Contrato inválido',
+                                subtitle: _contractSummary,
+                                details:
+                                'Não foi possível identificar o contrato.',
+                                status: NotificationStatus.error,
+                              );
                               return;
                             }
 
                             final deleted = state.adjustments.firstWhere(
                                   (item) => item.id == id,
-                              orElse: () =>
-                                  AdjustmentMeasurementData(id: id),
+                              orElse: () => AdjustmentMeasurementData(id: id),
                             );
 
                             try {
@@ -817,11 +964,12 @@ class _AdjustmentMeasurementViewState
                                 FirebaseAuth.instance.currentUser?.uid,
                               );
 
-                              await _notify(
+                              await _safeNotify(
                                 title: 'Reajuste apagado',
-                                subtitle: deleted.order != null
+                                subtitle: _contractSummary,
+                                details: deleted.order != null
                                     ? 'Reajuste ${deleted.order} removido por $actorName.'
-                                    : 'O reajuste foi removido por $actorName.',
+                                    : 'Reajuste removido por $actorName.',
                                 status: NotificationStatus.warning,
                                 saveInBell: true,
                                 sendPush: true,
@@ -836,9 +984,10 @@ class _AdjustmentMeasurementViewState
                                 },
                               );
                             } catch (e) {
-                              await _notify(
+                              await _safeNotify(
                                 title: 'Erro ao apagar reajuste',
-                                subtitle: '$e',
+                                subtitle: _contractSummary,
+                                details: '$e',
                                 status: NotificationStatus.error,
                                 duration: const Duration(seconds: 6),
                               );

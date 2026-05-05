@@ -1,50 +1,79 @@
-import 'package:flutter/foundation.dart';
+// lib/_blocs/modules/contracts/hiring/dfd/dfd_repository.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
-import 'dfd_sections.dart';
 import 'dfd_data.dart';
+import 'dfd_sections.dart';
 
 class DfdRepository {
-  final FirebaseFirestore _db;
   DfdRepository({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> _col(String contractId) =>
-      _db.collection('contracts').doc(contractId).collection('dfd');
+  final FirebaseFirestore _db;
 
-  /// Estrutura fixa:
-  ///   - doc DFD sempre "main"
-  ///   - cada seção sempre doc "main"
-  Future<({String dfdId, SectionIds sectionIds})> ensureStructure(String contractId) async {
-    final SectionIds sectionIds = {for (final sec in DfdSections.all) sec: 'main'};
+  CollectionReference<Map<String, dynamic>> _col(String contractId) {
+    return _db.collection('contracts').doc(contractId).collection('dfd');
+  }
+
+  Future<({String dfdId, SectionIds sectionIds})> ensureStructure(
+      String contractId,
+      ) async {
+    final id = contractId.trim();
+
+    if (id.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    final sectionIds = <String, String>{
+      for (final section in DfdSections.all) section: 'main',
+    };
+
     return (dfdId: 'main', sectionIds: sectionIds);
   }
 
-  /// Carrega todas as seções em um mapa {secao: Map}
   Future<SectionsMap> loadAllSections({
     required String contractId,
     required String dfdId,
     required SectionIds sectionIds,
   }) async {
-    final SectionsMap out = {};
-    final dfdRef = _col(contractId).doc(dfdId);
+    final cleanContractId = contractId.trim();
+    final cleanDfdId = dfdId.trim();
 
-    final futures = sectionIds.entries.map((entry) async {
-      final secName = entry.key;
-      final secId = entry.value;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
 
-      final snap = await dfdRef.collection(secName).doc(secId).get();
-      final data = Map<String, dynamic>.from(snap.data() ?? <String, dynamic>{});
+    if (cleanDfdId.isEmpty) {
+      throw Exception('dfdId não informado.');
+    }
 
-      data.remove('createdAt');
-      data.remove('updatedAt');
+    final dfdRef = _col(cleanContractId).doc(cleanDfdId);
 
-      out[secName] = data;
-    }).toList();
+    final entries = await Future.wait(
+      sectionIds.entries.map((entry) async {
+        final sectionName = entry.key;
+        final sectionDocId = entry.value;
 
-    await Future.wait(futures);
-    return out;
+        final snap = await dfdRef.collection(sectionName).doc(sectionDocId).get();
+
+        final data = Map<String, dynamic>.from(
+          snap.data() ?? const <String, dynamic>{},
+        );
+
+        data.remove('createdAt');
+        data.remove('updatedAt');
+        data.remove('createdBy');
+        data.remove('updatedBy');
+
+        return MapEntry<String, Map<String, dynamic>>(sectionName, data);
+      }),
+    );
+
+    return <String, Map<String, dynamic>>{
+      for (final entry in entries) entry.key: entry.value,
+    };
   }
 
   Future<void> saveSectionsBatch({
@@ -53,22 +82,42 @@ class DfdRepository {
     required SectionIds sectionIds,
     required SectionsMap sectionsData,
   }) async {
-    final dfdRef = _col(contractId).doc(dfdId);
-    final wb = _db.batch();
+    final cleanContractId = contractId.trim();
+    final cleanDfdId = dfdId.trim();
 
-    sectionsData.forEach((sec, data) {
-      final id = sectionIds[sec];
-      if (id == null) return;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
 
-      final ref = dfdRef.collection(sec).doc(id);
-      wb.set(
+    if (cleanDfdId.isEmpty) {
+      throw Exception('dfdId não informado.');
+    }
+
+    if (sectionsData.isEmpty) return;
+
+    final dfdRef = _col(cleanContractId).doc(cleanDfdId);
+    final batch = _db.batch();
+
+    for (final entry in sectionsData.entries) {
+      final sectionKey = entry.key;
+      final sectionData = entry.value;
+      final sectionDocId = sectionIds[sectionKey];
+
+      if (sectionDocId == null || sectionDocId.trim().isEmpty) continue;
+
+      final ref = dfdRef.collection(sectionKey).doc(sectionDocId);
+
+      batch.set(
         ref,
-        {...data, 'updatedAt': FieldValue.serverTimestamp()},
+        <String, dynamic>{
+          ...sectionData,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
         SetOptions(merge: true),
       );
-    });
+    }
 
-    await wb.commit();
+    await batch.commit();
   }
 
   Future<void> saveSection({
@@ -78,31 +127,63 @@ class DfdRepository {
     required String sectionDocId,
     required Map<String, dynamic> data,
   }) async {
-    final ref = _col(contractId).doc(dfdId).collection(sectionKey).doc(sectionDocId);
+    final cleanContractId = contractId.trim();
+    final cleanDfdId = dfdId.trim();
+    final cleanSectionKey = sectionKey.trim();
+    final cleanSectionDocId = sectionDocId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanDfdId.isEmpty) {
+      throw Exception('dfdId não informado.');
+    }
+
+    if (cleanSectionKey.isEmpty) {
+      throw Exception('sectionKey não informado.');
+    }
+
+    if (cleanSectionDocId.isEmpty) {
+      throw Exception('sectionDocId não informado.');
+    }
+
+    final ref = _col(cleanContractId)
+        .doc(cleanDfdId)
+        .collection(cleanSectionKey)
+        .doc(cleanSectionDocId);
 
     await ref.set(
-      {...data, 'updatedAt': FieldValue.serverTimestamp()},
+      <String, dynamic>{
+        ...data,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
       SetOptions(merge: true),
     );
   }
 
-  /// Leitura direta de um DfdData completo para o contrato
   Future<DfdData?> readDataForContract(String contractId) async {
-    final ids = await ensureStructure(contractId);
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return null;
+
+    final ids = await ensureStructure(cleanContractId);
 
     final sections = await loadAllSections(
-      contractId: contractId,
+      contractId: cleanContractId,
       dfdId: ids.dfdId,
       sectionIds: ids.sectionIds,
     );
 
-    final hasAnyData = sections.values.any((m) => m.isNotEmpty);
+    final hasAnyData = sections.values.any((map) => map.isNotEmpty);
     if (!hasAnyData) return null;
 
-    return DfdData.fromSectionsMap(sections, contractId: contractId);
+    return DfdData.fromSectionsMap(
+      sections,
+      contractId: cleanContractId,
+    );
   }
 
-  /// Cria (se necessário) o contrato e salva o DFD completo.
   Future<String> ensureContractAndSaveDfd({
     String? contractId,
     required DfdData data,
@@ -111,8 +192,22 @@ class DfdRepository {
 
     if (effectiveId.isEmpty) {
       final contractsRef = _db.collection('contracts');
-      final docRef = await contractsRef.add({'createdAt': FieldValue.serverTimestamp()});
+
+      final docRef = await contractsRef.add(
+        <String, dynamic>{
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+      );
+
       effectiveId = docRef.id;
+    } else {
+      await _db.collection('contracts').doc(effectiveId).set(
+        <String, dynamic>{
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
     }
 
     final ids = await ensureStructure(effectiveId);
@@ -127,78 +222,29 @@ class DfdRepository {
     return effectiveId;
   }
 
-  // =======================================================================
-  // ✅ BENCHMARK: sementes (contractId + km) vindas do localizacao
-  // =======================================================================
-
-  /// Retorna lista de contratos com a mesma naturezaIntervencao já trazendo o km do doc localizacao.
-  ///
-  /// Isso evita reler o km por contrato e corrige o caso em que readExtensaoKmForContract retorna 0.
-  Future<List<({String contractId, double km})>> listBenchmarkSeedsByNaturezaIntervencao(
-      String natureza,
-      ) async {
+  Future<List<({String contractId, double km})>>
+  listBenchmarkSeedsByNaturezaIntervencao(String natureza) async {
     final n = natureza.trim();
+
     if (n.isEmpty) return <({String contractId, double km})>[];
 
-    final sw = Stopwatch()..start();
-    if (kDebugMode) {
-      debugPrint('[DfdRepository] listBenchmarkSeedsByNaturezaIntervencao("$n") START');
-    }
-
-    // ✅ 1) Faz query exata (rápida) — que você já usa
     final qs = await _db
         .collectionGroup(DfdSections.localizacao)
         .where('naturezaIntervencao', isEqualTo: n)
         .get();
 
-    // ✅ 2) Se vier pouco (ex: 1 ou 2), roda diagnóstico (somente debug)
-    if (kDebugMode && qs.docs.length < 5) {
-      final diag = await _db
-          .collectionGroup(DfdSections.localizacao)
-          .limit(300) // ajuste se quiser
-          .get();
-
-      final Map<String, int> freq = {};
-      for (final d in diag.docs) {
-        final raw = d.data()['naturezaIntervencao'];
-        final s = (raw ?? '').toString().trim();
-        if (s.isEmpty) continue;
-        freq[s] = (freq[s] ?? 0) + 1;
-      }
-
-      final top = freq.entries.toList()
-        ..sort((a, b) => b.value.compareTo(a.value));
-
-      debugPrint('[DfdRepository][DIAG] Top naturezas encontradas em localizacao (amostra 300):');
-      for (final e in top.take(20)) {
-        debugPrint('  - "${e.key}" -> ${e.value}');
-      }
-      debugPrint('[DfdRepository][DIAG] Procurando exatamente: "$n"');
-    }
-
-    final Map<String, double> out = <String, double>{};
+    final out = <String, double>{};
 
     for (final doc in qs.docs) {
-      final path = doc.reference.path;
-      final parts = path.split('/');
+      final pathParts = doc.reference.path.split('/');
 
-      if (parts.length < 2 || parts[0] != 'contracts') continue;
+      if (pathParts.length < 2 || pathParts[0] != 'contracts') continue;
 
-      final contractId = parts[1].trim();
+      final contractId = pathParts[1].trim();
       if (contractId.isEmpty) continue;
 
       final data = doc.data();
-
-      final dynamic rawKm = data['extensaoKm'];
-
-      double km = 0.0;
-      if (rawKm is num) {
-        km = rawKm.toDouble();
-      } else if (rawKm is String) {
-        km = double.tryParse(rawKm.replaceAll('.', '').replaceAll(',', '.')) ??
-            double.tryParse(rawKm.replaceAll(',', '.')) ??
-            0.0;
-      }
+      final km = _readDouble(data['extensaoKm']);
 
       if (km > (out[contractId] ?? 0.0)) {
         out[contractId] = km;
@@ -206,31 +252,16 @@ class DfdRepository {
     }
 
     final seeds = out.entries
-        .map((e) => (contractId: e.key, km: e.value))
+        .map((entry) => (contractId: entry.key, km: entry.value))
         .toList()
       ..sort((a, b) => a.contractId.compareTo(b.contractId));
-
-    sw.stop();
-    if (kDebugMode) {
-      final zeros = seeds.where((s) => s.km <= 0).length;
-      debugPrint(
-        '[DfdRepository] natureza="$n" -> seeds=${seeds.length}, km<=0: $zeros '
-            '(elapsed=${sw.elapsedMilliseconds}ms)',
-      );
-    }
 
     return seeds;
   }
 
-
-  // =======================================================================
-  // Leitura base value (objeto) - mantém
-  // =======================================================================
-
-  /// Lê apenas o valor base do contrato no DFD.objeto/main:
-  ///   valorDemanda (preferencial), senão estimativaValor.
   Future<double> readBaseValueForContract(String contractId) async {
     final id = contractId.trim();
+
     if (id.isEmpty) return 0.0;
 
     final ref = _db
@@ -243,22 +274,32 @@ class DfdRepository {
 
     final snap = await ref.get();
     final data = snap.data();
+
     if (data == null) return 0.0;
 
-    double readNum(dynamic v) {
-      if (v is num) return v.toDouble();
-      if (v is String) {
-        // tenta lidar com "1.234.567,89"
-        return double.tryParse(v.replaceAll('.', '').replaceAll(',', '.')) ??
-            double.tryParse(v.replaceAll(',', '.')) ??
-            0.0;
-      }
-      return 0.0;
-    }
-
-    final valorDemanda = readNum(data['valorDemanda']);
+    final valorDemanda = _readDouble(data['valorDemanda']);
     if (valorDemanda > 0) return valorDemanda;
 
-    return readNum(data['estimativaValor']);
+    return _readDouble(data['estimativaValor']);
+  }
+
+  double _readDouble(dynamic value) {
+    if (value == null) return 0.0;
+
+    if (value is num) return value.toDouble();
+
+    if (value is String) {
+      final text = value.trim();
+
+      if (text.isEmpty) return 0.0;
+
+      return double.tryParse(
+        text.replaceAll('.', '').replaceAll(',', '.'),
+      ) ??
+          double.tryParse(text.replaceAll(',', '.')) ??
+          0.0;
+    }
+
+    return 0.0;
   }
 }

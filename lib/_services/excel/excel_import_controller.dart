@@ -12,7 +12,7 @@ class ImportExcelController {
     required String path,
     required void Function()? onFinished,
   }) async {
-    try {
+
       final FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['xlsx', 'xls'],
@@ -20,7 +20,6 @@ class ImportExcelController {
       );
 
       if (result == null) {
-        debugPrint('[ImportExcelController] Importação cancelada pelo usuário.');
         return;
       }
 
@@ -30,27 +29,18 @@ class ImportExcelController {
           (file.path == null ? null : await File(file.path!).readAsBytes());
 
       if (bytes == null) {
-        debugPrint(
-          '[ImportExcelController] Não foi possível ler o arquivo selecionado.',
-        );
         return;
       }
 
       final excel = Excel.decodeBytes(bytes);
 
       if (excel.tables.isEmpty) {
-        debugPrint(
-          '[ImportExcelController] Planilha vazia ou inválida.',
-        );
         return;
       }
 
       final sheet = excel.tables[excel.tables.keys.first];
 
       if (sheet == null || sheet.rows.isEmpty) {
-        debugPrint(
-          '[ImportExcelController] Planilha vazia ou inválida.',
-        );
         return;
       }
 
@@ -78,9 +68,6 @@ class ImportExcelController {
       }).toList();
 
       if (jsonData.isEmpty) {
-        debugPrint(
-          '[ImportExcelController] Nenhum dado encontrado na planilha.',
-        );
         return;
       }
 
@@ -96,10 +83,7 @@ class ImportExcelController {
           );
         },
       );
-    } catch (e, s) {
-      debugPrint('[ImportExcelController] Erro ao importar: $e');
-      debugPrintStack(stackTrace: s);
-    }
+
   }
 
   static dynamic _converterValor(dynamic valor) {

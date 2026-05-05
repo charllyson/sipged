@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_repository.dart';
@@ -13,6 +17,10 @@ import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_me
 import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
@@ -46,10 +54,29 @@ class RevisionMeasurement extends StatelessWidget {
     }
 
     return BlocProvider(
-      create: (_) => RevisionMeasurementCubit(
-        repository: RevisionMeasurementRepository(),
-      )..loadByContract(contractId),
-      child: _RevisionMeasurementView(contractData: contractData),
+      create: (context) {
+        final permissionState = context.read<PermissionCubit>().state;
+
+        return RevisionMeasurementCubit(
+          repository: RevisionMeasurementRepository(),
+          initialPermissions: permissionState.current,
+          initialTenantId: permissionState.activeTenantId,
+          moduleId: 'operation_measurements_revisions',
+        )..loadByContract(contractId);
+      },
+      child: BlocListener<PermissionCubit, PermissionState>(
+        listenWhen: (previous, current) {
+          return previous.current != current.current ||
+              previous.activeTenantId != current.activeTenantId;
+        },
+        listener: (context, permissionState) {
+          context.read<RevisionMeasurementCubit>().updatePermissions(
+            permissions: permissionState.current,
+            tenantId: permissionState.activeTenantId,
+          );
+        },
+        child: _RevisionMeasurementView(contractData: contractData),
+      ),
     );
   }
 }
@@ -72,22 +99,21 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   final valueCtrl = TextEditingController();
   final dateCtrl = TextEditingController();
 
+  final DfdRepository _dfdRepository = DfdRepository();
+
+  DfdData? _dfdData;
+
   bool formValidated = false;
   int? _selectedSideIndex;
 
   String get _contractId => widget.contractData.id?.trim() ?? '';
 
   String get _contractSummary {
-    final data = widget.contractData;
+    final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
 
-    final summary = data.summarySubjectContract?.trim() ?? '';
-    if (summary.isNotEmpty) return summary;
-
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return 'Contrato $number';
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return 'Processo $process';
+    if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
+      return descricaoObjeto;
+    }
 
     if (_contractId.isNotEmpty) return 'Contrato $_contractId';
 
@@ -95,13 +121,11 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   }
 
   String get _contractNumber {
-    final data = widget.contractData;
+    final processoAdministrativo = _dfdData?.processoAdministrativo?.trim();
 
-    final number = data.contractNumber?.trim() ?? '';
-    if (number.isNotEmpty) return number;
-
-    final process = data.processNumber?.trim() ?? '';
-    if (process.isNotEmpty) return process;
+    if (processoAdministrativo != null && processoAdministrativo.isNotEmpty) {
+      return processoAdministrativo;
+    }
 
     return _contractId;
   }
@@ -109,6 +133,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   @override
   void initState() {
     super.initState();
+
+    _loadDfdDisplayData();
 
     orderCtrl.addListener(_validateForm);
     processCtrl.addListener(_validateForm);
@@ -135,6 +161,25 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
       ..dispose();
 
     super.dispose();
+  }
+
+  Future<void> _loadDfdDisplayData() async {
+    final contractId = _contractId;
+
+    if (contractId.isEmpty) return;
+
+    try {
+      final dfd = await _dfdRepository.readDataForContract(contractId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = dfd;
+      });
+    } catch (e, stack) {
+      debugPrint('Falha ao carregar DFD do contrato em revisão: $e');
+      debugPrintStack(stackTrace: stack);
+    }
   }
 
   String _resolveActorName(String? uid) {
@@ -178,16 +223,58 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     return 'Usuário';
   }
 
+  String _resolveActorPhotoUrl(String? uid) {
+    final cleanUid = uid?.trim();
+
+    if (cleanUid != null && cleanUid.isNotEmpty) {
+      final users = context.read<UserCubit>().state.all;
+
+      for (final item in users) {
+        if ((item.uid ?? '').trim() == cleanUid) {
+          final photo = item.urlPhoto?.trim() ?? '';
+          if (photo.isNotEmpty) return photo;
+        }
+      }
+
+      final meta = widget.contractData.participantsInfo[cleanUid];
+
+      if (meta != null) {
+        final photo = (meta['urlPhoto'] ??
+            meta['photoUrl'] ??
+            meta['photoURL'] ??
+            meta['profilePhotoUrl'] ??
+            '')
+            .toString()
+            .trim();
+
+        if (photo.isNotEmpty) return photo;
+      }
+    }
+
+    final firebasePhoto =
+        FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '';
+
+    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+
+    return '';
+  }
+
   DateTime? _parseDateTimeFromExtra(dynamic value) {
     if (value == null) return null;
 
-    if (value is DateTime) return value;
+    if (value is DateTime) {
+      return value;
+    }
 
     final text = value.toString().trim();
+
     if (text.isEmpty) return null;
 
     final iso = DateTime.tryParse(text);
-    if (iso != null) return iso;
+
+    if (iso != null) {
+      return iso;
+    }
 
     final parts = text.split('/');
 
@@ -213,9 +300,12 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   num? _parseNumFromExtra(dynamic value) {
     if (value == null) return null;
 
-    if (value is num) return value;
+    if (value is num) {
+      return value;
+    }
 
     final text = value.toString().trim();
+
     if (text.isEmpty) return null;
 
     final normalized = text
@@ -235,7 +325,6 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
     /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -243,18 +332,23 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   }) async {
     if (!mounted) return;
 
-    const route = 'contracts_measurement_revision';
-    const notificationSource = 'contracts_measurement_revision';
+    const route = 'operation_measurements_revisions';
+    const notificationSource = 'measurementsRevision';
 
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
+    final actorPhotoUrl = _resolveActorPhotoUrl(currentUserId);
+
+    final delivery = saveInBell || sendPush
+        ? NotificationDelivery.localBellAndPush
+        : NotificationDelivery.localOnly;
 
     await NotificationMeasurements.show(
       context: context,
       contract: widget.contractData,
       title: title,
-      subtitle: subtitle,
-      details: details ?? _contractSummary,
+      subtitle: subtitle ?? _contractSummary,
+      details: details,
       leadingLabel: 'Revisão',
       module: route,
       notificationSource: notificationSource,
@@ -267,7 +361,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
       actorId: currentUserId,
       actorName: actorName,
       includeCurrentUser: true,
-      delivery: NotificationDelivery.localBellAndPush,
+      delivery: delivery,
       measurementId: extra['revisionId']?.toString(),
       measurementNumber: extra['revisionProcess']?.toString(),
       measurementOrder: extra['revisionOrder']?.toString(),
@@ -280,14 +374,53 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
         'sourceKey': notificationSource,
         'subSource': notificationSource,
         'notificationSource': notificationSource,
+        'actorId': currentUserId,
+        'actorName': actorName,
+        if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
         'contractId': _contractId,
         'contractNumber': _contractNumber,
+        'processNumber': _contractNumber,
+        'processoAdministrativo': _dfdData?.processoAdministrativo,
         'contractTitle': _contractSummary,
         'contractSummary': _contractSummary,
+        'descricaoObjeto': _dfdData?.descricaoObjeto,
+        'nomeDemanda': _contractSummary,
         'measurementKind': NotificationMeasurementKind.revision.name,
         ...extra,
       },
     );
+  }
+
+  Future<void> _safeNotify({
+    required String title,
+    String? subtitle,
+    String? details,
+    NotificationStatus status = NotificationStatus.info,
+    NotificationStatus? type,
+    Duration duration = const Duration(seconds: 4),
+    bool saveInBell = false,
+    bool sendPush = false,
+    Map<String, dynamic> extra = const <String, dynamic>{},
+  }) async {
+    try {
+      await _notify(
+        title: title,
+        subtitle: subtitle,
+        details: details,
+        status: status,
+        type: type,
+        duration: duration,
+        saveInBell: saveInBell,
+        sendPush: sendPush,
+        extra: extra,
+      );
+    } catch (e, stack) {
+      debugPrint('Falha ao enviar notificação de revisão: $e');
+      debugPrintStack(stackTrace: stack);
+    }
   }
 
   void _validateForm() {
@@ -389,9 +522,14 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
       await cubit.updateAttachments(next);
 
-      await _notify(
-        title: 'Anexo renomeado',
-        subtitle: newItem.label,
+      final actorName = _resolveActorName(
+        FirebaseAuth.instance.currentUser?.uid,
+      );
+
+      await _safeNotify(
+        title: 'Anexo de revisão renomeado',
+        subtitle: _contractSummary,
+        details: '${newItem.label} renomeado por $actorName.',
         status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
@@ -401,14 +539,16 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
           'revisionOrder': selected?.order,
           'oldAttachmentLabel': oldItem.label,
           'newAttachmentLabel': newItem.label,
+          'attachmentUrl': newItem.url,
         },
       );
 
       return true;
     } catch (e) {
-      await _notify(
+      await _safeNotify(
         title: 'Falha ao renomear anexo',
-        subtitle: '$e',
+        subtitle: _contractSummary,
+        details: '$e',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -438,6 +578,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
           return Center(
             child: Text(
               state.errorMessage ?? 'Erro ao carregar revisões',
+              textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.red),
             ),
           );
@@ -506,7 +647,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: RevisionMeasurementFormSection(
-                            isEditable: true,
+                            isEditable: cubit.isEditable,
                             formValidated: formValidated,
                             selectedRevisionMeasurement: state.selected,
                             currentRevisionMeasurementId: state.selected?.id,
@@ -524,7 +665,6 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               if (!ok) return;
 
                               final parsedOrder = _parseInt(orderCtrl.text);
-
                               final effectiveOrder =
                               (parsedOrder == null || parsedOrder <= 0)
                                   ? _computeNextOrder(state)
@@ -534,18 +674,20 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               final date = _parseDate(dateCtrl.text);
 
                               if (date == null) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Data da revisão inválida',
-                                  subtitle: 'Use o formato dd/MM/aaaa.',
+                                  subtitle: _contractSummary,
+                                  details: 'Use o formato dd/MM/aaaa.',
                                   status: NotificationStatus.error,
                                 );
                                 return;
                               }
 
                               if (contractId == null || contractId.isEmpty) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Contrato inválido',
-                                  subtitle:
+                                  subtitle: _contractSummary,
+                                  details:
                                   'Não foi possível identificar o contrato.',
                                   status: NotificationStatus.error,
                                 );
@@ -583,12 +725,14 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                   FirebaseAuth.instance.currentUser?.uid,
                                 );
 
-                                await _notify(
+                                await _safeNotify(
                                   title: isNew
                                       ? 'Revisão criada'
                                       : 'Revisão atualizada',
-                                  subtitle:
-                                  'Revisão ${data.order ?? '-'} salva por $actorName.',
+                                  subtitle: _contractSummary,
+                                  details: isNew
+                                      ? 'Revisão ${data.order ?? '-'} criada por $actorName.'
+                                      : 'Revisão ${data.order ?? '-'} atualizada por $actorName.',
                                   status: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
@@ -605,9 +749,10 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                   },
                                 );
                               } catch (e) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Erro ao salvar revisão',
-                                  subtitle: '$e',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
                                   status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
@@ -644,10 +789,18 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                       : null;
                                 });
 
-                                await _notify(
-                                  title: 'Arquivo anexado',
-                                  subtitle:
-                                  uploaded?.label ?? 'Upload concluído.',
+                                final actorName = _resolveActorName(
+                                  FirebaseAuth
+                                      .instance.currentUser?.uid,
+                                );
+
+                                await _safeNotify(
+                                  title: 'Arquivo anexado à revisão',
+                                  subtitle: _contractSummary,
+                                  details: uploaded != null &&
+                                      uploaded.label.isNotEmpty
+                                      ? '${uploaded.label} anexado por $actorName.'
+                                      : 'Upload concluído por $actorName.',
                                   status: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
@@ -657,12 +810,14 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                     'revisionId': selected?.id,
                                     'revisionOrder': selected?.order,
                                     'attachmentLabel': uploaded?.label,
+                                    'attachmentUrl': uploaded?.url,
                                   },
                                 );
                               } catch (e) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Erro ao anexar arquivo',
-                                  subtitle: '$e',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
                                   status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
@@ -695,9 +850,15 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                   setState(() => _selectedSideIndex = null);
                                 }
 
-                                await _notify(
-                                  title: 'Anexo removido',
-                                  subtitle: attachment.label,
+                                final actorName = _resolveActorName(
+                                  FirebaseAuth.instance.currentUser?.uid,
+                                );
+
+                                await _safeNotify(
+                                  title: 'Anexo removido da revisão',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  '${attachment.label} removido por $actorName.',
                                   status: NotificationStatus.warning,
                                   saveInBell: true,
                                   sendPush: true,
@@ -706,12 +867,14 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                     'revisionId': selected?.id,
                                     'revisionOrder': selected?.order,
                                     'attachmentLabel': attachment.label,
+                                    'attachmentUrl': attachment.url,
                                   },
                                 );
                               } catch (e) {
-                                await _notify(
+                                await _safeNotify(
                                   title: 'Erro ao remover anexo',
-                                  subtitle: '$e',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
                                   status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
@@ -793,6 +956,13 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                             if (!ok) return;
 
                             if (contractId == null || contractId.isEmpty) {
+                              await _safeNotify(
+                                title: 'Contrato inválido',
+                                subtitle: _contractSummary,
+                                details:
+                                'Não foi possível identificar o contrato.',
+                                status: NotificationStatus.error,
+                              );
                               return;
                             }
 
@@ -811,11 +981,12 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 FirebaseAuth.instance.currentUser?.uid,
                               );
 
-                              await _notify(
+                              await _safeNotify(
                                 title: 'Revisão apagada',
-                                subtitle: deleted.order != null
+                                subtitle: _contractSummary,
+                                details: deleted.order != null
                                     ? 'Revisão ${deleted.order} removida por $actorName.'
-                                    : 'A revisão foi removida por $actorName.',
+                                    : 'Revisão removida por $actorName.',
                                 status: NotificationStatus.warning,
                                 saveInBell: true,
                                 sendPush: true,
@@ -830,9 +1001,10 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 },
                               );
                             } catch (e) {
-                              await _notify(
+                              await _safeNotify(
                                 title: 'Erro ao apagar revisão',
-                                subtitle: '$e',
+                                subtitle: _contractSummary,
+                                details: '$e',
                                 status: NotificationStatus.error,
                                 duration: const Duration(seconds: 6),
                               );

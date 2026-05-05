@@ -1,19 +1,9 @@
+// lib/_blocs/modules/contracts/_process/process_data.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProcessData {
   final String? id;
-
-  /// Identificação e metadados principais
-  final DateTime? publicationDate;
-  final int? initialValidityExecution;
-  final int? initialValidityContract;
-
-  /// Campos de resumo do contrato
-  final String? contractNumber;
-  final String? summarySubjectContract;
-  final String? companyLeader;
-  final String? regionOfState;
-  final String? processNumber;
 
   /// ACL por contrato
   final Map<String, Map<String, bool>> permissionContractId;
@@ -23,14 +13,6 @@ class ProcessData {
 
   const ProcessData({
     this.id,
-    this.publicationDate,
-    this.initialValidityExecution,
-    this.initialValidityContract,
-    this.contractNumber,
-    this.summarySubjectContract,
-    this.companyLeader,
-    this.regionOfState,
-    this.processNumber,
     this.permissionContractId = const {},
     this.participantsInfo = const {},
   });
@@ -38,29 +20,12 @@ class ProcessData {
   factory ProcessData.empty() {
     return const ProcessData(
       id: null,
-      publicationDate: null,
-      initialValidityExecution: 0,
-      initialValidityContract: 0,
-      contractNumber: null,
-      summarySubjectContract: null,
-      companyLeader: null,
-      regionOfState: null,
-      processNumber: null,
       permissionContractId: {},
       participantsInfo: {},
     );
   }
 
   String get displaySummary {
-    final obra = (summarySubjectContract ?? '').trim();
-    if (obra.isNotEmpty) return obra;
-
-    final contrato = (contractNumber ?? '').trim();
-    if (contrato.isNotEmpty) return 'Contrato $contrato';
-
-    final processo = (processNumber ?? '').trim();
-    if (processo.isNotEmpty) return 'Processo $processo';
-
     final localId = (id ?? '').trim();
     if (localId.isNotEmpty) return 'Contrato $localId';
 
@@ -68,188 +33,107 @@ class ProcessData {
   }
 
   String get displayNumber {
-    final contrato = (contractNumber ?? '').trim();
-    if (contrato.isNotEmpty) return contrato;
-
-    final processo = (processNumber ?? '').trim();
-    if (processo.isNotEmpty) return processo;
-
     return id ?? '';
   }
 
   ProcessData copyWith({
     String? id,
-    DateTime? publicationDate,
-    int? initialValidityExecution,
-    int? initialValidityContract,
-    String? contractNumber,
-    String? summarySubjectContract,
-    String? companyLeader,
-    String? regionOfState,
-    String? processNumber,
     Map<String, Map<String, bool>>? permissionContractId,
     Map<String, Map<String, dynamic>>? participantsInfo,
   }) {
     return ProcessData(
       id: id ?? this.id,
-      publicationDate: publicationDate ?? this.publicationDate,
-      initialValidityExecution:
-      initialValidityExecution ?? this.initialValidityExecution,
-      initialValidityContract:
-      initialValidityContract ?? this.initialValidityContract,
-      contractNumber: contractNumber ?? this.contractNumber,
-      summarySubjectContract:
-      summarySubjectContract ?? this.summarySubjectContract,
-      companyLeader: companyLeader ?? this.companyLeader,
-      regionOfState: regionOfState ?? this.regionOfState,
-      processNumber: processNumber ?? this.processNumber,
-      permissionContractId:
-      permissionContractId ?? this.permissionContractId,
+      permissionContractId: permissionContractId ?? this.permissionContractId,
       participantsInfo: participantsInfo ?? this.participantsInfo,
     );
   }
 
-  static DateTime? _readDate(dynamic value) {
-    if (value == null) return null;
-    if (value is Timestamp) return value.toDate();
-    if (value is DateTime) return value;
+  static Map<String, Map<String, bool>> _readPermissionContractId(
+      dynamic raw,
+      ) {
+    if (raw is! Map) return <String, Map<String, bool>>{};
 
-    if (value is String && value.trim().isNotEmpty) {
-      try {
-        return DateTime.parse(value);
-      } catch (_) {
-        try {
-          final parts = value.split('/');
-          if (parts.length == 3) {
-            final d = int.parse(parts[0]);
-            final m = int.parse(parts[1]);
-            final y = int.parse(parts[2]);
-            return DateTime(y, m, d);
-          }
-        } catch (_) {}
+    final result = <String, Map<String, bool>>{};
+
+    for (final entry in raw.entries) {
+      final userId = entry.key.toString().trim();
+      if (userId.isEmpty) continue;
+
+      final value = entry.value;
+
+      if (value is Map) {
+        result[userId] = Map<String, bool>.from(
+          value.map(
+                (k, v) => MapEntry(
+              k.toString(),
+              v == true,
+            ),
+          ),
+        );
       }
     }
 
-    return null;
+    return result;
   }
 
-  static String? _readStringAny(
-      Map<String, dynamic> json,
-      List<String> keys,
+  static Map<String, Map<String, dynamic>> _readParticipantsInfo(
+      dynamic raw,
       ) {
-    for (final key in keys) {
-      final value = json[key];
-      if (value == null) continue;
+    if (raw is! Map) return <String, Map<String, dynamic>>{};
 
-      final text = value.toString().trim();
-      if (text.isNotEmpty) return text;
+    final result = <String, Map<String, dynamic>>{};
+
+    for (final entry in raw.entries) {
+      final userId = entry.key.toString().trim();
+      if (userId.isEmpty) continue;
+
+      final value = entry.value;
+
+      if (value is Map) {
+        result[userId] = Map<String, dynamic>.from(value);
+      }
     }
 
-    return null;
+    return result;
   }
 
-  factory ProcessData.fromDocument({required DocumentSnapshot snapshot}) {
+  factory ProcessData.fromDocument({
+    required DocumentSnapshot snapshot,
+  }) {
     if (!snapshot.exists) {
       throw Exception('Contrato não encontrado');
     }
 
     final data = snapshot.data() as Map<String, dynamic>?;
+
     if (data == null) {
       throw Exception('Os dados do contrato estão vazios');
     }
 
-    return ProcessData.fromJson(data, id: snapshot.id);
+    return ProcessData.fromJson(
+      data,
+      id: snapshot.id,
+    );
   }
 
-  factory ProcessData.fromJson(Map<String, dynamic> json, {String? id}) {
-    final rawPerms = json['permissionContractId'];
-    final rawParts = json['participantsInfo'];
-
+  factory ProcessData.fromJson(
+      Map<String, dynamic> json, {
+        String? id,
+      }) {
     return ProcessData(
-      id: id,
-      publicationDate: _readDate(json['datapublicacaodoe']),
-      initialValidityExecution:
-      (json['initialvalidityexecutiondays'] as num?)?.toInt(),
-      initialValidityContract:
-      (json['initialvaliditycontractdays'] as num?)?.toInt(),
-
-      contractNumber: _readStringAny(json, const [
-        'contractNumber',
-        'contractnumber',
-        'numberContract',
-        'numbercontract',
-        'numeroContrato',
-        'numerocontrato',
-      ]),
-      summarySubjectContract: _readStringAny(json, const [
-        'summarySubjectContract',
-        'summarysubjectcontract',
-        'summary_subject_contract',
-        'object',
-        'objeto',
-        'obra',
-        'subject',
-      ]),
-      companyLeader: _readStringAny(json, const [
-        'companyLeader',
-        'companyleader',
-        'empresaLider',
-        'empresalider',
-        'company',
-        'empresa',
-      ]),
-      regionOfState: _readStringAny(json, const [
-        'regionOfState',
-        'regionofstate',
-        'region',
-        'regiao',
-        'regional',
-      ]),
-      processNumber: _readStringAny(json, const [
-        'processNumber',
-        'processnumber',
-        'numberprocess',
-        'numeroProcesso',
-        'numeroprocesso',
-      ]),
-
-      permissionContractId: (rawPerms is Map<String, dynamic>)
-          ? rawPerms.map(
-            (userId, perm) => MapEntry(
-          userId,
-          Map<String, bool>.from(
-            (perm as Map).map(
-                  (k, v) => MapEntry(k.toString(), v == true),
-            ),
-          ),
-        ),
-      )
-          : <String, Map<String, bool>>{},
-      participantsInfo: (rawParts is Map<String, dynamic>)
-          ? rawParts.map(
-            (uid, meta) => MapEntry(
-          uid,
-          Map<String, dynamic>.from(meta as Map),
-        ),
-      )
-          : <String, Map<String, dynamic>>{},
+      id: id ?? json['id']?.toString(),
+      permissionContractId: _readPermissionContractId(
+        json['permissionContractId'],
+      ),
+      participantsInfo: _readParticipantsInfo(
+        json['participantsInfo'],
+      ),
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      if (id != null) 'id': id,
-      if (publicationDate != null) 'datapublicacaodoe': publicationDate,
-      if (initialValidityExecution != null)
-        'initialvalidityexecutiondays': initialValidityExecution,
-      if (initialValidityContract != null)
-        'initialvaliditycontractdays': initialValidityContract,
-      if (contractNumber != null) 'contractNumber': contractNumber,
-      if (summarySubjectContract != null)
-        'summarySubjectContract': summarySubjectContract,
-      if (companyLeader != null) 'companyLeader': companyLeader,
-      if (regionOfState != null) 'regionOfState': regionOfState,
-      if (processNumber != null) 'processNumber': processNumber,
+    return <String, dynamic>{
+      if (id != null && id!.trim().isNotEmpty) 'id': id,
       'permissionContractId': permissionContractId,
       'participantsInfo': participantsInfo,
     };
@@ -260,50 +144,70 @@ class ProcessData {
     required String permissionType,
     required bool value,
   }) {
-    final updatedPerms =
-    Map<String, Map<String, bool>>.from(permissionContractId);
+    final updatedPerms = Map<String, Map<String, bool>>.from(
+      permissionContractId,
+    );
 
-    final userPerms = Map<String, bool>.from(updatedPerms[userId] ?? {});
+    final userPerms = Map<String, bool>.from(
+      updatedPerms[userId] ?? {},
+    );
+
     userPerms[permissionType] = value;
     updatedPerms[userId] = userPerms;
 
-    return copyWith(permissionContractId: updatedPerms);
+    return copyWith(
+      permissionContractId: updatedPerms,
+    );
   }
 
   ProcessData copyWithParticipantPerms({
     required String userId,
     required Map<String, bool> perms,
   }) {
-    final updatedPerms =
-    Map<String, Map<String, bool>>.from(permissionContractId);
+    final updatedPerms = Map<String, Map<String, bool>>.from(
+      permissionContractId,
+    );
+
     updatedPerms[userId] = Map<String, bool>.from(perms);
 
-    return copyWith(permissionContractId: updatedPerms);
+    return copyWith(
+      permissionContractId: updatedPerms,
+    );
   }
 
   ProcessData copyWithParticipantMeta({
     required String userId,
     required Map<String, dynamic> meta,
   }) {
-    final updatedMeta =
-    Map<String, Map<String, dynamic>>.from(participantsInfo);
+    final updatedMeta = Map<String, Map<String, dynamic>>.from(
+      participantsInfo,
+    );
+
     updatedMeta[userId] = Map<String, dynamic>.from(meta);
 
-    return copyWith(participantsInfo: updatedMeta);
+    return copyWith(
+      participantsInfo: updatedMeta,
+    );
   }
 
   ProcessData copyWithParticipantRole({
     required String userId,
     required String role,
   }) {
-    final updatedMeta =
-    Map<String, Map<String, dynamic>>.from(participantsInfo);
+    final updatedMeta = Map<String, Map<String, dynamic>>.from(
+      participantsInfo,
+    );
 
-    final current = Map<String, dynamic>.from(updatedMeta[userId] ?? {});
+    final current = Map<String, dynamic>.from(
+      updatedMeta[userId] ?? {},
+    );
+
     current['role'] = role;
     updatedMeta[userId] = current;
 
-    return copyWith(participantsInfo: updatedMeta);
+    return copyWith(
+      participantsInfo: updatedMeta,
+    );
   }
 
   ProcessData copyWithAddedParticipant({
@@ -311,12 +215,16 @@ class ProcessData {
     required Map<String, bool> perms,
     Map<String, dynamic> meta = const {},
   }) {
-    final updatedPerms =
-    Map<String, Map<String, bool>>.from(permissionContractId);
+    final updatedPerms = Map<String, Map<String, bool>>.from(
+      permissionContractId,
+    );
+
     updatedPerms[userId] = Map<String, bool>.from(perms);
 
-    final updatedMeta =
-    Map<String, Map<String, dynamic>>.from(participantsInfo);
+    final updatedMeta = Map<String, Map<String, dynamic>>.from(
+      participantsInfo,
+    );
+
     if (meta.isNotEmpty) {
       updatedMeta[userId] = Map<String, dynamic>.from(meta);
     }
@@ -328,10 +236,13 @@ class ProcessData {
   }
 
   ProcessData copyWithRemovedParticipant(String userId) {
-    final updatedPerms =
-    Map<String, Map<String, bool>>.from(permissionContractId);
-    final updatedMeta =
-    Map<String, Map<String, dynamic>>.from(participantsInfo);
+    final updatedPerms = Map<String, Map<String, bool>>.from(
+      permissionContractId,
+    );
+
+    final updatedMeta = Map<String, Map<String, dynamic>>.from(
+      participantsInfo,
+    );
 
     updatedPerms.remove(userId);
     updatedMeta.remove(userId);
@@ -340,5 +251,14 @@ class ProcessData {
       permissionContractId: updatedPerms,
       participantsInfo: updatedMeta,
     );
+  }
+
+  @override
+  String toString() {
+    return 'ProcessData('
+        'id: $id, '
+        'permissionContractId: ${permissionContractId.length}, '
+        'participantsInfo: ${participantsInfo.length}'
+        ')';
   }
 }

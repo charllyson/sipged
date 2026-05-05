@@ -79,8 +79,10 @@ class _SectionEstimativaState extends State<SectionEstimativa>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      context.read<TenantCubit>().ensureTenantProfileLoaded();
-      context.read<TenantCubit>().ensureTenantItemsLoaded();
+      final tenantCubit = context.read<TenantCubit>();
+
+      tenantCubit.ensureTenantProfileLoaded();
+      tenantCubit.ensureTenantItemsLoaded();
     });
   }
 
@@ -143,6 +145,10 @@ class _SectionEstimativaState extends State<SectionEstimativa>
     final normalized = (value ?? '').trim();
 
     return normalized.isEmpty ? null : normalized;
+  }
+
+  String _s(Object? value) {
+    return (value is String ? value : value?.toString() ?? '').trim();
   }
 
   void _syncControllerText(TextEditingController controller, String value) {
@@ -243,9 +249,6 @@ class _SectionEstimativaState extends State<SectionEstimativa>
       naturezaDespesa: _naturezaDespesaCtrl.text,
       estimativaValor: _parseDouble(_estimativaValorCtrl.text),
       metodologiaEstimativa: _metodologiaEstimativaCtrl.text,
-
-      // Mantém compatibilidade com DfdData atual.
-      // O campo ainda se chama companyId, mas agora recebe o tenantId.
       companyId: _tenantId ?? widget.data.companyId,
     );
 
@@ -263,9 +266,9 @@ class _SectionEstimativaState extends State<SectionEstimativa>
 
     final bool hasTenantConfigured = tenant != null;
 
-    final List<TenantItemData> fundingSources = tenantState.fundingSources;
-    final List<TenantItemData> programs = tenantState.programs;
-    final List<TenantItemData> expenseNatures = tenantState.expenseNatures;
+    final List<String> fundingSources = tenantState.fundingSources;
+    final List<String> programs = tenantState.programs;
+    final List<String> expenseNatures = tenantState.expenseNatures;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,7 +294,7 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                         ? 'Configure o contratante no tenant'
                         : null,
                     controller: _fonteRecursoCtrl,
-                    items: fundingSources.map((e) => e.label).toList(),
+                    items: fundingSources,
                     enabled: widget.isEditable && hasTenantConfigured,
                     validator: null,
                     specialItemLabel: 'Adicionar fonte de recurso',
@@ -308,31 +311,27 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                     onCreateNewItem: !widget.isEditable || !hasTenantConfigured
                         ? null
                         : (label) async {
+                      final newLabel = _s(label);
+
+                      if (newLabel.isEmpty) return;
+
                       final created =
-                      await tenantCubit.createFundingSource(label);
+                      await tenantCubit.createFundingSource(newLabel);
 
                       if (!mounted || created == null) return;
 
-                      _fonteRecursoCtrl.text = created.label;
+                      _fonteRecursoCtrl.text = created;
+
+                      setState(() => _fundingNonce++);
 
                       _emitChange();
-                      setState(() {});
                     },
                     onEditItem: widget.isEditable && hasTenantConfigured
-                        ? (ctx, oldLabel) async {
-                      final list = context
-                          .read<TenantCubit>()
-                          .state
-                          .fundingSources;
+                        ? (ctx, oldLabelRaw) async {
+                      final oldLabel = _s(oldLabelRaw);
 
-                      if (list.isEmpty) return;
-
-                      final target = list.firstWhere(
-                            (item) => item.label == oldLabel,
-                        orElse: () => list.first,
-                      );
-
-                      if (target.id.isEmpty) return;
+                      if (oldLabel.isEmpty) return;
+                      if (!fundingSources.contains(oldLabel)) return;
 
                       final newLabel = await _askNewLabel(
                         ctx,
@@ -345,37 +344,28 @@ class _SectionEstimativaState extends State<SectionEstimativa>
 
                       final updated =
                       await tenantCubit.updateFundingSourceName(
-                        target.id,
+                        oldLabel,
                         newLabel,
                       );
 
                       if (!mounted || updated == null) return;
 
                       if (_fonteRecursoCtrl.text == oldLabel) {
-                        _fonteRecursoCtrl.text = updated.label;
+                        _fonteRecursoCtrl.text = updated;
 
                         _emitChange();
-                        setState(() {});
                       }
+
+                      setState(() => _fundingNonce++);
                     }
                         : null,
                     onDeleteItem: widget.isEditable && hasTenantConfigured
-                        ? (ctx, label) async {
-                      final list = context
-                          .read<TenantCubit>()
-                          .state
-                          .fundingSources;
+                        ? (ctx, labelRaw) async {
+                      final label = _s(labelRaw);
 
-                      if (list.isEmpty) return;
+                      if (label.isEmpty) return;
 
-                      final target = list.firstWhere(
-                            (item) => item.label == label,
-                        orElse: () => list.first,
-                      );
-
-                      if (target.id.isEmpty) return;
-
-                      await tenantCubit.deleteFundingSource(target.id);
+                      await tenantCubit.deleteFundingSource(label);
 
                       if (!mounted) return;
 
@@ -383,8 +373,9 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                         _fonteRecursoCtrl.clear();
 
                         _emitChange();
-                        setState(() {});
                       }
+
+                      setState(() => _fundingNonce++);
                     }
                         : null,
                   ),
@@ -401,7 +392,7 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                         ? 'Configure o contratante no tenant'
                         : null,
                     controller: _programaTrabalhoCtrl,
-                    items: programs.map((e) => e.label).toList(),
+                    items: programs,
                     enabled: widget.isEditable && hasTenantConfigured,
                     validator: null,
                     specialItemLabel: 'Adicionar programa/ação',
@@ -418,32 +409,28 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                     onCreateNewItem: !widget.isEditable || !hasTenantConfigured
                         ? null
                         : (label) async {
+                      final newLabel = _s(label);
+
+                      if (newLabel.isEmpty) return;
+
                       final created = await tenantCubit.createProgram(
-                        label,
+                        newLabel,
                       );
 
                       if (!mounted || created == null) return;
 
-                      _programaTrabalhoCtrl.text = created.label;
+                      _programaTrabalhoCtrl.text = created;
+
+                      setState(() => _programsNonce++);
 
                       _emitChange();
-                      setState(() {});
                     },
                     onEditItem: widget.isEditable && hasTenantConfigured
-                        ? (ctx, oldLabel) async {
-                      final list = context
-                          .read<TenantCubit>()
-                          .state
-                          .programs;
+                        ? (ctx, oldLabelRaw) async {
+                      final oldLabel = _s(oldLabelRaw);
 
-                      if (list.isEmpty) return;
-
-                      final target = list.firstWhere(
-                            (item) => item.label == oldLabel,
-                        orElse: () => list.first,
-                      );
-
-                      if (target.id.isEmpty) return;
+                      if (oldLabel.isEmpty) return;
+                      if (!programs.contains(oldLabel)) return;
 
                       final newLabel = await _askNewLabel(
                         ctx,
@@ -455,37 +442,28 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                       if (newLabel == null) return;
 
                       final updated = await tenantCubit.updateProgramName(
-                        target.id,
+                        oldLabel,
                         newLabel,
                       );
 
                       if (!mounted || updated == null) return;
 
                       if (_programaTrabalhoCtrl.text == oldLabel) {
-                        _programaTrabalhoCtrl.text = updated.label;
+                        _programaTrabalhoCtrl.text = updated;
 
                         _emitChange();
-                        setState(() {});
                       }
+
+                      setState(() => _programsNonce++);
                     }
                         : null,
                     onDeleteItem: widget.isEditable && hasTenantConfigured
-                        ? (ctx, label) async {
-                      final list = context
-                          .read<TenantCubit>()
-                          .state
-                          .programs;
+                        ? (ctx, labelRaw) async {
+                      final label = _s(labelRaw);
 
-                      if (list.isEmpty) return;
+                      if (label.isEmpty) return;
 
-                      final target = list.firstWhere(
-                            (item) => item.label == label,
-                        orElse: () => list.first,
-                      );
-
-                      if (target.id.isEmpty) return;
-
-                      await tenantCubit.deleteProgram(target.id);
+                      await tenantCubit.deleteProgram(label);
 
                       if (!mounted) return;
 
@@ -493,8 +471,9 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                         _programaTrabalhoCtrl.clear();
 
                         _emitChange();
-                        setState(() {});
                       }
+
+                      setState(() => _programsNonce++);
                     }
                         : null,
                   ),
@@ -520,7 +499,7 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                         ? 'Configure o contratante no tenant'
                         : null,
                     controller: _naturezaDespesaCtrl,
-                    items: expenseNatures.map((e) => e.label).toList(),
+                    items: expenseNatures,
                     enabled: widget.isEditable && hasTenantConfigured,
                     validator: null,
                     specialItemLabel: 'Adicionar ND',
@@ -537,31 +516,27 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                     onCreateNewItem: !widget.isEditable || !hasTenantConfigured
                         ? null
                         : (label) async {
+                      final newLabel = _s(label);
+
+                      if (newLabel.isEmpty) return;
+
                       final created =
-                      await tenantCubit.createExpenseNature(label);
+                      await tenantCubit.createExpenseNature(newLabel);
 
                       if (!mounted || created == null) return;
 
-                      _naturezaDespesaCtrl.text = created.label;
+                      _naturezaDespesaCtrl.text = created;
+
+                      setState(() => _expenseNonce++);
 
                       _emitChange();
-                      setState(() {});
                     },
                     onEditItem: widget.isEditable && hasTenantConfigured
-                        ? (ctx, oldLabel) async {
-                      final list = context
-                          .read<TenantCubit>()
-                          .state
-                          .expenseNatures;
+                        ? (ctx, oldLabelRaw) async {
+                      final oldLabel = _s(oldLabelRaw);
 
-                      if (list.isEmpty) return;
-
-                      final target = list.firstWhere(
-                            (item) => item.label == oldLabel,
-                        orElse: () => list.first,
-                      );
-
-                      if (target.id.isEmpty) return;
+                      if (oldLabel.isEmpty) return;
+                      if (!expenseNatures.contains(oldLabel)) return;
 
                       final newLabel = await _askNewLabel(
                         ctx,
@@ -574,37 +549,28 @@ class _SectionEstimativaState extends State<SectionEstimativa>
 
                       final updated =
                       await tenantCubit.updateExpenseNatureName(
-                        target.id,
+                        oldLabel,
                         newLabel,
                       );
 
                       if (!mounted || updated == null) return;
 
                       if (_naturezaDespesaCtrl.text == oldLabel) {
-                        _naturezaDespesaCtrl.text = updated.label;
+                        _naturezaDespesaCtrl.text = updated;
 
                         _emitChange();
-                        setState(() {});
                       }
+
+                      setState(() => _expenseNonce++);
                     }
                         : null,
                     onDeleteItem: widget.isEditable && hasTenantConfigured
-                        ? (ctx, label) async {
-                      final list = context
-                          .read<TenantCubit>()
-                          .state
-                          .expenseNatures;
+                        ? (ctx, labelRaw) async {
+                      final label = _s(labelRaw);
 
-                      if (list.isEmpty) return;
+                      if (label.isEmpty) return;
 
-                      final target = list.firstWhere(
-                            (item) => item.label == label,
-                        orElse: () => list.first,
-                      );
-
-                      if (target.id.isEmpty) return;
-
-                      await tenantCubit.deleteExpenseNature(target.id);
+                      await tenantCubit.deleteExpenseNature(label);
 
                       if (!mounted) return;
 
@@ -612,8 +578,9 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                         _naturezaDespesaCtrl.clear();
 
                         _emitChange();
-                        setState(() {});
                       }
+
+                      setState(() => _expenseNonce++);
                     }
                         : null,
                   ),

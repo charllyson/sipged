@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:sipged/_blocs/modules/contracts/validity/validity_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
 
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_repository.dart';
+
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_widgets/timeline/time_line_item.dart';
 import 'package:sipged/_widgets/timeline/timeline_shimmer.dart';
 
 class TimelineClass extends StatelessWidget {
-  /// Status do DFD do contrato exibido (ex.: "EM ANDAMENTO", "A INICIAR"...)
   final String? dfdStatus;
 
-  /// Altura fixa da timeline (shimmer + conteúdo real)
   static const double _timelineHeight = 90;
 
   const TimelineClass({
@@ -22,10 +25,13 @@ class TimelineClass extends StatelessWidget {
     this.dfdStatus,
   });
 
+  Future<PublicacaoExtratoData?> _loadPublicacao(String contractId) {
+    return PublicacaoExtratoRepository().readDataForContract(contractId);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ValidityCubit, ValidityState>(
-
       builder: (context, state) {
         final contract = state.contract;
         final validities = state.validities;
@@ -38,19 +44,36 @@ class TimelineClass extends StatelessWidget {
           );
         }
 
-        final cubit = context.read<ValidityCubit>();
-        final DateTime? dataFinalContrato = cubit.dataFinalContrato;
-        final DateTime? dataFinalExecucao = cubit.dataFinalExecucao;
+        final contractId = contract.id?.trim();
 
-        final items = _gerarTimelineItems(
-          contract: contract,
-          additives: additives,
-          validities: validities,
-          dataFinalContrato: dataFinalContrato,
-          dataFinalExecucao: dataFinalExecucao,
+        if (contractId == null || contractId.isEmpty) {
+          return const TimelineShimmer(
+            height: _timelineHeight,
+            itemCount: 4,
+          );
+        }
+
+        return FutureBuilder<PublicacaoExtratoData?>(
+          future: _loadPublicacao(contractId),
+          builder: (context, snapshot) {
+            final publicacao = snapshot.data;
+
+            final cubit = context.read<ValidityCubit>();
+            final DateTime? dataFinalContrato = cubit.dataFinalContrato;
+            final DateTime? dataFinalExecucao = cubit.dataFinalExecucao;
+
+            final items = _gerarTimelineItems(
+              contract: contract,
+              additives: additives,
+              validities: validities,
+              publicacao: publicacao,
+              dataFinalContrato: dataFinalContrato,
+              dataFinalExecucao: dataFinalExecucao,
+            );
+
+            return _buildTimeline(items, dfdStatus?.toUpperCase().trim());
+          },
         );
-
-        return _buildTimeline(items, dfdStatus?.toUpperCase().trim());
       },
     );
   }
@@ -59,6 +82,7 @@ class TimelineClass extends StatelessWidget {
     required ProcessData contract,
     required List<AdditivesData> additives,
     required List<ValidityData> validities,
+    required PublicacaoExtratoData? publicacao,
     required DateTime? dataFinalContrato,
     required DateTime? dataFinalExecucao,
   }) {
@@ -70,6 +94,7 @@ class TimelineClass extends StatelessWidget {
 
       if ((v.ordertype?.toUpperCase() ?? '').contains('REINÍCIO') && i > 0) {
         final anterior = validities[i - 1];
+
         if ((anterior.ordertype?.toUpperCase() ?? '').contains('PARALISA') &&
             v.orderdate != null &&
             anterior.orderdate != null) {
@@ -89,13 +114,15 @@ class TimelineClass extends StatelessWidget {
       );
     }
 
-    if (contract.publicationDate != null) {
+    final dataPublicacao = publicacao?.dataPublicacao;
+
+    if (dataPublicacao != null) {
       items.add(
         TimelineItem(
           title: 'PUBLICAÇÃO',
-          date: contract.publicationDate,
+          date: dataPublicacao,
           source: '0.resume',
-          original: contract,
+          original: publicacao,
         ),
       );
     }
@@ -142,6 +169,14 @@ class TimelineClass extends StatelessWidget {
 
   Widget _buildTimeline(List<TimelineItem> items, String? dfdStatusUp) {
     final status = dfdStatusUp ?? '';
+
+    if (items.isEmpty) {
+      return const TimelineShimmer(
+        height: _timelineHeight,
+        itemCount: 4,
+      );
+    }
+
     return Center(
       child: SizedBox(
         height: _timelineHeight,
@@ -234,18 +269,23 @@ class TimelineClass extends StatelessWidget {
     switch (item.source) {
       case 'validity':
         final type = item.title.toUpperCase();
+
         if (type.contains('REINÍCIO')) {
           return (Colors.blue, Icons.refresh);
         }
+
         if (type.contains('INÍCIO')) {
           return (Colors.green, Icons.play_arrow);
         }
+
         if (type.contains('PARALISA')) {
           return (Colors.orange, Icons.pause);
         }
+
         if (type.contains('FINALIZA')) {
           return (Colors.green, Icons.check_circle);
         }
+
         return (Colors.grey, Icons.description);
 
       case '0.resume':

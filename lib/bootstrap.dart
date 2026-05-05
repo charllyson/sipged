@@ -13,6 +13,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '_blocs/system/permission/permission_cubit.dart';
 import 'firebase_options_flavors.dart';
 import 'gate_page.dart';
 
@@ -51,7 +52,7 @@ import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository
 import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_repository.dart';
 
-import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
 
@@ -91,8 +92,8 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_repository.dart';
 
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
 
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_cubit.dart';
@@ -177,6 +178,9 @@ Future<void> bootstrapAndRunApp() async {
       runApp(
         MultiProvider(
           providers: [
+            BlocProvider(
+              create: (_) => PermissionCubit(),
+            ),
             BlocProvider<MapOverlayCubit>(
               create: (_) => MapOverlayCubit(),
             ),

@@ -1,7 +1,8 @@
+// lib/_blocs/system/setup/setup_repository.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 import 'package:sipged/_blocs/system/tenant/tenant_repository.dart';
 
 import 'setup_data.dart';
@@ -9,23 +10,25 @@ import 'setup_data.dart';
 class SetupRepository {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
-
-  final String tenantId;
+  final TenantRepository _tenantRepository;
 
   SetupRepository({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
+    TenantRepository? tenantRepository,
     String? tenantId,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        tenantId = (tenantId == null || tenantId.trim().isEmpty)
-            ? TenantRepository.testTenantId
-            : tenantId.trim();
+        _tenantRepository = tenantRepository ?? TenantRepository(
+          tenantId: tenantId,
+        );
+
+  String get tenantId => _tenantRepository.tenantId;
 
   String? get _currentUserId => _auth.currentUser?.uid;
 
   DocumentReference<Map<String, dynamic>> get _tenantRef {
-    return _firestore.collection(TenantData.collectionName).doc(tenantId);
+    return _firestore.collection(TenantRepository.collectionName).doc(tenantId);
   }
 
   CollectionReference<Map<String, dynamic>> _itemsCollection(SetupGroup group) {
@@ -86,14 +89,19 @@ class SetupRepository {
       throw ArgumentError('O rótulo não pode estar vazio.');
     }
 
+    final cleanType = type?.trim();
+
     final ref = _itemsCollection(group).doc(cleanKey);
 
-    final nowData = <String, dynamic>{
+    final data = <String, dynamic>{
       'tenantId': tenantId,
+      'companyId': tenantId,
+      'parentId': tenantId,
+      'id': cleanKey,
       'key': cleanKey,
       'label': cleanLabel,
-      'type': type?.trim().isNotEmpty == true
-          ? type!.trim()
+      'type': cleanType != null && cleanType.isNotEmpty
+          ? cleanType
           : _defaultTypeForGroup(group),
       'enabled': enabled,
       'order': order,
@@ -107,7 +115,9 @@ class SetupRepository {
       'updatedBy': _currentUserId,
     };
 
-    await ref.set(nowData, SetOptions(merge: true));
+    data.removeWhere((_, value) => value == null);
+
+    await ref.set(data, SetOptions(merge: true));
 
     final snap = await ref.get();
 
@@ -136,12 +146,19 @@ class SetupRepository {
       throw ArgumentError('O ID do item não pode estar vazio.');
     }
 
+    final cleanKey = key?.trim();
+    final cleanLabel = label?.trim();
+    final cleanDescription = description?.trim();
+    final cleanType = type?.trim();
+
     final data = <String, dynamic>{
       'tenantId': tenantId,
-      if (key != null && key.trim().isNotEmpty) 'key': key.trim(),
-      if (label != null && label.trim().isNotEmpty) 'label': label.trim(),
-      if (description != null) 'description': description.trim(),
-      if (type != null && type.trim().isNotEmpty) 'type': type.trim(),
+      'companyId': tenantId,
+      'parentId': tenantId,
+      if (cleanKey != null && cleanKey.isNotEmpty) 'key': cleanKey,
+      if (cleanLabel != null && cleanLabel.isNotEmpty) 'label': cleanLabel,
+      if (description != null) 'description': cleanDescription,
+      if (cleanType != null && cleanType.isNotEmpty) 'type': cleanType,
       'value': ?value,
       'enabled': ?enabled,
       'order': ?order,
@@ -149,6 +166,8 @@ class SetupRepository {
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUserId,
     };
+
+    data.removeWhere((_, value) => value == null);
 
     final ref = _itemsCollection(group).doc(cleanId);
 

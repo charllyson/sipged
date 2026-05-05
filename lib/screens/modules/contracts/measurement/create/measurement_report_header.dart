@@ -6,71 +6,59 @@ import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/screens/modules/contracts/measurement/create/info_grid.dart';
 import 'package:sipged/screens/modules/contracts/measurement/create/label_value.dart';
 
-/// =================== Cabeçalho – Boletim de Medição ===================
 class MeasurementReportHeader extends StatelessWidget {
   const MeasurementReportHeader({
     super.key,
     required this.contract,
     this.measurement,
-
-    /// 🔹 Resumo da obra (DFD.descricaoObjeto)
     this.descricaoObjeto,
-
-    /// 🔹 Número do contrato (PublicacaoExtratoData.numeroContrato)
     this.numeroContrato,
-
-    /// 🔹 Valor do contrato (DFD.valorDemanda)
     this.valorDemandaContrato,
+
+    /// PublicacaoExtratoData.dataPublicacao
+    this.dataPublicacao,
+
+    /// TrData.prazoExecucaoDias
+    this.prazoExecucaoDias,
   });
 
   final ProcessData contract;
   final ReportMeasurementData? measurement;
 
-  /// 🔹 Campo vindo de DfdData.descricaoObjeto
   final String? descricaoObjeto;
-
-  /// 🔹 Campo vindo de PublicacaoExtratoData.numeroContrato
   final String? numeroContrato;
-
-  /// 🔹 Campo vindo de DfdData.valorDemanda
   final num? valorDemandaContrato;
+
+  final DateTime? dataPublicacao;
+  final String? prazoExecucaoDias;
 
   String _dashIfEmpty(String? s) {
     final v = (s ?? '').trim();
     return v.isEmpty ? '–' : v;
   }
 
-  String _money(num? v) => v == null ? '–' : SipGedFormatMoney.doubleToText(v.toDouble());
-  String _date(DateTime? d) => d == null ? '–' : SipGedFormatDates.dateToDdMMyyyy(d);
+  String _money(num? v) {
+    return v == null ? '–' : SipGedFormatMoney.doubleToText(v.toDouble());
+  }
+
+  String _date(DateTime? d) {
+    return d == null ? '–' : SipGedFormatDates.dateToDdMMyyyy(d);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isSmall = MediaQuery.of(context).size.width < 900;
 
-    // ==== Mapeamento para os campos ====
-    // 🔹 OBRA agora vem somente da descricaoObjeto (DFD)
     final obra = _dashIfEmpty(descricaoObjeto);
-
-    // 🔹 LOCAL / CONSTRUTORA ficam em branco até termos fonte correta
-    final local =
-    _dashIfEmpty('' /* ex.: region / município, quando existir */);
-    final construtora = _dashIfEmpty(
-        '' /* ex.: companyLeader, quando existir no novo modelo */);
-
-    // 🔹 CONTRATO Nº vem da PublicacaoExtratoData.numeroContrato
+    final local = _dashIfEmpty('');
+    final construtora = _dashIfEmpty('');
     final contratoNum = _dashIfEmpty(numeroContrato);
-
-    // 🔹 Valor do contrato vem SOMENTE da demanda (DFD.valorDemanda)
     final valorContrato = _money(valorDemandaContrato);
 
-    final prazoExecStr = (contract.initialValidityExecution == null)
-        ? '–'
-        : '${contract.initialValidityExecution}';
+    final prazoExecStr = _dashIfEmpty(prazoExecucaoDias);
+    final assinatura = _date(dataPublicacao);
 
-    final assinatura = _date(
-      contract.publicationDate,
-    ); // data pública mais próxima que temos
     final aditivosParalisacoesDias = '–';
     final ordemServico = '–';
     final conclusao = '–';
@@ -91,7 +79,6 @@ class MeasurementReportHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Título
           Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
             child: Text(
@@ -103,8 +90,6 @@ class MeasurementReportHeader extends StatelessWidget {
               ),
             ),
           ),
-
-          // Blocos
           Flex(
             direction: isSmall ? Axis.vertical : Axis.horizontal,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,12 +113,21 @@ class MeasurementReportHeader extends StatelessWidget {
                 flex: isSmall ? 0 : 2,
                 child: InfoGrid(
                   rows: [
-                    _row('VALOR DO CONTRATO:', valorContrato,
-                        alignRight: true),
-                    _row('ASSINATURA DO CONTRATO:', assinatura,
-                        alignRight: true),
-                    _row('ORDEM DE SERVIÇO:', ordemServico,
-                        alignRight: true),
+                    _row(
+                      'VALOR DO CONTRATO:',
+                      valorContrato,
+                      alignRight: true,
+                    ),
+                    _row(
+                      'ASSINATURA DO CONTRATO:',
+                      assinatura,
+                      alignRight: true,
+                    ),
+                    _row(
+                      'ORDEM DE SERVIÇO:',
+                      ordemServico,
+                      alignRight: true,
+                    ),
                     _row('', '', alignRight: true),
                   ],
                 ),
@@ -146,15 +140,26 @@ class MeasurementReportHeader extends StatelessWidget {
                 flex: isSmall ? 0 : 2,
                 child: InfoGrid(
                   rows: [
-                    _row('PRAZO DE EXECUÇÃO (dias):', prazoExecStr,
-                        alignRight: true),
-                    _row('ADITIVOS E PARALISAÇÕES (dias):',
-                        aditivosParalisacoesDias,
-                        alignRight: true),
-                    _row('DATA DE CONCLUSÃO:', conclusao,
-                        alignRight: true),
-                    _row('SALDO DE PRAZO:', saldoPrazo,
-                        alignRight: true),
+                    _row(
+                      'PRAZO DE EXECUÇÃO (dias):',
+                      prazoExecStr,
+                      alignRight: true,
+                    ),
+                    _row(
+                      'ADITIVOS E PARALISAÇÕES (dias):',
+                      aditivosParalisacoesDias,
+                      alignRight: true,
+                    ),
+                    _row(
+                      'DATA DE CONCLUSÃO:',
+                      conclusao,
+                      alignRight: true,
+                    ),
+                    _row(
+                      'SALDO DE PRAZO:',
+                      saldoPrazo,
+                      alignRight: true,
+                    ),
                   ],
                 ),
               ),
@@ -169,8 +174,11 @@ class MeasurementReportHeader extends StatelessWidget {
                     _row('MEDIÇÃO Nº:', medicaoNumero),
                     _row('PERÍODO:', periodo),
                     _row('DATA DO BOLETIM:', dataBoletim),
-                    _row('Nº DE FOLHAS:', numFolhas,
-                        alignRight: true),
+                    _row(
+                      'Nº DE FOLHAS:',
+                      numFolhas,
+                      alignRight: true,
+                    ),
                   ],
                 ),
               ),
@@ -181,6 +189,15 @@ class MeasurementReportHeader extends StatelessWidget {
     );
   }
 
-  LabelValue _row(String label, String value, {bool alignRight = false}) =>
-      LabelValue(label: label, value: value, alignRight: alignRight);
+  LabelValue _row(
+      String label,
+      String value, {
+        bool alignRight = false,
+      }) {
+    return LabelValue(
+      label: label,
+      value: value,
+      alignRight: alignRight,
+    );
+  }
 }

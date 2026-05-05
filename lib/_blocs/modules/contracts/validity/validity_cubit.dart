@@ -1,4 +1,5 @@
-// lib/_blocs/modules/contracts/contracts/validity/validity_cubit.dart
+// lib/_blocs/modules/contracts/validity/validity_cubit.dart
+
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,19 +7,120 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_repository.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_repository.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_data.dart';
+
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ValidityCubit extends Cubit<ValidityState> {
-  final ValidityRepository _repository;
-
-  ValidityCubit({required ValidityRepository repository})
-      : _repository = repository,
+  ValidityCubit({
+    required ValidityRepository repository,
+    UserPermissionData? initialPermissions,
+    String? initialTenantId,
+    this.moduleId = 'contracts_validity',
+    PublicacaoExtratoRepository? publicacaoRepository,
+    TrRepository? trRepository,
+  })  : _repository = repository,
+        _publicacaoRepository =
+            publicacaoRepository ?? PublicacaoExtratoRepository(),
+        _trRepository = trRepository ?? TrRepository(),
+        _currentPermissions = initialPermissions,
+        _tenantId = initialTenantId,
         super(ValidityState.initial());
 
-  // ---------------------------------------------------------------------------
-  // Helpers internos
-  // ---------------------------------------------------------------------------
+  final ValidityRepository _repository;
+  final PublicacaoExtratoRepository _publicacaoRepository;
+  final TrRepository _trRepository;
+
+  final String moduleId;
+
+  UserPermissionData? _currentPermissions;
+  String? _tenantId;
+
+  PublicacaoExtratoData? _publicacaoExtrato;
+  TrData? _trData;
+
+  PublicacaoExtratoData? get publicacaoExtrato => _publicacaoExtrato;
+  TrData? get trData => _trData;
+
+  void updatePermissions({
+    UserPermissionData? permissions,
+    String? tenantId,
+  }) {
+    _currentPermissions = permissions ?? _currentPermissions;
+    _tenantId = tenantId ?? _tenantId;
+  }
+
+  bool get isEditable => _canWrite();
+
+  bool _canWrite() {
+    final permissions = _currentPermissions;
+
+    if (permissions == null) return false;
+
+    if (permissions.isGlobalSuperUser ||
+        permissions.isSuperUserForTenant(_tenantId)) {
+      return true;
+    }
+
+    return permissions.canModuleString(
+      module: moduleId,
+      action: 'create',
+      tenantId: _tenantId,
+    ) ||
+        permissions.canModuleString(
+          module: moduleId,
+          action: 'edit',
+          tenantId: _tenantId,
+        ) ||
+        permissions.canModuleString(
+          module: moduleId,
+          action: 'delete',
+          tenantId: _tenantId,
+        );
+  }
+
+  bool _canDelete() {
+    final permissions = _currentPermissions;
+
+    if (permissions == null) return false;
+
+    if (permissions.isGlobalSuperUser ||
+        permissions.isSuperUserForTenant(_tenantId)) {
+      return true;
+    }
+
+    return permissions.canModuleString(
+      module: moduleId,
+      action: 'delete',
+      tenantId: _tenantId,
+    );
+  }
+
+  void _assertCanWrite() {
+    if (_canWrite()) return;
+
+    throw Exception(
+      'Usuário sem permissão para alterar vigências. '
+          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+    );
+  }
+
+  void _assertCanDelete() {
+    if (_canDelete()) return;
+
+    throw Exception(
+      'Usuário sem permissão para apagar vigências. '
+          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+    );
+  }
 
   Set<int> _existingOrders(List<ValidityData> list) {
     return list
@@ -29,35 +131,42 @@ class ValidityCubit extends Cubit<ValidityState> {
 
   int _nextAvailableOrder(Set<int> set) {
     if (set.isEmpty) return 1;
+
     for (int i = 1; i <= set.length + 1; i++) {
       if (!set.contains(i)) return i;
     }
+
     final max = set.reduce((a, b) => a > b ? a : b);
+
     return max + 1;
   }
 
   List<String> _orderNumberOptionsFromSet(Set<int> set) {
-    final maxPlusOne =
-    set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
+    final maxPlusOne = set.isEmpty
+        ? 1
+        : set.reduce((a, b) => a > b ? a : b) + 1;
+
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
 
   List<String> _rulesOrderTypes(List<ValidityData> validities) {
-    final List<String> newOrders = [];
-    final String? lastOrder =
-    validities.isEmpty ? null : validities.last.ordertype;
+    final sorted = _sorted(validities);
+
+    final newOrders = <String>[];
+
+    final lastOrder = sorted.isEmpty ? null : sorted.last.ordertype;
 
     if (lastOrder == null) {
       newOrders.addAll(ValidityData.typeOfOrder);
     } else if (lastOrder == 'ORDEM DE INÍCIO') {
-      newOrders.addAll([
+      newOrders.addAll(<String>[
         'ORDEM DE PARALISAÇÃO',
         'ORDEM DE FINALIZAÇÃO',
       ]);
     } else if (lastOrder == 'ORDEM DE PARALISAÇÃO') {
       newOrders.add('ORDEM DE REINÍCIO');
     } else if (lastOrder == 'ORDEM DE REINÍCIO') {
-      newOrders.addAll([
+      newOrders.addAll(<String>[
         'ORDEM DE PARALISAÇÃO',
         'ORDEM DE FINALIZAÇÃO',
       ]);
@@ -69,40 +178,105 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   List<ValidityData> _sorted(List<ValidityData> list) {
-    final l = List<ValidityData>.from(list);
-    l.sort((a, b) => (a.orderNumber ?? 0).compareTo(b.orderNumber ?? 0));
-    return List<ValidityData>.unmodifiable(l);
+    final sorted = List<ValidityData>.from(list);
+
+    sorted.sort(
+          (a, b) => (a.orderNumber ?? 0).compareTo(b.orderNumber ?? 0),
+    );
+
+    return List<ValidityData>.unmodifiable(sorted);
   }
 
-  // ---------------------------------------------------------------------------
-  // Carregamento inicial para um contrato
-  // ---------------------------------------------------------------------------
+  ValidityState _stateWithListMetadata({
+    required List<ValidityData> validities,
+    ValidityData? selected,
+    List<Attachment>? attachments,
+    bool clearSelected = false,
+  }) {
+    final sorted = _sorted(validities);
+    final existingSet = _existingOrders(sorted);
+    final nextOrder = _nextAvailableOrder(existingSet);
+
+    return state.copyWith(
+      validities: sorted,
+      selectedValidity: selected,
+      clearSelectedValidity: clearSelected,
+      attachments: attachments,
+      nextOrderNumber: nextOrder,
+      orderNumberOptions: _orderNumberOptionsFromSet(existingSet),
+      greyOrderItems: existingSet.map((e) => e.toString()).toSet(),
+      availableOrderTypes: _rulesOrderTypes(sorted),
+      clearError: true,
+    );
+  }
+
+  List<ValidityData> _replaceValidityInList(ValidityData updated) {
+    final list = List<ValidityData>.from(state.validities);
+
+    final index = list.indexWhere((item) => item.id == updated.id);
+
+    if (index >= 0) {
+      list[index] = updated;
+    } else {
+      list.add(updated);
+    }
+
+    return _sorted(list);
+  }
 
   Future<void> loadForContract(String contractId) async {
-    if (contractId.isEmpty) return;
+    final cleanContractId = contractId.trim();
 
-    emit(state.copyWith(isLoading: true, errorMessage: null));
+    if (cleanContractId.isEmpty) return;
+
+    emit(
+      state.copyWith(
+        isLoading: true,
+        clearError: true,
+      ),
+    );
 
     try {
-      final contract =
-      await _repository.getSpecificContract(uid: contractId);
+      final contract = await _repository.getSpecificContract(
+        uid: cleanContractId,
+      );
+
       if (contract == null) {
+        _publicacaoExtrato = null;
+        _trData = null;
+
         emit(
           state.copyWith(
             isLoading: false,
             errorMessage: 'Contrato não encontrado',
+            clearContract: true,
+            clearSelectedValidity: true,
+            clearAttachments: true,
+            validities: const <ValidityData>[],
+            additives: const [],
+            orderNumberOptions: const <String>['1'],
+            greyOrderItems: const <String>{},
+            availableOrderTypes: const <String>[],
+            nextOrderNumber: 1,
           ),
         );
         return;
       }
 
-      final validities =
-      await _repository.getAllValidityOfContract(uidContract: contractId);
+      final results = await Future.wait<dynamic>([
+        _repository.getAllValidityOfContract(uidContract: cleanContractId),
+        _repository.buscarAditivos(cleanContractId),
+        _publicacaoRepository.readDataForContract(cleanContractId),
+        _trRepository.readDataForContract(cleanContractId),
+      ]);
+
+      final validities = results[0] as List<ValidityData>;
+      final additives = results[1] as List;
+
+      _publicacaoExtrato = results[2] as PublicacaoExtratoData?;
+      _trData = results[3] as TrData?;
+
       final sortedValidities = _sorted(validities);
-
-      final additives =
-      await _repository.buscarAditivos(contractId);
-
       final existingSet = _existingOrders(sortedValidities);
       final nextOrder = _nextAvailableOrder(existingSet);
 
@@ -111,14 +285,14 @@ class ValidityCubit extends Cubit<ValidityState> {
           isLoading: false,
           contract: contract,
           validities: sortedValidities,
-          additives: additives,
+          additives: additives.cast(),
           nextOrderNumber: nextOrder,
           orderNumberOptions: _orderNumberOptionsFromSet(existingSet),
-          greyOrderItems:
-          existingSet.map((e) => e.toString()).toSet(),
+          greyOrderItems: existingSet.map((e) => e.toString()).toSet(),
           availableOrderTypes: _rulesOrderTypes(sortedValidities),
-          selectedValidity: null,
-          attachments: const <Attachment>[],
+          clearSelectedValidity: true,
+          clearAttachments: true,
+          clearError: true,
         ),
       );
     } catch (e) {
@@ -131,28 +305,20 @@ class ValidityCubit extends Cubit<ValidityState> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Seleção por número de ordem (dropdown inteligente)
-  // ---------------------------------------------------------------------------
-
-  /// Chamado quando o usuário muda o número da ordem no dropdown.
-  ///
-  /// - Se já existe validade com esse número → seleciona.
-  /// - Se não existe → cria draft novo (ainda não salvo) com esse número.
   Future<void> selectOrderNumber(String? value) async {
     final picked = int.tryParse(value ?? '');
+
     if (picked == null || picked <= 0) return;
 
-    final currentValidities = state.validities;
-    final idx = currentValidities
-        .indexWhere((x) => (x.orderNumber ?? -1) == picked);
+    final idx = state.validities.indexWhere(
+          (x) => (x.orderNumber ?? -1) == picked,
+    );
 
     if (idx >= 0) {
-      await selectValidity(currentValidities[idx]);
+      await selectValidity(state.validities[idx]);
       return;
     }
 
-    // Novo draft
     final draft = ValidityData(
       uidContract: state.contract?.id,
       orderNumber: picked,
@@ -162,17 +328,14 @@ class ValidityCubit extends Cubit<ValidityState> {
       state.copyWith(
         selectedValidity: draft,
         attachments: const <Attachment>[],
-        errorMessage: null,
+        clearError: true,
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Seleção direta de uma validade (linha da tabela / timeline)
-  // ---------------------------------------------------------------------------
-
   Future<void> selectValidity(ValidityData data) async {
     final contract = state.contract;
+
     if (contract == null) return;
 
     try {
@@ -181,11 +344,18 @@ class ValidityCubit extends Cubit<ValidityState> {
         validity: data,
       );
 
+      final updated = data.copyWith(
+        attachments: attachments,
+        clearPdfUrl: (data.pdfUrl ?? '').trim().isNotEmpty,
+      );
+
+      final list = _replaceValidityInList(updated);
+
       emit(
-        state.copyWith(
-          selectedValidity: data,
+        _stateWithListMetadata(
+          validities: list,
+          selected: updated,
           attachments: attachments,
-          errorMessage: null,
         ),
       );
     } catch (e) {
@@ -199,12 +369,11 @@ class ValidityCubit extends Cubit<ValidityState> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Criação de nova validade (limpar formulário)
-  // ---------------------------------------------------------------------------
-
   Future<void> createNewValidity() async {
+    _assertCanWrite();
+
     final contract = state.contract;
+
     if (contract == null) return;
 
     final existingSet = _existingOrders(state.validities);
@@ -220,17 +389,14 @@ class ValidityCubit extends Cubit<ValidityState> {
         selectedValidity: draft,
         nextOrderNumber: nextOrder,
         attachments: const <Attachment>[],
-        errorMessage: null,
+        clearError: true,
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Atualização de campos do formulário (ordertype / orderdate)
-  // ---------------------------------------------------------------------------
-
   void updateOrderType(String? type) {
     final current = state.selectedValidity;
+
     if (current == null) return;
 
     emit(
@@ -242,69 +408,58 @@ class ValidityCubit extends Cubit<ValidityState> {
 
   void updateOrderDate(String? ddMMyyyy) {
     final current = state.selectedValidity;
+
     if (current == null) return;
 
     emit(
       state.copyWith(
         selectedValidity: current.copyWith(
-          orderdate: ddMMyyyy != null && ddMMyyyy.isNotEmpty
+          orderdate: ddMMyyyy != null && ddMMyyyy.trim().isNotEmpty
               ? SipGedFormatDates.ddMMyyyyToDate(ddMMyyyy)
               : null,
+          clearOrderDate: ddMMyyyy == null || ddMMyyyy.trim().isEmpty,
         ),
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Save / Update
-  // ---------------------------------------------------------------------------
-
   Future<void> saveSelected() async {
+    _assertCanWrite();
+
     final contract = state.contract;
     final current = state.selectedValidity;
+
     if (contract == null || current == null) return;
 
-    emit(state.copyWith(isSaving: true, errorMessage: null));
+    if (contract.id == null || contract.id!.trim().isEmpty) {
+      throw Exception('Contrato sem ID para salvar vigência.');
+    }
+
+    emit(
+      state.copyWith(
+        isSaving: true,
+        clearError: true,
+      ),
+    );
 
     try {
       final toSave = current.copyWith(
         uidContract: contract.id,
+        attachments: state.attachments,
       );
 
-      final saved =
-      await _repository.salvarOuAtualizarValidade(toSave);
+      final saved = await _repository.salvarOuAtualizarValidade(toSave);
 
-      await _repository.notificarUsuariosSobreValidade(
-        saved,
-        contract.id!,
-      );
+      await _repository.notificarUsuariosSobreValidade(saved, contract.id!);
 
-      // Atualiza lista em memória
-      final list = List<ValidityData>.from(state.validities);
-      final idx = list.indexWhere((e) => e.id == saved.id);
-      if (idx >= 0) {
-        list[idx] = saved;
-      } else {
-        list.add(saved);
-      }
-      final sorted = _sorted(list);
-
-      final existingSet = _existingOrders(sorted);
-      final nextOrder = _nextAvailableOrder(existingSet);
+      final list = _replaceValidityInList(saved);
 
       emit(
-        state.copyWith(
-          isSaving: false,
-          validities: sorted,
-          selectedValidity: saved,
-          nextOrderNumber: nextOrder,
-          orderNumberOptions:
-          _orderNumberOptionsFromSet(existingSet),
-          greyOrderItems:
-          existingSet.map((e) => e.toString()).toSet(),
-          availableOrderTypes: _rulesOrderTypes(sorted),
-          errorMessage: null,
-        ),
+        _stateWithListMetadata(
+          validities: list,
+          selected: saved,
+          attachments: saved.attachments ?? state.attachments,
+        ).copyWith(isSaving: false),
       );
     } catch (e) {
       emit(
@@ -313,18 +468,24 @@ class ValidityCubit extends Cubit<ValidityState> {
           errorMessage: 'Erro ao salvar validade: $e',
         ),
       );
+
+      rethrow;
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Delete
-  // ---------------------------------------------------------------------------
-
   Future<void> deleteValidity(String validityId) async {
-    final contract = state.contract;
-    if (contract == null) return;
+    _assertCanDelete();
 
-    emit(state.copyWith(isSaving: true, errorMessage: null));
+    final contract = state.contract;
+
+    if (contract == null || contract.id == null) return;
+
+    emit(
+      state.copyWith(
+        isSaving: true,
+        clearError: true,
+      ),
+    );
 
     try {
       await _repository.deletarValidade(
@@ -334,24 +495,14 @@ class ValidityCubit extends Cubit<ValidityState> {
 
       final list = List<ValidityData>.from(state.validities)
         ..removeWhere((e) => e.id == validityId);
-      final sorted = _sorted(list);
-
-      final existingSet = _existingOrders(sorted);
-      final nextOrder = _nextAvailableOrder(existingSet);
 
       emit(
-        state.copyWith(
-          isSaving: false,
-          validities: sorted,
-          selectedValidity: null,
+        _stateWithListMetadata(
+          validities: list,
           attachments: const <Attachment>[],
-          nextOrderNumber: nextOrder,
-          orderNumberOptions:
-          _orderNumberOptionsFromSet(existingSet),
-          greyOrderItems:
-          existingSet.map((e) => e.toString()).toSet(),
-          availableOrderTypes: _rulesOrderTypes(sorted),
-          errorMessage: null,
+          clearSelected: true,
+        ).copyWith(
+          isSaving: false,
         ),
       );
     } catch (e) {
@@ -361,70 +512,84 @@ class ValidityCubit extends Cubit<ValidityState> {
           errorMessage: 'Erro ao apagar validade: $e',
         ),
       );
+
+      rethrow;
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Anexos: adicionar / renomear / remover
-  // ---------------------------------------------------------------------------
-
-  String _suggestLabelFromName(ValidityData v, String original) {
+  String _suggestLabelFromName(ValidityData validity, String original) {
     final base = original
         .split('/')
         .last
         .replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
-    final ord = v.orderNumber ?? 0;
-    return 'Ordem $ord - $base';
+
+    final order = validity.orderNumber ?? 0;
+
+    return 'Ordem $order - $base';
   }
 
-  /// Pegamos o arquivo (via repository → storage), mas o diálogo de label
-  /// continua responsabilidade da UI. Aqui só aplica o label final.
   Future<Attachment?> addAttachmentFromBytes({
     required Uint8List bytes,
     required String originalName,
     required String? customLabel,
   }) async {
+    _assertCanWrite();
+
     final contract = state.contract;
-    final v = state.selectedValidity;
-    if (contract == null || v == null || contract.id == null) {
+    final validity = state.selectedValidity;
+
+    if (contract == null ||
+        validity == null ||
+        contract.id == null ||
+        validity.id == null) {
       return null;
     }
 
-    emit(state.copyWith(isSaving: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        clearError: true,
+      ),
+    );
 
     try {
-      final suggestion = _suggestLabelFromName(v, originalName);
-      final label =
-      (customLabel == null || customLabel.isEmpty)
-          ? suggestion
-          : customLabel;
+      final suggestion = _suggestLabelFromName(validity, originalName);
 
-      final att = await _repository.uploadAttachmentBytes(
+      final label = customLabel == null || customLabel.trim().isEmpty
+          ? suggestion
+          : customLabel.trim();
+
+      final attachment = await _repository.uploadAttachmentBytes(
         contract: contract,
-        validity: v,
+        validity: validity,
         bytes: bytes,
         originalName: originalName,
         label: label,
       );
 
-      final current =
-      List<Attachment>.from(state.attachments)..add(att);
+      final current = List<Attachment>.from(state.attachments)..add(attachment);
 
       await _repository.setAttachments(
         contractId: contract.id!,
-        validityId: v.id!,
+        validityId: validity.id!,
         attachments: current,
       );
 
-      emit(
-        state.copyWith(
-          isSaving: false,
-          attachments: current,
-          selectedValidity: v.copyWith(attachments: current),
-        ),
+      final updatedValidity = validity.copyWith(
+        attachments: current,
       );
 
-      return att;
+      final list = _replaceValidityInList(updatedValidity);
+
+      emit(
+        _stateWithListMetadata(
+          validities: list,
+          selected: updatedValidity,
+          attachments: current,
+        ).copyWith(isSaving: false),
+      );
+
+      return attachment;
     } catch (e) {
       emit(
         state.copyWith(
@@ -432,23 +597,34 @@ class ValidityCubit extends Cubit<ValidityState> {
           errorMessage: 'Erro ao adicionar anexo: $e',
         ),
       );
-      return null;
+
+      rethrow;
     }
   }
 
   Future<void> renameAttachment(int index, String newLabel) async {
+    _assertCanWrite();
+
     final contract = state.contract;
-    final v = state.selectedValidity;
-    if (contract == null || v == null || v.id == null) return;
+    final validity = state.selectedValidity;
+
+    if (contract == null || validity == null || validity.id == null) return;
+    if (contract.id == null || contract.id!.trim().isEmpty) return;
     if (index < 0 || index >= state.attachments.length) return;
 
-    emit(state.copyWith(isSaving: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        clearError: true,
+      ),
+    );
 
     try {
       final old = state.attachments[index];
+
       final updated = Attachment(
         id: old.id,
-        label: newLabel.isEmpty ? old.label : newLabel,
+        label: newLabel.trim().isEmpty ? old.label : newLabel.trim(),
         url: old.url,
         path: old.path,
         ext: old.ext,
@@ -456,24 +632,30 @@ class ValidityCubit extends Cubit<ValidityState> {
         createdAt: old.createdAt,
         createdBy: old.createdBy,
         updatedAt: DateTime.now(),
-        updatedBy: null, // se quiser, injeta uid aqui via repo
+        updatedBy: _currentPermissions?.uid,
       );
 
-      final list = List<Attachment>.from(state.attachments);
-      list[index] = updated;
+      final listAttachments = List<Attachment>.from(state.attachments);
+      listAttachments[index] = updated;
 
       await _repository.setAttachments(
         contractId: contract.id!,
-        validityId: v.id!,
-        attachments: list,
+        validityId: validity.id!,
+        attachments: listAttachments,
       );
 
+      final updatedValidity = validity.copyWith(
+        attachments: listAttachments,
+      );
+
+      final list = _replaceValidityInList(updatedValidity);
+
       emit(
-        state.copyWith(
-          isSaving: false,
-          attachments: list,
-          selectedValidity: v.copyWith(attachments: list),
-        ),
+        _stateWithListMetadata(
+          validities: list,
+          selected: updatedValidity,
+          attachments: listAttachments,
+        ).copyWith(isSaving: false),
       );
     } catch (e) {
       emit(
@@ -482,37 +664,55 @@ class ValidityCubit extends Cubit<ValidityState> {
           errorMessage: 'Erro ao renomear anexo: $e',
         ),
       );
+
+      rethrow;
     }
   }
 
   Future<void> deleteAttachmentAt(int index) async {
+    _assertCanWrite();
+
     final contract = state.contract;
-    final v = state.selectedValidity;
-    if (contract == null || v == null || v.id == null) return;
+    final validity = state.selectedValidity;
+
+    if (contract == null || validity == null || validity.id == null) return;
+    if (contract.id == null || contract.id!.trim().isEmpty) return;
     if (index < 0 || index >= state.attachments.length) return;
 
-    emit(state.copyWith(isSaving: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        clearError: true,
+      ),
+    );
 
     try {
-      final list = List<Attachment>.from(state.attachments);
-      final removed = list.removeAt(index);
+      final attachments = List<Attachment>.from(state.attachments);
+      final removed = attachments.removeAt(index);
 
-      if ((removed.path).isNotEmpty) {
+      if (removed.path.trim().isNotEmpty) {
         await _repository.deleteStorageByPath(removed.path);
       }
 
       await _repository.setAttachments(
         contractId: contract.id!,
-        validityId: v.id!,
-        attachments: list,
+        validityId: validity.id!,
+        attachments: attachments,
       );
 
+      final updatedValidity = validity.copyWith(
+        attachments: attachments,
+        clearAttachments: attachments.isEmpty,
+      );
+
+      final list = _replaceValidityInList(updatedValidity);
+
       emit(
-        state.copyWith(
-          isSaving: false,
-          attachments: list,
-          selectedValidity: v.copyWith(attachments: list),
-        ),
+        _stateWithListMetadata(
+          validities: list,
+          selected: updatedValidity,
+          attachments: attachments,
+        ).copyWith(isSaving: false),
       );
     } catch (e) {
       emit(
@@ -521,27 +721,22 @@ class ValidityCubit extends Cubit<ValidityState> {
           errorMessage: 'Erro ao remover anexo: $e',
         ),
       );
+
+      rethrow;
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Cálculos de prazo (aproveitando as funções puras do repositório)
-  // ---------------------------------------------------------------------------
-
   DateTime? get dataFinalContrato {
-    final c = state.contract;
-    if (c == null) return null;
     return _repository.calcularDataFinalContratoLocal(
-      contract: c,
+      publicacao: _publicacaoExtrato,
+      tr: _trData,
       additives: state.additives,
     );
   }
 
   DateTime? get dataFinalExecucao {
-    final c = state.contract;
-    if (c == null) return null;
     return _repository.calcularDataFinalExecucaoLocal(
-      contract: c,
+      tr: _trData,
       validities: state.validities,
       additives: state.additives,
     );

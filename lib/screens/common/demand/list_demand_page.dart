@@ -6,23 +6,31 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
+
 import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_state.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/contract_permission.dart';
+
+import 'package:sipged/_blocs/system/module/module_data.dart';
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
+
 import 'package:sipged/_widgets/buttons/expanded_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/map/search/search_widget.dart';
+
 import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
 import 'list_demand_status.dart';
@@ -59,6 +67,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
   final Map<String, List<ProcessData>> _cachedByStatus =
   <String, List<ProcessData>>{};
+
   final Set<String> _expandedKeys = <String>{};
   Set<String> _preSearchExpandedSnapshot = <String>{};
 
@@ -88,6 +97,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
   Future<void> _loadExpandedFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
       final saved = (prefs.getStringList(_prefsExpandedKey) ?? const <String>[])
           .map(_norm)
           .toSet();
@@ -115,9 +125,13 @@ class _ListDemandPageState extends State<ListDemandPage> {
     return id.toString();
   }
 
-  bool _isExpanded(String key) => _expandedKeys.contains(_norm(key));
+  bool _isExpanded(String key) {
+    return _expandedKeys.contains(_norm(key));
+  }
 
   Future<void> _setExpanded(String key, bool open) async {
+    if (!mounted) return;
+
     final normalizedKey = _norm(key);
 
     setState(() {
@@ -146,6 +160,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
   void _onSearchChanged(ProcessCubit cubit, String value) {
     _debounce?.cancel();
+
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       if (!mounted) return;
 
@@ -157,11 +172,17 @@ class _ListDemandPageState extends State<ListDemandPage> {
     });
   }
 
-  Future<void> _refresh(ProcessCubit cubit, UserData currentUser) async {
+  Future<void> _refresh({
+    required ProcessCubit cubit,
+    required UserData currentUser,
+  }) async {
+    if (!mounted) return;
+
     setState(() => _loading = true);
 
     try {
       await cubit.refresh(currentUser: currentUser);
+
       _dfdByContractId.clear();
       _editalByContractId.clear();
       _pubByContractId.clear();
@@ -177,15 +198,35 @@ class _ListDemandPageState extends State<ListDemandPage> {
   String _statusKeyFromDfd(DfdData? dfd) {
     final raw = dfd?.statusDemanda ?? '';
     final normalized = raw.trim().toUpperCase();
+
     return normalized.isEmpty ? 'EM PROJETO' : normalized;
   }
 
-  Future<void> _ensureDemandDataLoadedForContracts(Set<String> ids) async {
-    if (ids.isEmpty) return;
+  Future<void> _ensurePermissionLoaded({
+    required PermissionCubit permissionCubit,
+    required UserData currentUser,
+  }) async {
+    final permissionState = permissionCubit.state;
+    final uid = currentUser.uid?.trim();
 
-    final dfdCubit = context.read<DfdCubit>();
-    final editalCubit = context.read<EditalCubit>();
-    final publicacaoCubit = context.read<PublicacaoExtratoCubit>();
+    if (uid == null || uid.isEmpty) return;
+
+    final currentPermissions = permissionState.current;
+
+    if (currentPermissions != null && currentPermissions.uid == uid) {
+      return;
+    }
+
+    await permissionCubit.loadByUid(uid);
+  }
+
+  Future<void> _ensureDemandDataLoadedForContracts({
+    required DfdCubit dfdCubit,
+    required EditalCubit editalCubit,
+    required PublicacaoExtratoCubit publicacaoCubit,
+    required Set<String> ids,
+  }) async {
+    if (ids.isEmpty) return;
 
     final List<Future<void>> futures = <Future<void>>[];
 
@@ -250,16 +291,16 @@ class _ListDemandPageState extends State<ListDemandPage> {
           return aVal.compareTo(bVal);
 
         case 4:
-          final aVal =
-          (_editalByContractId[idA]?.vencedor ?? '').toUpperCase();
-          final bVal =
-          (_editalByContractId[idB]?.vencedor ?? '').toUpperCase();
+          final aVal = (_editalByContractId[idA]?.vencedor ?? '').toUpperCase();
+          final bVal = (_editalByContractId[idB]?.vencedor ?? '').toUpperCase();
           return aVal.compareTo(bVal);
 
         case 5:
-          final aVal = (_dfdByContractId[idA]?.processoAdministrativo ?? '')
+          final aVal =
+          (_dfdByContractId[idA]?.processoAdministrativo ?? '')
               .toUpperCase();
-          final bVal = (_dfdByContractId[idB]?.processoAdministrativo ?? '')
+          final bVal =
+          (_dfdByContractId[idB]?.processoAdministrativo ?? '')
               .toUpperCase();
           return aVal.compareTo(bVal);
 
@@ -269,27 +310,46 @@ class _ListDemandPageState extends State<ListDemandPage> {
     }
 
     for (final entry in _cachedByStatus.entries) {
-      entry.value.sort((a, b) => _isAscending ? compare(a, b) : compare(b, a));
+      entry.value.sort(
+            (a, b) => _isAscending ? compare(a, b) : compare(b, a),
+      );
     }
   }
 
   Future<void> _applyFilters(ProcessCubit cubit) async {
+    if (!mounted) return;
+
+    final userCubit = context.read<UserCubit>();
+    final permissionCubit = context.read<PermissionCubit>();
+    final dfdCubit = context.read<DfdCubit>();
+    final editalCubit = context.read<EditalCubit>();
+    final publicacaoCubit = context.read<PublicacaoExtratoCubit>();
+
     setState(() => _loading = true);
 
     try {
       final statusFiltro =
       _statusCtrl.text.isNotEmpty ? _statusCtrl.text.trim() : null;
+
       final search =
       _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim();
 
-      final currentUser = context.read<UserCubit>().state.current;
+      final currentUser = userCubit.state.current;
+
       if (currentUser == null) return;
+
+      await _ensurePermissionLoaded(
+        permissionCubit: permissionCubit,
+        currentUser: currentUser,
+      );
+
+      if (!mounted) return;
 
       final List<ProcessData> baseAll = cubit.state.allProcesses;
 
-      final List<ProcessData> base = ContractPermissions.filterVisible(
-        user: currentUser,
+      final List<ProcessData> base = permissionCubit.filterVisibleContracts(
         contracts: baseAll,
+        module: ModuleData.modContractsList,
       );
 
       final Set<String> ids = <String>{
@@ -297,7 +357,14 @@ class _ListDemandPageState extends State<ListDemandPage> {
           if (_idToString(contract.id) != null) _idToString(contract.id)!,
       };
 
-      await _ensureDemandDataLoadedForContracts(ids);
+      await _ensureDemandDataLoadedForContracts(
+        dfdCubit: dfdCubit,
+        editalCubit: editalCubit,
+        publicacaoCubit: publicacaoCubit,
+        ids: ids,
+      );
+
+      if (!mounted) return;
 
       Iterable<ProcessData> filtered = base;
 
@@ -306,10 +373,12 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
         filtered = filtered.where((contract) {
           final id = _idToString(contract.id);
+
           if (id == null) return false;
 
           final dfd = _dfdByContractId[id];
           final statusKey = _statusKeyFromDfd(dfd);
+
           return statusKey == alvo;
         });
       }
@@ -319,6 +388,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
         filtered = filtered.where((contract) {
           final id = _idToString(contract.id);
+
           if (id == null) return false;
 
           final dfd = _dfdByContractId[id];
@@ -366,6 +436,8 @@ class _ListDemandPageState extends State<ListDemandPage> {
             .map((entry) => entry.key)
             .toSet();
 
+        if (!mounted) return;
+
         setState(() {
           _expandedKeys
             ..clear()
@@ -375,15 +447,20 @@ class _ListDemandPageState extends State<ListDemandPage> {
         await _saveExpandedToPrefs();
       } else {
         if (_preSearchExpandedSnapshot.isNotEmpty) {
+          if (!mounted) return;
+
           setState(() {
             _expandedKeys
               ..clear()
               ..addAll(_preSearchExpandedSnapshot);
+
             _preSearchExpandedSnapshot = <String>{};
           });
 
           await _saveExpandedToPrefs();
         }
+
+        if (!mounted) return;
 
         setState(() {
           _expandedKeys.removeWhere(
@@ -402,13 +479,68 @@ class _ListDemandPageState extends State<ListDemandPage> {
     }
   }
 
+  Future<void> _runInitialLoad({
+    required ProcessCubit cubit,
+    required ProcessState processState,
+    required PermissionCubit permissionCubit,
+    required UserData currentUser,
+  }) async {
+    await _ensurePermissionLoaded(
+      permissionCubit: permissionCubit,
+      currentUser: currentUser,
+    );
+
+    if (!mounted) return;
+
+    if (processState.allProcesses.isEmpty && !processState.loading) {
+      await cubit.refresh(currentUser: currentUser);
+    }
+
+    if (!mounted) return;
+
+    await _applyFilters(cubit);
+  }
+
+  Future<void> _openCreateDemand({
+    required NavigatorState navigator,
+    required ProcessCubit cubit,
+    required UserData currentUser,
+  }) async {
+    final result = await navigator.push(
+      MaterialPageRoute(
+        builder: (_) => TabBarHingPage(
+          key: UniqueKey(),
+          contractData: ProcessData.empty(),
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (result == true) {
+      await _refresh(
+        cubit: cubit,
+        currentUser: currentUser,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ProcessCubit cubit = context.read<ProcessCubit>();
+
     final fb_auth.User? _ = fb_auth.FirebaseAuth.instance.currentUser;
 
-    final UserData? currentUser =
-    context.select<UserCubit, UserData?>((cubit) => cubit.state.current);
+    final UserData? currentUser = context.select<UserCubit, UserData?>(
+          (cubit) => cubit.state.current,
+    );
+
+    final permissionCubit = context.watch<PermissionCubit>();
+
+    final bool canCreateDemand = permissionCubit.canModule(
+      module: ModuleData.modContractsList,
+      action: 'create',
+    );
 
     if (currentUser == null) {
       return const Scaffold(
@@ -425,15 +557,22 @@ class _ListDemandPageState extends State<ListDemandPage> {
         if (!_didScheduleInitialLoad && !_loading && _cachedByStatus.isEmpty) {
           _didScheduleInitialLoad = true;
 
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
+          final capturedPermissionCubit = permissionCubit;
+          final capturedProcessCubit = cubit;
+          final capturedCurrentUser = currentUser;
+          final capturedProcessState = processState;
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
 
-            if (processState.allProcesses.isEmpty && !processState.loading) {
-              await cubit.refresh(currentUser: currentUser);
-            }
-
-            if (!mounted) return;
-            await _applyFilters(cubit);
+            unawaited(
+              _runInitialLoad(
+                cubit: capturedProcessCubit,
+                processState: capturedProcessState,
+                permissionCubit: capturedPermissionCubit,
+                currentUser: capturedCurrentUser,
+              ),
+            );
           });
         }
 
@@ -468,39 +607,66 @@ class _ListDemandPageState extends State<ListDemandPage> {
                           : LayoutBuilder(
                         builder: (context, constraints) {
                           return ListView(
-                            children: GeneralDashboardStyle.statusMenu
-                                .map((status) {
-                              final label = status.$1;
-                              final rawKey = status.$2;
-                              final normalizedKey = _norm(rawKey);
-                              final items =
-                                  _cachedByStatus[normalizedKey] ??
-                                      const <ProcessData>[];
+                            children:
+                            GeneralDashboardStyle.statusMenu.map(
+                                  (status) {
+                                final label = status.$1;
+                                final rawKey = status.$2;
+                                final normalizedKey = _norm(rawKey);
 
-                              return ListDemandStatus(
-                                title: label,
-                                statusKey: normalizedKey,
-                                items: items,
-                                constraints: constraints,
-                                sortColumnIndex: _sortColumnIndex,
-                                isAscending: _isAscending,
-                                onSort: (index, _) => _handleSort(index),
-                                onDelete: (item) async {
-                                  if ((item.id ?? '').isNotEmpty) {
-                                    await cubit.delete(item.id!);
-                                    await _refresh(cubit, currentUser);
-                                  }
-                                },
-                                onTapItem: widget.onTapItem,
-                                initiallyExpanded:
-                                _isExpanded(normalizedKey),
-                                onExpansionChanged: (open) =>
-                                    _setExpanded(normalizedKey, open),
-                                dfdByContractId: _dfdByContractId,
-                                editalByContractId: _editalByContractId,
-                                pubByContractId: _pubByContractId,
-                              );
-                            }).toList(),
+                                final items =
+                                    _cachedByStatus[normalizedKey] ??
+                                        const <ProcessData>[];
+
+                                return ListDemandStatus(
+                                  title: label,
+                                  statusKey: normalizedKey,
+                                  items: items,
+                                  constraints: constraints,
+                                  sortColumnIndex: _sortColumnIndex,
+                                  isAscending: _isAscending,
+                                  onSort: (index, _) =>
+                                      _handleSort(index),
+                                  onDelete: (item) async {
+                                    final id = item.id;
+
+                                    if (id == null || id.isEmpty) {
+                                      return;
+                                    }
+
+                                    final canDelete =
+                                    permissionCubit.canContract(
+                                      contract: item,
+                                      action: 'delete',
+                                      module: ModuleData.modContractsList,
+                                    );
+
+                                    if (!canDelete) return;
+
+                                    await cubit.delete(id);
+
+                                    if (!mounted) return;
+
+                                    await _refresh(
+                                      cubit: cubit,
+                                      currentUser: currentUser,
+                                    );
+                                  },
+                                  onTapItem: widget.onTapItem,
+                                  initiallyExpanded:
+                                  _isExpanded(normalizedKey),
+                                  onExpansionChanged: (open) =>
+                                      _setExpanded(
+                                        normalizedKey,
+                                        open,
+                                      ),
+                                  dfdByContractId: _dfdByContractId,
+                                  editalByContractId:
+                                  _editalByContractId,
+                                  pubByContractId: _pubByContractId,
+                                );
+                              },
+                            ).toList(),
                           );
                         },
                       ),
@@ -510,24 +676,21 @@ class _ListDemandPageState extends State<ListDemandPage> {
               ),
             ],
           ),
-          floatingActionButton: ContractPermissions.isSuperUser(currentUser)
+          floatingActionButton: canCreateDemand
               ? ExpandedButtonChange(
             icon: Icons.add,
             label: 'Nova demanda',
             color: Colors.blue,
-            onPressed: () async {
-              final result = await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => TabBarHingPage(
-                    key: UniqueKey(),
-                    contractData: ProcessData.empty(),
-                  ),
+            onPressed: () {
+              final navigator = Navigator.of(context);
+
+              unawaited(
+                _openCreateDemand(
+                  navigator: navigator,
+                  cubit: cubit,
+                  currentUser: currentUser,
                 ),
               );
-
-              if (result == true) {
-                await _refresh(cubit, currentUser);
-              }
             },
           )
               : null,

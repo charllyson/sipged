@@ -1,65 +1,79 @@
 // lib/_blocs/modules/contracts/hiring/5Edital/edital_repository.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
+import 'edital_data.dart';
 import 'edital_sections.dart';
-import 'edital_data.dart'; // 👈 modelo tipado do Edital
 
 class EditalRepository {
-  final FirebaseFirestore _db;
   EditalRepository({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> _col(String contractId) =>
-      _db.collection('contracts').doc(contractId).collection('edital');
+  final FirebaseFirestore _db;
 
-  /// ===========================================================================
-  /// ESTRUTURA FIXA OTIMIZADA
-  ///
-  /// Agora assumimos que:
-  ///   - o doc raiz SEMPRE é "main"
-  ///   - cada seção tem SEMPRE um doc "main" na subcoleção
-  ///
-  /// Portanto:
-  ///   - NÃO fazemos acesso ao Firestore aqui
-  ///   - NÃO migramos nada
-  /// ===========================================================================
+  CollectionReference<Map<String, dynamic>> _col(String contractId) {
+    return _db.collection('contracts').doc(contractId).collection('edital');
+  }
+
   Future<({String editalId, SectionIds sectionIds})> ensureEditalStructure(
       String contractId,
       ) async {
-    final SectionIds sectionIds = {
-      for (final sec in EditalSections.all) sec: 'main',
+    final id = contractId.trim();
+
+    if (id.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    final sectionIds = <String, String>{
+      for (final section in EditalSections.all) section: 'main',
     };
+
     return (editalId: 'main', sectionIds: sectionIds);
   }
 
-  /// Carrega todas as seções em um mapa {secao: Map}
-  ///   - leituras em paralelo
-  ///   - remove createdAt/updatedAt
   Future<SectionsMap> loadAllSections({
     required String contractId,
     required String editalId,
     required SectionIds sectionIds,
   }) async {
-    final SectionsMap out = {};
-    final root = _col(contractId).doc(editalId);
+    final cleanContractId = contractId.trim();
+    final cleanEditalId = editalId.trim();
 
-    final futures = sectionIds.entries.map((entry) async {
-      final secName = entry.key;
-      final secId = entry.value;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
 
-      final snap = await root.collection(secName).doc(secId).get();
-      final data =
-      Map<String, dynamic>.from(snap.data() ?? <String, dynamic>{});
+    if (cleanEditalId.isEmpty) {
+      throw Exception('editalId não informado.');
+    }
 
-      data.remove('createdAt');
-      data.remove('updatedAt');
+    final root = _col(cleanContractId).doc(cleanEditalId);
 
-      out[secName] = data;
-    }).toList();
+    final entries = await Future.wait(
+      sectionIds.entries.map((entry) async {
+        final sectionName = entry.key;
+        final sectionDocId = entry.value;
 
-    await Future.wait(futures);
-    return out;
+        final snap = await root.collection(sectionName).doc(sectionDocId).get();
+
+        final data = Map<String, dynamic>.from(
+          snap.data() ?? const <String, dynamic>{},
+        );
+
+        data.remove('createdAt');
+        data.remove('updatedAt');
+        data.remove('createdBy');
+        data.remove('updatedBy');
+
+        return MapEntry<String, Map<String, dynamic>>(sectionName, data);
+      }),
+    );
+
+    return <String, Map<String, dynamic>>{
+      for (final entry in entries) entry.key: entry.value,
+    };
   }
 
   Future<void> saveSection({
@@ -69,10 +83,34 @@ class EditalRepository {
     required String sectionDocId,
     required Map<String, dynamic> data,
   }) async {
-    final ref =
-    _col(contractId).doc(editalId).collection(sectionKey).doc(sectionDocId);
+    final cleanContractId = contractId.trim();
+    final cleanEditalId = editalId.trim();
+    final cleanSectionKey = sectionKey.trim();
+    final cleanSectionDocId = sectionDocId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanEditalId.isEmpty) {
+      throw Exception('editalId não informado.');
+    }
+
+    if (cleanSectionKey.isEmpty) {
+      throw Exception('sectionKey não informado.');
+    }
+
+    if (cleanSectionDocId.isEmpty) {
+      throw Exception('sectionDocId não informado.');
+    }
+
+    final ref = _col(cleanContractId)
+        .doc(cleanEditalId)
+        .collection(cleanSectionKey)
+        .doc(cleanSectionDocId);
+
     await ref.set(
-      {
+      <String, dynamic>{
         ...data,
         'updatedAt': FieldValue.serverTimestamp(),
       },
@@ -86,39 +124,57 @@ class EditalRepository {
     required SectionIds sectionIds,
     required SectionsMap sectionsData,
   }) async {
-    final batch = _db.batch();
-    final root = _col(contractId).doc(editalId);
+    final cleanContractId = contractId.trim();
+    final cleanEditalId = editalId.trim();
 
-    sectionsData.forEach((key, data) {
-      final id = sectionIds[key];
-      if (id == null) return;
-      final ref = root.collection(key).doc(id);
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanEditalId.isEmpty) {
+      throw Exception('editalId não informado.');
+    }
+
+    if (sectionsData.isEmpty) return;
+
+    final batch = _db.batch();
+    final root = _col(cleanContractId).doc(cleanEditalId);
+
+    for (final entry in sectionsData.entries) {
+      final sectionKey = entry.key;
+      final sectionData = entry.value;
+      final sectionDocId = sectionIds[sectionKey];
+
+      if (sectionDocId == null || sectionDocId.trim().isEmpty) continue;
+
       batch.set(
-        ref,
-        {
-          ...data,
+        root.collection(sectionKey).doc(sectionDocId),
+        <String, dynamic>{
+          ...sectionData,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
-    });
+    }
 
     await batch.commit();
   }
 
-  // ===========================================================================
-  // Leitura direta de um EditalData completo para o contrato
-  // ===========================================================================
   Future<EditalData?> readDataForContract(String contractId) async {
-    final ids = await ensureEditalStructure(contractId);
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return null;
+
+    final ids = await ensureEditalStructure(cleanContractId);
 
     final sections = await loadAllSections(
-      contractId: contractId,
+      contractId: cleanContractId,
       editalId: ids.editalId,
       sectionIds: ids.sectionIds,
     );
 
-    final hasAnyData = sections.values.any((m) => m.isNotEmpty);
+    final hasAnyData = sections.values.any((map) => map.isNotEmpty);
+
     if (!hasAnyData) return null;
 
     return EditalData.fromSectionsMap(sections);

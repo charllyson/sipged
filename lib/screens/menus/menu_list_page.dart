@@ -13,17 +13,21 @@ import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
-import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
-import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/vertical/civil_schedule_bloc.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/vertical/civil_schedule_event.dart';
 
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
 
 import 'package:sipged/_blocs/system/module/module_data.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_data.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -54,10 +58,10 @@ import 'package:sipged/screens/modules/financial/budget/budget_network_page.dart
 import 'package:sipged/screens/modules/financial/dashboard/financial_dashboard_network_page.dart';
 import 'package:sipged/screens/modules/financial/empenhos/empenho_network_page.dart';
 
-import 'package:sipged/screens/modules/operation/schedule/financial/hiring_schedule_page.dart';
-import 'package:sipged/screens/modules/operation/schedule/physical/horizontal/schedule_road_workspace_page.dart';
-import 'package:sipged/screens/modules/operation/schedule/physical/vertical/schedule_civil_controller.dart';
-import 'package:sipged/screens/modules/operation/schedule/physical/vertical/schedule_civil_workspace_page.dart';
+import 'package:sipged/screens/modules/operation/phys_fin/hiring_schedule_page.dart';
+import 'package:sipged/screens/modules/operation/schedule/horizontal/schedule_road_workspace_page.dart';
+import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_controller.dart';
+import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_workspace_page.dart';
 
 import 'package:sipged/screens/modules/planning/geo/geo_network_page.dart';
 import 'package:sipged/screens/modules/planning/land/land_page.dart';
@@ -82,6 +86,8 @@ class _MenuListPageState extends State<MenuListPage> {
 
   bool _didWarmupUserCubit = false;
   bool _didWarmupProcessCubit = false;
+
+  String? _lastPermissionUid;
 
   void _showNotification({
     required String title,
@@ -347,7 +353,12 @@ class _MenuListPageState extends State<MenuListPage> {
     );
   }
 
-  Widget _getPage(ModuleItem item, UserData currentUser) {
+  Widget _getPage({
+    required ModuleItem item,
+    required UserData currentUser,
+    required UserPermissionData? permissions,
+    required String? tenantId,
+  }) {
     switch (item) {
       case ModuleItem.overviewDashboard:
         return const GeneralDashboardPage();
@@ -382,6 +393,8 @@ class _MenuListPageState extends State<MenuListPage> {
 
               await storesCtx.read<ProcessCubit>().refresh(
                 currentUser: currentUser,
+                currentPermissions: permissions,
+                tenantId: tenantId,
               );
             });
           },
@@ -561,7 +574,6 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleItem.activeOAEsRegistration:
         return const ActiveOaesRecordsPage();
-
     }
   }
 
@@ -582,8 +594,31 @@ class _MenuListPageState extends State<MenuListPage> {
     });
   }
 
-  void _warmupProcessCubitOnce(UserData currentUser) {
+  void _watchPermissionsForUser(UserData currentUser) {
+    final uid = (currentUser.uid ?? '').trim();
+
+    if (uid.isEmpty) return;
+    if (_lastPermissionUid == uid) return;
+
+    _lastPermissionUid = uid;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      context.read<PermissionCubit>().watchByUid(uid);
+    });
+  }
+
+  void _warmupProcessCubitOnce({
+    required UserData currentUser,
+    required UserPermissionData? permissions,
+    required String? tenantId,
+  }) {
     if (_didWarmupProcessCubit) return;
+
+    if (permissions == null || permissions.uid.trim().isEmpty) {
+      return;
+    }
 
     _didWarmupProcessCubit = true;
 
@@ -592,7 +627,11 @@ class _MenuListPageState extends State<MenuListPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      processCubit.warmup(currentUser);
+      processCubit.warmup(
+        currentUser: currentUser,
+        currentPermissions: permissions,
+        tenantId: tenantId,
+      );
     });
   }
 
@@ -617,25 +656,75 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }
 
-        _warmupProcessCubitOnce(currentUser);
+        _watchPermissionsForUser(currentUser);
 
-        return Scaffold(
-          backgroundColor: Colors.white,
-          drawer: PointerInterceptor(
-            child: DrawerMenu(
-              onTap: _onSelectPage,
-              onTapHome: _goHome,
-            ),
-          ),
-          body: Stack(
-            children: [
-              if (_selectedItem == null)
-                HomePage(onSelect: _onSelectPage)
-              else
-                _getPage(_selectedItem!, currentUser),
-              const DrawerButtonChange(),
-            ],
-          ),
+        return BlocBuilder<PermissionCubit, PermissionState>(
+          buildWhen: (prev, curr) {
+            return prev.current != curr.current ||
+                prev.isLoading != curr.isLoading ||
+                prev.activeTenantId != curr.activeTenantId ||
+                prev.error != curr.error;
+          },
+          builder: (context, permissionState) {
+            final permissions = permissionState.current;
+            final tenantId = permissionState.activeTenantId;
+
+            if (permissionState.isLoading && permissions == null) {
+              return const Scaffold(
+                backgroundColor: Colors.white,
+                body: LoadingTreeDots(
+                  message: Text('Carregando permissões...'),
+                ),
+              );
+            }
+
+            if (permissionState.error != null &&
+                permissionState.error!.trim().isNotEmpty &&
+                permissions == null) {
+              return Scaffold(
+                backgroundColor: Colors.white,
+                body: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'Erro ao carregar permissões:\n${permissionState.error}',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            _warmupProcessCubitOnce(
+              currentUser: currentUser,
+              permissions: permissions,
+              tenantId: tenantId,
+            );
+
+            return Scaffold(
+              backgroundColor: Colors.white,
+              drawer: PointerInterceptor(
+                child: DrawerMenu(
+                  onTap: _onSelectPage,
+                  onTapHome: _goHome,
+                ),
+              ),
+              body: Stack(
+                children: [
+                  if (_selectedItem == null)
+                    HomePage(onSelect: _onSelectPage)
+                  else
+                    _getPage(
+                      item: _selectedItem!,
+                      currentUser: currentUser,
+                      permissions: permissions,
+                      tenantId: tenantId,
+                    ),
+                  const DrawerButtonChange(),
+                ],
+              ),
+            );
+          },
         );
       },
     );

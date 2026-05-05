@@ -1,85 +1,176 @@
 // lib/_blocs/modules/contracts/hiring/7Dotacao/dotacao_storage_bloc.dart
-import 'dart:io' show File;
+
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
-/// contracts/{contractId}/dotacao/{dotacaoId}/documentos/{docsId}/files/{file}
 class DotacaoStorageBloc {
-  final FirebaseStorage storage = FirebaseStorage.instance;
+  DotacaoStorageBloc({FirebaseStorage? firebaseStorage})
+      : storage = firebaseStorage ?? FirebaseStorage.instance;
+
+  final FirebaseStorage storage;
 
   String _filesPath({
     required String contractId,
     required String dotacaoId,
     required String documentosId,
-  }) =>
-      'contracts/$contractId/dotacao/$dotacaoId/documentos/$documentosId/files';
+  }) {
+    return 'contracts/$contractId/dotacao/$dotacaoId/documentos/$documentosId/files';
+  }
+
+  String _extractExt(String nameOrUrl) {
+    final clean = nameOrUrl.trim();
+    final queryFree = clean.split('?').first.split('#').first;
+    final index = queryFree.lastIndexOf('.');
+
+    if (index <= 0 || index == queryFree.length - 1) return '';
+
+    return queryFree.substring(index + 1).toLowerCase();
+  }
+
+  String _contentTypeForExt(String ext) {
+    switch (ext.toLowerCase()) {
+      case 'pdf':
+        return 'application/pdf';
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'webp':
+        return 'image/webp';
+      default:
+        return 'application/octet-stream';
+    }
+  }
 
   Future<List<Attachment>> list({
     required String contractId,
     required String dotacaoId,
     required String documentosId,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanDotacaoId = dotacaoId.trim();
+    final cleanDocumentosId = documentosId.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanDotacaoId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      return const <Attachment>[];
+    }
+
     final ref = storage.ref(
-      _filesPath(contractId: contractId, dotacaoId: dotacaoId, documentosId: documentosId),
+      _filesPath(
+        contractId: cleanContractId,
+        dotacaoId: cleanDotacaoId,
+        documentosId: cleanDocumentosId,
+      ),
     );
+
     final res = await ref.listAll();
 
-    final out = <Attachment>[];
-    for (final item in res.items) {
-      final url = await item.getDownloadURL();
-      out.add(Attachment(label: item.name, url: url));
-    }
-    return out;
+    final attachments = await Future.wait(
+      res.items.map((item) async {
+        final url = await item.getDownloadURL();
+
+        return Attachment(
+          label: item.name,
+          url: url,
+        );
+      }),
+    );
+
+    attachments.sort((a, b) => a.label.compareTo(b.label));
+
+    return attachments;
   }
 
-  /// Abre o seletor de arquivos e faz upload com callback de progresso (0..1).
-  /// Suporta Web (bytes) e Mobile/Desktop (File).
   Future<Attachment> upload({
     required String contractId,
     required String dotacaoId,
     required String documentosId,
     required void Function(double progress) onProgress,
-    List<String> allowedExtensions = const ['pdf', 'png', 'jpg', 'jpeg'],
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanDotacaoId = dotacaoId.trim();
+    final cleanDocumentosId = documentosId.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanDotacaoId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      throw Exception('Caminho inválido para upload da dotação.');
+    }
+
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
-      withData: kIsWeb, // no Web precisamos dos bytes
+      withData: true,
     );
+
     if (picked == null || picked.files.isEmpty) {
-      throw Exception('Nenhum arquivo selecionado');
+      throw Exception('Nenhum arquivo selecionado.');
     }
 
-    final fileName = picked.files.single.name;
+    final file = picked.files.single;
+    final Uint8List? bytes = file.bytes;
+
+    if (bytes == null || bytes.isEmpty) {
+      throw Exception('Falha ao ler os bytes do arquivo.');
+    }
+
+    final fileName = file.name.trim();
+
+    if (fileName.isEmpty) {
+      throw Exception('Nome do arquivo inválido.');
+    }
+
+    final ext = _extractExt(fileName);
+
     final ref = storage.ref(
-      '${_filesPath(contractId: contractId, dotacaoId: dotacaoId, documentosId: documentosId)}/$fileName',
+      '${_filesPath(
+        contractId: cleanContractId,
+        dotacaoId: cleanDotacaoId,
+        documentosId: cleanDocumentosId,
+      )}/$fileName',
     );
 
-    UploadTask task;
-    if (kIsWeb) {
-      final Uint8List? bytes = picked.files.single.bytes;
-      if (bytes == null) throw Exception('Falha ao ler arquivo (bytes nulos).');
-      task = ref.putData(bytes);
-    } else {
-      final String? path = picked.files.single.path;
-      if (path == null) throw Exception('Arquivo inválido (sem caminho).');
-      task = ref.putFile(File(path));
-    }
+    final task = ref.putData(
+      bytes,
+      SettableMetadata(
+        contentType: _contentTypeForExt(ext),
+        customMetadata: <String, String>{
+          'originalName': fileName,
+          'contractId': cleanContractId,
+          'dotacaoId': cleanDotacaoId,
+          'documentosId': cleanDocumentosId,
+        },
+      ),
+    );
 
-    task.snapshotEvents.listen((e) {
-      final total = e.totalBytes == 0 ? 1 : e.totalBytes;
-      onProgress(e.bytesTransferred / total);
+    task.snapshotEvents.listen((event) {
+      final total = event.totalBytes == 0 ? 1 : event.totalBytes;
+      onProgress(event.bytesTransferred / total);
     });
 
     final snap = await task;
     final url = await snap.ref.getDownloadURL();
-    return Attachment(label: fileName, url: url);
+
+    return Attachment(
+      label: fileName,
+      url: url,
+    );
   }
 
-  /// Versão direta por bytes (útil se você já tem um blob/Uint8List em memória).
   Future<Attachment> uploadBytes({
     required String contractId,
     required String dotacaoId,
@@ -89,17 +180,58 @@ class DotacaoStorageBloc {
     required void Function(double progress) onProgress,
     SettableMetadata? metadata,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanDotacaoId = dotacaoId.trim();
+    final cleanDocumentosId = documentosId.trim();
+    final cleanFileName = fileName.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanDotacaoId.isEmpty ||
+        cleanDocumentosId.isEmpty ||
+        cleanFileName.isEmpty) {
+      throw Exception('Caminho inválido para upload da dotação.');
+    }
+
+    if (bytes.isEmpty) {
+      throw Exception('Bytes do arquivo vazios.');
+    }
+
+    final ext = _extractExt(cleanFileName);
+
     final ref = storage.ref(
-      '${_filesPath(contractId: contractId, dotacaoId: dotacaoId, documentosId: documentosId)}/$fileName',
+      '${_filesPath(
+        contractId: cleanContractId,
+        dotacaoId: cleanDotacaoId,
+        documentosId: cleanDocumentosId,
+      )}/$cleanFileName',
     );
-    final task = ref.putData(bytes, metadata);
-    task.snapshotEvents.listen((e) {
-      final total = e.totalBytes == 0 ? 1 : e.totalBytes;
-      onProgress(e.bytesTransferred / total);
+
+    final task = ref.putData(
+      bytes,
+      metadata ??
+          SettableMetadata(
+            contentType: _contentTypeForExt(ext),
+            customMetadata: <String, String>{
+              'originalName': cleanFileName,
+              'contractId': cleanContractId,
+              'dotacaoId': cleanDotacaoId,
+              'documentosId': cleanDocumentosId,
+            },
+          ),
+    );
+
+    task.snapshotEvents.listen((event) {
+      final total = event.totalBytes == 0 ? 1 : event.totalBytes;
+      onProgress(event.bytesTransferred / total);
     });
+
     final snap = await task;
     final url = await snap.ref.getDownloadURL();
-    return Attachment(label: fileName, url: url);
+
+    return Attachment(
+      label: cleanFileName,
+      url: url,
+    );
   }
 
   Future<bool> delete({
@@ -108,11 +240,42 @@ class DotacaoStorageBloc {
     required String documentosId,
     required String fileName,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanDotacaoId = dotacaoId.trim();
+    final cleanDocumentosId = documentosId.trim();
+    final cleanFileName = fileName.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanDotacaoId.isEmpty ||
+        cleanDocumentosId.isEmpty ||
+        cleanFileName.isEmpty) {
+      return false;
+    }
+
     try {
       final ref = storage.ref(
-        '${_filesPath(contractId: contractId, dotacaoId: dotacaoId, documentosId: documentosId)}/$fileName',
+        '${_filesPath(
+          contractId: cleanContractId,
+          dotacaoId: cleanDotacaoId,
+          documentosId: cleanDocumentosId,
+        )}/$cleanFileName',
       );
+
       await ref.delete();
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> deleteByPath(String path) async {
+    final cleanPath = path.trim();
+
+    if (cleanPath.isEmpty) return false;
+
+    try {
+      await storage.ref(cleanPath).delete();
       return true;
     } catch (_) {
       return false;

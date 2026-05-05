@@ -2,7 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'process_data.dart';
-import 'package:sipged/_blocs/system/module/module_permission.dart' as perms;
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 
 class ProcessRepository {
   final FirebaseFirestore _db;
@@ -14,16 +15,19 @@ class ProcessRepository {
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance;
 
-  CollectionReference<Map<String, dynamic>> get _contracts =>
-      _db.collection('contracts');
-
-  Map<String, bool> _norm(Map<String, bool>? map) =>
-      perms.normalizePermMap(map);
+  CollectionReference<Map<String, dynamic>> get _contracts {
+    return _db.collection('contracts');
+  }
 
   String get _currentUid => _auth.currentUser?.uid ?? '';
 
+  Map<String, bool> _norm(dynamic raw) {
+    return SystemPermission.normalizeDocPerms(raw);
+  }
+
   Future<List<ProcessData>> getAllContracts() async {
     final snapshot = await _contracts.get();
+
     return snapshot.docs
         .map((doc) => ProcessData.fromDocument(snapshot: doc))
         .toList();
@@ -34,7 +38,9 @@ class ProcessRepository {
 
     try {
       final doc = await _contracts.doc(id).get();
+
       if (!doc.exists) return null;
+
       return ProcessData.fromDocument(snapshot: doc);
     } catch (_) {
       return null;
@@ -47,6 +53,7 @@ class ProcessRepository {
     if (uidContract.trim().isEmpty) return null;
 
     final doc = await _contracts.doc(uidContract).get();
+
     if (!doc.exists) return null;
 
     return ProcessData.fromDocument(snapshot: doc);
@@ -58,8 +65,18 @@ class ProcessRepository {
     required String permissionType,
     required bool value,
   }) async {
-    await _contracts.doc(contractId).update({
-      'permissionContractId.$userId.$permissionType': value,
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
+    final cleanPermissionType = permissionType.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanUserId.isEmpty ||
+        cleanPermissionType.isEmpty) {
+      return;
+    }
+
+    await _contracts.doc(cleanContractId).update({
+      'permissionContractId.$cleanUserId.$cleanPermissionType': value,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUid,
     });
@@ -70,10 +87,15 @@ class ProcessRepository {
     required String userId,
     required Map<String, bool> permsMap,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
+
+    if (cleanContractId.isEmpty || cleanUserId.isEmpty) return;
+
     final normalized = _norm(permsMap);
 
-    await _contracts.doc(contractId).update({
-      'permissionContractId.$userId': normalized,
+    await _contracts.doc(cleanContractId).update({
+      'permissionContractId.$cleanUserId': normalized,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUid,
     });
@@ -84,20 +106,31 @@ class ProcessRepository {
     required String userId,
     required String role,
   }) async {
-    await _contracts.doc(contractId).update({
-      'participantsInfo.$userId.role': role,
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
+
+    if (cleanContractId.isEmpty || cleanUserId.isEmpty) return;
+
+    await _contracts.doc(cleanContractId).update({
+      'participantsInfo.$cleanUserId.role': role.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUid,
     });
   }
 
   Future<void> saveContractPermissions(ProcessData contractData) async {
-    final contractId = contractData.id;
+    final contractId = contractData.id?.trim();
+
     if (contractId == null || contractId.isEmpty) return;
 
     final normalizedMap = contractData.permissionContractId.map(
-          (k, v) => MapEntry(k, _norm(v)),
-    );
+          (uid, rawPerms) {
+        return MapEntry(
+          uid.trim(),
+          _norm(rawPerms),
+        );
+      },
+    )..removeWhere((uid, _) => uid.isEmpty);
 
     await _contracts.doc(contractId).update({
       'permissionContractId': normalizedMap,
@@ -112,11 +145,18 @@ class ProcessRepository {
     Map<String, bool>? permMap,
     Map<String, dynamic> meta = const {},
   }) async {
-    final initPerms = _norm(permMap ?? perms.initialDocPerms());
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
 
-    await _contracts.doc(contractId).update({
-      'permissionContractId.$userId': initPerms,
-      if (meta.isNotEmpty) 'participantsInfo.$userId': meta,
+    if (cleanContractId.isEmpty || cleanUserId.isEmpty) return;
+
+    final initPerms = _norm(
+      permMap ?? SystemPermission.initialDocPerms(),
+    );
+
+    await _contracts.doc(cleanContractId).update({
+      'permissionContractId.$cleanUserId': initPerms,
+      if (meta.isNotEmpty) 'participantsInfo.$cleanUserId': meta,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUid,
     });
@@ -126,9 +166,14 @@ class ProcessRepository {
     required String contractId,
     required String userId,
   }) async {
-    await _contracts.doc(contractId).update({
-      'permissionContractId.$userId': FieldValue.delete(),
-      'participantsInfo.$userId': FieldValue.delete(),
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
+
+    if (cleanContractId.isEmpty || cleanUserId.isEmpty) return;
+
+    await _contracts.doc(cleanContractId).update({
+      'permissionContractId.$cleanUserId': FieldValue.delete(),
+      'participantsInfo.$cleanUserId': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUid,
     });
@@ -139,14 +184,23 @@ class ProcessRepository {
     required String userId,
     required Map<String, dynamic> meta,
   }) async {
-    await _contracts.doc(contractId).update({
-      'participantsInfo.$userId': meta,
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
+
+    if (cleanContractId.isEmpty || cleanUserId.isEmpty) return;
+
+    await _contracts.doc(cleanContractId).update({
+      'participantsInfo.$cleanUserId': meta,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUid,
     });
   }
 
   Future<void> delete(String id) async {
-    await _contracts.doc(id).delete();
+    final cleanId = id.trim();
+
+    if (cleanId.isEmpty) return;
+
+    await _contracts.doc(cleanId).delete();
   }
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/login/login_area_config.dart';
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
@@ -23,6 +22,15 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
+  static const Gradient _defaultGradient = LinearGradient(
+    colors: [
+      Color.fromARGB(255, 27, 32, 51),
+      Color.fromARGB(255, 144, 202, 249),
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
   late final TextEditingController _emailCtrl;
   late final FocusNode _emailFocus;
 
@@ -30,18 +38,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   bool _loading = false;
   bool _didPreload = false;
 
-  late final Gradient _bgGradient;
-
   @override
   void initState() {
     super.initState();
 
     _emailCtrl = TextEditingController();
     _emailFocus = FocusNode();
-
-    _bgGradient = AppAreaConfig.gradientForArea(
-      AppAreaConfig.defaultAreaLabel,
-    );
 
     _emailCtrl.addListener(_handleEmailChanged);
 
@@ -134,7 +136,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     setState(() => _loading = true);
 
     try {
-      await context.read<LoginCubit>().recoverPass(email);
+      final loginCubit = context.read<LoginCubit>();
+
+      await loginCubit.recoverPass(email);
 
       if (!mounted) return;
 
@@ -177,8 +181,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
       ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: _bgGradient,
+        decoration: const BoxDecoration(
+          gradient: _defaultGradient,
         ),
         child: Stack(
           children: [

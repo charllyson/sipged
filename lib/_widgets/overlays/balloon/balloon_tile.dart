@@ -1,136 +1,258 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 class BalloonTileData {
   const BalloonTileData({
     required this.id,
-    this.title,
+    required this.title,
     this.subtitle,
     this.details,
-    this.icon = Icons.info_outline_rounded,
-    this.accentColor = const Color(0xFF1565C0),
+    this.info,
+    this.icon,
+    this.leading,
+    this.accentColor,
     this.highlighted = false,
     this.onTap,
   });
 
+  factory BalloonTileData.text({
+    required String id,
+    required String title,
+    String? subtitle,
+    String? details,
+    String? info,
+    IconData? icon,
+    Widget? leading,
+    Color? accentColor,
+    bool highlighted = false,
+    VoidCallback? onTap,
+  }) {
+    return BalloonTileData(
+      id: id,
+      title: Text(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: subtitle == null || subtitle.trim().isEmpty
+          ? null
+          : Text(
+        subtitle.trim(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      details: details == null || details.trim().isEmpty
+          ? null
+          : Text(
+        details.trim(),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      info: info == null || info.trim().isEmpty
+          ? null
+          : Text(
+        info.trim(),
+        maxLines: 2,
+        textAlign: TextAlign.center,
+        overflow: TextOverflow.ellipsis,
+      ),
+      icon: icon,
+      leading: leading,
+      accentColor: accentColor,
+      highlighted: highlighted,
+      onTap: onTap,
+    );
+  }
+
+  factory BalloonTileData.simple({
+    required String id,
+    required String title,
+    String? subtitle,
+    String? details,
+    String? info,
+    IconData? icon,
+    Widget? leading,
+    Color? accentColor,
+    bool highlighted = false,
+    VoidCallback? onTap,
+  }) {
+    return BalloonTileData.text(
+      id: id,
+      title: title,
+      subtitle: subtitle,
+      details: details,
+      info: info,
+      icon: icon,
+      leading: leading,
+      accentColor: accentColor,
+      highlighted: highlighted,
+      onTap: onTap,
+    );
+  }
+
   final String id;
+  final Widget title;
+  final Widget? subtitle;
+  final Widget? details;
 
-  /// Opcional.
-  /// Se null ou vazio, o título não será exibido.
-  final String? title;
+  /// Pequena informação abaixo da foto/leading.
+  /// Exemplo: Hoje 09:31.
+  final Widget? info;
 
-  final String? subtitle;
-  final String? details;
-
-  final IconData icon;
-  final Color accentColor;
-
+  final IconData? icon;
+  final Widget? leading;
+  final Color? accentColor;
   final bool highlighted;
-
-  final FutureOr<void> Function()? onTap;
+  final VoidCallback? onTap;
 }
 
 class BalloonTile extends StatelessWidget {
   const BalloonTile({
     super.key,
     required this.data,
-    this.highlightColor = const Color(0xFFEAF3FF),
-    this.backgroundColor = Colors.white,
   });
 
   final BalloonTileData data;
 
-  final Color highlightColor;
-  final Color backgroundColor;
+  static const TextStyle _defaultTitleStyle = TextStyle(
+    fontSize: 13.5,
+    fontWeight: FontWeight.w800,
+    color: Color(0xFF1E293B),
+  );
+
+  static TextStyle _defaultSubtitleStyle(BuildContext context) {
+    return TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: Colors.grey.shade700,
+    );
+  }
+
+  static TextStyle _defaultDetailsStyle(BuildContext context) {
+    return TextStyle(
+      fontSize: 11.5,
+      fontWeight: FontWeight.w500,
+      height: 1.18,
+      color: Colors.grey.shade600,
+    );
+  }
+
+  static TextStyle _defaultInfoStyle(BuildContext context) {
+    return TextStyle(
+      fontSize: 10.5,
+      fontWeight: FontWeight.w800,
+      height: 1.05,
+      color: Colors.grey.shade500,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final title = (data.title ?? '').trim();
-    final subtitle = (data.subtitle ?? '').trim();
-    final details = (data.details ?? '').trim();
+    final accent = data.accentColor ?? Colors.blueGrey.shade700;
 
-    return InkWell(
-      onTap: data.onTap == null
-          ? null
-          : () async {
-        await data.onTap!.call();
-      },
-      child: Container(
-        color: data.highlighted ? highlightColor : backgroundColor,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: data.accentColor.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                data.icon,
-                color: data.accentColor,
-                size: 20,
-              ),
+    final backgroundColor = data.highlighted
+        ? accent.withValues(alpha: 0.075)
+        : Colors.transparent;
+
+    final borderColor = data.highlighted
+        ? accent.withValues(alpha: 0.22)
+        : Colors.transparent;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: data.onTap,
+        borderRadius: BorderRadius.zero,
+        child: Container(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.zero,
+            border: Border.all(
+              color: borderColor,
+              width: data.highlighted ? 1 : 0,
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 1),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 48,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (title.isNotEmpty)
-                      Text(
-                        title,
-                        maxLines: 1,
+                    SizedBox.square(
+                      dimension: 38,
+                      child: data.leading ??
+                          Container(
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: accent.withValues(alpha: 0.16),
+                                width: 1,
+                              ),
+                            ),
+                            child: Icon(
+                              data.icon ?? Icons.circle_outlined,
+                              color: accent,
+                              size: 21,
+                            ),
+                          ),
+                    ),
+                    if (data.info != null) ...[
+                      const SizedBox(height: 5),
+                      DefaultTextStyle(
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: data.highlighted
-                              ? FontWeight.w800
-                              : FontWeight.w700,
-                          color: const Color(0xFF1B2031),
-                        ),
+                        textAlign: TextAlign.center,
+                        style: _defaultInfoStyle(context),
+                        child: data.info!,
                       ),
-                    if (subtitle.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.only(
-                          top: title.isNotEmpty ? 3 : 0,
-                        ),
-                        child: Text(
-                          subtitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.black54,
-                            height: 1.25,
-                          ),
-                        ),
-                      ),
-                    if (details.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.only(
-                          top: title.isNotEmpty || subtitle.isNotEmpty ? 3 : 0,
-                        ),
-                        child: Text(
-                          details,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ),
+                    ],
                   ],
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DefaultTextStyle(
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _defaultTitleStyle,
+                        child: data.title,
+                      ),
+                      if (data.subtitle != null) ...[
+                        const SizedBox(height: 3),
+                        DefaultTextStyle(
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _defaultSubtitleStyle(context),
+                          child: data.subtitle!,
+                        ),
+                      ],
+                      if (data.details != null) ...[
+                        const SizedBox(height: 3),
+                        DefaultTextStyle(
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: _defaultDetailsStyle(context),
+                          child: data.details!,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -94,8 +94,10 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      context.read<TenantCubit>().ensureTenantProfileLoaded();
-      context.read<TenantCubit>().ensureTenantItemsLoaded();
+      final tenantCubit = context.read<TenantCubit>();
+
+      tenantCubit.ensureTenantProfileLoaded();
+      tenantCubit.ensureTenantItemsLoaded();
     });
 
     _tipoContratacaoCtrl.addListener(_onAnyFieldChanged);
@@ -114,6 +116,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
           if (!mounted) return;
 
           final len = _extensaoMetrosCtrl.text.length;
+
           _extensaoMetrosCtrl.selection = TextSelection.collapsed(
             offset: len,
           );
@@ -136,6 +139,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
           if (!mounted) return;
 
           final len = _valorDemandaCtrl.text.length;
+
           _valorDemandaCtrl.selection = TextSelection.collapsed(
             offset: len,
           );
@@ -202,11 +206,13 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
       );
     }
 
-    final newMetersText =
-    newData.extensaoKm != null ? _kmToMetersText(newData.extensaoKm!) : '';
+    final newMetersText = newData.extensaoKm != null
+        ? _kmToMetersText(newData.extensaoKm!)
+        : '';
 
-    final oldMetersText =
-    oldData.extensaoKm != null ? _kmToMetersText(oldData.extensaoKm!) : '';
+    final oldMetersText = oldData.extensaoKm != null
+        ? _kmToMetersText(oldData.extensaoKm!)
+        : '';
 
     if (newMetersText != oldMetersText && !_extensaoFocus.hasFocus) {
       _syncControllerText(
@@ -261,6 +267,10 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     return normalized.isEmpty ? null : normalized;
   }
 
+  String _s(Object? value) {
+    return (value is String ? value : value?.toString() ?? '').trim();
+  }
+
   Future<String?> _askNewLabel(
       BuildContext dialogContext, {
         required String title,
@@ -300,13 +310,10 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
 
     ctrl.dispose();
 
-    if (result == null) return null;
+    final trimmed = result?.trim();
 
-    final trimmed = result.trim();
-
-    if (trimmed.isEmpty || trimmed == initialValue.trim()) {
-      return null;
-    }
+    if (trimmed == null || trimmed.isEmpty) return null;
+    if (trimmed == initialValue.trim()) return null;
 
     return trimmed;
   }
@@ -389,8 +396,9 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
       tipoContratacao: _tipoContratacaoCtrl.text.trim().isEmpty
           ? null
           : _tipoContratacaoCtrl.text.trim(),
-      tipoObra:
-      _tipoObraCtrl.text.trim().isEmpty ? null : _tipoObraCtrl.text.trim(),
+      tipoObra: _tipoObraCtrl.text.trim().isEmpty
+          ? null
+          : _tipoObraCtrl.text.trim(),
       descricaoObjeto: _descricaoObjetoCtrl.text,
       justificativa: _justificativaCtrl.text,
       rodovia: _rodoviaCtrl.text,
@@ -398,9 +406,6 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
       valorDemanda: SipGedFormatNumbers.toDouble(
         _valorDemandaCtrl.text,
       ),
-
-      // Mantém compatibilidade com DfdData atual.
-      // O campo ainda se chama companyId, mas agora recebe o tenantId.
       companyId: _tenantId,
     );
 
@@ -417,7 +422,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     _syncTenantFromProfile(tenant);
 
     final bool hasTenantConfigured = tenant != null;
-    final List<TenantItemData> roads = tenantState.roads;
+    final List<String> roads = tenantState.roads;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,6 +450,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                         value ?? '',
                       );
 
+                      _emitChange();
                       setState(() {});
                     },
                   ),
@@ -463,6 +469,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                         value ?? '',
                       );
 
+                      _emitChange();
                       setState(() {});
                     },
                   ),
@@ -479,7 +486,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                         ? 'Configure o contratante no tenant'
                         : null,
                     controller: _rodoviaCtrl,
-                    items: roads.map((e) => e.label).toList(),
+                    items: roads,
                     enabled: widget.isEditable && hasTenantConfigured,
                     validator: null,
                     specialItemLabel: 'Adicionar rodovia',
@@ -499,93 +506,80 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     onCreateNewItem: !widget.isEditable || !hasTenantConfigured
                         ? null
                         : (label) async {
+                      final newLabel = _s(label);
+
+                      if (newLabel.isEmpty) return;
+
                       final created = await tenantCubit.createRoad(
-                        label,
+                        newLabel,
                       );
 
                       if (!mounted || created == null) return;
 
                       _syncControllerText(
                         _rodoviaCtrl,
-                        created.label,
+                        created,
                       );
 
+                      setState(() => _roadsNonce++);
+
                       _emitChange();
-                      setState(() {});
                     },
                     onEditItem: widget.isEditable && hasTenantConfigured
                         ? (ctx, label) async {
-                      final list = context
-                          .read<TenantCubit>()
-                          .state
-                          .roads;
+                      final oldLabel = _s(label);
 
-                      if (list.isEmpty) return;
-
-                      final target = list.firstWhere(
-                            (road) => road.label == label,
-                        orElse: () => list.first,
-                      );
-
-                      if (target.id.isEmpty) return;
+                      if (oldLabel.isEmpty) return;
+                      if (!roads.contains(oldLabel)) return;
 
                       final newLabel = await _askNewLabel(
                         ctx,
                         title: 'Editar rodovia',
-                        initialValue: label,
+                        initialValue: oldLabel,
                         labelText: 'Nome da rodovia',
                       );
 
                       if (newLabel == null) return;
 
-                      final updated =
-                      await tenantCubit.updateRoadName(
-                        target.id,
+                      final updated = await tenantCubit.updateRoadName(
+                        oldLabel,
                         newLabel,
                       );
 
                       if (!mounted || updated == null) return;
 
-                      if (_rodoviaCtrl.text == label) {
+                      if (_rodoviaCtrl.text == oldLabel) {
                         _syncControllerText(
                           _rodoviaCtrl,
-                          updated.label,
+                          updated,
                         );
 
                         _emitChange();
-                        setState(() {});
                       }
+
+                      setState(() => _roadsNonce++);
                     }
                         : null,
                     onDeleteItem: widget.isEditable && hasTenantConfigured
                         ? (ctx, label) async {
-                      final list = context
-                          .read<TenantCubit>()
-                          .state
-                          .roads;
+                      final oldLabel = _s(label);
 
-                      if (list.isEmpty) return;
+                      if (oldLabel.isEmpty) return;
 
-                      final target = list.firstWhere(
-                            (road) => road.label == label,
-                        orElse: () => list.first,
-                      );
-
-                      if (target.id.isEmpty) return;
-
-                      await tenantCubit.deleteRoad(target.id);
+                      await tenantCubit.deleteRoad(oldLabel);
 
                       if (!mounted) return;
 
-                      if (_rodoviaCtrl.text == label) {
+                      if (_rodoviaCtrl.text == oldLabel) {
                         _syncControllerText(
                           _rodoviaCtrl,
                           '',
                         );
 
                         _emitChange();
-                        setState(() {});
                       }
+
+                      setState(() => _roadsNonce++);
                     }
                         : null,
                   ),

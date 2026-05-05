@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
-import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
@@ -127,8 +126,8 @@ class _SectionResultadoState extends State<SectionResultado> {
     widget.onChanged(updated);
   }
 
-  TenantItemData? _findBodyByLabel(
-      List<TenantItemData> bodies,
+  String? _findBodyByLabel(
+      List<String> bodies,
       String label,
       ) {
     final lower = label.trim().toLowerCase();
@@ -136,20 +135,12 @@ class _SectionResultadoState extends State<SectionResultado> {
     if (lower.isEmpty) return null;
 
     for (final body in bodies) {
-      if (body.label.trim().toLowerCase() == lower) {
-        return body;
+      if (body.trim().toLowerCase() == lower) {
+        return body.trim();
       }
     }
 
     return null;
-  }
-
-  String? _cnpjFromBody(TenantItemData? body) {
-    final cnpj = body?.extra['cnpj']?.toString().trim();
-
-    if (cnpj == null || cnpj.isEmpty) return null;
-
-    return cnpj;
   }
 
   Future<String?> _showCreateTenantCompanyBodyDialog(
@@ -228,23 +219,20 @@ class _SectionResultadoState extends State<SectionResultado> {
 
     if (!mounted) return null;
 
-    return created?.label ?? label;
+    return created ?? label;
   }
 
   void _applyWinner({
     required String? label,
-    required List<TenantItemData> bodies,
+    required List<String> bodies,
   }) {
     final value = label ?? '';
 
     _vencedorCtrl.text = value;
 
     final body = _findBodyByLabel(bodies, value);
-    final cnpj = _cnpjFromBody(body);
 
-    if (cnpj != null) {
-      _vencedorCnpjCtrl.text = cnpj;
-    } else if (value.isEmpty) {
+    if (body == null && value.isEmpty) {
       _vencedorCnpjCtrl.clear();
     }
 
@@ -277,9 +265,9 @@ class _SectionResultadoState extends State<SectionResultado> {
     final cardBorder = hasWinner ? winnerBorder : baseBorder;
 
     final tenantState = context.watch<TenantCubit>().state;
-    final List<TenantItemData> bodies = tenantState.companyBodies;
+    final List<String> bodies = tenantState.companyBodies;
 
-    final bodyLabels = bodies.map((e) => e.label).where((e) {
+    final bodyLabels = bodies.where((e) {
       return e.trim().isNotEmpty;
     });
 
@@ -384,8 +372,9 @@ class _SectionResultadoState extends State<SectionResultado> {
                       child: CustomTextField(
                         controller: _vencedorCnpjCtrl,
                         labelText: 'CNPJ do vencedor',
-                        enabled: false,
-                        readOnly: true,
+                        enabled: true,
+                        readOnly: !isEditable,
+                        onChanged: (_) => _emitChange(),
                       ),
                     ),
                     SizedBox(

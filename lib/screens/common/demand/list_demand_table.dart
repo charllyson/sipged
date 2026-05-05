@@ -4,7 +4,7 @@ import 'package:sipged/_widgets/table/paged/paged_colum.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
-import '../../../_widgets/alerts/alert_validity.dart';
+import '../alerts/alert_validity.dart';
 
 // Somente os DATA (sem BLoCs aqui)
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
@@ -185,8 +185,8 @@ class _ListDemandTableState extends State<ListDemandTable> {
       columns: [
         PagedColum<ProcessData>(
           title: 'ALERTAS',
-          width: 70,
-          maxWidth: 70,
+          width: 100,
+          maxWidth: 100,
           textAlign: TextAlign.center,
           cellBuilder: (data) => _safeAlertCell(data),
         ),

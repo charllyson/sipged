@@ -1,36 +1,38 @@
-// lib/_blocs/modules/contracts/hiring/2Tr/tr_repository.dart
+// lib/_blocs/modules/contracts/hiring/3Tr/tr_repository.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_sections.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
+import 'tr_data.dart';
+import 'tr_sections.dart';
+
 class TrRepository {
-  final FirebaseFirestore _db;
   TrRepository({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> _col(String contractId) =>
-      _db.collection('contracts').doc(contractId).collection('tr');
+  final FirebaseFirestore _db;
 
-  /// ===========================================================================
-  /// ESTRUTURA FIXA OTIMIZADA (mesmo padrão do DFD)
-  ///
-  /// Agora assumimos que:
-  ///   - o doc raiz SEMPRE é "main"
-  ///   - cada seção tem SEMPRE um doc "main" na subcoleção
-  ///
-  /// Não faz nenhuma leitura/criação prévia no Firestore, apenas monta em memória.
-  /// ===========================================================================
+  CollectionReference<Map<String, dynamic>> _col(String contractId) {
+    return _db.collection('contracts').doc(contractId).collection('tr');
+  }
+
   Future<({String trId, SectionIds sectionIds})> ensureStructure(
       String contractId,
       ) async {
-    final SectionIds sectionIds = {
-      for (final sec in TrSections.all) sec: 'main',
+    final id = contractId.trim();
+
+    if (id.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    final sectionIds = <String, String>{
+      for (final section in TrSections.all) section: 'main',
     };
+
     return (trId: 'main', sectionIds: sectionIds);
   }
 
-  /// Salva uma única seção
   Future<void> saveSection({
     required String contractId,
     required String trId,
@@ -38,12 +40,34 @@ class TrRepository {
     required String sectionDocId,
     required Map<String, dynamic> data,
   }) async {
-    await _col(contractId)
-        .doc(trId)
-        .collection(sectionKey)
-        .doc(sectionDocId)
-        .set(
-      {
+    final cleanContractId = contractId.trim();
+    final cleanTrId = trId.trim();
+    final cleanSectionKey = sectionKey.trim();
+    final cleanSectionDocId = sectionDocId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanTrId.isEmpty) {
+      throw Exception('trId não informado.');
+    }
+
+    if (cleanSectionKey.isEmpty) {
+      throw Exception('sectionKey não informado.');
+    }
+
+    if (cleanSectionDocId.isEmpty) {
+      throw Exception('sectionDocId não informado.');
+    }
+
+    final ref = _col(cleanContractId)
+        .doc(cleanTrId)
+        .collection(cleanSectionKey)
+        .doc(cleanSectionDocId);
+
+    await ref.set(
+      <String, dynamic>{
         ...data,
         'updatedAt': FieldValue.serverTimestamp(),
       },
@@ -51,80 +75,106 @@ class TrRepository {
     );
   }
 
-  /// Salva várias seções de uma vez (batch), adicionando updatedAt
   Future<void> saveSectionsBatch({
     required String contractId,
     required String trId,
     required SectionIds sectionIds,
     required SectionsMap sectionsData,
   }) async {
-    final batch = _db.batch();
-    final trRef = _col(contractId).doc(trId);
+    final cleanContractId = contractId.trim();
+    final cleanTrId = trId.trim();
 
-    sectionsData.forEach((key, data) {
-      final id = sectionIds[key];
-      if (id == null) return;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanTrId.isEmpty) {
+      throw Exception('trId não informado.');
+    }
+
+    if (sectionsData.isEmpty) return;
+
+    final batch = _db.batch();
+    final trRef = _col(cleanContractId).doc(cleanTrId);
+
+    for (final entry in sectionsData.entries) {
+      final sectionKey = entry.key;
+      final sectionData = entry.value;
+      final sectionDocId = sectionIds[sectionKey];
+
+      if (sectionDocId == null || sectionDocId.trim().isEmpty) continue;
+
       batch.set(
-        trRef.collection(key).doc(id),
-        {
-          ...data,
+        trRef.collection(sectionKey).doc(sectionDocId),
+        <String, dynamic>{
+          ...sectionData,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
-    });
+    }
 
     await batch.commit();
   }
 
-  /// Carrega todas as seções do TR
-  ///
-  /// Mesmo padrão do DFD:
-  ///   - lê tudo em paralelo com Future.wait
-  ///   - remove createdAt/updatedAt antes de devolver
   Future<SectionsMap> loadAllSections({
     required String contractId,
     required String trId,
     required SectionIds sectionIds,
   }) async {
-    final SectionsMap out = {};
-    final trRef = _col(contractId).doc(trId);
+    final cleanContractId = contractId.trim();
+    final cleanTrId = trId.trim();
 
-    final futures = sectionIds.entries.map((entry) async {
-      final secName = entry.key;
-      final secId = entry.value;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
 
-      final snap = await trRef.collection(secName).doc(secId).get();
-      final data =
-      Map<String, dynamic>.from(snap.data() ?? <String, dynamic>{});
+    if (cleanTrId.isEmpty) {
+      throw Exception('trId não informado.');
+    }
 
-      data.remove('createdAt');
-      data.remove('updatedAt');
+    final trRef = _col(cleanContractId).doc(cleanTrId);
 
-      out[secName] = data;
-    }).toList();
+    final entries = await Future.wait(
+      sectionIds.entries.map((entry) async {
+        final sectionName = entry.key;
+        final sectionDocId = entry.value;
 
-    await Future.wait(futures);
-    return out;
+        final snap = await trRef.collection(sectionName).doc(sectionDocId).get();
+
+        final data = Map<String, dynamic>.from(
+          snap.data() ?? const <String, dynamic>{},
+        );
+
+        data.remove('createdAt');
+        data.remove('updatedAt');
+        data.remove('createdBy');
+        data.remove('updatedBy');
+
+        return MapEntry<String, Map<String, dynamic>>(sectionName, data);
+      }),
+    );
+
+    return <String, Map<String, dynamic>>{
+      for (final entry in entries) entry.key: entry.value,
+    };
   }
 
-  /// Leitura direta de um TrData completo para o contrato (útil pra dashboards etc.)
-  ///
-  /// Padrão idêntico ao DFD:
-  ///   - chama ensureStructure (trId = "main", sectionIds = {sec: "main"})
-  ///   - carrega todas as seções
-  ///   - se estiver tudo vazio, retorna null
-  ///   - monta um TrData a partir das seções
   Future<TrData?> readDataForContract(String contractId) async {
-    final ids = await ensureStructure(contractId);
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return null;
+
+    final ids = await ensureStructure(cleanContractId);
 
     final sections = await loadAllSections(
-      contractId: contractId,
+      contractId: cleanContractId,
       trId: ids.trId,
       sectionIds: ids.sectionIds,
     );
 
-    final hasAnyData = sections.values.any((m) => m.isNotEmpty);
+    final hasAnyData = sections.values.any((map) => map.isNotEmpty);
+
     if (!hasAnyData) return null;
 
     return TrData.fromSectionsMap(sections);

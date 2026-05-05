@@ -1,9 +1,12 @@
 // lib/_blocs/system/notification/helpers/notification_contract_base.dart
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+
 import 'package:sipged/_blocs/system/notification/notification_channel.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
@@ -12,6 +15,8 @@ import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 class NotificationContractBase {
   const NotificationContractBase._();
+
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static Future<void> show({
     required BuildContext context,
@@ -81,12 +86,14 @@ class NotificationContractBase {
 
     final contractId = clean(contract.id);
 
-    final contractSummary = clean(contract.displaySummary) ??
-        clean(contract.summarySubjectContract) ??
+    final resolvedDisplay = await resolveContractDisplay(
+      contract: contract,
+    );
+
+    final contractSummary = clean(resolvedDisplay.summary) ??
         fallbackContractSummary(contract);
 
-    final contractNumber =
-        clean(contract.contractNumber) ?? clean(contract.processNumber) ?? contractId;
+    final contractNumber = clean(resolvedDisplay.number) ?? contractId;
 
     final cleanModule = clean(module) ?? defaultModule;
 
@@ -160,15 +167,180 @@ class NotificationContractBase {
     return resolvedChannels;
   }
 
-  /// Retorna todos os usuários que devem receber a notificação do contrato.
+  /// Resolve os dados corretos de exibição do contrato:
   ///
-  /// Ordem de prioridade:
-  /// 1. Se `targetUserIds` foi informado, usa esses IDs explicitamente.
-  /// 2. Caso contrário, usa todos os usuários em `permissionContractId`
-  ///    que tenham qualquer permissão operacional válida.
-  /// 3. Também inclui usuários em `participantsInfo`, pois no SIPGED eles
-  ///    geralmente representam participantes vinculados ao processo/contrato.
-  /// 4. Aplica `includeCurrentUser`.
+  /// - número: PublicacaoExtratoData.numeroContrato
+  /// - resumo: DfdData.descricaoObjeto
+  static Future<({String? number, String? summary})> resolveContractDisplay({
+    required ProcessData contract,
+  }) async {
+    final contractId = clean(contract.id);
+
+    if (contractId == null) {
+      return (
+      number: clean(contract.displayNumber),
+      summary: clean(contract.displaySummary),
+      );
+    }
+
+    final publicacao = await _loadPublicacaoExtrato(contractId);
+    final dfd = await _loadDfd(contractId);
+
+    final number = clean(publicacao?.numeroContrato) ??
+        clean(publicacao?.processo) ??
+        clean(contract.displayNumber);
+
+    final summary = clean(dfd?.descricaoObjeto) ??
+        clean(publicacao?.objetoResumo) ??
+        clean(contract.displaySummary);
+
+    return (
+    number: number,
+    summary: summary,
+    );
+  }
+
+  static Future<PublicacaoExtratoData?> _loadPublicacaoExtrato(
+      String contractId,
+      ) async {
+    final candidatePaths = <String>[
+      'contracts/$contractId/hiring/10Publicacao',
+      'contracts/$contractId/hiring/publicacaoExtrato',
+      'contracts/$contractId/hiring/publicacao_extrato',
+      'contracts/$contractId/publicacaoExtrato/main',
+      'contracts/$contractId/publicacoes/extrato',
+    ];
+
+    for (final path in candidatePaths) {
+      final data = await _tryReadDocument(path);
+      if (data == null) continue;
+
+      final parsed = _parsePublicacaoExtrato(data);
+      if (parsed != null) return parsed;
+    }
+
+    return null;
+  }
+
+  static PublicacaoExtratoData? _parsePublicacaoExtrato(
+      Map<String, dynamic> data,
+      ) {
+    final sectionsData = data['sectionsData'];
+    final sections = data['sections'];
+
+    if (sectionsData is Map) {
+      return PublicacaoExtratoData.fromSectionsMap(
+        _toSectionsMap(sectionsData),
+      );
+    }
+
+    if (sections is Map) {
+      return PublicacaoExtratoData.fromSectionsMap(
+        _toSectionsMap(sections),
+      );
+    }
+
+    return PublicacaoExtratoData.fromFlatMap(data);
+  }
+
+  static Future<DfdData?> _loadDfd(String contractId) async {
+    final candidatePaths = <String>[
+      'contracts/$contractId/hiring/00Dfd',
+      'contracts/$contractId/hiring/01Dfd',
+      'contracts/$contractId/hiring/dfd',
+      'contracts/$contractId/dfd/main',
+      'contracts/$contractId/demand/dfd',
+    ];
+
+    for (final path in candidatePaths) {
+      final data = await _tryReadDocument(path);
+      if (data == null) continue;
+
+      final parsed = _parseDfd(
+        data,
+        contractId: contractId,
+      );
+
+      if (parsed != null) return parsed;
+    }
+
+    return null;
+  }
+
+  static DfdData? _parseDfd(
+      Map<String, dynamic> data, {
+        required String contractId,
+      }) {
+    final sectionsData = data['sectionsData'];
+    final sections = data['sections'];
+
+    if (sectionsData is Map) {
+      return DfdData.fromSectionsMap(
+        _toDynamicMap(sectionsData),
+        contractId: contractId,
+      );
+    }
+
+    if (sections is Map) {
+      return DfdData.fromSectionsMap(
+        _toDynamicMap(sections),
+        contractId: contractId,
+      );
+    }
+
+    return DfdData.fromMap(
+      data,
+      contractId: contractId,
+    );
+  }
+
+  static Future<Map<String, dynamic>?> _tryReadDocument(String path) async {
+    try {
+      final snapshot = await _firestore.doc(path).get();
+
+      if (!snapshot.exists) return null;
+
+      final data = snapshot.data();
+
+      if (data == null || data.isEmpty) return null;
+
+      return Map<String, dynamic>.from(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Map<String, dynamic> _toDynamicMap(Map raw) {
+    return raw.map(
+          (key, value) => MapEntry(
+        key.toString(),
+        value is Map ? _toDynamicMap(value) : value,
+      ),
+    );
+  }
+
+  static Map<String, Map<String, dynamic>> _toSectionsMap(Map raw) {
+    final result = <String, Map<String, dynamic>>{};
+
+    for (final entry in raw.entries) {
+      final key = entry.key.toString();
+      final value = entry.value;
+
+      if (value is Map<String, dynamic>) {
+        result[key] = value;
+      } else if (value is Map) {
+        result[key] = Map<String, dynamic>.from(
+          value.map(
+                (k, v) => MapEntry(k.toString(), v),
+          ),
+        );
+      }
+    }
+
+    return result;
+  }
+
+  /// Retorna todos os usuários que devem receber a notificação do contrato.
   static List<String> resolveRecipients({
     required ProcessData contract,
     required Iterable<String> targetUserIds,
@@ -288,7 +460,6 @@ class NotificationContractBase {
     if (permissions.isEmpty) return false;
 
     const acceptedKeys = <String>{
-      // Leitura / visualização
       'read',
       'view',
       'viewer',
@@ -297,15 +468,11 @@ class NotificationContractBase {
       'visão',
       'ler',
       'leitura',
-
-      // Criação
       'create',
       'creator',
       'criar',
       'criacao',
       'criação',
-
-      // Edição / atualização
       'edit',
       'update',
       'write',
@@ -316,15 +483,11 @@ class NotificationContractBase {
       'escrever',
       'gravacao',
       'gravação',
-
-      // Exclusão
       'delete',
       'remove',
       'deletar',
       'excluir',
       'remover',
-
-      // Administração / propriedade
       'admin',
       'administrator',
       'owner',
@@ -336,8 +499,6 @@ class NotificationContractBase {
       'proprietário',
       'responsavel',
       'responsável',
-
-      // Compatibilidade com ações granulares
       'canread',
       'canview',
       'cancreate',
@@ -471,18 +632,6 @@ class NotificationContractBase {
   }
 
   static String fallbackContractSummary(ProcessData contract) {
-    final contractNumber = clean(contract.contractNumber);
-
-    if (contractNumber != null) {
-      return 'Contrato $contractNumber';
-    }
-
-    final processNumber = clean(contract.processNumber);
-
-    if (processNumber != null) {
-      return 'Processo $processNumber';
-    }
-
     final id = clean(contract.id);
 
     if (id != null) {

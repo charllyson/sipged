@@ -6,6 +6,7 @@ class NotificationRemoteState extends Equatable {
   const NotificationRemoteState({
     this.history = const <NotificationData>[],
     this.systemNotifications = const <NotificationData>[],
+    this.userBellNotifications = const <NotificationData>[],
     this.unreadUserNotifications = const <NotificationData>[],
     this.loading = false,
     this.sending = false,
@@ -14,35 +15,52 @@ class NotificationRemoteState extends Equatable {
 
   final List<NotificationData> history;
   final List<NotificationData> systemNotifications;
+
+  /// Lista visual do sino.
+  ///
+  /// Mantém notificações vistas e não vistas no balão.
+  final List<NotificationData> userBellNotifications;
+
+  /// Lista usada apenas para:
+  /// - badge;
+  /// - destaque visual;
+  /// - botão "Marcar como vistas".
   final List<NotificationData> unreadUserNotifications;
 
   final bool loading;
   final bool sending;
   final String? error;
 
-  int get unreadHistoryCount => history.where((item) => !item.seen).length;
+  int get unreadHistoryCount {
+    return history.where((item) => !item.seen).length;
+  }
 
-  int get unreadUserCount => unreadUserNotifications.length;
+  int get unreadUserCount {
+    return _deduplicate(unreadUserNotifications).length;
+  }
 
   List<NotificationData> get bellNotifications {
     final merged = <NotificationData>[
-      ...unreadUserNotifications,
+      ...userBellNotifications,
       ...systemNotifications,
     ];
 
-    merged.sort((a, b) {
+    final deduplicated = _deduplicate(merged);
+
+    deduplicated.sort((a, b) {
       final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
 
       return bDate.compareTo(aDate);
     });
 
-    return merged;
+    return deduplicated;
   }
 
   NotificationRemoteState copyWith({
     List<NotificationData>? history,
     List<NotificationData>? systemNotifications,
+    List<NotificationData>? userBellNotifications,
     List<NotificationData>? unreadUserNotifications,
     bool? loading,
     bool? sending,
@@ -52,6 +70,8 @@ class NotificationRemoteState extends Equatable {
     return NotificationRemoteState(
       history: history ?? this.history,
       systemNotifications: systemNotifications ?? this.systemNotifications,
+      userBellNotifications:
+      userBellNotifications ?? this.userBellNotifications,
       unreadUserNotifications:
       unreadUserNotifications ?? this.unreadUserNotifications,
       loading: loading ?? this.loading,
@@ -60,10 +80,209 @@ class NotificationRemoteState extends Equatable {
     );
   }
 
+  static List<NotificationData> _deduplicate(
+      List<NotificationData> items,
+      ) {
+    final unique = <String, NotificationData>{};
+
+    for (final item in items) {
+      if (!_isValid(item)) continue;
+
+      final key = _dedupKey(item);
+      final current = unique[key];
+
+      if (current == null) {
+        unique[key] = item;
+        continue;
+      }
+
+      unique[key] = _preferBest(
+        current: current,
+        next: item,
+      );
+    }
+
+    return unique.values.toList();
+  }
+
+  static bool _isValid(NotificationData item) {
+    final title = _clean(item.title);
+    final subtitle = _clean(item.subtitle);
+    final details = _clean(item.details);
+    final extra = item.extra;
+
+    final action = _clean(extra['action']?.toString());
+    final actorId = _clean(extra['actorId']?.toString());
+    final actorName = _clean(extra['actorName']?.toString());
+    final contractId = _clean(extra['contractId']?.toString());
+    final contractSummary = _clean(extra['contractSummary']?.toString());
+    final contractTitle = _clean(extra['contractTitle']?.toString());
+    final nomeDemanda = _clean(extra['nomeDemanda']?.toString());
+    final descricaoObjeto = _clean(extra['descricaoObjeto']?.toString());
+    final notificationSource = _clean(
+      extra['notificationSource']?.toString(),
+    );
+
+    final hasText = title.isNotEmpty ||
+        subtitle.isNotEmpty ||
+        details.isNotEmpty ||
+        contractSummary.isNotEmpty ||
+        contractTitle.isNotEmpty ||
+        nomeDemanda.isNotEmpty ||
+        descricaoObjeto.isNotEmpty;
+
+    final hasMetadata = action.isNotEmpty ||
+        actorId.isNotEmpty ||
+        actorName.isNotEmpty ||
+        contractId.isNotEmpty ||
+        notificationSource.isNotEmpty;
+
+    if (!hasText && !hasMetadata) return false;
+
+    final isGenericTitle =
+        title.isEmpty || title.toLowerCase() == 'notificação';
+
+    if (isGenericTitle && !hasMetadata && details.isEmpty) {
+      return false;
+    }
+
+    return true;
+  }
+
+  static String _dedupKey(NotificationData item) {
+    final extra = item.extra;
+
+    final id = item.id?.trim();
+
+    if (id != null && id.isNotEmpty) {
+      return 'id|$id';
+    }
+
+    final action = _clean(extra['action']?.toString());
+    final contractId = _clean(extra['contractId']?.toString());
+
+    final measurementId = _clean(extra['measurementId']?.toString());
+    final measurementOrder = _clean(extra['measurementOrder']?.toString());
+
+    final validityId = _clean(extra['validityId']?.toString());
+    final additiveId = _clean(extra['additiveId']?.toString());
+    final apostilleId = _clean(extra['apostilleId']?.toString());
+    final revisionId = _clean(extra['revisionId']?.toString());
+    final adjustmentId = _clean(extra['adjustmentId']?.toString());
+
+    final source = _clean(
+      (extra['notificationSource'] ??
+          extra['sourceKey'] ??
+          extra['subSource'] ??
+          extra['source'])
+          ?.toString(),
+    );
+
+    if (source.isNotEmpty && action.isNotEmpty && measurementId.isNotEmpty) {
+      return '$source|$action|$measurementId';
+    }
+
+    if (source.isNotEmpty && action.isNotEmpty && validityId.isNotEmpty) {
+      return '$source|$action|$validityId';
+    }
+
+    if (source.isNotEmpty && action.isNotEmpty && additiveId.isNotEmpty) {
+      return '$source|$action|$additiveId';
+    }
+
+    if (source.isNotEmpty && action.isNotEmpty && apostilleId.isNotEmpty) {
+      return '$source|$action|$apostilleId';
+    }
+
+    if (source.isNotEmpty && action.isNotEmpty && revisionId.isNotEmpty) {
+      return '$source|$action|$revisionId';
+    }
+
+    if (source.isNotEmpty && action.isNotEmpty && adjustmentId.isNotEmpty) {
+      return '$source|$action|$adjustmentId';
+    }
+
+    if (source.isNotEmpty &&
+        action.isNotEmpty &&
+        contractId.isNotEmpty &&
+        measurementOrder.isNotEmpty) {
+      return '$source|$action|$contractId|$measurementOrder';
+    }
+
+    final createdAt = item.createdAt?.millisecondsSinceEpoch ?? 0;
+    final title = _clean(item.title);
+    final subtitle = _clean(item.subtitle);
+    final details = _clean(item.details);
+
+    return 'fallback|$title|$subtitle|$details|$createdAt';
+  }
+
+  static NotificationData _preferBest({
+    required NotificationData current,
+    required NotificationData next,
+  }) {
+    final currentScore = _qualityScore(current);
+    final nextScore = _qualityScore(next);
+
+    if (nextScore > currentScore) return next;
+    if (currentScore > nextScore) return current;
+
+    final currentDate = current.createdAt;
+    final nextDate = next.createdAt;
+
+    if (currentDate == null && nextDate != null) return next;
+    if (currentDate != null && nextDate == null) return current;
+
+    if (currentDate != null && nextDate != null) {
+      return nextDate.isAfter(currentDate) ? next : current;
+    }
+
+    return current;
+  }
+
+  static int _qualityScore(NotificationData item) {
+    final extra = item.extra;
+
+    var score = 0;
+
+    final title = _clean(item.title);
+    final subtitle = _clean(item.subtitle);
+    final details = _clean(item.details);
+
+    final action = _clean(extra['action']?.toString());
+    final actorId = _clean(extra['actorId']?.toString());
+    final actorName = _clean(extra['actorName']?.toString());
+    final contractId = _clean(extra['contractId']?.toString());
+    final contractSummary = _clean(extra['contractSummary']?.toString());
+    final contractTitle = _clean(extra['contractTitle']?.toString());
+    final nomeDemanda = _clean(extra['nomeDemanda']?.toString());
+    final descricaoObjeto = _clean(extra['descricaoObjeto']?.toString());
+
+    if (title.isNotEmpty && title.toLowerCase() != 'notificação') score += 10;
+    if (subtitle.isNotEmpty) score += 5;
+    if (details.isNotEmpty) score += 4;
+
+    if (action.isNotEmpty) score += 4;
+    if (actorId.isNotEmpty) score += 8;
+    if (actorName.isNotEmpty) score += 6;
+    if (contractId.isNotEmpty) score += 4;
+    if (contractSummary.isNotEmpty) score += 7;
+    if (contractTitle.isNotEmpty) score += 5;
+    if (nomeDemanda.isNotEmpty) score += 8;
+    if (descricaoObjeto.isNotEmpty) score += 8;
+
+    return score;
+  }
+
+  static String _clean(String? value) {
+    return (value ?? '').trim();
+  }
+
   @override
   List<Object?> get props => [
     history,
     systemNotifications,
+    userBellNotifications,
     unreadUserNotifications,
     loading,
     sending,

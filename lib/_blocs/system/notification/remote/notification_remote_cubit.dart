@@ -16,6 +16,7 @@ class NotificationRemoteCubit extends Cubit<NotificationRemoteState> {
 
   StreamSubscription<List<NotificationData>>? _historySub;
   StreamSubscription<List<NotificationData>>? _systemSub;
+  StreamSubscription<List<NotificationData>>? _userBellSub;
   StreamSubscription<List<NotificationData>>? _unreadUserSub;
 
   Future<void> registerPushToken({
@@ -199,27 +200,37 @@ class NotificationRemoteCubit extends Cubit<NotificationRemoteState> {
   void watchBellNotifications({
     required String userId,
     int systemLimit = 30,
+    int userBellLimit = 30,
     int unreadUserLimit = 30,
   }) {
     watchSystemNotifications(limit: systemLimit);
 
     final cleanUserId = userId.trim();
 
-    if (cleanUserId.isNotEmpty) {
-      watchUnreadUserNotifications(
-        userId: cleanUserId,
-        limit: unreadUserLimit,
-      );
-    } else {
-      _unreadUserSub?.cancel();
+    _userBellSub?.cancel();
+    _unreadUserSub?.cancel();
 
+    if (cleanUserId.isEmpty) {
       emit(
         state.copyWith(
+          userBellNotifications: const <NotificationData>[],
           unreadUserNotifications: const <NotificationData>[],
           clearError: true,
         ),
       );
+
+      return;
     }
+
+    watchUserBellNotifications(
+      userId: cleanUserId,
+      limit: userBellLimit,
+    );
+
+    watchUnreadUserNotifications(
+      userId: cleanUserId,
+      limit: unreadUserLimit,
+    );
   }
 
   void watchSystemNotifications({
@@ -240,6 +251,48 @@ class NotificationRemoteCubit extends Cubit<NotificationRemoteState> {
         emit(
           state.copyWith(
             error: 'Erro ao observar notificações do sistema: $e',
+          ),
+        );
+      },
+    );
+  }
+
+  void watchUserBellNotifications({
+    required String userId,
+    int limit = 30,
+  }) {
+    final cleanUserId = userId.trim();
+
+    _userBellSub?.cancel();
+
+    if (cleanUserId.isEmpty) {
+      emit(
+        state.copyWith(
+          userBellNotifications: const <NotificationData>[],
+          clearError: true,
+        ),
+      );
+      return;
+    }
+
+    _userBellSub = _repository
+        .watchUserNotifications(
+      userId: cleanUserId,
+      limit: limit,
+    )
+        .listen(
+          (items) {
+        emit(
+          state.copyWith(
+            userBellNotifications: items,
+            clearError: true,
+          ),
+        );
+      },
+      onError: (Object e) {
+        emit(
+          state.copyWith(
+            error: 'Erro ao observar notificações do usuário: $e',
           ),
         );
       },
@@ -410,6 +463,14 @@ class NotificationRemoteCubit extends Cubit<NotificationRemoteState> {
         return item;
       }).toList();
 
+      final userBell = state.userBellNotifications.map((item) {
+        if (item.id == cleanNotificationId) {
+          return item.copyWith(seen: true);
+        }
+
+        return item;
+      }).toList();
+
       final unread = state.unreadUserNotifications
           .where((item) => item.id != cleanNotificationId)
           .toList();
@@ -417,6 +478,7 @@ class NotificationRemoteCubit extends Cubit<NotificationRemoteState> {
       emit(
         state.copyWith(
           history: history,
+          userBellNotifications: userBell,
           unreadUserNotifications: unread,
           clearError: true,
         ),
@@ -444,9 +506,14 @@ class NotificationRemoteCubit extends Cubit<NotificationRemoteState> {
         return item.copyWith(seen: true);
       }).toList();
 
+      final userBell = state.userBellNotifications.map((item) {
+        return item.copyWith(seen: true);
+      }).toList();
+
       emit(
         state.copyWith(
           history: history,
+          userBellNotifications: userBell,
           unreadUserNotifications: const <NotificationData>[],
           clearError: true,
         ),
@@ -479,6 +546,10 @@ class NotificationRemoteCubit extends Cubit<NotificationRemoteState> {
           .where((item) => item.id != cleanNotificationId)
           .toList();
 
+      final userBell = state.userBellNotifications
+          .where((item) => item.id != cleanNotificationId)
+          .toList();
+
       final unread = state.unreadUserNotifications
           .where((item) => item.id != cleanNotificationId)
           .toList();
@@ -486,6 +557,7 @@ class NotificationRemoteCubit extends Cubit<NotificationRemoteState> {
       emit(
         state.copyWith(
           history: history,
+          userBellNotifications: userBell,
           unreadUserNotifications: unread,
           clearError: true,
         ),
@@ -512,6 +584,7 @@ class NotificationRemoteCubit extends Cubit<NotificationRemoteState> {
       emit(
         state.copyWith(
           history: const <NotificationData>[],
+          userBellNotifications: const <NotificationData>[],
           unreadUserNotifications: const <NotificationData>[],
           clearError: true,
         ),
@@ -529,6 +602,7 @@ class NotificationRemoteCubit extends Cubit<NotificationRemoteState> {
   Future<void> close() {
     _historySub?.cancel();
     _systemSub?.cancel();
+    _userBellSub?.cancel();
     _unreadUserSub?.cancel();
 
     return super.close();

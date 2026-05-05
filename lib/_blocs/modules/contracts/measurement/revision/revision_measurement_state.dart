@@ -11,19 +11,21 @@ enum RevisionMeasurementStatus {
   error,
 }
 
+const Object _unset = Object();
+
 class RevisionMeasurementState extends Equatable {
   final RevisionMeasurementStatus status;
 
   /// Lista de revisões do contrato atual.
   final List<RevisionMeasurementData> revisions;
 
-  /// Erro (se existir).
+  /// Erro, se existir.
   final String? errorMessage;
 
   /// ContractId carregado.
   final String? contractId;
 
-  /// Overlay de loading/saving.
+  /// Loading geral: salvar, excluir, atualizar anexos etc.
   final bool isSaving;
 
   /// Seleção atual.
@@ -49,39 +51,49 @@ class RevisionMeasurementState extends Equatable {
   RevisionMeasurementState copyWith({
     RevisionMeasurementStatus? status,
     List<RevisionMeasurementData>? revisions,
-    String? errorMessage,
-    String? contractId,
+    Object? errorMessage = _unset,
+    Object? contractId = _unset,
     bool? isSaving,
-    RevisionMeasurementData? selected,
-    int? selectedIndex,
+    Object? selected = _unset,
+    Object? selectedIndex = _unset,
     List<Attachment>? attachments,
-    int? selectedAttachmentIndex,
+    Object? selectedAttachmentIndex = _unset,
   }) {
     return RevisionMeasurementState(
       status: status ?? this.status,
       revisions: revisions ?? this.revisions,
-      errorMessage: errorMessage ?? this.errorMessage,
-      contractId: contractId ?? this.contractId,
+      errorMessage: identical(errorMessage, _unset)
+          ? this.errorMessage
+          : errorMessage as String?,
+      contractId:
+      identical(contractId, _unset) ? this.contractId : contractId as String?,
       isSaving: isSaving ?? this.isSaving,
-      selected: selected ?? this.selected,
-      selectedIndex: selectedIndex ?? this.selectedIndex,
+      selected: identical(selected, _unset)
+          ? this.selected
+          : selected as RevisionMeasurementData?,
+      selectedIndex: identical(selectedIndex, _unset)
+          ? this.selectedIndex
+          : selectedIndex as int?,
       attachments: attachments ?? this.attachments,
-      selectedAttachmentIndex:
-      selectedAttachmentIndex ?? this.selectedAttachmentIndex,
+      selectedAttachmentIndex: identical(selectedAttachmentIndex, _unset)
+          ? this.selectedAttachmentIndex
+          : selectedAttachmentIndex as int?,
     );
   }
 
-  factory RevisionMeasurementState.initial() => const RevisionMeasurementState(
-    status: RevisionMeasurementStatus.initial,
-    revisions: [],
-    errorMessage: null,
-    contractId: null,
-    isSaving: false,
-    selected: null,
-    selectedIndex: null,
-    attachments: [],
-    selectedAttachmentIndex: null,
-  );
+  factory RevisionMeasurementState.initial() {
+    return const RevisionMeasurementState(
+      status: RevisionMeasurementStatus.initial,
+      revisions: [],
+      errorMessage: null,
+      contractId: null,
+      isSaving: false,
+      selected: null,
+      selectedIndex: null,
+      attachments: [],
+      selectedAttachmentIndex: null,
+    );
+  }
 
   @override
   List<Object?> get props => [

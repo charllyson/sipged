@@ -1,4 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'report_measurement_state.dart';
@@ -6,24 +8,111 @@ import 'report_measurement_data.dart';
 import 'report_measurement_repository.dart';
 
 class ReportMeasurementCubit extends Cubit<ReportMeasurementState> {
-  final ReportMeasurementRepository _repo;
-
-  ReportMeasurementCubit({ReportMeasurementRepository? repository})
-      : _repo = repository ?? ReportMeasurementRepository(),
+  ReportMeasurementCubit({
+    ReportMeasurementRepository? repository,
+    UserPermissionData? initialPermissions,
+    String? initialTenantId,
+    this.moduleId = 'operation_measurements',
+  })  : _repo = repository ?? ReportMeasurementRepository(),
+        _currentPermissions = initialPermissions,
+        _tenantId = initialTenantId,
         super(ReportMeasurementState.initial());
 
-  // ---------------------------------------------------------------------------
-  // Carregar medições de um contrato
-  // ---------------------------------------------------------------------------
+  final ReportMeasurementRepository _repo;
+
+  final String moduleId;
+
+  UserPermissionData? _currentPermissions;
+  String? _tenantId;
+
+  void updatePermissions({
+    UserPermissionData? permissions,
+    String? tenantId,
+  }) {
+    _currentPermissions = permissions;
+    _tenantId = tenantId;
+  }
+
+  bool get isEditable => _canWrite();
+
+  bool _canWrite() {
+    final permissions = _currentPermissions;
+
+    if (permissions == null) {
+      return false;
+    }
+
+    if (permissions.isSuperUserForTenant(_tenantId)) {
+      return true;
+    }
+
+    return permissions.canModuleString(
+      module: moduleId,
+      action: 'create',
+      tenantId: _tenantId,
+    ) ||
+        permissions.canModuleString(
+          module: moduleId,
+          action: 'edit',
+          tenantId: _tenantId,
+        ) ||
+        permissions.canModuleString(
+          module: moduleId,
+          action: 'delete',
+          tenantId: _tenantId,
+        );
+  }
+
+  bool _canDelete() {
+    final permissions = _currentPermissions;
+
+    if (permissions == null) {
+      return false;
+    }
+
+    if (permissions.isSuperUserForTenant(_tenantId)) {
+      return true;
+    }
+
+    return permissions.canModuleString(
+      module: moduleId,
+      action: 'delete',
+      tenantId: _tenantId,
+    );
+  }
+
+  void _assertCanWrite() {
+    if (_canWrite()) return;
+
+    throw Exception(
+      'Usuário sem permissão para alterar medições. '
+          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+    );
+  }
+
+  void _assertCanDelete() {
+    if (_canDelete()) return;
+
+    throw Exception(
+      'Usuário sem permissão para apagar medições. '
+          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+    );
+  }
 
   Future<void> loadByContract(String contractId) async {
-    emit(state.copyWith(
-      status: ReportMeasurementStatus.loading,
-      error: null,
-      contractId: contractId,
-    ));
+    emit(
+      state.copyWith(
+        status: ReportMeasurementStatus.loading,
+        error: null,
+        contractId: contractId,
+      ),
+    );
+
     try {
-      final list = await _repo.getAllMeasurementsOfContract(uidContract: contractId);
+      final list = await _repo.getAllMeasurementsOfContract(
+        uidContract: contractId,
+      );
+
       emit(
         state.copyWith(
           status: ReportMeasurementStatus.success,
@@ -42,20 +131,15 @@ class ReportMeasurementCubit extends Cubit<ReportMeasurementState> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // CollectionGroup (para dashboards)
-  // ---------------------------------------------------------------------------
-
   Future<List<ReportMeasurementData>> getAllMeasurementsCollectionGroup() {
     return _repo.getAllMeasurementsCollectionGroup();
   }
 
-  // ---------------------------------------------------------------------------
-  // CRUD
-  // ---------------------------------------------------------------------------
-
   Future<void> saveOrUpdate(ReportMeasurementData data) async {
+    _assertCanWrite();
+
     await _repo.saveOrUpdateReport(data);
+
     if (state.contractId != null && data.contractId == state.contractId) {
       await loadByContract(state.contractId!);
     }
@@ -65,42 +149,71 @@ class ReportMeasurementCubit extends Cubit<ReportMeasurementState> {
     required String contractId,
     required String measurementId,
   }) async {
-    await _repo.deleteMeasurement(contractId: contractId, measurementId: measurementId);
+    _assertCanDelete();
+
+    await _repo.deleteMeasurement(
+      contractId: contractId,
+      measurementId: measurementId,
+    );
+
     if (state.contractId == contractId) {
       await loadByContract(contractId);
     }
   }
 
-  double sum(List<ReportMeasurementData> list) => _repo.somarValorMedicoes(list);
-
-  // ---------------------------------------------------------------------------
-  // ✅ Attachments (SideListBox)
-  // ---------------------------------------------------------------------------
+  double sum(List<ReportMeasurementData> list) {
+    return _repo.somarValorMedicoes(list);
+  }
 
   Future<Attachment> pickAndUploadAttachment({
     required String contractId,
     required String measurementId,
   }) async {
-    emit(state.copyWith(uploading: true, uploadProgress: 0.0, error: null));
+    _assertCanWrite();
+
+    emit(
+      state.copyWith(
+        uploading: true,
+        uploadProgress: 0.0,
+        error: null,
+      ),
+    );
 
     try {
       final att = await _repo.pickAndUploadAttachment(
         contractId: contractId,
         measurementId: measurementId,
         onProgress: (p) {
-          emit(state.copyWith(uploading: true, uploadProgress: p));
+          emit(
+            state.copyWith(
+              uploading: true,
+              uploadProgress: p,
+            ),
+          );
         },
       );
 
-      // recarrega lista para refletir attachments
       if (state.contractId == contractId) {
         await loadByContract(contractId);
       }
 
-      emit(state.copyWith(uploading: false, uploadProgress: null));
+      emit(
+        state.copyWith(
+          uploading: false,
+          uploadProgress: null,
+        ),
+      );
+
       return att;
     } catch (e) {
-      emit(state.copyWith(uploading: false, uploadProgress: null, error: e.toString()));
+      emit(
+        state.copyWith(
+          uploading: false,
+          uploadProgress: null,
+          error: e.toString(),
+        ),
+      );
+
       rethrow;
     }
   }
@@ -110,11 +223,14 @@ class ReportMeasurementCubit extends Cubit<ReportMeasurementState> {
     required String measurementId,
     required Attachment attachment,
   }) async {
+    _assertCanWrite();
+
     await _repo.deleteAttachment(
       contractId: contractId,
       measurementId: measurementId,
       attachment: attachment,
     );
+
     if (state.contractId == contractId) {
       await loadByContract(contractId);
     }
@@ -126,12 +242,15 @@ class ReportMeasurementCubit extends Cubit<ReportMeasurementState> {
     required Attachment oldItem,
     required Attachment newItem,
   }) async {
+    _assertCanWrite();
+
     await _repo.renameAttachmentLabel(
       contractId: contractId,
       measurementId: measurementId,
       oldItem: oldItem,
       newItem: newItem,
     );
+
     if (state.contractId == contractId) {
       await loadByContract(contractId);
     }

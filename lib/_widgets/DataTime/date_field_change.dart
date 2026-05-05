@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
-class DateFieldChange extends StatelessWidget {
-  DateFieldChange({
+class DateFieldChange extends StatefulWidget {
+  const DateFieldChange({
     super.key,
     this.stream,
     this.hint,
@@ -27,8 +27,6 @@ class DateFieldChange extends StatelessWidget {
     this.width,
   });
 
-  final DateFormat format = DateFormat('dd/MM/yyyy');
-
   final Stream<String>? stream;
   final TextEditingController? controller;
   final String? hint;
@@ -50,27 +48,99 @@ class DateFieldChange extends StatelessWidget {
   final DateTime? lastDate;
   final double? width;
 
+  @override
+  State<DateFieldChange> createState() => _DateFieldChangeState();
+}
+
+class _DateFieldChangeState extends State<DateFieldChange> {
+  final DateFormat _format = DateFormat('dd/MM/yyyy');
+
+  late final TextEditingController _internalController;
+
+  TextEditingController get _effectiveController {
+    return widget.controller ?? _internalController;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _internalController = TextEditingController();
+
+    _applyInitialValueIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant DateFieldChange oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.initialValue != widget.initialValue ||
+        oldWidget.controller != widget.controller) {
+      _applyInitialValueIfNeeded();
+    }
+  }
+
+  @override
+  void dispose() {
+    _internalController.dispose();
+    super.dispose();
+  }
+
+  void _applyInitialValueIfNeeded() {
+    final controller = _effectiveController;
+
+    if (widget.initialValue == null) return;
+
+    if (controller.text.trim().isNotEmpty) return;
+
+    final text = _format.format(widget.initialValue!);
+
+    controller.value = controller.value.copyWith(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+      composing: TextRange.empty,
+    );
+  }
+
   DateTime? _parseDate(String value) {
-    if (value.trim().isEmpty) return null;
+    final clean = value.trim();
+
+    if (clean.isEmpty) return null;
 
     try {
-      return format.parseStrict(value.trim());
+      return _format.parseStrict(clean);
     } catch (_) {
       return null;
     }
   }
 
+  DateTime _resolveInitialPickerDate() {
+    final parsed = _parseDate(_effectiveController.text);
+
+    final now = DateTime.now();
+
+    final first = widget.firstDate ?? DateTime(now.year - 100);
+    final last = widget.lastDate ?? DateTime(now.year + 100);
+
+    var base = parsed ?? widget.initialValue ?? now;
+
+    if (base.isBefore(first)) {
+      base = first;
+    }
+
+    if (base.isAfter(last)) {
+      base = last;
+    }
+
+    return base;
+  }
+
   Future<void> _selectDate(BuildContext context) async {
-    final TextEditingController? activeController = controller;
+    if (widget.enabled == false) return;
 
-    final DateTime base =
-        _parseDate(activeController?.text ?? '') ??
-            initialValue ??
-            DateTime.now();
+    final theme = Theme.of(context);
 
-    final ThemeData theme = Theme.of(context);
-
-    final ThemeData customTheme = theme.copyWith(
+    final customTheme = theme.copyWith(
       colorScheme: theme.colorScheme.copyWith(
         surface: Colors.white,
         primary: Colors.deepPurple,
@@ -82,11 +152,11 @@ class DateFieldChange extends StatelessWidget {
       ),
     );
 
-    final DateTime? selectedDate = await showDatePicker(
+    final selectedDate = await showDatePicker(
       context: context,
-      initialDate: base,
-      firstDate: firstDate ?? DateTime(DateTime.now().year - 100),
-      lastDate: lastDate ?? DateTime(DateTime.now().year + 100),
+      initialDate: _resolveInitialPickerDate(),
+      firstDate: widget.firstDate ?? DateTime(DateTime.now().year - 100),
+      lastDate: widget.lastDate ?? DateTime(DateTime.now().year + 100),
       builder: (context, child) {
         return Theme(
           data: customTheme,
@@ -97,65 +167,93 @@ class DateFieldChange extends StatelessWidget {
 
     if (selectedDate == null) return;
 
-    final String text = format.format(selectedDate);
+    var finalDate = selectedDate;
 
-    activeController?.value = activeController.value.copyWith(
+    if (widget.hour != null || widget.min != null) {
+      finalDate = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        widget.hour ?? 0,
+        widget.min ?? 0,
+      );
+    }
+
+    final text = _format.format(finalDate);
+
+    _effectiveController.value = _effectiveController.value.copyWith(
       text: text,
       selection: TextSelection.collapsed(offset: text.length),
       composing: TextRange.empty,
     );
 
-    onChanged?.call(selectedDate);
+    widget.onChanged?.call(finalDate);
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (controller != null &&
-        initialValue != null &&
-        controller!.text.isEmpty) {
-      final String text = format.format(initialValue!);
-
-      controller!.value = controller!.value.copyWith(
-        text: text,
-        selection: TextSelection.collapsed(offset: text.length),
-        composing: TextRange.empty,
-      );
-    }
-
     return StreamBuilder<String>(
-      stream: stream,
+      stream: widget.stream,
       builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data != null) {
+          final value = snapshot.data!.trim();
+
+          if (value.isNotEmpty && value != _effectiveController.text) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+
+              _effectiveController.value = _effectiveController.value.copyWith(
+                text: value,
+                selection: TextSelection.collapsed(offset: value.length),
+                composing: TextRange.empty,
+              );
+            });
+          }
+        }
+
         return SizedBox(
-          width: width ?? 100,
+          width: widget.width,
           child: TextFormField(
-            controller: controller,
-            obscureText: obscure,
-            keyboardType: textInputType ?? TextInputType.datetime,
-            inputFormatters: inputFormatters,
-            enabled: enabled ?? true,
+            controller: _effectiveController,
+            obscureText: widget.obscure,
+            keyboardType: widget.textInputType ?? TextInputType.datetime,
+            inputFormatters: widget.inputFormatters,
+            enabled: widget.enabled ?? true,
             readOnly: true,
             style: TextStyle(
-              color: valueColor ?? Colors.black,
+              color: widget.valueColor ?? Colors.black,
             ),
-            onTap: enabled == false ? null : () => _selectDate(context),
+            onTap: widget.enabled == false ? null : () => _selectDate(context),
             validator: (_) {
-              return validator?.call(_parseDate(controller?.text ?? ''));
+              return widget.validator?.call(
+                _parseDate(_effectiveController.text),
+              );
             },
             onSaved: (_) {
-              onSaved?.call(_parseDate(controller?.text ?? ''));
+              widget.onSaved?.call(
+                _parseDate(_effectiveController.text),
+              );
             },
             decoration: InputDecoration(
               labelStyle: const TextStyle(color: Colors.grey),
               filled: true,
               fillColor: Colors.white,
-              labelText: labelText,
-              hintText: hint,
-              prefixIcon: prefix,
-              suffixIcon: suffix ??
+              labelText: widget.labelText,
+              hintText: widget.hint,
+              prefixIcon: widget.prefix,
+              suffixIcon: widget.suffix ??
                   const Icon(
                     Icons.calendar_month_rounded,
                     color: Colors.grey,
                   ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 10,
+              ),
               disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10.0),
                 borderSide: const BorderSide(color: Colors.grey),

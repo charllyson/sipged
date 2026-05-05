@@ -7,7 +7,6 @@ import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dar
 import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/fornecedor_card.dart';
 
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
-import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 
 class SectionRespostasFornecedores extends StatefulWidget {
   final CotacaoData data;
@@ -194,8 +193,8 @@ class _SectionRespostasFornecedoresState
     widget.onChanged(updated);
   }
 
-  TenantItemData? _findBodyByLabel(
-      List<TenantItemData> bodies,
+  String? _findBodyByLabel(
+      List<String> bodies,
       String label,
       ) {
     final lower = label.trim().toLowerCase();
@@ -203,20 +202,12 @@ class _SectionRespostasFornecedoresState
     if (lower.isEmpty) return null;
 
     for (final body in bodies) {
-      if (body.label.trim().toLowerCase() == lower) {
-        return body;
+      if (body.trim().toLowerCase() == lower) {
+        return body.trim();
       }
     }
 
     return null;
-  }
-
-  String? _cnpjFromBody(TenantItemData? body) {
-    final cnpj = body?.extra['cnpj']?.toString().trim();
-
-    if (cnpj == null || cnpj.isEmpty) return null;
-
-    return cnpj;
   }
 
   Future<String?> _showCreateTenantCompanyBodyDialog(
@@ -295,13 +286,13 @@ class _SectionRespostasFornecedoresState
 
     if (!mounted) return null;
 
-    return created?.label ?? label;
+    return created ?? label;
   }
 
   void _applyFornecedor({
     required int index,
     required String? label,
-    required List<TenantItemData> bodies,
+    required List<String> bodies,
   }) {
     final nomes = [_f1NomeCtrl, _f2NomeCtrl, _f3NomeCtrl];
     final cnpjs = [_f1CnpjCtrl, _f2CnpjCtrl, _f3CnpjCtrl];
@@ -313,11 +304,8 @@ class _SectionRespostasFornecedoresState
     nomes[index].text = value;
 
     final body = _findBodyByLabel(bodies, value);
-    final cnpj = _cnpjFromBody(body);
 
-    if (cnpj != null) {
-      cnpjs[index].text = cnpj;
-    } else if (value.isEmpty) {
+    if (body == null && value.isEmpty) {
       cnpjs[index].clear();
     }
 
@@ -333,9 +321,9 @@ class _SectionRespostasFornecedoresState
     final links = [_f1LinkCtrl, _f2LinkCtrl, _f3LinkCtrl];
 
     final tenantState = context.watch<TenantCubit>().state;
-    final List<TenantItemData> bodies = tenantState.companyBodies;
+    final List<String> bodies = tenantState.companyBodies;
 
-    final bodyLabels = bodies.map((e) => e.label).where((e) {
+    final bodyLabels = bodies.where((e) {
       return e.trim().isNotEmpty;
     });
 

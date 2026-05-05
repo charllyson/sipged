@@ -9,13 +9,13 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'tenant_data.dart';
 
 class TenantItemsResult {
-  final List<TenantItemData> units;
-  final List<TenantItemData> roads;
-  final List<TenantItemData> regions;
-  final List<TenantItemData> fundingSources;
-  final List<TenantItemData> programs;
-  final List<TenantItemData> expenseNatures;
-  final List<TenantItemData> companyBodies;
+  final List<String> units;
+  final List<String> roads;
+  final List<String> regions;
+  final List<String> fundingSources;
+  final List<String> programs;
+  final List<String> expenseNatures;
+  final List<String> companyBodies;
 
   const TenantItemsResult({
     required this.units,
@@ -26,17 +26,26 @@ class TenantItemsResult {
     required this.expenseNatures,
     required this.companyBodies,
   });
+
+  factory TenantItemsResult.empty() {
+    return const TenantItemsResult(
+      units: <String>[],
+      roads: <String>[],
+      regions: <String>[],
+      fundingSources: <String>[],
+      programs: <String>[],
+      expenseNatures: <String>[],
+      companyBodies: <String>[],
+    );
+  }
 }
 
 class TenantRepository {
-  /// Tenant fixo temporário para testes.
-  static const String testTenantId = 'SZQmefRUqdtLB14ahcuh';
+  static String? _activeTenantId;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
   final FirebaseStorage _storage;
-
-  final String tenantId;
 
   TenantRepository({
     FirebaseFirestore? firestore,
@@ -45,20 +54,37 @@ class TenantRepository {
     String? tenantId,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        _storage = storage ?? FirebaseStorage.instance,
-        tenantId = (tenantId == null || tenantId.trim().isEmpty)
-            ? testTenantId
-            : tenantId.trim();
+        _storage = storage ?? FirebaseStorage.instance {
+    final cleanTenantId = tenantId?.trim();
+
+    if (cleanTenantId != null && cleanTenantId.isNotEmpty) {
+      _activeTenantId = cleanTenantId;
+    }
+  }
+
+  static const String collectionName = 'tenants';
+
+  String get tenantId {
+    final id = _activeTenantId?.trim();
+
+    if (id == null || id.isEmpty) {
+      throw StateError(
+        'Nenhum tenant selecionado. Selecione uma empresa antes de carregar os dados.',
+      );
+    }
+
+    return id;
+  }
 
   String get companyDocId => tenantId;
 
   String? get _currentUserId => _auth.currentUser?.uid;
 
   DocumentReference<Map<String, dynamic>> get _tenantRef {
-    return _firestore.collection(TenantData.collectionName).doc(tenantId);
+    return _firestore.collection(collectionName).doc(tenantId);
   }
 
-  String get _tenantPath => 'tenants/$tenantId';
+  String get _tenantPath => '$collectionName/$tenantId';
 
   String get _partnersPath => '$_tenantPath/partners';
 
@@ -135,7 +161,7 @@ class TenantRepository {
 
       case 'partners':
       case 'company_bodies':
-      case 'companiesBodies':
+      case 'companyBodies':
         return _partnersRef;
 
       default:
@@ -143,8 +169,165 @@ class TenantRepository {
     }
   }
 
-  Query<Map<String, dynamic>> _itemsQuery(String key) {
-    return _itemsRef(key).orderBy('label');
+  void setActiveTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId não pode ser vazio.');
+    }
+
+    _activeTenantId = cleanTenantId;
+  }
+
+  List<String> _cleanStringList(Iterable<String> values) {
+    final list = values
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+
+    list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    return list;
+  }
+
+  List<String> _mergeStringLists(
+      List<String> first,
+      List<String> second,
+      ) {
+    return _cleanStringList([
+      ...first,
+      ...second,
+    ]);
+  }
+
+  List<String> _replaceOrAppendString(
+      List<String> list,
+      String value,
+      ) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) return _cleanStringList(list);
+
+    final updated = [...list];
+
+    final index = updated.indexWhere(
+          (e) => e.trim().toLowerCase() == clean.toLowerCase(),
+    );
+
+    if (index < 0) {
+      updated.add(clean);
+    } else {
+      updated[index] = clean;
+    }
+
+    return _cleanStringList(updated);
+  }
+
+  List<String> _renameStringItem({
+    required List<String> list,
+    required String oldValue,
+    required String newValue,
+  }) {
+    final oldClean = oldValue.trim();
+    final newClean = newValue.trim();
+
+    if (oldClean.isEmpty) {
+      throw ArgumentError('Item original inválido.');
+    }
+
+    if (newClean.isEmpty) {
+      throw ArgumentError('O novo nome não pode ser vazio.');
+    }
+
+    final updated = [...list];
+
+    final index = updated.indexWhere(
+          (e) => e.trim().toLowerCase() == oldClean.toLowerCase(),
+    );
+
+    if (index < 0) {
+      updated.add(newClean);
+    } else {
+      updated[index] = newClean;
+    }
+
+    return _cleanStringList(updated);
+  }
+
+  List<String> _deleteStringItem({
+    required List<String> list,
+    required String value,
+  }) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) {
+      throw ArgumentError('Item inválido.');
+    }
+
+    return _cleanStringList(
+      list.where((e) => e.trim().toLowerCase() != clean.toLowerCase()),
+    );
+  }
+
+  String _labelFromMap({
+    required String id,
+    required Map<String, dynamic> data,
+  }) {
+    final value = data['label'] ??
+        data['name'] ??
+        data['unitName'] ??
+        data['roadName'] ??
+        data['regionName'] ??
+        data['companyName'] ??
+        data['fantasyName'] ??
+        data['acronym'] ??
+        data['sigla'] ??
+        id;
+
+    return value.toString().trim();
+  }
+
+  Future<List<String>> _loadItemsFromSubcollection(String key) async {
+    final snap = await _itemsRef(key).get();
+
+    final values = snap.docs
+        .map(
+          (doc) => _labelFromMap(
+        id: doc.id,
+        data: doc.data(),
+      ),
+    )
+        .where((e) => e.trim().isNotEmpty)
+        .toList();
+
+    return _cleanStringList(values);
+  }
+
+  Future<void> _updateTenantArrayField({
+    required String field,
+    required List<String> values,
+  }) async {
+    await _tenantRef.set(
+      {
+        field: _cleanStringList(values),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _currentUserId,
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<List<TenantData>> loadAvailableTenants() async {
+    final snap = await _firestore.collection(collectionName).get();
+
+    final tenants = snap.docs.map(TenantData.fromDoc).toList();
+
+    tenants.sort(
+          (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
+    );
+
+    return tenants;
   }
 
   Future<TenantData?> loadCompanyProfile() async {
@@ -162,38 +345,39 @@ class TenantRepository {
   }
 
   Future<TenantItemsResult> loadTenantItems() async {
-    final result = await Future.wait<List<TenantItemData>>([
-      _loadItems('units'),
-      _loadItems('roads'),
-      _loadItems('regions'),
-      _loadItems('funding_sources'),
-      _loadItems('programs'),
-      _loadItems('expense_natures'),
-      _loadItems('partners'),
+    final profile = await loadTenantProfile();
+
+    final arrays = profile == null
+        ? TenantItemsResult.empty()
+        : TenantItemsResult(
+      units: profile.units,
+      roads: profile.roads,
+      regions: profile.regions,
+      fundingSources: profile.fundingSources,
+      programs: profile.programs,
+      expenseNatures: profile.expenseNatures,
+      companyBodies: profile.companyBodies,
+    );
+
+    final result = await Future.wait<List<String>>([
+      _loadItemsFromSubcollection('units'),
+      _loadItemsFromSubcollection('roads'),
+      _loadItemsFromSubcollection('regions'),
+      _loadItemsFromSubcollection('funding_sources'),
+      _loadItemsFromSubcollection('programs'),
+      _loadItemsFromSubcollection('expense_natures'),
+      _loadItemsFromSubcollection('partners'),
     ]);
 
     return TenantItemsResult(
-      units: result[0],
-      roads: result[1],
-      regions: result[2],
-      fundingSources: result[3],
-      programs: result[4],
-      expenseNatures: result[5],
-      companyBodies: result[6],
+      units: _mergeStringLists(arrays.units, result[0]),
+      roads: _mergeStringLists(arrays.roads, result[1]),
+      regions: _mergeStringLists(arrays.regions, result[2]),
+      fundingSources: _mergeStringLists(arrays.fundingSources, result[3]),
+      programs: _mergeStringLists(arrays.programs, result[4]),
+      expenseNatures: _mergeStringLists(arrays.expenseNatures, result[5]),
+      companyBodies: _mergeStringLists(arrays.companyBodies, result[6]),
     );
-  }
-
-  Future<List<TenantItemData>> _loadItems(String key) async {
-    final snap = await _itemsQuery(key).get();
-
-    return snap.docs
-        .map(
-          (doc) => TenantItemData.fromDoc(
-        doc,
-        forcedTenantId: tenantId,
-      ),
-    )
-        .toList();
   }
 
   Future<Map<String, String>?> uploadCompanyLogo({
@@ -248,6 +432,13 @@ class TenantRepository {
     String? logoContentType,
     bool removeLogo = false,
     String? oldLogoPath,
+    List<String>? units,
+    List<String>? roads,
+    List<String>? regions,
+    List<String>? fundingSources,
+    List<String>? programs,
+    List<String>? expenseNatures,
+    List<String>? companyBodies,
   }) async {
     final trimmedLabel = label.trim();
     final trimmedFantasyName = fantasyName.trim();
@@ -256,6 +447,13 @@ class TenantRepository {
     if (trimmedLabel.isEmpty) {
       throw ArgumentError('O nome da empresa não pode ser vazio.');
     }
+
+    final currentSnap = await _tenantRef.get();
+    final exists = currentSnap.exists;
+
+    final currentProfile = currentSnap.exists && currentSnap.data() != null
+        ? TenantData.fromDoc(currentSnap)
+        : null;
 
     String? logoUrl;
     String? logoPath;
@@ -279,8 +477,6 @@ class TenantRepository {
       logoPath = upload?['logoPath'];
     }
 
-    final exists = (await _tenantRef.get()).exists;
-
     final data = <String, dynamic>{
       'tenantId': tenantId,
       'companyId': tenantId,
@@ -289,6 +485,23 @@ class TenantRepository {
       'companyName': trimmedLabel,
       'fantasyName': trimmedFantasyName,
       'cnpj': (trimmedCnpj == null || trimmedCnpj.isEmpty) ? null : trimmedCnpj,
+      'units': _cleanStringList(units ?? currentProfile?.units ?? const []),
+      'roads': _cleanStringList(roads ?? currentProfile?.roads ?? const []),
+      'regions': _cleanStringList(
+        regions ?? currentProfile?.regions ?? const [],
+      ),
+      'fundingSources': _cleanStringList(
+        fundingSources ?? currentProfile?.fundingSources ?? const [],
+      ),
+      'programs': _cleanStringList(
+        programs ?? currentProfile?.programs ?? const [],
+      ),
+      'expenseNatures': _cleanStringList(
+        expenseNatures ?? currentProfile?.expenseNatures ?? const [],
+      ),
+      'companyBodies': _cleanStringList(
+        companyBodies ?? currentProfile?.companyBodies ?? const [],
+      ),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUserId,
       if (!exists) 'createdAt': FieldValue.serverTimestamp(),
@@ -323,6 +536,13 @@ class TenantRepository {
     String? logoContentType,
     bool removeLogo = false,
     String? oldLogoPath,
+    List<String>? units,
+    List<String>? roads,
+    List<String>? regions,
+    List<String>? fundingSources,
+    List<String>? programs,
+    List<String>? expenseNatures,
+    List<String>? companyBodies,
   }) {
     return saveCompanyProfile(
       label: label,
@@ -333,6 +553,13 @@ class TenantRepository {
       logoContentType: logoContentType,
       removeLogo: removeLogo,
       oldLogoPath: oldLogoPath,
+      units: units,
+      roads: roads,
+      regions: regions,
+      fundingSources: fundingSources,
+      programs: programs,
+      expenseNatures: expenseNatures,
+      companyBodies: companyBodies,
     );
   }
 
@@ -449,364 +676,392 @@ class TenantRepository {
     return deleteCompanyProfile();
   }
 
-  Future<TenantItemData> _createItem(
-      String key,
-      String label, {
-        Map<String, dynamic> extra = const <String, dynamic>{},
-      }) async {
-    final cleanLabel = label.trim();
+  Future<String> createUnit(String label) async {
+    final profile = await loadTenantProfile();
+    final updated = _replaceOrAppendString(profile?.units ?? const [], label);
 
-    if (cleanLabel.isEmpty) {
-      throw ArgumentError('O nome não pode ser vazio.');
-    }
+    await _updateTenantArrayField(
+      field: 'units',
+      values: updated,
+    );
 
-    final ref = _itemsRef(key).doc();
-    final id = ref.id;
+    return label.trim();
+  }
 
-    final data = <String, dynamic>{
-      'tenantId': tenantId,
-      'companyId': tenantId,
-      'parentId': tenantId,
-      'id': id,
-      'label': cleanLabel,
-      'createdAt': FieldValue.serverTimestamp(),
-      'createdBy': _currentUserId,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _currentUserId,
-      ...extra,
-    };
+  Future<String> updateUnitName(String oldLabel, String newLabel) async {
+    final profile = await loadTenantProfile();
 
-    data.removeWhere((_, value) => value == null);
+    final updated = _renameStringItem(
+      list: profile?.units ?? const [],
+      oldValue: oldLabel,
+      newValue: newLabel,
+    );
 
-    await ref.set(data);
+    await _updateTenantArrayField(
+      field: 'units',
+      values: updated,
+    );
 
-    final snap = await ref.get();
+    return newLabel.trim();
+  }
 
-    return TenantItemData.fromDoc(
-      snap,
-      forcedTenantId: tenantId,
+  Future<void> deleteUnit(String label) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _deleteStringItem(
+      list: profile?.units ?? const [],
+      value: label,
+    );
+
+    await _updateTenantArrayField(
+      field: 'units',
+      values: updated,
     );
   }
 
-  Future<TenantItemData> _updateItemName(
-      String key,
-      String id,
-      String label, {
-        Map<String, dynamic> extra = const <String, dynamic>{},
-      }) async {
-    final cleanId = id.trim();
-    final cleanLabel = label.trim();
+  Future<String> createRoad(String label) async {
+    final profile = await loadTenantProfile();
+    final updated = _replaceOrAppendString(profile?.roads ?? const [], label);
 
-    if (cleanId.isEmpty) {
-      throw ArgumentError('ID inválido.');
-    }
+    await _updateTenantArrayField(
+      field: 'roads',
+      values: updated,
+    );
 
-    if (cleanLabel.isEmpty) {
-      throw ArgumentError('O nome não pode ser vazio.');
-    }
+    return label.trim();
+  }
 
-    final ref = _itemsRef(key).doc(cleanId);
+  Future<String> updateRoadName(String oldLabel, String newLabel) async {
+    final profile = await loadTenantProfile();
 
-    final data = <String, dynamic>{
-      'tenantId': tenantId,
-      'companyId': tenantId,
-      'parentId': tenantId,
-      'label': cleanLabel,
-      ...extra,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _currentUserId,
-    };
+    final updated = _renameStringItem(
+      list: profile?.roads ?? const [],
+      oldValue: oldLabel,
+      newValue: newLabel,
+    );
 
-    data.removeWhere((_, value) => value == null);
+    await _updateTenantArrayField(
+      field: 'roads',
+      values: updated,
+    );
 
-    await ref.set(data, SetOptions(merge: true));
+    return newLabel.trim();
+  }
 
-    final snap = await ref.get();
+  Future<void> deleteRoad(String label) async {
+    final profile = await loadTenantProfile();
 
-    return TenantItemData.fromDoc(
-      snap,
-      forcedTenantId: tenantId,
+    final updated = _deleteStringItem(
+      list: profile?.roads ?? const [],
+      value: label,
+    );
+
+    await _updateTenantArrayField(
+      field: 'roads',
+      values: updated,
     );
   }
 
-  Future<TenantItemData> _updateItemExtra(
-      String key,
-      String id,
-      Map<String, dynamic> extra,
-      ) async {
-    final cleanId = id.trim();
-
-    if (cleanId.isEmpty) {
-      throw ArgumentError('ID inválido.');
-    }
-
-    final ref = _itemsRef(key).doc(cleanId);
-
-    final data = <String, dynamic>{
-      'tenantId': tenantId,
-      'companyId': tenantId,
-      'parentId': tenantId,
-      ...extra,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _currentUserId,
-    };
-
-    data.removeWhere((_, value) => value == null);
-
-    await ref.set(
-      data,
-      SetOptions(merge: true),
-    );
-
-    final snap = await ref.get();
-
-    return TenantItemData.fromDoc(
-      snap,
-      forcedTenantId: tenantId,
-    );
-  }
-
-  Future<void> _deleteItem(String key, String id) async {
-    final cleanId = id.trim();
-
-    if (cleanId.isEmpty) {
-      throw ArgumentError('ID inválido.');
-    }
-
-    await _itemsRef(key).doc(cleanId).delete();
-  }
-
-  Future<TenantItemData> createUnit(String label) {
-    return _createItem(
-      'units',
-      label,
-      extra: {
-        'unitName': label.trim(),
-      },
-    );
-  }
-
-  Future<TenantItemData> updateUnitName(String id, String label) {
-    return _updateItemName(
-      'units',
-      id,
-      label,
-      extra: {
-        'unitName': label.trim(),
-      },
-    );
-  }
-
-  Future<void> deleteUnit(String id) {
-    return _deleteItem('units', id);
-  }
-
-  Future<TenantItemData> createRoad(String label) {
-    return _createItem(
-      'roads',
-      label,
-      extra: {
-        'name': label.trim(),
-        'acronym': label.trim(),
-      },
-    );
-  }
-
-  Future<TenantItemData> updateRoadName(String id, String label) {
-    return _updateItemName(
-      'roads',
-      id,
-      label,
-      extra: {
-        'name': label.trim(),
-        'acronym': label.trim(),
-      },
-    );
-  }
-
-  Future<void> deleteRoad(String id) {
-    return _deleteItem('roads', id);
-  }
-
-  Future<TenantItemData> createRegion(
+  Future<String> createRegion(
       String label, {
         List<String> municipios = const <String>[],
-      }) {
-    final cleanMunicipios = municipios
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+      }) async {
+    final profile = await loadTenantProfile();
+    final updated = _replaceOrAppendString(profile?.regions ?? const [], label);
 
-    return _createItem(
-      'regions',
-      label,
-      extra: {
-        'regionName': label.trim(),
-        'municipios': cleanMunicipios,
-      },
+    await _updateTenantArrayField(
+      field: 'regions',
+      values: updated,
     );
+
+    return label.trim();
   }
 
-  Future<TenantItemData> updateRegionName(String id, String label) {
-    return _updateItemName(
-      'regions',
-      id,
-      label,
-      extra: {
-        'regionName': label.trim(),
-      },
+  Future<String> updateRegionName(String oldLabel, String newLabel) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _renameStringItem(
+      list: profile?.regions ?? const [],
+      oldValue: oldLabel,
+      newValue: newLabel,
     );
+
+    await _updateTenantArrayField(
+      field: 'regions',
+      values: updated,
+    );
+
+    return newLabel.trim();
   }
 
-  Future<TenantItemData> updateRegionMunicipios(
-      String id,
+  Future<String> updateRegionMunicipios(
+      String label,
       List<String> municipios,
-      ) {
-    final cleanMunicipios = municipios
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+      ) async {
+    return label.trim();
+  }
 
-    return _updateItemExtra(
-      'regions',
-      id,
-      {
-        'municipios': cleanMunicipios,
-      },
+  Future<void> deleteRegion(String label) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _deleteStringItem(
+      list: profile?.regions ?? const [],
+      value: label,
+    );
+
+    await _updateTenantArrayField(
+      field: 'regions',
+      values: updated,
     );
   }
 
-  Future<void> deleteRegion(String id) {
-    return _deleteItem('regions', id);
-  }
+  Future<String> createFundingSource(String label) async {
+    final profile = await loadTenantProfile();
 
-  Future<TenantItemData> createFundingSource(String label) {
-    return _createItem(
-      'funding_sources',
+    final updated = _replaceOrAppendString(
+      profile?.fundingSources ?? const [],
       label,
-      extra: {
-        'name': label.trim(),
-      },
+    );
+
+    await _updateTenantArrayField(
+      field: 'fundingSources',
+      values: updated,
+    );
+
+    return label.trim();
+  }
+
+  Future<String> updateFundingSourceName(
+      String oldLabel,
+      String newLabel,
+      ) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _renameStringItem(
+      list: profile?.fundingSources ?? const [],
+      oldValue: oldLabel,
+      newValue: newLabel,
+    );
+
+    await _updateTenantArrayField(
+      field: 'fundingSources',
+      values: updated,
+    );
+
+    return newLabel.trim();
+  }
+
+  Future<void> deleteFundingSource(String label) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _deleteStringItem(
+      list: profile?.fundingSources ?? const [],
+      value: label,
+    );
+
+    await _updateTenantArrayField(
+      field: 'fundingSources',
+      values: updated,
     );
   }
 
-  Future<TenantItemData> updateFundingSourceName(String id, String label) {
-    return _updateItemName(
-      'funding_sources',
-      id,
+  Future<String> createProgram(String label) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _replaceOrAppendString(
+      profile?.programs ?? const [],
       label,
-      extra: {
-        'name': label.trim(),
-      },
+    );
+
+    await _updateTenantArrayField(
+      field: 'programs',
+      values: updated,
+    );
+
+    return label.trim();
+  }
+
+  Future<String> updateProgramName(
+      String oldLabel,
+      String newLabel,
+      ) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _renameStringItem(
+      list: profile?.programs ?? const [],
+      oldValue: oldLabel,
+      newValue: newLabel,
+    );
+
+    await _updateTenantArrayField(
+      field: 'programs',
+      values: updated,
+    );
+
+    return newLabel.trim();
+  }
+
+  Future<void> deleteProgram(String label) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _deleteStringItem(
+      list: profile?.programs ?? const [],
+      value: label,
+    );
+
+    await _updateTenantArrayField(
+      field: 'programs',
+      values: updated,
     );
   }
 
-  Future<void> deleteFundingSource(String id) {
-    return _deleteItem('funding_sources', id);
-  }
+  Future<String> createExpenseNature(String label) async {
+    final profile = await loadTenantProfile();
 
-  Future<TenantItemData> createProgram(String label) {
-    return _createItem(
-      'programs',
+    final updated = _replaceOrAppendString(
+      profile?.expenseNatures ?? const [],
       label,
-      extra: {
-        'name': label.trim(),
-      },
+    );
+
+    await _updateTenantArrayField(
+      field: 'expenseNatures',
+      values: updated,
+    );
+
+    return label.trim();
+  }
+
+  Future<String> updateExpenseNatureName(
+      String oldLabel,
+      String newLabel,
+      ) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _renameStringItem(
+      list: profile?.expenseNatures ?? const [],
+      oldValue: oldLabel,
+      newValue: newLabel,
+    );
+
+    await _updateTenantArrayField(
+      field: 'expenseNatures',
+      values: updated,
+    );
+
+    return newLabel.trim();
+  }
+
+  Future<void> deleteExpenseNature(String label) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _deleteStringItem(
+      list: profile?.expenseNatures ?? const [],
+      value: label,
+    );
+
+    await _updateTenantArrayField(
+      field: 'expenseNatures',
+      values: updated,
     );
   }
 
-  Future<TenantItemData> updateProgramName(String id, String label) {
-    return _updateItemName(
-      'programs',
-      id,
+  Future<String> createCompanyBody(
+      String label, {
+        String? cnpj,
+      }) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _replaceOrAppendString(
+      profile?.companyBodies ?? const [],
       label,
-      extra: {
-        'name': label.trim(),
-      },
     );
-  }
 
-  Future<void> deleteProgram(String id) {
-    return _deleteItem('programs', id);
-  }
-
-  Future<TenantItemData> createExpenseNature(String label) {
-    return _createItem(
-      'expense_natures',
-      label,
-      extra: {
-        'name': label.trim(),
-      },
+    await _updateTenantArrayField(
+      field: 'companyBodies',
+      values: updated,
     );
+
+    return label.trim();
   }
 
-  Future<TenantItemData> updateExpenseNatureName(String id, String label) {
-    return _updateItemName(
-      'expense_natures',
-      id,
-      label,
-      extra: {
-        'name': label.trim(),
-      },
-    );
-  }
-
-  Future<void> deleteExpenseNature(String id) {
-    return _deleteItem('expense_natures', id);
-  }
-
-  Future<TenantItemData> createCompanyBody(
+  Future<String> createPartner(
       String label, {
         String? cnpj,
       }) {
-    final cleanCnpj = cnpj?.trim();
-
-    return _createItem(
-      'partners',
+    return createCompanyBody(
       label,
-      extra: {
-        'partnerId': null,
-        'name': label.trim(),
-        if (cleanCnpj != null && cleanCnpj.isNotEmpty) 'cnpj': cleanCnpj,
-      },
+      cnpj: cnpj,
     );
   }
 
-  Future<TenantItemData> updateCompanyBodyName(String id, String label) {
-    return _updateItemName(
-      'partners',
-      id,
-      label,
-      extra: {
-        'name': label.trim(),
-      },
+  Future<String> updateCompanyBodyName(
+      String oldLabel,
+      String newLabel,
+      ) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _renameStringItem(
+      list: profile?.companyBodies ?? const [],
+      oldValue: oldLabel,
+      newValue: newLabel,
     );
+
+    await _updateTenantArrayField(
+      field: 'companyBodies',
+      values: updated,
+    );
+
+    return newLabel.trim();
   }
 
-  Future<TenantItemData> updateCompanyBodyData(
-      String id, {
+  Future<String> updatePartnerName(
+      String oldLabel,
+      String newLabel,
+      ) {
+    return updateCompanyBodyName(oldLabel, newLabel);
+  }
+
+  Future<String> updateCompanyBodyData(
+      String oldLabel, {
         String? label,
         String? cnpj,
       }) {
-    final data = <String, dynamic>{};
+    final newLabel = label?.trim();
 
-    if (label != null && label.trim().isNotEmpty) {
-      data['label'] = label.trim();
-      data['name'] = label.trim();
+    if (newLabel == null || newLabel.isEmpty) {
+      return Future.value(oldLabel.trim());
     }
 
-    if (cnpj != null && cnpj.trim().isNotEmpty) {
-      data['cnpj'] = cnpj.trim();
-    }
+    return updateCompanyBodyName(oldLabel, newLabel);
+  }
 
-    return _updateItemExtra(
-      'partners',
-      id,
-      data,
+  Future<String> updatePartnerData(
+      String oldLabel, {
+        String? label,
+        String? cnpj,
+      }) {
+    return updateCompanyBodyData(
+      oldLabel,
+      label: label,
+      cnpj: cnpj,
     );
   }
 
-  Future<void> deleteCompanyBody(String id) {
-    return _deleteItem('partners', id);
+  Future<void> deleteCompanyBody(String label) async {
+    final profile = await loadTenantProfile();
+
+    final updated = _deleteStringItem(
+      list: profile?.companyBodies ?? const [],
+      value: label,
+    );
+
+    await _updateTenantArrayField(
+      field: 'companyBodies',
+      values: updated,
+    );
+  }
+
+  Future<void> deletePartner(String label) {
+    return deleteCompanyBody(label);
   }
 }

@@ -6,10 +6,6 @@ import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 import 'package:sipged/screens/modules/contracts/apostilles/apostilles_page.dart';
 
 class TabBarApostillesPage extends StatelessWidget {
-  final ProcessData? contractData;
-  final ProcessCubit? contractsCubit;
-  final int initialTabIndex;
-
   const TabBarApostillesPage({
     super.key,
     this.contractData,
@@ -17,21 +13,9 @@ class TabBarApostillesPage extends StatelessWidget {
     this.initialTabIndex = 0,
   });
 
-  String _buildContractNumber(ProcessData contract) {
-    final number = contract.displayNumber.trim();
-
-    if (number.isEmpty) return '';
-
-    if ((contract.contractNumber ?? '').trim().isNotEmpty) {
-      return 'Contrato nº $number';
-    }
-
-    if ((contract.processNumber ?? '').trim().isNotEmpty) {
-      return 'Processo nº $number';
-    }
-
-    return number;
-  }
+  final ProcessData? contractData;
+  final ProcessCubit? contractsCubit;
+  final int initialTabIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -39,16 +23,18 @@ class TabBarApostillesPage extends StatelessWidget {
       contractData: contractData,
       contractsCubit: contractsCubit,
       initialTabIndex: initialTabIndex,
-      textBanner: contractData?.summarySubjectContract,
-      contractNumberBuilder: _buildContractNumber,
       tabs: [
         ContractTabDescriptor(
           label: 'Apostilamentos',
           requireSavedContract: true,
-          builder: (c) => ApostillesPage(
-            key: ValueKey(c?.id),
-            contractData: c!,
-          ),
+          builder: (c) {
+            final contract = c!;
+
+            return ApostillesPage(
+              key: ValueKey(contract.id),
+              contractData: contract,
+            );
+          },
         ),
       ],
     );

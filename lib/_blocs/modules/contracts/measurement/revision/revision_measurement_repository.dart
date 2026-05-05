@@ -10,10 +10,6 @@ import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'revision_measurement_data.dart';
 
 class RevisionMeasurementRepository {
-  final FirebaseFirestore _db;
-  final FirebaseAuth _auth;
-  final FirebaseStorage _storage;
-
   RevisionMeasurementRepository({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
@@ -22,85 +18,147 @@ class RevisionMeasurementRepository {
         _auth = auth ?? FirebaseAuth.instance,
         _storage = storage ?? FirebaseStorage.instance;
 
-  CollectionReference<Map<String, dynamic>> _col(String contractId) =>
-      _db.collection('contracts').doc(contractId).collection(
-        RevisionMeasurementData.collectionName,
-      );
+  final FirebaseFirestore _db;
+  final FirebaseAuth _auth;
+  final FirebaseStorage _storage;
 
-  // ---------------------------------------------------------------------------
-  // Queries
-  // ---------------------------------------------------------------------------
+  CollectionReference<Map<String, dynamic>> _col(String contractId) {
+    return _db
+        .collection('contracts')
+        .doc(contractId)
+        .collection(RevisionMeasurementData.collectionName);
+  }
 
   Future<List<RevisionMeasurementData>> getAllRevisionsOfContract({
     required String uidContract,
   }) async {
     final qs = await _col(uidContract).orderBy('order').get();
-    return qs.docs.map((d) => RevisionMeasurementData.fromDocument(d)).toList();
+
+    return qs.docs.map(RevisionMeasurementData.fromDocument).toList();
   }
 
   Future<List<RevisionMeasurementData>> getAllRevisionsCollectionGroup() async {
-    final qs = await _db.collectionGroup(RevisionMeasurementData.collectionName).get();
-    return qs.docs.map((d) => RevisionMeasurementData.fromDocument(d)).toList();
-  }
+    final qs = await _db
+        .collectionGroup(RevisionMeasurementData.collectionName)
+        .get();
 
-  // ---------------------------------------------------------------------------
-  // CRUD
-  // ---------------------------------------------------------------------------
+    return qs.docs.map(RevisionMeasurementData.fromDocument).toList();
+  }
 
   Future<void> saveOrUpdateRevision({
     required String contractId,
     required String revisionMeasurementId,
     required RevisionMeasurementData rev,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanRevisionId = revisionMeasurementId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId é obrigatório para salvar revisão.');
+    }
+
+    if (cleanRevisionId.isEmpty) {
+      throw Exception('revisionMeasurementId é obrigatório para salvar revisão.');
+    }
+
     final user = _auth.currentUser;
-    final docRef = _col(contractId).doc(revisionMeasurementId);
-
-    rev.id ??= revisionMeasurementId;
-
-    final data = rev.toFirestore()
-      ..addAll({
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': user?.uid ?? '',
-        'contractId': contractId,
-      });
+    final docRef = _col(cleanContractId).doc(cleanRevisionId);
 
     final existing = await docRef.get();
-    if (!existing.exists || existing.data()?['createdAt'] == null) {
+
+    final data = rev
+        .copyWith(
+      id: cleanRevisionId,
+      contractId: cleanContractId,
+    )
+        .toFirestore()
+      ..addAll({
+        'id': cleanRevisionId,
+        'contractId': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': user?.uid ?? '',
+      });
+
+    final hasCreatedAt =
+        existing.exists && existing.data()?['createdAt'] != null;
+
+    if (!hasCreatedAt) {
       data['createdAt'] = FieldValue.serverTimestamp();
       data['createdBy'] = user?.uid ?? '';
+    } else {
+      data.remove('createdAt');
+      data.remove('createdBy');
     }
 
     await docRef.set(data, SetOptions(merge: true));
-    await _recalcularFinancialPercentage(contractId);
+
+    await _recalcularFinancialPercentage(cleanContractId);
   }
 
   Future<void> deleteRevision({
     required String contractId,
     required String revisionId,
   }) async {
-    await _col(contractId).doc(revisionId).delete();
-    await _recalcularFinancialPercentage(contractId);
-  }
+    final cleanContractId = contractId.trim();
+    final cleanRevisionId = revisionId.trim();
 
-  // ---------------------------------------------------------------------------
-  // Metadados (legado)
-  // ---------------------------------------------------------------------------
+    if (cleanContractId.isEmpty || cleanRevisionId.isEmpty) return;
+
+    final docRef = _col(cleanContractId).doc(cleanRevisionId);
+    final snap = await docRef.get();
+    final data = snap.data();
+
+    if (data != null) {
+      final raw = data['attachments'];
+
+      if (raw is List) {
+        for (final item in raw) {
+          if (item is Map) {
+            final att = Attachment.fromMap(Map<String, dynamic>.from(item));
+
+            if (att.path.trim().isNotEmpty) {
+              await deleteStorageByPath(att.path);
+            }
+          }
+        }
+      }
+    }
+
+    try {
+      final folder = _storage.ref(
+        'contracts/$cleanContractId/${RevisionMeasurementData.collectionName}/$cleanRevisionId/attachments',
+      );
+
+      final list = await folder.listAll();
+
+      for (final item in list.items) {
+        try {
+          await item.delete();
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    await docRef.delete();
+
+    await _recalcularFinancialPercentage(cleanContractId);
+  }
 
   Future<void> salvarUrlPdfDaRevisionMeasurement({
     required String contractId,
     required String revisionMeasurementId,
     required String url,
   }) async {
-    await _col(contractId).doc(revisionMeasurementId).update({
-      'pdfUrl': url,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _auth.currentUser?.uid ?? '',
-    });
-  }
+    final cleanUrl = url.trim();
 
-  // ---------------------------------------------------------------------------
-  // Attachments (Firestore)
-  // ---------------------------------------------------------------------------
+    await _col(contractId).doc(revisionMeasurementId).set(
+      {
+        'pdfUrl': cleanUrl.isEmpty ? FieldValue.delete() : cleanUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _auth.currentUser?.uid ?? '',
+      },
+      SetOptions(merge: true),
+    );
+  }
 
   Future<void> setAttachments({
     required String contractId,
@@ -109,7 +167,9 @@ class RevisionMeasurementRepository {
   }) async {
     await _col(contractId).doc(revisionId).set(
       {
-        'attachments': attachments.map((e) => e.toMap()).toList(),
+        'attachments': attachments.isEmpty
+            ? FieldValue.delete()
+            : attachments.map((e) => e.toMap()).toList(),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': _auth.currentUser?.uid ?? '',
       },
@@ -118,45 +178,72 @@ class RevisionMeasurementRepository {
   }
 
   // ---------------------------------------------------------------------------
-  // Storage – multi-anexos (igual Adjustment)
+  // Storage - anexos
   // ---------------------------------------------------------------------------
 
-  String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
+  String _sanitize(String value) {
+    return value.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
+  }
 
   String _extFromName(String name) {
-    final m = RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(name.trim());
-    return m == null ? '' : '.${m.group(1)!.toLowerCase()}';
+    final match = RegExp(
+      r'\.([a-z0-9]+)$',
+      caseSensitive: false,
+    ).firstMatch(name.trim());
+
+    return match == null ? '' : '.${match.group(1)!.toLowerCase()}';
   }
 
   String _baseName(String name) {
-    var s = name.trim();
-    final q = s.indexOf('?');
-    if (q != -1) s = s.substring(0, q);
-    final h = s.indexOf('#');
-    if (h != -1) s = s.substring(0, h);
-    s = s.split('/').last;
-    return s.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+    var value = name.trim();
+
+    final queryIndex = value.indexOf('?');
+    if (queryIndex != -1) {
+      value = value.substring(0, queryIndex);
+    }
+
+    final hashIndex = value.indexOf('#');
+    if (hashIndex != -1) {
+      value = value.substring(0, hashIndex);
+    }
+
+    value = value.split('/').last;
+
+    return value.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
   }
 
   String storedFileName(String original) {
     final base = _sanitize(_baseName(original));
-    final rnd = (DateTime.now().millisecondsSinceEpoch % 1000000)
+    final random = (DateTime.now().millisecondsSinceEpoch % 1000000)
         .toString()
         .padLeft(6, '0');
     final ext = _extFromName(original);
-    return '$base-$rnd${ext.isEmpty ? ".bin" : ext}';
+
+    return '$base-$random${ext.isEmpty ? ".bin" : ext}';
   }
 
   /// Pasta dos anexos da revisão.
-  /// Padrão: contracts/{contractId}/revisionsMeasurement/{revisionId}/attachments/{file}
-  String attachmentsDir(ProcessData c, RevisionMeasurementData r) =>
-      'contracts/${c.id}/revisionsMeasurement/${r.id}/attachments';
+  /// Padrão:
+  /// contracts/{contractId}/revisionsMeasurement/{revisionId}/attachments/{file}
+  String attachmentsDir(ProcessData contract, RevisionMeasurementData revision) {
+    if (contract.id == null || contract.id!.trim().isEmpty) {
+      throw Exception('contract.id é obrigatório para anexos de revisão.');
+    }
+
+    if (revision.id == null || revision.id!.trim().isEmpty) {
+      throw Exception('revision.id é obrigatório para anexos de revisão.');
+    }
+
+    return 'contracts/${contract.id}/${RevisionMeasurementData.collectionName}/${revision.id}/attachments';
+  }
 
   Future<(Uint8List bytes, String originalName)> pickFileBytes() async {
     final result = await FilePicker.platform.pickFiles(withData: true);
+
     if (result == null || result.files.single.bytes == null) {
       throw Exception('Nenhum arquivo selecionado ou arquivo vazio.');
     }
+
     return (result.files.single.bytes!, result.files.single.name);
   }
 
@@ -168,42 +255,43 @@ class RevisionMeasurementRepository {
     required String label,
     void Function(double progress)? onProgress,
   }) async {
-    if (revision.id == null || revision.id!.trim().isEmpty) {
-      throw Exception('revision.id é obrigatório para anexos.');
-    }
-
     final dir = attachmentsDir(contract, revision);
     final name = storedFileName(originalName);
     final ref = _storage.ref('$dir/$name');
 
+    final ext = _extFromName(originalName);
+
     final task = ref.putData(
       bytes,
       SettableMetadata(
-        contentType: _extFromName(originalName) == '.pdf'
+        contentType: ext == '.pdf'
             ? 'application/pdf'
             : 'application/octet-stream',
-        customMetadata: {'originalName': originalName},
+        customMetadata: {
+          'originalName': originalName,
+          'contractId': contract.id ?? '',
+          'revisionId': revision.id ?? '',
+        },
       ),
     );
 
-    if (onProgress != null) {
-      task.snapshotEvents.listen((e) {
-        if (e.totalBytes > 0) {
-          onProgress(e.bytesTransferred / e.totalBytes);
-        }
-      });
-    }
+    task.snapshotEvents.listen((event) {
+      if (event.totalBytes > 0) {
+        onProgress?.call(event.bytesTransferred / event.totalBytes);
+      }
+    });
 
     await task;
+
     final url = await ref.getDownloadURL();
     final meta = await ref.getMetadata();
 
     return Attachment(
       id: ref.name,
-      label: label.isEmpty ? _baseName(originalName) : label,
+      label: label.trim().isEmpty ? _baseName(originalName) : label.trim(),
       url: url,
       path: ref.fullPath,
-      ext: _extFromName(originalName),
+      ext: ext,
       size: meta.size?.toInt(),
       createdAt: DateTime.now(),
       createdBy: _auth.currentUser?.uid,
@@ -211,13 +299,15 @@ class RevisionMeasurementRepository {
   }
 
   Future<void> deleteStorageByPath(String storagePath) async {
+    if (storagePath.trim().isEmpty) return;
+
     try {
       await _storage.ref(storagePath).delete();
     } catch (_) {}
   }
 
   // ---------------------------------------------------------------------------
-  // % financeiro (mesmo cálculo)
+  // Percentual financeiro
   // ---------------------------------------------------------------------------
 
   Future<void> _recalcularFinancialPercentage(String contractId) async {
@@ -228,9 +318,10 @@ class RevisionMeasurementRepository {
         .doc(contractId)
         .collection('reportsMeasurement')
         .get();
-    for (final d in reps.docs) {
-      final v = (d.data()['value'] ?? 0);
-      total += (v is num) ? v.toDouble() : 0.0;
+
+    for (final doc in reps.docs) {
+      final value = doc.data()['value'];
+      total += value is num ? value.toDouble() : 0.0;
     }
 
     final adjs = await _db
@@ -238,9 +329,10 @@ class RevisionMeasurementRepository {
         .doc(contractId)
         .collection('adjustmentsMeasurement')
         .get();
-    for (final d in adjs.docs) {
-      final v = (d.data()['value'] ?? 0);
-      total += (v is num) ? v.toDouble() : 0.0;
+
+    for (final doc in adjs.docs) {
+      final value = doc.data()['value'];
+      total += value is num ? value.toDouble() : 0.0;
     }
 
     final revs = await _db
@@ -248,24 +340,27 @@ class RevisionMeasurementRepository {
         .doc(contractId)
         .collection('revisionsMeasurement')
         .get();
-    for (final d in revs.docs) {
-      final v = (d.data()['value'] ?? 0);
-      total += (v is num) ? v.toDouble() : 0.0;
+
+    for (final doc in revs.docs) {
+      final value = doc.data()['value'];
+      total += value is num ? value.toDouble() : 0.0;
     }
 
-    final c = await _db.collection('contracts').doc(contractId).get();
-    final initialValue = (c.data()?['initialContractValue'] ?? 0);
-    final baseInicial = (initialValue is num) ? initialValue.toDouble() : 0.0;
+    final contractSnap = await _db.collection('contracts').doc(contractId).get();
+    final initialValue = contractSnap.data()?['initialContractValue'];
+    final baseInicial = initialValue is num ? initialValue.toDouble() : 0.0;
 
     final adds = await _db
         .collection('contracts')
         .doc(contractId)
         .collection('additives')
         .get();
-    double totAdd = 0.0;
-    for (final a in adds.docs) {
-      final v = (a.data()['additiveValue'] ?? 0);
-      totAdd += (v is num) ? v.toDouble() : 0;
+
+    double totalAditivos = 0.0;
+
+    for (final doc in adds.docs) {
+      final value = doc.data()['additiveValue'];
+      totalAditivos += value is num ? value.toDouble() : 0.0;
     }
 
     final apos = await _db
@@ -273,13 +368,16 @@ class RevisionMeasurementRepository {
         .doc(contractId)
         .collection('apostilles')
         .get();
-    double totApo = 0.0;
-    for (final ap in apos.docs) {
-      final v = (ap.data()['apostilleValue'] ?? 0);
-      totApo += (v is num) ? v.toDouble() : 0;
+
+    double totalApostilas = 0.0;
+
+    for (final doc in apos.docs) {
+      final value = doc.data()['apostilleValue'];
+      totalApostilas += value is num ? value.toDouble() : 0.0;
     }
 
-    final totalBase = baseInicial + totAdd + totApo;
+    final totalBase = baseInicial + totalAditivos + totalApostilas;
+
     final percent = totalBase > 0 ? (total / totalBase) * 100.0 : 0.0;
 
     await _db.collection('contracts').doc(contractId).set(
@@ -291,15 +389,13 @@ class RevisionMeasurementRepository {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Totais
-  // ---------------------------------------------------------------------------
-
   double sumRevisions(List<RevisionMeasurementData> items) {
     double total = 0.0;
-    for (final i in items) {
-      total += (i.value ?? 0.0);
+
+    for (final item in items) {
+      total += item.value ?? 0.0;
     }
+
     return total;
   }
 }

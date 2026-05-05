@@ -1,7 +1,7 @@
 // lib/_blocs/modules/contracts/hiring/dfd/dfd_cubit.dart
-import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 import 'dfd_data.dart';
@@ -21,30 +21,49 @@ class DfdCubit extends Cubit<DfdState> {
   bool get _alive => !isClosed;
 
   Future<DfdData?> getDataForContract(String contractId) {
-    return repo.readDataForContract(contractId);
+    final id = contractId.trim();
+    if (id.isEmpty) return Future<DfdData?>.value(null);
+
+    return repo.readDataForContract(id);
   }
 
   Future<void> load(String contractId) async {
+    final cleanContractId = contractId.trim();
+    if (cleanContractId.isEmpty) {
+      emit(
+        state.copyWith(
+          loading: false,
+          saving: false,
+          saveSuccess: false,
+          error: 'Contrato não informado.',
+          clearContractId: true,
+          clearDfdId: true,
+          sectionIds: const <String, String>{},
+          sectionsData: const <String, Map<String, dynamic>>{},
+        ),
+      );
+      return;
+    }
+
     final reqId = ++_loadSeq;
 
     emit(
       state.copyWith(
         loading: true,
         saving: false,
-        error: null,
         saveSuccess: false,
-        contractId: contractId,
+        contractId: cleanContractId,
+        clearError: true,
       ),
     );
 
     try {
-      final ids = await repo.ensureStructure(contractId);
+      final ids = await repo.ensureStructure(cleanContractId);
 
-      // Se um novo load foi disparado, ignora este resultado
       if (!_alive || reqId != _loadSeq) return;
 
       final data = await repo.loadAllSections(
-        contractId: contractId,
+        contractId: cleanContractId,
         dfdId: ids.dfdId,
         sectionIds: ids.sectionIds,
       );
@@ -54,9 +73,13 @@ class DfdCubit extends Cubit<DfdState> {
       emit(
         state.copyWith(
           loading: false,
+          saving: false,
+          saveSuccess: false,
+          contractId: cleanContractId,
           dfdId: ids.dfdId,
           sectionIds: ids.sectionIds,
           sectionsData: data,
+          clearError: true,
         ),
       );
     } catch (err) {
@@ -77,6 +100,18 @@ class DfdCubit extends Cubit<DfdState> {
     required String contractId,
     required SectionsMap sectionsData,
   }) async {
+    final cleanContractId = contractId.trim();
+    if (cleanContractId.isEmpty) {
+      emit(
+        state.copyWith(
+          saving: false,
+          saveSuccess: false,
+          error: 'Contrato não informado.',
+        ),
+      );
+      return;
+    }
+
     final reqId = ++_saveSeq;
 
     emit(
@@ -84,25 +119,18 @@ class DfdCubit extends Cubit<DfdState> {
         saving: true,
         loading: false,
         saveSuccess: false,
-        error: null,
-        contractId: contractId,
+        contractId: cleanContractId,
+        clearError: true,
       ),
     );
 
     try {
-      final ids = await repo.ensureStructure(contractId);
+      final ids = await repo.ensureStructure(cleanContractId);
 
       if (!_alive || reqId != _saveSeq) return;
 
-      emit(
-        state.copyWith(
-          dfdId: ids.dfdId,
-          sectionIds: ids.sectionIds,
-        ),
-      );
-
       await repo.saveSectionsBatch(
-        contractId: contractId,
+        contractId: cleanContractId,
         dfdId: ids.dfdId,
         sectionIds: ids.sectionIds,
         sectionsData: sectionsData,
@@ -110,7 +138,10 @@ class DfdCubit extends Cubit<DfdState> {
 
       if (!_alive || reqId != _saveSeq) return;
 
-      final merged = <String, Map<String, dynamic>>{...state.sectionsData};
+      final merged = <String, Map<String, dynamic>>{
+        ...state.sectionsData,
+      };
+
       sectionsData.forEach((key, value) {
         merged[key] = <String, dynamic>{
           ...(merged[key] ?? const <String, dynamic>{}),
@@ -122,7 +153,11 @@ class DfdCubit extends Cubit<DfdState> {
         state.copyWith(
           saving: false,
           saveSuccess: true,
+          contractId: cleanContractId,
+          dfdId: ids.dfdId,
+          sectionIds: ids.sectionIds,
           sectionsData: merged,
+          clearError: true,
         ),
       );
     } catch (err) {
@@ -138,8 +173,6 @@ class DfdCubit extends Cubit<DfdState> {
     }
   }
 
-  /// Salva o DFD e, se necessário, cria/resolve o contractId automaticamente.
-  /// Retorna o contractId final (ou null se falhar).
   Future<String?> saveAllWithAutoContract({
     String? contractId,
     required DfdData data,
@@ -151,12 +184,15 @@ class DfdCubit extends Cubit<DfdState> {
         saving: true,
         loading: false,
         saveSuccess: false,
-        error: null,
+        clearError: true,
       ),
     );
 
     try {
-      final baseContractId = contractId ?? state.contractId;
+      final baseContractId = contractId?.trim().isNotEmpty == true
+          ? contractId!.trim()
+          : state.contractId;
+
       final finalContractId = await repo.ensureContractAndSaveDfd(
         contractId: baseContractId,
         data: data,
@@ -171,11 +207,13 @@ class DfdCubit extends Cubit<DfdState> {
       emit(
         state.copyWith(
           saving: false,
+          loading: false,
           saveSuccess: true,
           contractId: finalContractId,
           dfdId: ids.dfdId,
           sectionIds: ids.sectionIds,
           sectionsData: data.toSectionsMap(),
+          clearError: true,
         ),
       );
 
@@ -190,6 +228,7 @@ class DfdCubit extends Cubit<DfdState> {
           error: err.toString(),
         ),
       );
+
       return null;
     }
   }
@@ -199,6 +238,31 @@ class DfdCubit extends Cubit<DfdState> {
     required String sectionKey,
     required Map<String, dynamic> data,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanSectionKey = sectionKey.trim();
+
+    if (cleanContractId.isEmpty) {
+      emit(
+        state.copyWith(
+          saving: false,
+          saveSuccess: false,
+          error: 'Contrato não informado.',
+        ),
+      );
+      return;
+    }
+
+    if (cleanSectionKey.isEmpty) {
+      emit(
+        state.copyWith(
+          saving: false,
+          saveSuccess: false,
+          error: 'Seção não informada.',
+        ),
+      );
+      return;
+    }
+
     final reqId = ++_saveSeq;
 
     emit(
@@ -206,14 +270,14 @@ class DfdCubit extends Cubit<DfdState> {
         saving: true,
         loading: false,
         saveSuccess: false,
-        error: null,
-        contractId: contractId,
+        contractId: cleanContractId,
+        clearError: true,
       ),
     );
 
     try {
-      final ids = await repo.ensureStructure(contractId);
-      final sectionId = ids.sectionIds[sectionKey];
+      final ids = await repo.ensureStructure(cleanContractId);
+      final sectionId = ids.sectionIds[cleanSectionKey];
 
       if (sectionId == null) {
         if (!_alive || reqId != _saveSeq) return;
@@ -222,7 +286,7 @@ class DfdCubit extends Cubit<DfdState> {
           state.copyWith(
             saving: false,
             saveSuccess: false,
-            error: 'Seção inválida: $sectionKey',
+            error: 'Seção inválida: $cleanSectionKey',
             dfdId: ids.dfdId,
             sectionIds: ids.sectionIds,
           ),
@@ -232,26 +296,22 @@ class DfdCubit extends Cubit<DfdState> {
 
       if (!_alive || reqId != _saveSeq) return;
 
-      emit(
-        state.copyWith(
-          dfdId: ids.dfdId,
-          sectionIds: ids.sectionIds,
-        ),
-      );
-
       await repo.saveSection(
-        contractId: contractId,
+        contractId: cleanContractId,
         dfdId: ids.dfdId,
-        sectionKey: sectionKey,
+        sectionKey: cleanSectionKey,
         sectionDocId: sectionId,
         data: data,
       );
 
       if (!_alive || reqId != _saveSeq) return;
 
-      final merged = <String, Map<String, dynamic>>{...state.sectionsData};
-      merged[sectionKey] = <String, dynamic>{
-        ...(merged[sectionKey] ?? const <String, dynamic>{}),
+      final merged = <String, Map<String, dynamic>>{
+        ...state.sectionsData,
+      };
+
+      merged[cleanSectionKey] = <String, dynamic>{
+        ...(merged[cleanSectionKey] ?? const <String, dynamic>{}),
         ...data,
       };
 
@@ -259,7 +319,11 @@ class DfdCubit extends Cubit<DfdState> {
         state.copyWith(
           saving: false,
           saveSuccess: true,
+          contractId: cleanContractId,
+          dfdId: ids.dfdId,
+          sectionIds: ids.sectionIds,
           sectionsData: merged,
+          clearError: true,
         ),
       );
     } catch (err) {
@@ -283,7 +347,7 @@ class DfdCubit extends Cubit<DfdState> {
 
   void clearError() {
     if (state.error != null) {
-      emit(state.copyWith(error: null));
+      emit(state.copyWith(clearError: true));
     }
   }
 }

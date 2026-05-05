@@ -20,11 +20,16 @@ import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
@@ -58,10 +63,13 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
   static const String _route = 'contracts_hiring_publicacao';
   static const String _notificationSource = 'contracts_hiring_publicacao';
 
+  final DfdRepository _dfdRepository = DfdRepository();
+
   late final ProgressCubit _progressBloc;
 
   PublicacaoExtratoData _formData = const PublicacaoExtratoData.empty();
   ProcessData _contract = ProcessData.empty();
+  DfdData? _dfdData;
 
   bool _hydrated = false;
   bool _loadingContract = false;
@@ -83,6 +91,56 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     return _contract;
   }
 
+  String get _notificationDemandName {
+    final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
+
+    if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
+      return descricaoObjeto;
+    }
+
+    final objetoResumo = _formData.objetoResumo?.trim();
+
+    if (objetoResumo != null && objetoResumo.isNotEmpty) {
+      return objetoResumo;
+    }
+
+    final displaySummary = _contract.displaySummary.trim();
+
+    if (displaySummary.isNotEmpty &&
+        displaySummary != 'Contrato $_contractId' &&
+        !displaySummary.startsWith('Contrato ')) {
+      return displaySummary;
+    }
+
+    return 'Demanda sem identificação';
+  }
+
+  String get _processNumber {
+    final processoAdministrativo = _dfdData?.processoAdministrativo?.trim();
+
+    if (processoAdministrativo != null && processoAdministrativo.isNotEmpty) {
+      return processoAdministrativo;
+    }
+
+    final processo = _formData.processo?.trim();
+
+    if (processo != null && processo.isNotEmpty) {
+      return processo;
+    }
+
+    return _contractId;
+  }
+
+  String get _contractNumber {
+    final numeroContrato = _formData.numeroContrato?.trim();
+
+    if (numeroContrato != null && numeroContrato.isNotEmpty) {
+      return numeroContrato;
+    }
+
+    return _processNumber;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -97,6 +155,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
       context.read<PublicacaoExtratoCubit>().load(contractId);
       unawaited(_loadContract(contractId));
+      unawaited(_loadDfdData(contractId));
     });
   }
 
@@ -130,8 +189,9 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
         _loadingContract = false;
       });
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('[PublicacaoExtratoPage] Erro ao carregar contrato $cid: $e');
+      debugPrintStack(stackTrace: stack);
 
       if (!mounted) return;
 
@@ -139,6 +199,24 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
         _contract = ProcessData.empty().copyWith(id: cid);
         _loadingContract = false;
       });
+    }
+  }
+
+  Future<void> _loadDfdData(String contractId) async {
+    final cid = contractId.trim();
+    if (cid.isEmpty) return;
+
+    try {
+      final data = await _dfdRepository.readDataForContract(cid);
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = data;
+      });
+    } catch (e, stack) {
+      debugPrint('[PublicacaoExtratoPage] Falha ao carregar DFD: $e');
+      debugPrintStack(stackTrace: stack);
     }
   }
 
@@ -152,6 +230,27 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
+  }
+
+  String _currentActorPhotoUrl() {
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid.trim() ?? '';
+
+    if (uid.isNotEmpty) {
+      final users = context.read<UserCubit>().state.all;
+
+      for (final item in users) {
+        if ((item.uid ?? '').trim() == uid) {
+          final photo = item.urlPhoto?.trim() ?? '';
+          if (photo.isNotEmpty) return photo;
+        }
+      }
+    }
+
+    final firebasePhoto = user?.photoURL?.trim() ?? '';
+    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+
+    return '';
   }
 
   Future<void> _notify({
@@ -175,7 +274,13 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
+    final actorId = user?.uid.trim();
+    final actorName = _currentActorName();
+    final actorPhotoUrl = _currentActorPhotoUrl();
+
     final effectiveContract = _effectiveContract;
+    final effectiveContractId = (effectiveContract.id ?? _contractId).trim();
+    final demandName = _notificationDemandName;
 
     await NotificationHiring.show(
       context: context,
@@ -183,7 +288,6 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
       title: title,
       subtitle: subtitle,
       details: details,
-      leadingLabel: 'Publicação',
       module: _route,
       notificationSource: _notificationSource,
       source: 'publicacao_notification',
@@ -193,8 +297,8 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
       sendPush: sendPush,
       delivery: NotificationDelivery.localBellAndPush,
       targetUserIds: targetUserIds,
-      actorId: user?.uid,
-      actorName: _currentActorName(),
+      actorId: actorId,
+      actorName: actorName,
       extra: <String, dynamic>{
         ...extra,
         'route': extra['route'] ?? _route,
@@ -203,10 +307,22 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
         'sourceKey': _notificationSource,
         'subSource': _notificationSource,
         'notificationSource': _notificationSource,
-        if ((effectiveContract.id ?? '').trim().isNotEmpty)
-          'contractId': effectiveContract.id,
-        if (effectiveContract.displaySummary.trim().isNotEmpty)
-          'contractSummary': effectiveContract.displaySummary,
+        'actorId': actorId,
+        'actorName': actorName,
+        if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
+        if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
+        if (effectiveContractId.isNotEmpty) 'contractId': effectiveContractId,
+        'contractTitle': demandName,
+        'contractSummary': demandName,
+        'descricaoObjeto': demandName,
+        'nomeDemanda': demandName,
+        if (_contractNumber.trim().isNotEmpty) 'contractNumber': _contractNumber,
+        if (_processNumber.trim().isNotEmpty) 'processNumber': _processNumber,
+        if (_processNumber.trim().isNotEmpty) 'processoAdministrativo': _processNumber,
+        if (_formData.numeroContrato?.trim().isNotEmpty == true)
+          'numeroContrato': _formData.numeroContrato,
       },
     );
   }
@@ -257,6 +373,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
       }
 
       await _loadContract(contractId);
+      await _loadDfdData(contractId);
 
       if (!mounted) return false;
 
@@ -270,8 +387,8 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
         await _notify(
           title: 'Publicação / Extrato atualizada',
-          subtitle: 'Alterações salvas por $actorName.',
-          details: _effectiveContract.displaySummary,
+          subtitle: _notificationDemandName,
+          details: 'Alterado por $actorName.',
           status: NotificationStatus.success,
           saveInBell: true,
           sendPush: true,
@@ -304,7 +421,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
   Future<void> _saveApproveAndNext() async {
     final pubCubit = context.read<PublicacaoExtratoCubit>();
-    final pipeline = context.read<PipelineProgressCubit>();
+    final pipeline = context.read<PipelineCubit>();
     final tabController = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
@@ -363,8 +480,8 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
       await _notify(
         title: 'Publicação / Extrato aprovada',
-        subtitle: 'Etapa concluída por $actorName.',
-        details: _effectiveContract.displaySummary,
+        subtitle: _notificationDemandName,
+        details: 'Aprovado por $actorName.',
         status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
@@ -437,8 +554,8 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
       await _notify(
         title: 'Aprovação da Publicação / Extrato atualizada',
-        subtitle: 'Atualizada por $actorName.',
-        details: _effectiveContract.displaySummary,
+        subtitle: _notificationDemandName,
+        details: 'Atualizado por $actorName.',
         status: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
@@ -502,6 +619,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
             if ((_contract.id ?? '') != contractId) {
               unawaited(_loadContract(contractId));
+              unawaited(_loadDfdData(contractId));
             }
           }
         },

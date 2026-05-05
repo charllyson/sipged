@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
@@ -27,16 +28,16 @@ import 'package:sipged/screens/modules/contracts/hiring/10Publicacao/publicacao_
 import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/termo_arquivamento_page.dart';
 
 class TabBarHiringPage extends StatefulWidget {
-  final ProcessData? contractData;
-  final ProcessCubit? contractsCubit;
-  final int initialTabIndex;
-
   const TabBarHiringPage({
     super.key,
     this.contractData,
     this.contractsCubit,
     this.initialTabIndex = 0,
   });
+
+  final ProcessData? contractData;
+  final ProcessCubit? contractsCubit;
+  final int initialTabIndex;
 
   @override
   State<TabBarHiringPage> createState() => _TabBarHiringPageState();
@@ -47,29 +48,31 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
   String get _contractId => widget.contractData?.id ?? '';
 
   late final String _pageInstanceKey;
-  late final PipelineProgressCubit _pipelineCubit;
+  late final PipelineCubit _pipelineCubit;
   final _progressRepo = ProgressRepository();
 
   String? _dfdDescricaoObjeto;
+  String? _dfdProcessoAdministrativo;
 
   @override
   void initState() {
     super.initState();
 
     final rawId = _contractId;
+
     if (rawId.isNotEmpty) {
       _pageInstanceKey = 'C_$rawId';
     } else {
       _pageInstanceKey = 'NEW_${DateTime.now().microsecondsSinceEpoch}';
     }
 
-    _pipelineCubit = PipelineProgressCubit(
+    _pipelineCubit = PipelineCubit(
       service: PipelineProgressService(),
       contractId: _contractId,
       progressRepo: _progressRepo,
     );
 
-    _loadDfdDescricao();
+    _loadDfdDisplayData();
     _pipelineCubit.refresh();
     _pipelineCubit.watchChain();
   }
@@ -112,8 +115,9 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
     }
   }
 
-  Future<void> _loadDfdDescricao() async {
+  Future<void> _loadDfdDisplayData() async {
     final id = _contractId;
+
     if (id.isEmpty) return;
 
     try {
@@ -124,15 +128,33 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
 
       setState(() {
         _dfdDescricaoObjeto = dfd?.descricaoObjeto;
+        _dfdProcessoAdministrativo = dfd?.processoAdministrativo;
       });
     } catch (_) {
       if (!mounted) return;
     }
   }
 
+  String _buildContractNumber(ProcessData contract) {
+    final processo = _dfdProcessoAdministrativo?.trim();
+
+    if (processo != null && processo.isNotEmpty) {
+      return 'Processo nº $processo';
+    }
+
+    final id = contract.id?.trim();
+
+    if (id != null && id.isNotEmpty) {
+      return 'Contrato $id';
+    }
+
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
+
     final c = widget.contractData;
     final contractId = _contractId;
     final pageKey = _pageInstanceKey;
@@ -141,7 +163,7 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
       value: _pipelineCubit,
       child: Builder(
         builder: (ctx) {
-          final pipeline = ctx.watch<PipelineProgressCubit>().state;
+          final pipeline = ctx.watch<PipelineCubit>().state;
 
           bool isApprovedForTab(int index) {
             final key = _stageKeyForTabIndex(index);
@@ -211,23 +233,7 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
             contractsCubit: widget.contractsCubit,
             initialTabIndex: widget.initialTabIndex,
             textBanner: _dfdDescricaoObjeto,
-
-            contractNumberBuilder: (contract) {
-              final number = contract.displayNumber.trim();
-
-              if (number.isEmpty) return '';
-
-              if ((contract.contractNumber ?? '').trim().isNotEmpty) {
-                return 'Contrato nº $number';
-              }
-
-              if ((contract.processNumber ?? '').trim().isNotEmpty) {
-                return 'Processo nº $number';
-              }
-
-              return number;
-            },
-
+            contractNumberBuilder: _buildContractNumber,
             resolveStampForTab: ({
               required int tabIndex,
               required ProcessData contract,

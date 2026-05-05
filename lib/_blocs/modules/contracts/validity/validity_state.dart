@@ -1,4 +1,5 @@
-// lib/_blocs/modules/contracts/contracts/validity/validity_state.dart
+// lib/_blocs/modules/contracts/validity/validity_state.dart
+
 import 'package:equatable/equatable.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
@@ -17,19 +18,11 @@ class ValidityState extends Equatable {
 
   final ValidityData? selectedValidity;
 
-  /// Próxima ordem numérica sugerida (menor buraco ou max+1)
   final int nextOrderNumber;
-
-  /// Opções de número de ordem para o dropdown (1..max+1)
   final List<String> orderNumberOptions;
-
-  /// Itens já ocupados (para render cinza)
   final Set<String> greyOrderItems;
-
-  /// Tipos de ordem permitidos para o próximo registro
   final List<String> availableOrderTypes;
 
-  /// Anexos da validade selecionada
   final List<Attachment> attachments;
 
   const ValidityState({
@@ -47,6 +40,23 @@ class ValidityState extends Equatable {
     this.attachments = const <Attachment>[],
   });
 
+  factory ValidityState.initial() {
+    return const ValidityState(
+      isLoading: false,
+      isSaving: false,
+      errorMessage: null,
+      contract: null,
+      validities: <ValidityData>[],
+      additives: <AdditivesData>[],
+      selectedValidity: null,
+      nextOrderNumber: 1,
+      orderNumberOptions: <String>['1'],
+      greyOrderItems: <String>{},
+      availableOrderTypes: <String>[],
+      attachments: <Attachment>[],
+    );
+  }
+
   ValidityState copyWith({
     bool? isLoading,
     bool? isSaving,
@@ -60,33 +70,33 @@ class ValidityState extends Equatable {
     Set<String>? greyOrderItems,
     List<String>? availableOrderTypes,
     List<Attachment>? attachments,
+    bool clearError = false,
+    bool clearContract = false,
+    bool clearSelectedValidity = false,
+    bool clearAttachments = false,
   }) {
     return ValidityState(
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
-      errorMessage: errorMessage,
-      contract: contract ?? this.contract,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      contract: clearContract ? null : (contract ?? this.contract),
       validities: validities ?? this.validities,
       additives: additives ?? this.additives,
-      selectedValidity: selectedValidity ?? this.selectedValidity,
+      selectedValidity: clearSelectedValidity
+          ? null
+          : (selectedValidity ?? this.selectedValidity),
       nextOrderNumber: nextOrderNumber ?? this.nextOrderNumber,
-      orderNumberOptions:
-      orderNumberOptions ?? this.orderNumberOptions,
+      orderNumberOptions: orderNumberOptions ?? this.orderNumberOptions,
       greyOrderItems: greyOrderItems ?? this.greyOrderItems,
-      availableOrderTypes:
-      availableOrderTypes ?? this.availableOrderTypes,
-      attachments: attachments ?? this.attachments,
+      availableOrderTypes: availableOrderTypes ?? this.availableOrderTypes,
+      attachments: clearAttachments
+          ? const <Attachment>[]
+          : (attachments ?? this.attachments),
     );
   }
 
-  factory ValidityState.initial() => const ValidityState(
-    isLoading: false,
-    isSaving: false,
-    nextOrderNumber: 1,
-  );
-
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     isLoading,
     isSaving,
     errorMessage,

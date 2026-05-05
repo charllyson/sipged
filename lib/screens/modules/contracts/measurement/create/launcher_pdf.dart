@@ -12,16 +12,16 @@ Future<Uint8List> buildPdfBytes({
   required ProcessData contractData,
   required ReportMeasurementData? measurement,
 
-  /// 🔹 Resumo da obra (DFD.descricaoObjeto)
   String? descricaoObjeto,
-
-  /// 🔹 Número do contrato (PublicacaoExtratoData.numeroContrato)
   String? numeroContrato,
-
-  /// 🔹 Valor do contrato (DFD.valorDemanda)
   num? valorDemandaContrato,
+
+  /// PublicacaoExtratoData.dataPublicacao
+  DateTime? dataPublicacao,
+
+  /// TrData.prazoExecucaoDias
+  String? prazoExecucaoDias,
 }) async {
-  // === Fontes (Unicode) ===
   final fontRegular = await PdfGoogleFonts.notoSansRegular();
   final fontBold = await PdfGoogleFonts.notoSansBold();
   final fontItalic = await PdfGoogleFonts.notoSansItalic();
@@ -35,13 +35,11 @@ Future<Uint8List> buildPdfBytes({
     icons: fontMono,
   );
 
-  // >>> tamanhos de fonte fáceis de alterar
-  const double kHeaderFontSize = 6; // cabeçalho
-  const double kCellFontSize = 7; // corpo
+  const double kHeaderFontSize = 6;
+  const double kCellFontSize = 7;
 
   final doc = pw.Document();
 
-  // ===== Dados da tabela do controller =====
   final headers = List<String>.from(ctrl.headers);
   final data = List<List<String>>.from(
     ctrl.rowsWithoutHeader.map((r) => List<String>.from(r)),
@@ -91,9 +89,11 @@ Future<Uint8List> buildPdfBytes({
     if (globalIndex == 0) {
       return const pw.FlexColumnWidth(2);
     }
+
     if (ctrl.isNumericEffective(globalIndex)) {
       return const pw.FixedColumnWidth(56);
     }
+
     return const pw.FlexColumnWidth(1);
   }
 
@@ -102,10 +102,12 @@ Future<Uint8List> buildPdfBytes({
       Map<int, pw.TableColumnWidth> globalWidths,
       ) {
     final map = <int, pw.TableColumnWidth>{};
+
     for (int i = 0; i < colIdxs.length; i++) {
       final gi = colIdxs[i];
       map[i] = globalWidths[gi] ?? defaultWidthFor(gi);
     }
+
     return map;
   }
 
@@ -126,11 +128,11 @@ Future<Uint8List> buildPdfBytes({
         contractData: contractData,
         measurement: measurement,
         emittedAt: DateTime.now(),
-
-        /// 🔹 Campos novos pro cabeçalho
         descricaoObjeto: descricaoObjeto,
         numeroContrato: numeroContrato,
         valorDemandaContrato: valorDemandaContrato,
+        dataPublicacao: dataPublicacao,
+        prazoExecucaoDias: prazoExecucaoDias,
       ),
       footer: (ctx) => pw.Align(
         alignment: pw.Alignment.centerRight,
@@ -147,8 +149,10 @@ Future<Uint8List> buildPdfBytes({
           final subHeaders = [for (final c in colIdxs) headers[c]];
 
           final subAligns = <int, pw.Alignment>{};
+
           for (int i = 0; i < colIdxs.length; i++) {
             final global = colIdxs[i];
+
             if (centerColsGlobal.contains(global)) {
               subAligns[i] = pw.Alignment.center;
             } else {
@@ -179,6 +183,7 @@ Future<Uint8List> buildPdfBytes({
           };
 
           final rowChunks = chunk<List<String>>(data, rowsPerPage);
+
           for (final rowsSlice in rowChunks) {
             final subData = <List<String>>[
               for (final r in rowsSlice)
@@ -195,17 +200,29 @@ Future<Uint8List> buildPdfBytes({
                 columnWidths: subColumnWidths,
                 border: pw.TableBorder(
                   left: const pw.BorderSide(
-                      color: PdfColors.grey300, width: 0.25),
+                    color: PdfColors.grey300,
+                    width: 0.25,
+                  ),
                   right: const pw.BorderSide(
-                      color: PdfColors.grey300, width: 0.25),
+                    color: PdfColors.grey300,
+                    width: 0.25,
+                  ),
                   top: const pw.BorderSide(
-                      color: PdfColors.grey300, width: 0.5),
+                    color: PdfColors.grey300,
+                    width: 0.5,
+                  ),
                   bottom: const pw.BorderSide(
-                      color: PdfColors.grey300, width: 0.5),
+                    color: PdfColors.grey300,
+                    width: 0.5,
+                  ),
                   verticalInside: const pw.BorderSide(
-                      color: PdfColors.grey400, width: 0.5),
+                    color: PdfColors.grey400,
+                    width: 0.5,
+                  ),
                   horizontalInside: const pw.BorderSide(
-                      color: PdfColors.grey300, width: 0.3),
+                    color: PdfColors.grey300,
+                    width: 0.3,
+                  ),
                 ),
                 headerStyle: pw.TextStyle(
                   fontWeight: pw.FontWeight.bold,
@@ -242,21 +259,17 @@ pw.Widget _pdfHeader({
   required ProcessData contractData,
   required ReportMeasurementData? measurement,
   required DateTime emittedAt,
-
-  /// 🔹 Resumo da obra (DFD.descricaoObjeto)
   String? descricaoObjeto,
-
-  /// 🔹 Número do contrato (PublicacaoExtratoData.numeroContrato)
   String? numeroContrato,
-
-  /// 🔹 Valor do contrato (DFD.valorDemanda)
   num? valorDemandaContrato,
+  DateTime? dataPublicacao,
+  String? prazoExecucaoDias,
 }) {
-  String dash(String? s) =>
-      (s == null || s.trim().isEmpty) ? '–' : s.trim();
+  String dash(String? s) => (s == null || s.trim().isEmpty) ? '–' : s.trim();
 
   String money(num? v) {
     if (v == null) return '–';
+
     final n = v.toDouble();
     final s = n.toStringAsFixed(2).replaceAll('.', ',');
     final parts = s.split(',');
@@ -264,30 +277,30 @@ pw.Widget _pdfHeader({
       RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
           (m) => '${m[1]}.',
     );
+
     return 'R\$ $intPart,${parts[1]}';
   }
 
   String dateStr(DateTime? d) {
     if (d == null) return '–';
+
     final dd = d.day.toString().padLeft(2, '0');
     final mm = d.month.toString().padLeft(2, '0');
     final yy = d.year.toString();
+
     return '$dd/$mm/$yy';
   }
 
-  final local = dash('');        // ajuste quando tiver campo de local/município
-  final construtora = dash('');  // ajuste quando tiver campo de empresa
+  final local = dash('');
+  final construtora = dash('');
 
-  // 🔹 Agora NÃO usa mais contractData.contractNumber / summarySubject
   final contratoNum = dash(numeroContrato);
   final obra = dash(descricaoObjeto);
-
-  // 🔹 Valor do contrato vem SOMENTE da demanda (DFD.valorDemanda)
   final valorContrato = money(valorDemandaContrato);
 
-  final prazoExec =
-      contractData.initialValidityExecution?.toString() ?? '–';
-  final assinatura = dateStr(contractData.publicationDate);
+  final prazoExec = dash(prazoExecucaoDias);
+  final assinatura = dateStr(dataPublicacao);
+
   final ordemServ = '–';
   final aditPar = '–';
   final conclusao = '–';
@@ -300,8 +313,7 @@ pw.Widget _pdfHeader({
 
   pw.Widget cell(String label, String value, {bool right = false}) =>
       pw.Padding(
-        padding:
-        const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         child: pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
@@ -315,9 +327,8 @@ pw.Widget _pdfHeader({
             pw.SizedBox(width: 4),
             pw.Expanded(
               child: pw.Align(
-                alignment: right
-                    ? pw.Alignment.centerRight
-                    : pw.Alignment.centerLeft,
+                alignment:
+                right ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
                 child: pw.Text(
                   value,
                   style: const pw.TextStyle(fontSize: 8),
@@ -392,8 +403,7 @@ pw.Widget _pdfHeader({
             child: box([
               cell('PRAZO DE EXECUÇÃO (dias):', prazoExec, right: true),
               pw.Divider(color: PdfColors.grey400, height: 0.6),
-              cell('ADITIVOS E PARALISAÇÕES (dias):', aditPar,
-                  right: true),
+              cell('ADITIVOS E PARALISAÇÕES (dias):', aditPar, right: true),
               pw.Divider(color: PdfColors.grey400, height: 0.6),
               cell('DATA DE CONCLUSÃO:', conclusao, right: true),
               pw.Divider(color: PdfColors.grey400, height: 0.6),

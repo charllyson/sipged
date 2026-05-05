@@ -65,14 +65,12 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
   }
 
   void _debug(String message) {
-    debugPrint('[GenericImportExcelPage] $message');
   }
 
   Future<void> _verificarColecao() async {
     final path = _pathController.text.trim();
 
     if (path.isEmpty) {
-      _debug('Caminho da coleção não informado.');
       return;
     }
 

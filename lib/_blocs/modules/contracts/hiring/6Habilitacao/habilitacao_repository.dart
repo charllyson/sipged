@@ -4,66 +4,79 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
+import 'habilitacao_data.dart';
 import 'habilitacao_sections.dart';
-import 'habilitacao_data.dart'; // 🆕 para readDataForContract
 
 class HabilitacaoRepository {
-  final FirebaseFirestore _db;
   HabilitacaoRepository({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> _col(String contractId) =>
-      _db.collection('contracts').doc(contractId).collection('habilitacao');
+  final FirebaseFirestore _db;
 
-  /// ===========================================================================
-  /// ESTRUTURA FIXA OTIMIZADA
-  ///
-  /// Agora assumimos que:
-  ///   - o doc raiz SEMPRE é "main"
-  ///   - cada seção tem SEMPRE um doc "main" na subcoleção
-  ///
-  /// Portanto:
-  ///   - NÃO fazemos nenhum acesso ao Firestore aqui
-  ///   - somento montamos os IDs fixos em memória
-  /// ===========================================================================
+  CollectionReference<Map<String, dynamic>> _col(String contractId) {
+    return _db
+        .collection('contracts')
+        .doc(contractId)
+        .collection('habilitacao');
+  }
+
   Future<({String habId, SectionIds sectionIds})> ensureStructure(
       String contractId,
       ) async {
-    final SectionIds sectionIds = {
-      for (final sec in HabilitacaoSections.all) sec: 'main',
+    final id = contractId.trim();
+
+    if (id.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    final sectionIds = <String, String>{
+      for (final section in HabilitacaoSections.all) section: 'main',
     };
+
     return (habId: 'main', sectionIds: sectionIds);
   }
 
-  /// Carrega todas as seções em um mapa {secao: Map}
-  /// Agora:
-  ///   - Usa Future.wait para ler todas as seções em paralelo
-  ///   - Remove createdAt/updatedAt antes de devolver
   Future<SectionsMap> loadAllSections({
     required String contractId,
     required String habId,
     required SectionIds sectionIds,
   }) async {
-    final SectionsMap out = {};
-    final habRef = _col(contractId).doc(habId);
+    final cleanContractId = contractId.trim();
+    final cleanHabId = habId.trim();
 
-    final futures = sectionIds.entries.map((entry) async {
-      final secName = entry.key;
-      final secId = entry.value;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
 
-      final snap = await habRef.collection(secName).doc(secId).get();
-      final data =
-      Map<String, dynamic>.from(snap.data() ?? <String, dynamic>{});
+    if (cleanHabId.isEmpty) {
+      throw Exception('habId não informado.');
+    }
 
-      // mesma limpeza feita no DfdRepository
-      data.remove('createdAt');
-      data.remove('updatedAt');
+    final root = _col(cleanContractId).doc(cleanHabId);
 
-      out[secName] = data;
-    }).toList();
+    final entries = await Future.wait(
+      sectionIds.entries.map((entry) async {
+        final sectionName = entry.key;
+        final sectionDocId = entry.value;
 
-    await Future.wait(futures);
-    return out;
+        final snap = await root.collection(sectionName).doc(sectionDocId).get();
+
+        final data = Map<String, dynamic>.from(
+          snap.data() ?? const <String, dynamic>{},
+        );
+
+        data.remove('createdAt');
+        data.remove('updatedAt');
+        data.remove('createdBy');
+        data.remove('updatedBy');
+
+        return MapEntry<String, Map<String, dynamic>>(sectionName, data);
+      }),
+    );
+
+    return <String, Map<String, dynamic>>{
+      for (final entry in entries) entry.key: entry.value,
+    };
   }
 
   Future<void> saveSection({
@@ -73,13 +86,36 @@ class HabilitacaoRepository {
     required String sectionDocId,
     required Map<String, dynamic> data,
   }) async {
-    final ref =
-    _col(contractId).doc(habId).collection(sectionKey).doc(sectionDocId);
+    final cleanContractId = contractId.trim();
+    final cleanHabId = habId.trim();
+    final cleanSectionKey = sectionKey.trim();
+    final cleanSectionDocId = sectionDocId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanHabId.isEmpty) {
+      throw Exception('habId não informado.');
+    }
+
+    if (cleanSectionKey.isEmpty) {
+      throw Exception('sectionKey não informado.');
+    }
+
+    if (cleanSectionDocId.isEmpty) {
+      throw Exception('sectionDocId não informado.');
+    }
+
+    final ref = _col(cleanContractId)
+        .doc(cleanHabId)
+        .collection(cleanSectionKey)
+        .doc(cleanSectionDocId);
 
     await ref.set(
-      {
+      <String, dynamic>{
         ...data,
-        'updatedAt': FieldValue.serverTimestamp(), // 🆕 igual DFD
+        'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
     );
@@ -91,43 +127,57 @@ class HabilitacaoRepository {
     required SectionIds sectionIds,
     required SectionsMap sectionsData,
   }) async {
-    final habRef = _col(contractId).doc(habId);
+    final cleanContractId = contractId.trim();
+    final cleanHabId = habId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    if (cleanHabId.isEmpty) {
+      throw Exception('habId não informado.');
+    }
+
+    if (sectionsData.isEmpty) return;
+
     final batch = _db.batch();
+    final root = _col(cleanContractId).doc(cleanHabId);
 
-    sectionsData.forEach((key, data) {
-      final id = sectionIds[key];
-      if (id == null) return;
+    for (final entry in sectionsData.entries) {
+      final sectionKey = entry.key;
+      final sectionData = entry.value;
+      final sectionDocId = sectionIds[sectionKey];
 
-      final ref = habRef.collection(key).doc(id);
+      if (sectionDocId == null || sectionDocId.trim().isEmpty) continue;
+
       batch.set(
-        ref,
-        {
-          ...data,
-          'updatedAt': FieldValue.serverTimestamp(), // 🆕 igual DFD
+        root.collection(sectionKey).doc(sectionDocId),
+        <String, dynamic>{
+          ...sectionData,
+          'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
-    });
+    }
 
     await batch.commit();
   }
 
-  /// Leitura direta de um HabilitacaoData completo para o contrato
-  ///
-  /// Igual ao DfdRepository.readDataForContract:
-  ///   - assume sempre habId = "main" e sectionId = "main"
-  ///   - lê todas as seções em paralelo
-  ///   - se TODAS as seções vierem vazias, retorna null
   Future<HabilitacaoData?> readDataForContract(String contractId) async {
-    final ids = await ensureStructure(contractId);
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return null;
+
+    final ids = await ensureStructure(cleanContractId);
 
     final sections = await loadAllSections(
-      contractId: contractId,
+      contractId: cleanContractId,
       habId: ids.habId,
       sectionIds: ids.sectionIds,
     );
 
-    final hasAnyData = sections.values.any((m) => m.isNotEmpty);
+    final hasAnyData = sections.values.any((map) => map.isNotEmpty);
+
     if (!hasAnyData) return null;
 
     return HabilitacaoData.fromSectionsMap(sections);

@@ -18,7 +18,6 @@ import 'package:sipged/_widgets/input/auto_complete_change.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
@@ -42,24 +41,19 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     with SipGedValidation {
   late final TextEditingController _orgaoDemandanteCtrl;
   late final TextEditingController _unidadeSolicitanteCtrl;
-
   late final TextEditingController _solicitanteCtrl;
   late final TextEditingController _cpfSolicitanteCtrl;
   late final TextEditingController _cargoSolicitanteCtrl;
   late final TextEditingController _emailSolicitanteCtrl;
   late final TextEditingController _telefoneSolicitanteCtrl;
-
   late final TextEditingController _processoAdministrativoCtrl;
-
   late final TextEditingController _statusContratoCtrl;
   late final TextEditingController _naturezaIntervencaoCtrl;
 
   String? _tenantId;
   String? _unitId;
-
   String? _orgaoDemandanteId;
   String? _unidadeSolicitanteId;
-
   String? _naturezaIntervencao;
   String? _solicitanteUserId;
   String? _statusContrato;
@@ -78,64 +72,40 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
     final d = widget.data;
 
-    _orgaoDemandanteCtrl = TextEditingController(
-      text: d.orgaoDemandante ?? '',
+    _orgaoDemandanteCtrl = TextEditingController(text: d.orgaoDemandante ?? '');
+    _unidadeSolicitanteCtrl =
+        TextEditingController(text: d.unidadeSolicitante ?? '');
+    _solicitanteCtrl = TextEditingController(text: d.solicitanteNome ?? '');
+
+    final cpfDigitsInit = (d.solicitanteCpf ?? '').replaceAll(RegExp(r'\D'), '');
+    _cpfSolicitanteCtrl = TextEditingController(
+      text: cpfDigitsInit.length == 11
+          ? SipGedFormatNumbers.formatCPF(cpfDigitsInit)
+          : (d.solicitanteCpf ?? ''),
     );
 
-    _unidadeSolicitanteCtrl = TextEditingController(
-      text: d.unidadeSolicitante ?? '',
+    _cargoSolicitanteCtrl =
+        TextEditingController(text: d.solicitanteCargo ?? '');
+    _emailSolicitanteCtrl =
+        TextEditingController(text: d.solicitanteEmail ?? '');
+
+    final phoneDigitsInit =
+    (d.solicitanteTelefone ?? '').replaceAll(RegExp(r'\D'), '');
+    _telefoneSolicitanteCtrl = TextEditingController(
+      text: phoneDigitsInit.isEmpty ? '' : _applyMask(_phoneMask, phoneDigitsInit),
     );
 
-    _solicitanteCtrl = TextEditingController(
-      text: d.solicitanteNome ?? '',
-    );
-
-    final cpfDigitsInit = (d.solicitanteCpf ?? '').replaceAll(
-      RegExp(r'\D'),
-      '',
-    );
-
-    final cpfTextInit = cpfDigitsInit.length == 11
-        ? SipGedFormatNumbers.formatCPF(cpfDigitsInit)
-        : (d.solicitanteCpf ?? '');
-
-    _cpfSolicitanteCtrl = TextEditingController(text: cpfTextInit);
-
-    _cargoSolicitanteCtrl = TextEditingController(
-      text: d.solicitanteCargo ?? '',
-    );
-
-    _emailSolicitanteCtrl = TextEditingController(
-      text: d.solicitanteEmail ?? '',
-    );
-
-    final phoneDigitsInit = (d.solicitanteTelefone ?? '').replaceAll(
-      RegExp(r'\D'),
-      '',
-    );
-
-    final phoneTextInit = phoneDigitsInit.isEmpty
-        ? ''
-        : _applyMask(_phoneMask, phoneDigitsInit);
-
-    _telefoneSolicitanteCtrl = TextEditingController(text: phoneTextInit);
-
-    _processoAdministrativoCtrl = TextEditingController(
-      text: d.processoAdministrativo ?? '',
-    );
+    _processoAdministrativoCtrl =
+        TextEditingController(text: d.processoAdministrativo ?? '');
 
     _statusContrato = d.statusDemanda;
     _naturezaIntervencao = d.naturezaIntervencao;
     _solicitanteUserId = d.solicitanteUserId;
     _dataSolicitacao = d.dataSolicitacao;
 
-    _statusContratoCtrl = TextEditingController(
-      text: _statusContrato ?? '',
-    );
-
-    _naturezaIntervencaoCtrl = TextEditingController(
-      text: _naturezaIntervencao ?? '',
-    );
+    _statusContratoCtrl = TextEditingController(text: _statusContrato ?? '');
+    _naturezaIntervencaoCtrl =
+        TextEditingController(text: _naturezaIntervencao ?? '');
 
     _tenantId = _normalizeId(d.companyId);
     _unitId = _normalizeId(d.unitId);
@@ -147,7 +117,6 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
       if (!mounted) return;
 
       final tenantCubit = context.read<TenantCubit>();
-
       tenantCubit.ensureTenantProfileLoaded();
       tenantCubit.ensureTenantItemsLoaded();
     });
@@ -165,28 +134,18 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     _syncControllerText(_unidadeSolicitanteCtrl, d.unidadeSolicitante ?? '');
     _syncControllerText(_solicitanteCtrl, d.solicitanteNome ?? '');
 
-    final incomingCpfDigits = (d.solicitanteCpf ?? '').replaceAll(
-      RegExp(r'\D'),
-      '',
-    );
-
     _syncMaskedController(
       _cpfSolicitanteCtrl,
-      incomingCpfDigits,
+      (d.solicitanteCpf ?? '').replaceAll(RegExp(r'\D'), ''),
       _cpfMask,
     );
 
     _syncControllerText(_cargoSolicitanteCtrl, d.solicitanteCargo ?? '');
     _syncControllerText(_emailSolicitanteCtrl, d.solicitanteEmail ?? '');
 
-    final incomingPhoneDigits = (d.solicitanteTelefone ?? '').replaceAll(
-      RegExp(r'\D'),
-      '',
-    );
-
     _syncMaskedController(
       _telefoneSolicitanteCtrl,
-      incomingPhoneDigits,
+      (d.solicitanteTelefone ?? '').replaceAll(RegExp(r'\D'), ''),
       _phoneMask,
     );
 
@@ -214,24 +173,35 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
   void dispose() {
     _orgaoDemandanteCtrl.dispose();
     _unidadeSolicitanteCtrl.dispose();
-
     _solicitanteCtrl.dispose();
     _cpfSolicitanteCtrl.dispose();
     _cargoSolicitanteCtrl.dispose();
     _emailSolicitanteCtrl.dispose();
     _telefoneSolicitanteCtrl.dispose();
-
     _processoAdministrativoCtrl.dispose();
-
     _statusContratoCtrl.dispose();
     _naturezaIntervencaoCtrl.dispose();
 
     super.dispose();
   }
 
-  String? _normalizeId(String? v) {
-    final s = (v ?? '').trim();
-    return s.isEmpty ? null : s;
+  String? _normalizeId(String? value) {
+    final normalized = (value ?? '').trim();
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  String? _findStringByLabel(List<String> list, String label) {
+    final target = label.trim().toLowerCase();
+
+    if (target.isEmpty) return null;
+
+    for (final item in list) {
+      if (item.trim().toLowerCase() == target) {
+        return item.trim();
+      }
+    }
+
+    return null;
   }
 
   Future<String?> _askNewLabel(
@@ -251,9 +221,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
             controller: ctrl,
             autofocus: true,
             decoration: InputDecoration(labelText: labelText),
-            onSubmitted: (value) {
-              Navigator.of(ctx).pop(value.trim());
-            },
+            onSubmitted: (value) => Navigator.of(ctx).pop(value.trim()),
           ),
           actions: [
             TextButton(
@@ -271,11 +239,9 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
     ctrl.dispose();
 
-    if (result == null) return null;
+    final trimmed = result?.trim();
 
-    final trimmed = result.trim();
-
-    if (trimmed.isEmpty || trimmed == initialValue.trim()) {
+    if (trimmed == null || trimmed.isEmpty || trimmed == initialValue.trim()) {
       return null;
     }
 
@@ -310,10 +276,8 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     if (tenant == null) return;
 
     final newTenantId = _normalizeId(tenant.tenantId ?? tenant.id);
-    final newTenantLabel = (tenant.companyName ??
-        tenant.fantasyName ??
-        tenant.label)
-        .trim();
+    final newTenantLabel =
+    (tenant.companyName ?? tenant.fantasyName ?? tenant.label).trim();
 
     if (newTenantId == null || newTenantLabel.isEmpty) return;
 
@@ -337,25 +301,17 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     });
   }
 
-  static bool _isPlaceholder(String ch) {
-    return ch == '9' || ch == '#';
-  }
+  static bool _isPlaceholder(String ch) => ch == '9' || ch == '#';
 
-  static String _onlyDigits(String s) {
-    return s.replaceAll(RegExp(r'\D'), '');
-  }
+  static String _onlyDigits(String s) => s.replaceAll(RegExp(r'\D'), '');
 
   static int _countDigitsBefore(String text, int cursor) {
     final safeCursor = cursor.clamp(0, text.length);
-
-    int count = 0;
+    var count = 0;
 
     for (int i = 0; i < safeCursor; i++) {
       final cu = text.codeUnitAt(i);
-
-      if (cu >= 48 && cu <= 57) {
-        count++;
-      }
+      if (cu >= 48 && cu <= 57) count++;
     }
 
     return count;
@@ -363,7 +319,6 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
   static String _applyMask(String mask, String digits) {
     final buf = StringBuffer();
-
     var di = 0;
 
     for (int i = 0; i < mask.length && di < digits.length; i++) {
@@ -382,7 +337,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
   static int _cursorPosForDigitsCount(String formatted, int digitsCount) {
     if (digitsCount <= 0) return 0;
 
-    int seen = 0;
+    var seen = 0;
 
     for (int i = 0; i < formatted.length; i++) {
       final cu = formatted.codeUnitAt(i);
@@ -390,9 +345,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
       if (cu >= 48 && cu <= 57) {
         seen++;
 
-        if (seen == digitsCount) {
-          return i + 1;
-        }
+        if (seen == digitsCount) return i + 1;
       }
     }
 
@@ -410,7 +363,6 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
     final oldText = c.text;
     final oldCursor = c.selection.extentOffset;
-
     final digitsBefore = _countDigitsBefore(oldText, oldCursor);
     final formatted = _applyMask(mask, incomingDigits);
     final newCursor = _cursorPosForDigitsCount(formatted, digitsBefore);
@@ -429,15 +381,9 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
   }
 
   void _emitChange() {
-    final cpfDigits = _cpfSolicitanteCtrl.text.replaceAll(
-      RegExp(r'\D'),
-      '',
-    );
-
-    final phoneDigits = _telefoneSolicitanteCtrl.text.replaceAll(
-      RegExp(r'\D'),
-      '',
-    );
+    final cpfDigits = _cpfSolicitanteCtrl.text.replaceAll(RegExp(r'\D'), '');
+    final phoneDigits =
+    _telefoneSolicitanteCtrl.text.replaceAll(RegExp(r'\D'), '');
 
     final updated = widget.data.copyWith(
       orgaoDemandante: _orgaoDemandanteCtrl.text,
@@ -463,13 +409,11 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
   @override
   Widget build(BuildContext context) {
-    final users = context.select<UserCubit, List<UserData>>(
-          (c) => c.state.all,
-    );
+    final users = context.select<UserCubit, List<UserData>>((c) => c.state.all);
 
     final tenantCubit = context.read<TenantCubit>();
 
-    final units = context.select<TenantCubit, List<TenantItemData>>(
+    final units = context.select<TenantCubit, List<String>>(
           (c) => c.state.units,
     );
 
@@ -515,9 +459,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                 SizedBox(
                   width: w4,
                   child: DropDownChange(
-                    key: ValueKey(
-                      'units-$_tenantNonce-${_tenantId ?? "none"}',
-                    ),
+                    key: ValueKey('units-$_tenantNonce-${_tenantId ?? "none"}'),
                     width: w4,
                     tooltipMessage: !hasTenantConfigured
                         ? 'Configure primeiro o contratante no tenant'
@@ -528,11 +470,13 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     validator: null,
                     showSpecialAlways: true,
                     specialItemLabel: 'Adicionar unidade',
-                    items: units.map((e) => e.label).toList(),
+                    items: units,
                     onChanged: (label) async {
                       if (!widget.isEditable) return;
 
-                      if (label == null || label.isEmpty) {
+                      final selected = _findStringByLabel(units, label ?? '');
+
+                      if (selected == null) {
                         setState(() {
                           _unitId = null;
                           _unidadeSolicitanteId = null;
@@ -543,17 +487,10 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                         return;
                       }
 
-                      final selected = units.firstWhere(
-                            (u) => u.label == label,
-                        orElse: () => const TenantItemData.empty(),
-                      );
-
-                      if (selected.id.isEmpty) return;
-
                       setState(() {
-                        _unitId = selected.id;
-                        _unidadeSolicitanteId = selected.id;
-                        _unidadeSolicitanteCtrl.text = selected.label;
+                        _unitId = selected;
+                        _unidadeSolicitanteId = selected;
+                        _unidadeSolicitanteCtrl.text = selected;
                       });
 
                       _emitChange();
@@ -565,46 +502,40 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                       if (!mounted || created == null) return;
 
                       setState(() {
-                        _unitId = created.id;
-                        _unidadeSolicitanteId = created.id;
-                        _unidadeSolicitanteCtrl.text = created.label;
+                        _unitId = created;
+                        _unidadeSolicitanteId = created;
+                        _unidadeSolicitanteCtrl.text = created;
+                        _tenantNonce++;
                       });
 
                       _emitChange();
                     }
                         : null,
                     onEditItem: widget.isEditable && hasTenantConfigured
-                        ? (ctx, label) async {
-                      final list = tenantCubit.getUnits();
-
-                      if (list.isEmpty) return;
-
-                      final target = list.firstWhere(
-                            (u) => u.label == label,
-                        orElse: () => const TenantItemData.empty(),
-                      );
-
-                      if (target.id.isEmpty) return;
-
+                        ? (ctx, oldLabel) async {
                       final newLabel = await _askNewLabel(
                         ctx,
                         title: 'Editar unidade',
-                        initialValue: label,
+                        initialValue: oldLabel,
                         labelText: 'Nome da unidade',
                       );
 
                       if (newLabel == null) return;
 
                       final updated = await tenantCubit.updateUnitName(
-                        target.id,
+                        oldLabel,
                         newLabel,
                       );
 
-                      if (!mounted) return;
+                      if (!mounted || updated == null) return;
 
-                      if (updated != null && _unitId == target.id) {
+                      if (_unitId == oldLabel ||
+                          _unidadeSolicitanteCtrl.text == oldLabel) {
                         setState(() {
-                          _unidadeSolicitanteCtrl.text = updated.label;
+                          _unitId = updated;
+                          _unidadeSolicitanteId = updated;
+                          _unidadeSolicitanteCtrl.text = updated;
+                          _tenantNonce++;
                         });
 
                         _emitChange();
@@ -613,26 +544,17 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                         : null,
                     onDeleteItem: widget.isEditable && hasTenantConfigured
                         ? (ctx, label) async {
-                      final list = tenantCubit.getUnits();
-
-                      if (list.isEmpty) return;
-
-                      final target = list.firstWhere(
-                            (u) => u.label == label,
-                        orElse: () => const TenantItemData.empty(),
-                      );
-
-                      if (target.id.isEmpty) return;
-
-                      await tenantCubit.deleteUnit(target.id);
+                      await tenantCubit.deleteUnit(label);
 
                       if (!mounted) return;
 
-                      if (_unitId == target.id) {
+                      if (_unitId == label ||
+                          _unidadeSolicitanteCtrl.text == label) {
                         setState(() {
                           _unitId = null;
                           _unidadeSolicitanteId = null;
                           _unidadeSolicitanteCtrl.clear();
+                          _tenantNonce++;
                         });
 
                         _emitChange();
@@ -738,9 +660,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     labelText: 'CPF do solicitante',
                     hintText: '000.000.000-00',
                     keyboardType: TextInputType.number,
-                    inputFormatters: const [
-                      SipGedMasks.cpf,
-                    ],
+                    inputFormatters: const [SipGedMasks.cpf],
                     onChanged: (_) {
                       if (_syncing) return;
                       _emitChange();
@@ -780,9 +700,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     labelText: 'Telefone do solicitante',
                     hintText: '(00) 00000-0000',
                     keyboardType: TextInputType.phone,
-                    inputFormatters: const [
-                      SipGedMasks.phoneBR,
-                    ],
+                    inputFormatters: const [SipGedMasks.phoneBR],
                     onChanged: (_) {
                       if (_syncing) return;
                       _emitChange();

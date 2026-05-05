@@ -1,3 +1,5 @@
+// lib/_blocs/system/notification/bell/notification_bell_cubit.dart
+
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,6 +18,7 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
   final NotificationRemoteRepository _repository;
 
   StreamSubscription<List<NotificationData>>? _systemSub;
+  StreamSubscription<List<NotificationData>>? _userBellSub;
   StreamSubscription<List<NotificationData>>? _unreadUserSub;
 
   String? _watchingUserId;
@@ -23,7 +26,8 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
   void watchBellNotifications({
     required String userId,
     int systemLimit = 30,
-    int unreadUserLimit = 30,
+    int userBellLimit = 50,
+    int unreadUserLimit = 50,
   }) {
     watchSystemNotifications(limit: systemLimit);
 
@@ -33,12 +37,16 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
 
     _watchingUserId = cleanUserId;
 
-    if (cleanUserId.isEmpty) {
-      _unreadUserSub?.cancel();
-      _unreadUserSub = null;
+    _userBellSub?.cancel();
+    _userBellSub = null;
 
+    _unreadUserSub?.cancel();
+    _unreadUserSub = null;
+
+    if (cleanUserId.isEmpty) {
       emit(
         state.copyWith(
+          userBellNotifications: const <NotificationData>[],
           unreadUserNotifications: const <NotificationData>[],
           loading: false,
           clearError: true,
@@ -47,6 +55,11 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
 
       return;
     }
+
+    watchUserBellNotifications(
+      userId: cleanUserId,
+      limit: userBellLimit,
+    );
 
     watchUnreadUserNotifications(
       userId: cleanUserId,
@@ -87,9 +100,61 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
     );
   }
 
+  void watchUserBellNotifications({
+    required String userId,
+    int limit = 50,
+  }) {
+    final cleanUserId = userId.trim();
+
+    _userBellSub?.cancel();
+
+    if (cleanUserId.isEmpty) {
+      emit(
+        state.copyWith(
+          userBellNotifications: const <NotificationData>[],
+          loading: false,
+          clearError: true,
+        ),
+      );
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        loading: true,
+        clearError: true,
+      ),
+    );
+
+    _userBellSub = _repository
+        .watchUserNotifications(
+      userId: cleanUserId,
+      limit: limit,
+    )
+        .listen(
+          (items) {
+        emit(
+          state.copyWith(
+            userBellNotifications: items,
+            loading: false,
+            clearError: true,
+          ),
+        );
+      },
+      onError: (Object e) {
+        emit(
+          state.copyWith(
+            loading: false,
+            error: 'Erro ao observar notificações do usuário: $e',
+          ),
+        );
+      },
+    );
+  }
+
   void watchUnreadUserNotifications({
     required String userId,
-    int limit = 30,
+    int limit = 50,
   }) {
     final cleanUserId = userId.trim();
 
@@ -158,8 +223,17 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
           .where((item) => item.id != cleanNotificationId)
           .toList();
 
+      final userBell = state.userBellNotifications.map((item) {
+        if (item.id == cleanNotificationId) {
+          return item.copyWith(seen: true);
+        }
+
+        return item;
+      }).toList();
+
       emit(
         state.copyWith(
+          userBellNotifications: userBell,
           unreadUserNotifications: unread,
           clearError: true,
         ),
@@ -183,8 +257,13 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
     try {
       await _repository.markAllAsSeen(userId: cleanUserId);
 
+      final userBell = state.userBellNotifications.map((item) {
+        return item.copyWith(seen: true);
+      }).toList();
+
       emit(
         state.copyWith(
+          userBellNotifications: userBell,
           unreadUserNotifications: const <NotificationData>[],
           clearError: true,
         ),
@@ -201,6 +280,7 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
   @override
   Future<void> close() {
     _systemSub?.cancel();
+    _userBellSub?.cancel();
     _unreadUserSub?.cancel();
 
     return super.close();

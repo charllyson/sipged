@@ -1,6 +1,7 @@
+// lib/screens/common/setup/initial_setup_form.dart
+
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 
 class InitialSetupForm extends StatelessWidget {
@@ -8,9 +9,9 @@ class InitialSetupForm extends StatelessWidget {
   final String labelText;
   final bool enabled;
 
-  final List<SetupData> items;
-  final SetupData? selectedItem;
-  final ValueChanged<SetupData> onSelectItem;
+  final List<String> items;
+  final String? selectedItem;
+  final ValueChanged<String> onSelectItem;
   final VoidCallback onClearSelection;
 
   final String addLabel;
@@ -20,6 +21,8 @@ class InitialSetupForm extends StatelessWidget {
   final bool primaryEnabled;
   final VoidCallback onPrimaryAction;
   final VoidCallback onRemoveAction;
+
+  final ValueChanged<String>? onChanged;
 
   final Widget? trailingWidget;
   final Widget? extraBottom;
@@ -39,6 +42,7 @@ class InitialSetupForm extends StatelessWidget {
     required this.primaryEnabled,
     required this.onPrimaryAction,
     required this.onRemoveAction,
+    this.onChanged,
     this.trailingWidget,
     this.extraBottom,
   });
@@ -63,58 +67,72 @@ class InitialSetupForm extends StatelessWidget {
     );
   }
 
+  Widget _emptyText() {
+    return const Text(
+      'Nenhum item cadastrado.',
+      style: TextStyle(
+        color: Color(0xFF98A2B3),
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
   Widget _buildList() {
     final hasSelection = selectedItem != null;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: items.map((item) {
-              final isSelected = selectedItem?.id == item.id;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 640;
 
-              return InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: !enabled
-                    ? null
-                    : () {
-                  if (isSelected) {
-                    onClearSelection();
-                  } else {
-                    onSelectItem(item);
-                  }
-                },
-                child: Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: isSelected
-                      ? BoxDecoration(
-                    border: Border.all(color: Colors.blue, width: 1.3),
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.blue.withValues(alpha: 0.06),
+        final list = Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: items.map((item) {
+            final isSelected = selectedItem == item;
+
+            return InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: !enabled
+                  ? null
+                  : () {
+                if (isSelected) {
+                  onClearSelection();
+                } else {
+                  onSelectItem(item);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: isSelected
+                      ? Border.all(
+                    color: Colors.blue,
+                    width: 1.3,
                   )
-                      : BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    item.label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue,
-                      fontWeight:
-                      isSelected ? FontWeight.w700 : FontWeight.w500,
-                    ),
+                      : null,
+                  color: isSelected
+                      ? Colors.blue.withValues(alpha: 0.06)
+                      : Colors.transparent,
+                ),
+                child: Text(
+                  item,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.blue,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Wrap(
+              ),
+            );
+          }).toList(),
+        );
+
+        final actions = Wrap(
           spacing: 4,
           runSpacing: 4,
           alignment: WrapAlignment.end,
@@ -132,8 +150,33 @@ class InitialSetupForm extends StatelessWidget {
                 color: Colors.red,
               ),
           ],
-        ),
-      ],
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (items.isEmpty) _emptyText() else list,
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: actions,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: items.isEmpty ? _emptyText() : list,
+            ),
+            const SizedBox(width: 12),
+            actions,
+          ],
+        );
+      },
     );
   }
 
@@ -150,6 +193,7 @@ class InitialSetupForm extends StatelessWidget {
                 controller: controller,
                 labelText: labelText,
                 enabled: enabled,
+                onChanged: onChanged,
               ),
             ),
             if (trailingWidget != null) ...[
@@ -160,7 +204,10 @@ class InitialSetupForm extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _buildList(),
-        ?extraBottom,
+        if (extraBottom != null) ...[
+          const SizedBox(height: 10),
+          extraBottom!,
+        ],
       ],
     );
   }

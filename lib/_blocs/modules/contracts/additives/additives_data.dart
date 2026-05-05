@@ -1,28 +1,31 @@
 // lib/_blocs/modules/contracts/additives/additives_data.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
-/// 🧩 Modelo de aditivo (somente dados, sem lógica de UI)
+/// Modelo de aditivo.
 class AdditivesData {
   String? id;
   String? contractId;
+
   int? additiveOrder;
   String? additiveNumberProcess;
   DateTime? additiveDate;
   String? typeOfAdditive;
   double? additiveValue;
 
-  /// Dias de validade (prazo) do **contrato** após o aditivo.
+  /// Dias de validade do contrato após o aditivo.
   int? additiveValidityContractDays;
 
-  /// Dias de **execução** aditivados (usado para estender o cronograma).
+  /// Dias de execução aditivados.
   int? additiveValidityExecutionDays;
 
-  // Legado: último PDF salvo no doc
+  /// Legado: último PDF salvo diretamente no documento.
   String? pdfUrl;
 
-  // Anexos com rótulo (múltiplos)
+  /// Anexos com rótulo.
   List<Attachment>? attachments;
 
   DateTime? createdAt;
@@ -31,55 +34,6 @@ class AdditivesData {
   String? updatedBy;
   DateTime? deletedAt;
   String? deletedBy;
-
-  // ---------------------------------------------------------------------------
-  // 🎨 Paleta consistente para *termos*
-  // ---------------------------------------------------------------------------
-  static const List<Color> _palette = <Color>[
-    Colors.amber,
-    Colors.purpleAccent,
-    Colors.green,
-    Colors.pink,
-    Colors.orange,
-    Colors.blue,
-    Colors.red,
-    Colors.brown,
-    Colors.teal,
-    Colors.cyan,
-    Colors.indigo,
-  ];
-
-  /// Cor padrão usada para o **contratado** (PV base / barras bloqueadas).
-  static const Color contractedColor = Color(0xFF206AF5); // azul
-  static const Color trackColor = Color(0xFFE0E0E0);
-
-  /// Cor principal para um **termo** pela sua ordem (1..N).
-  static Color colorForOrder(int order) {
-    if (order <= 0) return contractedColor;
-    return _palette[(order - 1) % _palette.length];
-  }
-
-  /// Variedades convenientes da cor do termo para fundos/tintas.
-  static Color tintForOrder(int order, {double opacity = .06}) =>
-      colorForOrder(order).withValues(alpha: opacity);
-
-  static Color strongTintForOrder(int order, {double opacity = .10}) =>
-      colorForOrder(order).withValues(alpha: opacity);
-
-  /// Cores para a barra de percentual na tabela.
-  /// - `order == null` => usado na **seção de aditivos** para “Contratado” bloqueado (cinza).
-  static ({Color fill, Color track, bool disabled}) barColorsForOrder(
-      int? order,
-      ) {
-    if (order == null) {
-      return (
-      fill: const Color(0xFF9E9E9E), // cinza neutro para bloqueado
-      track: trackColor,
-      disabled: true,
-      );
-    }
-    return (fill: colorForOrder(order), track: trackColor, disabled: false);
-  }
 
   AdditivesData({
     this.id,
@@ -101,7 +55,10 @@ class AdditivesData {
     this.deletedBy,
   });
 
-  // -------------------- Tipos permitidos --------------------
+  // ---------------------------------------------------------------------------
+  // Tipos permitidos
+  // ---------------------------------------------------------------------------
+
   static const List<String> allowedTypes = <String>[
     'VALOR',
     'PRAZO',
@@ -110,136 +67,464 @@ class AdditivesData {
     'RENOVAÇÃO',
   ];
 
-  static List<Attachment>? _toAttachments(dynamic v) {
-    if (v == null) return null;
-    if (v is List) {
-      return v
-          .map((e) => Attachment.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
+  // ---------------------------------------------------------------------------
+  // Paleta consistente para termos/aditivos
+  // ---------------------------------------------------------------------------
+
+  static const List<Color> _palette = <Color>[
+    Colors.amber,
+    Colors.purpleAccent,
+    Colors.green,
+    Colors.pink,
+    Colors.orange,
+    Colors.blue,
+    Colors.red,
+    Colors.brown,
+    Colors.teal,
+    Colors.cyan,
+    Colors.indigo,
+  ];
+
+  /// Cor padrão usada para o contratado/base.
+  static const Color contractedColor = Color(0xFF206AF5);
+
+  static const Color trackColor = Color(0xFFE0E0E0);
+
+  static Color colorForOrder(int order) {
+    if (order <= 0) return contractedColor;
+    return _palette[(order - 1) % _palette.length];
+  }
+
+  static Color tintForOrder(int order, {double opacity = .06}) {
+    return colorForOrder(order).withValues(alpha: opacity);
+  }
+
+  static Color strongTintForOrder(int order, {double opacity = .10}) {
+    return colorForOrder(order).withValues(alpha: opacity);
+  }
+
+  static ({Color fill, Color track, bool disabled}) barColorsForOrder(
+      int? order,
+      ) {
+    if (order == null) {
+      return (
+      fill: const Color(0xFF9E9E9E),
+      track: trackColor,
+      disabled: true,
+      );
     }
-    return null;
+
+    return (
+    fill: colorForOrder(order),
+    track: trackColor,
+    disabled: false,
+    );
   }
 
-  // =========================
-  // Helpers locais
-  // =========================
-  static DateTime? _toDate(dynamic v) {
-    if (v is Timestamp) return v.toDate();
-    if (v is DateTime) return v;
-    return null;
-  }
+  // ---------------------------------------------------------------------------
+  // Helpers de parsing
+  // ---------------------------------------------------------------------------
 
-  static int? _toInt(dynamic v) {
-    if (v is int) return v;
-    if (v is num) return v.toInt();
-    if (v is String) return int.tryParse(v);
-    return null;
-  }
+  static DateTime? _toDate(dynamic value) {
+    if (value == null) return null;
 
-  static double? _toDouble(dynamic v) {
-    if (v is double) return v;
-    if (v is num) return v.toDouble();
-    if (v is String) {
-      final sanitized = v.replaceAll('.', '').replaceAll(',', '.');
-      return double.tryParse(sanitized);
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+
+    if (value is String) {
+      final text = value.trim();
+
+      if (text.isEmpty) return null;
+
+      final iso = DateTime.tryParse(text);
+      if (iso != null) return iso;
+
+      final parts = text.split('/');
+
+      if (parts.length == 3) {
+        final day = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        final year = int.tryParse(parts[2]);
+
+        if (day != null && month != null && year != null) {
+          final parsed = DateTime(year, month, day);
+
+          if (parsed.day == day &&
+              parsed.month == month &&
+              parsed.year == year) {
+            return parsed;
+          }
+        }
+      }
     }
+
     return null;
   }
 
-  // =========================
-  // FACTORY: Firestore Document
-  // =========================
-  factory AdditivesData.fromDocument({required DocumentSnapshot snapshot}) {
-    if (!snapshot.exists) throw Exception("Aditivo não encontrado");
+  static int? _toInt(dynamic value) {
+    if (value == null) return null;
 
-    final Map<String, dynamic> data =
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+
+    if (value is String) {
+      final text = value.trim();
+
+      if (text.isEmpty) return null;
+
+      final onlyDigits = text.replaceAll(RegExp(r'[^\d-]'), '');
+      return int.tryParse(onlyDigits);
+    }
+
+    return null;
+  }
+
+  static double? _toDouble(dynamic value) {
+    if (value == null) return null;
+
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+
+    if (value is String) {
+      final text = value.trim();
+
+      if (text.isEmpty) return null;
+
+      final normalized = text
+          .replaceAll('R\$', '')
+          .replaceAll(' ', '')
+          .replaceAll('.', '')
+          .replaceAll(',', '.')
+          .trim();
+
+      return double.tryParse(normalized);
+    }
+
+    return null;
+  }
+
+  static String? _toStringOrNull(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    return text.isEmpty ? null : text;
+  }
+
+  static List<Attachment>? _toAttachments(dynamic value) {
+    if (value == null) return null;
+
+    if (value is! List) return null;
+
+    final list = <Attachment>[];
+
+    for (final item in value) {
+      if (item == null) continue;
+
+      if (item is Map<String, dynamic>) {
+        list.add(Attachment.fromMap(item));
+        continue;
+      }
+
+      if (item is Map) {
+        list.add(
+          Attachment.fromMap(
+            Map<String, dynamic>.from(item),
+          ),
+        );
+      }
+    }
+
+    return list.isEmpty ? null : list;
+  }
+
+  static dynamic _pick(
+      Map<String, dynamic> map,
+      List<String> keys,
+      ) {
+    for (final key in keys) {
+      if (map.containsKey(key)) {
+        return map[key];
+      }
+    }
+
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Factory: Firestore Document
+  // ---------------------------------------------------------------------------
+
+  factory AdditivesData.fromDocument({
+    required DocumentSnapshot snapshot,
+  }) {
+    if (!snapshot.exists) {
+      throw Exception('Aditivo não encontrado');
+    }
+
+    final data =
         (snapshot.data() as Map<String, dynamic>?) ?? <String, dynamic>{};
 
-    final String? contractIdFromPath = snapshot.reference.parent.parent?.id;
+    final contractIdFromPath = snapshot.reference.parent.parent?.id;
 
-    return AdditivesData(
+    return AdditivesData.fromMap(
+      data,
       id: snapshot.id,
-      contractId: (data['contractId'] ?? contractIdFromPath) as String?,
-      additiveNumberProcess:
-      data['additivenumberprocess'] ?? data['additiveNumberProcess'],
-      additiveOrder:
-      _toInt(data['additiveorder'] ?? data['additiveOrder']),
-      additiveValidityContractDays: _toInt(
-        data['additivevaliditycontractdays'] ??
-            data['additiveValidityContractDays'],
-      ),
-      additiveValidityExecutionDays: _toInt(
-        data['additivevalidityexecutiondays'] ??
-            data['additiveValidityExecutionDays'],
-      ),
-      additiveDate: _toDate(data['additivedata'] ?? data['additiveDate']),
-      additiveValue:
-      _toDouble(data['additivevalue'] ?? data['additiveValue']),
-      typeOfAdditive: data['typeOfAdditive'] ?? data['type_of_additive'],
-      pdfUrl: data['pdfUrl'] as String?,
-      attachments: _toAttachments(data['attachments']),
-      createdAt: _toDate(data['createdAt']),
-      createdBy: data['createdBy'] as String?,
-      updatedAt: _toDate(data['updatedAt']),
-      updatedBy: data['updatedBy'] as String?,
-      deletedAt: _toDate(data['deletedAt']),
-      deletedBy: data['deletedBy'] as String?,
+      fallbackContractId: contractIdFromPath,
     );
   }
 
-  // =========================
-  // FACTORY: Map genérico
-  // =========================
-  factory AdditivesData.fromMap(Map<String, dynamic> map, {String? id}) {
+  // ---------------------------------------------------------------------------
+  // Factory: Map genérico
+  // ---------------------------------------------------------------------------
+
+  factory AdditivesData.fromMap(
+      Map<String, dynamic> map, {
+        String? id,
+        String? fallbackContractId,
+      }) {
     return AdditivesData(
-      id: id ?? map['id'],
-      contractId: map['contractId'],
-      additiveNumberProcess:
-      map['additivenumberprocess'] ?? map['additiveNumberProcess'],
-      additiveOrder: _toInt(map['additiveorder'] ?? map['additiveOrder']),
+      id: id ?? _toStringOrNull(_pick(map, const ['id'])),
+      contractId: _toStringOrNull(
+        _pick(
+          map,
+          const [
+            'contractId',
+            'uidContract',
+            'uidcontract',
+            'processId',
+          ],
+        ),
+      ) ??
+          fallbackContractId,
+      additiveNumberProcess: _toStringOrNull(
+        _pick(
+          map,
+          const [
+            'additivenumberprocess',
+            'additiveNumberProcess',
+            'additiveNumber',
+            'numberProcess',
+            'numberprocess',
+            'processNumber',
+          ],
+        ),
+      ),
+      additiveOrder: _toInt(
+        _pick(
+          map,
+          const [
+            'additiveorder',
+            'additiveOrder',
+            'order',
+            'ordem',
+          ],
+        ),
+      ),
       additiveValidityContractDays: _toInt(
-        map['additivevaliditycontractdays'] ??
-            map['additiveValidityContractDays'],
+        _pick(
+          map,
+          const [
+            'additivevaliditycontractdays',
+            'additiveValidityContractDays',
+            'validityContractDays',
+            'contractValidityDays',
+          ],
+        ),
       ),
       additiveValidityExecutionDays: _toInt(
-        map['additivevalidityexecutiondays'] ??
-            map['additiveValidityExecutionDays'],
+        _pick(
+          map,
+          const [
+            'additivevalidityexecutiondays',
+            'additiveValidityExecutionDays',
+            'validityExecutionDays',
+            'executionValidityDays',
+          ],
+        ),
       ),
-      additiveDate: _toDate(map['additivedata'] ?? map['additiveDate']),
-      additiveValue:
-      _toDouble(map['additivevalue'] ?? map['additiveValue']),
-      typeOfAdditive: map['typeOfAdditive'],
-      pdfUrl: map['pdfUrl'] as String?,
-      attachments: _toAttachments(map['attachments']),
+      additiveDate: _toDate(
+        _pick(
+          map,
+          const [
+            'additivedata',
+            'additiveDate',
+            'additiveData',
+            'date',
+            'data',
+          ],
+        ),
+      ),
+      additiveValue: _toDouble(
+        _pick(
+          map,
+          const [
+            'additivevalue',
+            'additiveValue',
+            'value',
+            'valor',
+          ],
+        ),
+      ),
+      typeOfAdditive: _toStringOrNull(
+        _pick(
+          map,
+          const [
+            'typeOfAdditive',
+            'type_of_additive',
+            'additiveType',
+            'type',
+            'tipo',
+          ],
+        ),
+      ),
+      pdfUrl: _toStringOrNull(
+        _pick(
+          map,
+          const [
+            'pdfUrl',
+            'urlPdf',
+            'pdf',
+          ],
+        ),
+      ),
+      attachments: _toAttachments(
+        _pick(
+          map,
+          const [
+            'attachments',
+            'anexos',
+            'files',
+          ],
+        ),
+      ),
       createdAt: _toDate(map['createdAt']),
-      createdBy: map['createdBy'],
+      createdBy: _toStringOrNull(map['createdBy']),
       updatedAt: _toDate(map['updatedAt']),
-      updatedBy: map['updatedBy'],
+      updatedBy: _toStringOrNull(map['updatedBy']),
       deletedAt: _toDate(map['deletedAt']),
-      deletedBy: map['deletedBy'],
+      deletedBy: _toStringOrNull(map['deletedBy']),
     );
   }
 
-  /// Mapa enxuto para gravar/atualizar no Firestore.
+  // ---------------------------------------------------------------------------
+  // Copy
+  // ---------------------------------------------------------------------------
+
+  AdditivesData copyWith({
+    String? id,
+    String? contractId,
+    int? additiveOrder,
+    String? additiveNumberProcess,
+    DateTime? additiveDate,
+    String? typeOfAdditive,
+    double? additiveValue,
+    int? additiveValidityContractDays,
+    int? additiveValidityExecutionDays,
+    String? pdfUrl,
+    List<Attachment>? attachments,
+    DateTime? createdAt,
+    String? createdBy,
+    DateTime? updatedAt,
+    String? updatedBy,
+    DateTime? deletedAt,
+    String? deletedBy,
+    bool clearId = false,
+    bool clearContractId = false,
+    bool clearAdditiveOrder = false,
+    bool clearAdditiveNumberProcess = false,
+    bool clearAdditiveDate = false,
+    bool clearTypeOfAdditive = false,
+    bool clearAdditiveValue = false,
+    bool clearAdditiveValidityContractDays = false,
+    bool clearAdditiveValidityExecutionDays = false,
+    bool clearPdfUrl = false,
+    bool clearAttachments = false,
+    bool clearCreatedAt = false,
+    bool clearCreatedBy = false,
+    bool clearUpdatedAt = false,
+    bool clearUpdatedBy = false,
+    bool clearDeletedAt = false,
+    bool clearDeletedBy = false,
+  }) {
+    return AdditivesData(
+      id: clearId ? null : id ?? this.id,
+      contractId: clearContractId ? null : contractId ?? this.contractId,
+      additiveOrder: clearAdditiveOrder
+          ? null
+          : additiveOrder ?? this.additiveOrder,
+      additiveNumberProcess: clearAdditiveNumberProcess
+          ? null
+          : additiveNumberProcess ?? this.additiveNumberProcess,
+      additiveDate:
+      clearAdditiveDate ? null : additiveDate ?? this.additiveDate,
+      typeOfAdditive:
+      clearTypeOfAdditive ? null : typeOfAdditive ?? this.typeOfAdditive,
+      additiveValue:
+      clearAdditiveValue ? null : additiveValue ?? this.additiveValue,
+      additiveValidityContractDays: clearAdditiveValidityContractDays
+          ? null
+          : additiveValidityContractDays ??
+          this.additiveValidityContractDays,
+      additiveValidityExecutionDays: clearAdditiveValidityExecutionDays
+          ? null
+          : additiveValidityExecutionDays ??
+          this.additiveValidityExecutionDays,
+      pdfUrl: clearPdfUrl ? null : pdfUrl ?? this.pdfUrl,
+      attachments: clearAttachments ? null : attachments ?? this.attachments,
+      createdAt: clearCreatedAt ? null : createdAt ?? this.createdAt,
+      createdBy: clearCreatedBy ? null : createdBy ?? this.createdBy,
+      updatedAt: clearUpdatedAt ? null : updatedAt ?? this.updatedAt,
+      updatedBy: clearUpdatedBy ? null : updatedBy ?? this.updatedBy,
+      deletedAt: clearDeletedAt ? null : deletedAt ?? this.deletedAt,
+      deletedBy: clearDeletedBy ? null : deletedBy ?? this.deletedBy,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Firestore
+  // ---------------------------------------------------------------------------
+
   Map<String, dynamic> toJson() {
-    return {
-      'id': id ?? '',
-      'contractId': contractId ?? '',
+    return <String, dynamic>{
+      if (id != null && id!.trim().isNotEmpty) 'id': id,
+      if (contractId != null && contractId!.trim().isNotEmpty)
+        'contractId': contractId,
+
+      // Campos atuais usados no sistema.
       'additivenumberprocess': additiveNumberProcess ?? '',
       'additiveorder': additiveOrder ?? 0,
       'additivevaliditycontractdays': additiveValidityContractDays ?? 0,
       'additivevalidityexecutiondays': additiveValidityExecutionDays ?? 0,
       'additivedata': additiveDate,
-      'additivevalue': additiveValue ?? 0,
+      'additivevalue': additiveValue ?? 0.0,
       'typeOfAdditive': typeOfAdditive ?? '',
+
+      // Compatibilidade/consulta futura.
+      'additiveNumberProcess': additiveNumberProcess ?? '',
+      'additiveOrder': additiveOrder ?? 0,
+      'additiveValidityContractDays': additiveValidityContractDays ?? 0,
+      'additiveValidityExecutionDays': additiveValidityExecutionDays ?? 0,
+      'additiveDate': additiveDate,
+      'additiveValue': additiveValue ?? 0.0,
+
       'pdfUrl': pdfUrl,
       'attachments': attachments?.map((e) => e.toMap()).toList(),
+
+      if (createdAt != null) 'createdAt': createdAt,
+      if (createdBy != null && createdBy!.trim().isNotEmpty)
+        'createdBy': createdBy,
+      if (updatedAt != null) 'updatedAt': updatedAt,
+      if (updatedBy != null && updatedBy!.trim().isNotEmpty)
+        'updatedBy': updatedBy,
+      if (deletedAt != null) 'deletedAt': deletedAt,
+      if (deletedBy != null && deletedBy!.trim().isNotEmpty)
+        'deletedBy': deletedBy,
     };
   }
 
-  /// Versão mais completa (caso precise em memória).
   Map<String, dynamic> toMap() {
-    return {
+    return <String, dynamic>{
       'id': id,
       'contractId': contractId,
       'additivenumberprocess': additiveNumberProcess,
@@ -247,7 +532,7 @@ class AdditivesData {
       'additivevaliditycontractdays': additiveValidityContractDays,
       'additivevalidityexecutiondays': additiveValidityExecutionDays,
       'additivedata': additiveDate,
-      'additivevalue': additiveValue ?? 0,
+      'additivevalue': additiveValue,
       'typeOfAdditive': typeOfAdditive,
       'pdfUrl': pdfUrl,
       'attachments': attachments?.map((e) => e.toMap()).toList(),
@@ -258,5 +543,21 @@ class AdditivesData {
       'deletedAt': deletedAt,
       'deletedBy': deletedBy,
     };
+  }
+
+  @override
+  String toString() {
+    return 'AdditivesData('
+        'id: $id, '
+        'contractId: $contractId, '
+        'additiveOrder: $additiveOrder, '
+        'additiveNumberProcess: $additiveNumberProcess, '
+        'additiveDate: $additiveDate, '
+        'typeOfAdditive: $typeOfAdditive, '
+        'additiveValue: $additiveValue, '
+        'additiveValidityContractDays: $additiveValidityContractDays, '
+        'additiveValidityExecutionDays: $additiveValidityExecutionDays, '
+        'attachments: ${attachments?.length ?? 0}'
+        ')';
   }
 }

@@ -69,9 +69,6 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
     super.dispose();
   }
 
-  void _debug(String message) {
-    debugPrint('[ExcelPreviewDialog] $message');
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -278,11 +275,6 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
 
     final total = _linhasSelecionadas.entries.where((e) => e.value).length;
 
-    if (total == 0) {
-      _debug('Nenhuma linha selecionada para importação.');
-      return;
-    }
-
     final progress = ValueNotifier<int>(0);
     _importDialogLoopStarted = false;
 
@@ -327,10 +319,8 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
                 Navigator.of(context).pop();
               }
 
-              _debug('Importação concluída: $count de $total registros.');
-
               widget.onFinished?.call();
-            } catch (e, s) {
+            } catch (e) {
               if (ctx.mounted) {
                 Navigator.of(ctx).pop();
               }
@@ -339,8 +329,6 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
                 Navigator.of(context).pop();
               }
 
-              debugPrint('[ExcelPreviewDialog] Falha na importação: $e');
-              debugPrintStack(stackTrace: s);
             }
           });
         }

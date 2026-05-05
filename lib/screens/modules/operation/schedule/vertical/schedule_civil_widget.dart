@@ -1,0 +1,1337 @@
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
+
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+
+import 'package:sipged/_blocs/modules/operation/schedule/vertical/civil_schedule_bloc.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/vertical/civil_schedule_event.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/vertical/civil_schedule_state.dart';
+
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_services/files/dxf/dxf_controller.dart';
+import 'package:sipged/_services/files/dxf/dxf_empty_hint.dart';
+import 'package:sipged/_services/files/dxf/dxf_enums.dart';
+import 'package:sipged/_services/files/dxf/dxf_selection_overlay.dart';
+import 'package:sipged/_services/files/dxf/dxf_to_geo.dart';
+
+import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/text_field_in_line.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
+
+import 'package:sipged/screens/modules/operation/schedule/horizontal/schedule_modal_square.dart';
+import 'package:sipged/screens/modules/operation/schedule/horizontal/schedule_status.dart';
+import 'package:sipged/screens/modules/operation/schedule/horizontal/type.dart';
+import 'package:sipged/screens/modules/operation/schedule/vertical/polygon_painter.dart';
+import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_board.dart';
+import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_controller.dart';
+import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_fit_utils.dart';
+import 'package:sipged/screens/modules/operation/schedule/vertical/snap_utils.dart';
+import 'package:sipged/screens/modules/operation/schedule/vertical/text_item.dart';
+
+class ScheduleCivilWidget extends StatefulWidget {
+  const ScheduleCivilWidget({
+    super.key,
+    required this.title,
+    required this.controller,
+    this.initialPdfBytes,
+    this.pageNumber = 1,
+    this.allowPickNewPdf = true,
+    this.onPolylinesReady,
+  });
+
+  final String title;
+  final Uint8List? initialPdfBytes;
+  final int pageNumber;
+  final bool allowPickNewPdf;
+  final ScheduleCivilController controller;
+  final void Function(List<List<LatLng>> polylines)? onPolylinesReady;
+
+  @override
+  State<ScheduleCivilWidget> createState() => _ScheduleCivilWidgetState();
+}
+
+class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
+  final TransformationController _tc = TransformationController();
+  final GlobalKey _viewerKey = GlobalKey();
+
+  final DxfController _dxf = DxfController();
+
+  Uint8List? _docBytes;
+
+  bool _loading = false;
+  Object? _error;
+
+  bool _blocking = false;
+  String _blockingMsg = 'Carregando…';
+
+  Offset? _hoverSnap;
+  Offset? _selectedEdge;
+
+  int? _editingTextIndex;
+  Offset? _editingAnchor;
+  final _textEditCtrl = TextEditingController();
+  final _textEditFocus = FocusNode();
+
+  bool _didFitViewport = false;
+  EdgeInsets _lastInset = EdgeInsets.zero;
+  Size _lastViewport = Size.zero;
+
+  final double _dxfHairlinePx = 0.9;
+
+  final Map<int, Map<String, dynamic>> _polyProps = {};
+  final Map<int, String> _polygonIdByIndex = {};
+
+  int _lastFeatureCount = 0;
+  bool _savingNewFeature = false;
+  bool _hydrating = false;
+  String? _lastAssetUrl;
+
+  String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  void _notify({
+    required String title,
+    String? subtitle,
+    NotificationStatus type = NotificationStatus.info,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    if (!mounted) return;
+
+    context.read<NotificationLocalCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: subtitle,
+        leadingLabel: 'Civil',
+        type: type,
+        duration: duration,
+      ),
+    );
+  }
+
+  void _setBlocking(bool on, {String? msg}) {
+    if (!mounted) return;
+
+    setState(() {
+      _blocking = on;
+      if (msg != null) _blockingMsg = msg;
+    });
+  }
+
+  Map<String, dynamic> _propsForIndex(int idx) {
+    return _polyProps[idx] ??= <String, dynamic>{};
+  }
+
+  ScheduleStatus _statusFromKey(String? s) {
+    final t = (s ?? '').toLowerCase();
+
+    if (t.contains('conclu')) {
+      return ScheduleStatus.concluido;
+    }
+
+    if (t.contains('andament') || t.contains('progress')) {
+      return ScheduleStatus.emAndamento;
+    }
+
+    return ScheduleStatus.aIniciar;
+  }
+
+  ScheduleStatus _statusFromProgress(double? p) {
+    if (p == null) return ScheduleStatus.aIniciar;
+    if (p >= 100) return ScheduleStatus.concluido;
+    if (p <= 0) return ScheduleStatus.aIniciar;
+    return ScheduleStatus.emAndamento;
+  }
+
+  Color _statusBaseColor(ScheduleStatus st) {
+    switch (st) {
+      case ScheduleStatus.concluido:
+        return const Color(0xFF34A853);
+      case ScheduleStatus.emAndamento:
+        return const Color(0xFFF39C12);
+      case ScheduleStatus.aIniciar:
+        return const Color(0xFF9CA3AF);
+    }
+  }
+
+  Color _polyColorForIndex(int i, {double s = 0.85, double v = 0.95}) {
+    final props = _propsForIndex(i);
+
+    final progress = props['progress'] is num
+        ? (props['progress'] as num).toDouble()
+        : null;
+
+    final status = props['status'] != null
+        ? _statusFromKey(props['status'] as String?)
+        : _statusFromProgress(progress);
+
+    final base = _statusBaseColor(status);
+
+    final double alpha = switch (status) {
+      ScheduleStatus.concluido => 0.32,
+      ScheduleStatus.emAndamento => 0.32,
+      ScheduleStatus.aIniciar => 0.22,
+    };
+
+    return base.withValues(alpha: alpha);
+  }
+
+  Color _randomStrokeColor(int index, {double s = 0.85, double v = 0.95}) {
+    final hue = (index * 137.508) % 360.0;
+    return HSVColor.fromAHSV(1.0, hue, s, v).toColor();
+  }
+
+  Future<String> _askAreaName({String initial = 'Área'}) async {
+    final txt = TextEditingController(text: initial);
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Nome da área',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  CustomTextField(
+                    controller: txt,
+                    labelText: 'Digite um nome',
+                    onSubmitted: (_) => Navigator.of(ctx).pop(txt.text.trim()),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(''),
+                        child: const Text('Cancelar'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(ctx).pop(txt.text.trim()),
+                        child: const Text('Salvar'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    return (result ?? '').trim();
+  }
+
+  Future<void> _addFeatureFromPoints({
+    required String name,
+    required List<Offset> points,
+  }) async {
+    final c = widget.controller;
+    final prevMode = c.mode;
+
+    c.activateDraw();
+    c.current
+      ..clear()
+      ..addAll(points);
+
+    await c.finishPolygon(onAskName: (_) async => name);
+
+    c.activateSelect();
+    c.current.clear();
+    c.selectedIndex = null;
+
+    if (prevMode != ToolMode.draw) {
+      c.mode = prevMode;
+    }
+  }
+
+  Future<void> _hydrateFromBackend(CivilScheduleState st) async {
+    _hydrating = true;
+
+    try {
+      final rawUrl = st.assets['dxf_url']?.toString() ?? '';
+
+      if (rawUrl.isNotEmpty && rawUrl != _lastAssetUrl) {
+        await _syncAssetFromBackend(rawUrl);
+      }
+
+      widget.controller.clearAll();
+      _polygonIdByIndex.clear();
+      _polyProps.clear();
+
+      for (int i = 0; i < st.polygons.length; i++) {
+        final d = st.polygons[i];
+
+        final id = d['id'] as String;
+        final name = (d['name'] ?? 'POLÍGONO ${i + 1}').toString();
+
+        final pts = (d['points'] as List? ?? const [])
+            .map((p) {
+          final m = Map<String, dynamic>.from(p as Map);
+          return Offset(
+            (m['x'] as num).toDouble(),
+            (m['y'] as num).toDouble(),
+          );
+        })
+            .toList();
+
+        await _addFeatureFromPoints(
+          name: name,
+          points: pts,
+        );
+
+        final props = _propsForIndex(i);
+
+        props['status'] = d['status'];
+        props['comment'] = d['comentario'];
+
+        props['takenAtMs'] = d['takenAtMs'] is num
+            ? (d['takenAtMs'] as num).toInt()
+            : null;
+
+        props['photoUrls'] = d['fotos'] is List
+            ? List<String>.from(d['fotos'])
+            : const <String>[];
+
+        props['photoMetas'] = d['fotos_meta'] is List
+            ? List<Map<String, dynamic>>.from(
+          (d['fotos_meta'] as List).whereType<Object>().map(
+                (e) => e is Map
+                ? Map<String, dynamic>.from(e)
+                : <String, dynamic>{},
+          ),
+        )
+            : const <Map<String, dynamic>>[];
+
+        props['progress'] = switch ((d['status'] ?? '').toString()) {
+          'concluido' => 100,
+          'em_andamento' => 50,
+          _ => 0,
+        };
+
+        _polygonIdByIndex[i] = id;
+      }
+
+      widget.controller.activateSelect();
+      widget.controller.current.clear();
+      widget.controller.selectedIndex = null;
+
+      _lastFeatureCount = widget.controller.features.length;
+    } finally {
+      _hydrating = false;
+    }
+  }
+
+  Future<void> _syncAssetFromBackend(String rawUrl) async {
+    try {
+      _setBlocking(true, msg: 'Baixando DXF…');
+
+      final ref = FirebaseStorage.instance.refFromURL(rawUrl);
+      final data = await ref.getData(50 * 1024 * 1024);
+
+      if (!mounted || data == null) return;
+
+      setState(() {
+        _docBytes = data;
+        _hoverSnap = null;
+        _didFitViewport = false;
+        _selectedEdge = null;
+        _lastAssetUrl = rawUrl;
+      });
+
+      await _renderDxf();
+    } finally {
+      _setBlocking(false);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _docBytes = widget.initialPdfBytes;
+    _lastFeatureCount = widget.controller.features.length;
+
+    widget.controller.addListener(_onControllerChanged);
+
+    if (_docBytes != null) {
+      _renderDxf();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+
+    _tc.dispose();
+    _textEditCtrl.dispose();
+    _textEditFocus.dispose();
+    _dxf.dispose();
+
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (!mounted) return;
+
+    final n = widget.controller.features.length;
+
+    if (!_hydrating && n > _lastFeatureCount) {
+      final newIndex = n - 1;
+      _persistFeatureIfNeeded(newIndex);
+    }
+
+    _lastFeatureCount = n;
+
+    setState(() {});
+  }
+
+  Future<void> _persistFeatureIfNeeded(int index) async {
+    if (_savingNewFeature) return;
+
+    final civil = context.read<CivilScheduleBloc?>();
+    final cid = civil?.state.contractId;
+
+    if (civil == null || cid == null) return;
+    if (_polygonIdByIndex.containsKey(index)) return;
+
+    _savingNewFeature = true;
+
+    try {
+      _polygonIdByIndex[index] = '__pending__';
+
+      final f = widget.controller.features[index];
+
+      final points = f.points
+          .map(
+            (p) => {
+          'x': p.dx.toDouble(),
+          'y': p.dy.toDouble(),
+        },
+      )
+          .toList();
+
+      final newId = await civil.repo.upsertPolygon(
+        contractId: cid,
+        page: civil.state.currentPage,
+        name: f.name,
+        status: 'a_iniciar',
+        points: points,
+        currentUserId: _uid,
+      );
+
+      _polygonIdByIndex[index] = newId;
+
+      civil.add(const CivilRefreshRequested());
+
+      _notify(
+        title: 'Polígono salvo.',
+        type: NotificationStatus.success,
+      );
+    } catch (e) {
+      _polygonIdByIndex.remove(index);
+
+      _notify(
+        title: 'Falha ao salvar polígono',
+        subtitle: '$e',
+        type: NotificationStatus.error,
+        duration: const Duration(seconds: 6),
+      );
+    } finally {
+      _savingNewFeature = false;
+    }
+  }
+
+  Future<void> _renderDxf() async {
+    if (_docBytes == null) return;
+
+    widget.controller.setPagePixelSize = null;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+      _didFitViewport = false;
+      _hoverSnap = null;
+      _editingTextIndex = null;
+      _editingAnchor = null;
+      _selectedEdge = null;
+    });
+
+    try {
+      _setBlocking(true, msg: 'Renderizando DXF…');
+
+      await _dxf.loadBytes(
+        _docBytes!,
+        hairlinePx: _dxfHairlinePx,
+      );
+
+      if (_dxf.model != null && widget.onPolylinesReady != null) {
+        final projector = autoDetectProjector(_dxf.model!);
+
+        final lines = DxfToGeo.toPolylines(
+          model: _dxf.model!,
+          projector: projector,
+        );
+
+        widget.onPolylinesReady!(lines);
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+      });
+
+      widget.controller.setPagePixelSize = _dxf.sizePx;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _dxf.sizePx == null) return;
+        if (_lastViewport != Size.zero) {
+          _applyFitToContent();
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _error = e;
+        _loading = false;
+      });
+    } finally {
+      _setBlocking(false);
+    }
+  }
+
+  Rect _autoContentBounds({int step = 1, int white = 235}) {
+    if (_dxf.rgba == null || _dxf.w <= 0 || _dxf.h <= 0) {
+      final s = _dxf.sizePx ?? const Size(1, 1);
+      return Rect.fromLTWH(0, 0, s.width, s.height);
+    }
+
+    int minX = _dxf.w;
+    int minY = _dxf.h;
+    int maxX = -1;
+    int maxY = -1;
+
+    int idx(int x, int y) => (y * _dxf.w + x) * 4;
+
+    bool nonWhiteAt(int x, int y) {
+      final i = idx(x, y);
+
+      final r = _dxf.rgba![i];
+      final g = _dxf.rgba![i + 1];
+      final b = _dxf.rgba![i + 2];
+
+      return r < white || g < white || b < white;
+    }
+
+    for (int y = 0; y < _dxf.h; y += step) {
+      for (int x = 0; x < _dxf.w; x += step) {
+        if (nonWhiteAt(x, y)) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (maxX < 0) {
+      final s = _dxf.sizePx ?? const Size(1, 1);
+      return Rect.fromLTWH(0, 0, s.width, s.height);
+    }
+
+    const pad = 6.0;
+
+    return Rect.fromLTRB(
+      (minX - pad).clamp(0, _dxf.w).toDouble(),
+      (minY - pad).clamp(0, _dxf.h).toDouble(),
+      (maxX + pad).clamp(0, _dxf.w).toDouble(),
+      (maxY + pad).clamp(0, _dxf.h).toDouble(),
+    );
+  }
+
+  void _applyFitToContent() {
+    if (!mounted || _dxf.sizePx == null || _lastViewport == Size.zero) {
+      return;
+    }
+
+    final inner = Size(
+      (_lastViewport.width - _lastInset.horizontal).clamp(
+        0.0,
+        double.infinity,
+      ),
+      (_lastViewport.height - _lastInset.vertical).clamp(
+        0.0,
+        double.infinity,
+      ),
+    );
+
+    if (_dxf.rgba != null) {
+      final roi = _autoContentBounds();
+
+      _tc.value = ScheduleCivilFitUtils.fitRectToViewport(
+        rect: roi,
+        viewportInner: inner,
+        extraScale: 1.10,
+      );
+    } else {
+      _tc.value = ScheduleCivilFitUtils.fitToViewportCentered(
+        imageSize: _dxf.sizePx!,
+        viewportInner: inner,
+        extraScale: 1.60,
+      );
+    }
+
+    _didFitViewport = true;
+  }
+
+  Offset _toImageSpace(Offset globalPosition) {
+    final ctx = _viewerKey.currentContext;
+    if (ctx == null) return Offset.zero;
+
+    final box = ctx.findRenderObject() as RenderBox?;
+    if (box == null) return Offset.zero;
+
+    final localInViewer = box.globalToLocal(globalPosition);
+
+    return _tc.toScene(localInViewer);
+  }
+
+  Future<void> _onTapDown(TapDownDetails d) async {
+    if (_dxf.sizePx == null) return;
+
+    var pImage = _toImageSpace(d.globalPosition);
+
+    if (widget.controller.snapEnabled) {
+      pImage = SnapUtils.snapToEdge(
+        p: pImage,
+        rgba: _dxf.rgba,
+        w: _dxf.w,
+        h: _dxf.h,
+        snapRadius: widget.controller.snapRadius,
+        minGradient: widget.controller.snapMinGradient,
+      );
+    }
+
+    final ctrl = widget.controller;
+
+    if (ctrl.mode == ToolMode.text) {
+      _startInlineTextEditor(pImage);
+      return;
+    }
+
+    ctrl.handleTap(
+      pagePoint: pImage,
+      onAskName: (s) => _askAreaName(initial: s),
+    );
+
+    final bool isDrawingNow = ctrl.mode == ToolMode.draw && ctrl.current.isNotEmpty;
+
+    if (!isDrawingNow &&
+        ctrl.mode == ToolMode.select &&
+        ctrl.selectedIndex == null) {
+      setState(() {});
+    }
+
+    if (ctrl.mode == ToolMode.select &&
+        ctrl.selectedIndex == null &&
+        !isDrawingNow &&
+        _dxf.rgba != null) {
+      final q = SnapUtils.snapToEdge(
+        p: pImage,
+        rgba: _dxf.rgba,
+        w: _dxf.w,
+        h: _dxf.h,
+        snapRadius: ctrl.snapRadius,
+        minGradient: ctrl.snapMinGradient,
+      );
+
+      if ((q - pImage).distance <= ctrl.snapRadius.toDouble()) {
+        setState(() => _selectedEdge = q);
+
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          if (mounted && _selectedEdge == q) {
+            setState(() => _selectedEdge = null);
+          }
+        });
+      }
+    }
+
+    final int? selected = ctrl.selectedIndex;
+
+    if (selected != null &&
+        selected >= 0 &&
+        !isDrawingNow &&
+        ctrl.mode != ToolMode.text) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _openScheduleModalForPolygonUnified(selected);
+        }
+      });
+    }
+  }
+
+  void _onHover(PointerHoverEvent e) {
+    if (widget.controller.mode != ToolMode.draw ||
+        !widget.controller.snapEnabled ||
+        _dxf.sizePx == null) {
+      return;
+    }
+
+    var p = _toImageSpace(e.position);
+
+    if (p.dx < 0 ||
+        p.dy < 0 ||
+        p.dx > _dxf.sizePx!.width ||
+        p.dy > _dxf.sizePx!.height) {
+      if (_hoverSnap != null) {
+        setState(() => _hoverSnap = null);
+      }
+
+      return;
+    }
+
+    p = SnapUtils.snapToEdge(
+      p: p,
+      rgba: _dxf.rgba,
+      w: _dxf.w,
+      h: _dxf.h,
+      snapRadius: widget.controller.snapRadius,
+      minGradient: widget.controller.snapMinGradient,
+    );
+
+    setState(() => _hoverSnap = p);
+  }
+
+  void _onExit(PointerExitEvent e) {
+    if (_hoverSnap != null) {
+      setState(() => _hoverSnap = null);
+    }
+  }
+
+  Future<void> _pickAndReplace() async {
+    final civil = context.read<CivilScheduleBloc?>();
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['dxf'],
+      withData: true,
+    );
+
+    if (result == null || result.files.single.bytes == null) {
+      return;
+    }
+
+    final name = result.files.single.name;
+    final bytes = result.files.single.bytes!;
+
+    _setBlocking(true, msg: 'Carregando DXF…');
+
+    setState(() {
+      _docBytes = bytes;
+      _hoverSnap = null;
+      _didFitViewport = false;
+      _selectedEdge = null;
+    });
+
+    widget.controller.clearAll();
+    widget.controller.setPagePixelSize = null;
+
+    await _renderDxf();
+
+    if (civil != null && civil.state.contractId != null && _docBytes != null) {
+      civil.add(
+        CivilAssetUploadRequested(
+          filename: name,
+          bytes: _docBytes!,
+          currentUserId: _uid,
+        ),
+      );
+    }
+
+    _setBlocking(false);
+  }
+
+  void _onInsetsReady(EdgeInsets inset, Size viewport) {
+    _lastInset = inset;
+    _lastViewport = viewport;
+
+    if (_dxf.sizePx == null) return;
+
+    if (!_didFitViewport) {
+      _applyFitToContent();
+    }
+  }
+
+  Widget _buildInteractiveViewer() {
+    final ctrl = widget.controller;
+
+    if (_dxf.image == null || _dxf.sizePx == null) {
+      return const SizedBox.shrink();
+    }
+
+    return MouseRegion(
+      onHover: _onHover,
+      onExit: _onExit,
+      opaque: true,
+      cursor: ctrl.mode == ToolMode.draw
+          ? SystemMouseCursors.precise
+          : ctrl.mode == ToolMode.text
+          ? SystemMouseCursors.text
+          : SystemMouseCursors.grab,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: _onTapDown,
+        child: InteractiveViewer(
+          key: _viewerKey,
+          transformationController: _tc,
+          alignment: Alignment.topLeft,
+          constrained: false,
+          minScale: 0.2,
+          maxScale: 20,
+          boundaryMargin: const EdgeInsets.all(double.infinity),
+          clipBehavior: Clip.none,
+          child: SizedBox(
+            width: _dxf.sizePx!.width,
+            height: _dxf.sizePx!.height,
+            child: Stack(
+              children: [
+                RawImage(image: _dxf.image),
+                DxfSelectionOverlay(
+                  model: _dxf.model,
+                  pick: _dxf.selectedPick,
+                  modelToImage: _dxf.modelToImage,
+                ),
+                CustomPaint(
+                  size: _dxf.sizePx!,
+                  painter: PolygonPainter(
+                    features: ctrl.features,
+                    current: ctrl.current,
+                    colorForIndex: _randomStrokeColor,
+                    fillColorForIndex: _polyColorForIndex,
+                    percentForIndex: (i) {
+                      final p = _propsForIndex(i)['progress'];
+
+                      if (p is num) {
+                        return p.toDouble();
+                      }
+
+                      final st = _statusFromKey(
+                        _propsForIndex(i)['status'] as String?,
+                      );
+
+                      return st == ScheduleStatus.concluido
+                          ? 100.0
+                          : st == ScheduleStatus.aIniciar
+                          ? 0.0
+                          : 50.0;
+                    },
+                    hasPhotosForIndex: (i) {
+                      final urls =
+                          (_propsForIndex(i)['photoUrls'] as List?)?.cast<String>() ??
+                              const <String>[];
+
+                      return urls.isNotEmpty;
+                    },
+                    hasCommentForIndex: (i) {
+                      final c = _propsForIndex(i)['comment'] as String?;
+
+                      return c?.trim().isNotEmpty ?? false;
+                    },
+                    hoverSnap: _hoverSnap,
+                    selectedIndex: ctrl.selectedIndex,
+                  ),
+                ),
+                if (_selectedEdge != null)
+                  Positioned(
+                    left: _selectedEdge!.dx - 6,
+                    top: _selectedEdge!.dy - 6,
+                    child: IgnorePointer(
+                      ignoring: true,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.transparent,
+                          border: Border.all(
+                            color: const Color(0xFF8CC8FF),
+                            width: 2,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_editingAnchor != null)
+                  Positioned(
+                    left: _editingAnchor!.dx,
+                    top: _editingAnchor!.dy,
+                    child: TextFieldInline(
+                      controller: _textEditCtrl,
+                      focusNode: _textEditFocus,
+                      style: ctrl.defaultTextStyle,
+                      onSubmit: _commitInlineText,
+                      onCancel: _cancelInlineText,
+                    ),
+                  ),
+                ...List.generate(ctrl.texts.length, (i) {
+                  final it = ctrl.texts[i];
+
+                  final style = ctrl.defaultTextStyle.copyWith(
+                    color: it.color,
+                    fontSize: it.fontSize,
+                    fontWeight: it.weight,
+                    shadows: i == ctrl.selectedText
+                        ? const [
+                      Shadow(
+                        color: Colors.black54,
+                        blurRadius: 6,
+                      ),
+                    ]
+                        : null,
+                  );
+
+                  final child = SizedBox(
+                    width: it.areaSize?.width,
+                    child: Text(
+                      it.text,
+                      softWrap: it.areaSize != null,
+                      maxLines: it.areaSize != null ? 999 : null,
+                      style: style,
+                    ),
+                  );
+
+                  return Positioned(
+                    left: it.position.dx,
+                    top: it.position.dy,
+                    child: IgnorePointer(
+                      ignoring: true,
+                      child: it.areaSize != null
+                          ? ConstrainedBox(
+                        constraints: BoxConstraints.tightFor(
+                          width: it.areaSize!.width,
+                          height: it.areaSize!.height,
+                        ),
+                        child: child,
+                      )
+                          : child,
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScreenBlocker() {
+    if (!(_blocking || _loading || _dxf.isLoading)) {
+      return const SizedBox.shrink();
+    }
+
+    return Stack(
+      children: [
+        const Positioned.fill(
+          child: ModalBarrier(
+            dismissible: false,
+            color: Color(0x80000000),
+          ),
+        ),
+        Positioned.fill(
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 14,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: const Color(0xFF6E6E6E),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const LoadingTreeDots(
+                    size: 22,
+                    strokeWidth: 2.6,
+                    color: Colors.white,
+                    centered: false,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    _blockingMsg,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _startInlineTextEditor(Offset scenePos, {int? editIndex}) {
+    final ctrl = widget.controller;
+
+    setState(() {
+      _editingTextIndex = editIndex;
+      _editingAnchor = scenePos;
+
+      _textEditCtrl.text = editIndex != null ? ctrl.texts[editIndex].text : '';
+
+      ctrl.selectedText = editIndex;
+      ctrl.mode = ToolMode.text;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _textEditFocus.requestFocus();
+      }
+    });
+  }
+
+  void _commitInlineText() {
+    final txt = _textEditCtrl.text.trim();
+    final ctrl = widget.controller;
+
+    if (txt.isEmpty) {
+      _cancelInlineText();
+      return;
+    }
+
+    setState(() {
+      if (_editingTextIndex == null) {
+        ctrl.texts.add(
+          TextItem(
+            text: txt,
+            position: _editingAnchor!,
+            color: ctrl.defaultTextStyle.color ?? Colors.white,
+            fontSize: ctrl.defaultTextStyle.fontSize ?? 16,
+            weight: ctrl.defaultTextStyle.fontWeight ?? FontWeight.w600,
+            areaSize: ctrl.textTool == TextTool.area ||
+                ctrl.textTool == TextTool.verticalArea
+                ? Size(
+              ctrl.textDefaultWidth,
+              ctrl.textDefaultHeight,
+            )
+                : null,
+            vertical: ctrl.textTool == TextTool.verticalPoint ||
+                ctrl.textTool == TextTool.verticalArea,
+          ),
+        );
+
+        ctrl.selectedText = ctrl.texts.length - 1;
+      } else {
+        final i = _editingTextIndex!;
+        final old = ctrl.texts[i];
+
+        ctrl.texts[i] = TextItem(
+          text: txt,
+          position: old.position,
+          areaSize: old.areaSize,
+          vertical: old.vertical,
+          monospace: old.monospace,
+          fontSize: old.fontSize,
+          weight: old.weight,
+          color: old.color,
+        );
+
+        ctrl.selectedText = i;
+      }
+
+      _editingTextIndex = null;
+      _editingAnchor = null;
+    });
+
+    _textEditCtrl.clear();
+  }
+
+  void _cancelInlineText() {
+    setState(() {
+      _editingTextIndex = null;
+      _editingAnchor = null;
+    });
+
+    _textEditCtrl.clear();
+  }
+
+  Future<void> _openScheduleModalForPolygonUnified(int polyIndex) async {
+    final ctrl = widget.controller;
+    final civilBloc = context.read<CivilScheduleBloc>();
+    final navigator = Navigator.of(context);
+
+    final currentName = ctrl.features[polyIndex].name;
+    final props = _propsForIndex(polyIndex);
+
+    final String? statusKey = props['status'] as String?;
+    final String? comment = props['comment'] as String?;
+
+    final int? takenAtMs = props['takenAtMs'] as int?;
+    final DateTime? takenAt =
+    takenAtMs != null ? DateTime.fromMillisecondsSinceEpoch(takenAtMs) : null;
+
+    final List<String> existingUrls =
+        (props['photoUrls'] as List?)?.cast<String>() ?? const <String>[];
+
+    final double? initialProgress = props['progress'] is num
+        ? (props['progress'] as num).toDouble().clamp(0, 100)
+        : null;
+
+    final List metas = (props['photoMetas'] as List?) ?? const [];
+
+    final Map<String, pm.CarouselMetadata> existingMetaByUrl = {
+      for (final m in metas)
+        if (m is Map && (m['url']?.toString().isNotEmpty ?? false))
+          m['url'] as String: pm.CarouselMetadata(
+            name: m['name']?.toString(),
+            takenAt: m['takenAtMs'] is num
+                ? DateTime.fromMillisecondsSinceEpoch(
+              (m['takenAtMs'] as num).toInt(),
+            )
+                : null,
+            lat: (m['lat'] as num?)?.toDouble(),
+            lng: (m['lng'] as num?)?.toDouble(),
+            make: m['make']?.toString(),
+            model: m['model']?.toString(),
+            orientation: m['orientation'] is num
+                ? (m['orientation'] as num).toInt()
+                : int.tryParse(m['orientation']?.toString() ?? ''),
+            url: m['url']?.toString(),
+          ),
+    };
+
+    final initialStatus = initialProgress != null
+        ? _statusFromProgress(initialProgress)
+        : _statusFromKey(statusKey);
+
+    final polygonId = _polygonIdByIndex[polyIndex];
+
+    if (polygonId == null) {
+      final f = widget.controller.features[polyIndex];
+
+      final points = f.points
+          .map(
+            (p) => {
+          'x': p.dx,
+          'y': p.dy,
+        },
+      )
+          .toList();
+
+      await civilBloc.repo.upsertPolygon(
+        contractId: civilBloc.state.contractId!,
+        page: civilBloc.state.currentPage,
+        name: f.name,
+        status: 'a_iniciar',
+        points: points
+            .map(
+              (m) => {
+            'x': (m['x'] as num).toDouble(),
+            'y': (m['y'] as num).toDouble(),
+          },
+        )
+            .toList(),
+        currentUserId: _uid,
+      );
+
+      civilBloc.add(const CivilRefreshRequested());
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetCtx) {
+        final bottomInset = MediaQuery.viewInsetsOf(sheetCtx).bottom;
+
+        return AnimatedPadding(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: MultiBlocProvider(
+                providers: [
+                  BlocProvider<CivilScheduleBloc>.value(
+                    value: civilBloc,
+                  ),
+                ],
+                child: ScheduleModalSquare(
+                  currentUserId: _uid,
+                  tipoLabel: widget.title.isNotEmpty ? widget.title : 'CIVIL',
+                  type: ScheduleType.civil,
+                  targets: [
+                    ScheduleApplyTarget(
+                      estaca: polyIndex,
+                      faixaIndex: 0,
+                      existingUrls: existingUrls,
+                      existingMetaByUrl: existingMetaByUrl,
+                    ),
+                  ],
+                  initialName: currentName,
+                  initialStatus: initialStatus,
+                  initialTakenAt: takenAt,
+                  initialComment: comment,
+                  initialProgress: initialProgress,
+                  onDelete: () {
+                    civilBloc.add(
+                      CivilPolygonDeleteRequested(polygonId),
+                    );
+
+                    if (navigator.canPop()) {
+                      navigator.pop();
+                    }
+
+                    civilBloc.add(const CivilRefreshRequested());
+
+                    _notify(
+                      title: 'Área apagada.',
+                      type: NotificationStatus.warning,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<CivilScheduleBloc, CivilScheduleState>(
+      listenWhen: (prev, curr) =>
+      prev.contractId != curr.contractId ||
+          prev.currentPage != curr.currentPage ||
+          prev.assets != curr.assets ||
+          prev.polygons != curr.polygons ||
+          prev.error != curr.error,
+      listener: (ctx, st) async {
+        await _hydrateFromBackend(st);
+
+        if ((st.error ?? '').isNotEmpty && mounted) {
+          _notify(
+            title: 'Erro',
+            subtitle: st.error,
+            type: NotificationStatus.error,
+            duration: const Duration(seconds: 6),
+          );
+        }
+      },
+      builder: (ctx, st) {
+        if (_error != null || _dxf.error != null) {
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Erro: ${_error ?? _dxf.error}'),
+              ),
+            ),
+          );
+        }
+
+        if (_docBytes == null || _dxf.image == null || _dxf.sizePx == null) {
+          return Scaffold(
+            body: Stack(
+              children: [
+                const BackgroundChange(),
+                ScheduleCivilBoard(
+                  showBoard: true,
+                  contentPadding: 24,
+                  onInsetsReady: (inset, viewport) {},
+                  childBuilder: (context, inset, viewport) {
+                    return DxfPdfEmptyHint(
+                      onPickFile: widget.allowPickNewPdf ? _pickAndReplace : null,
+                    );
+                  },
+                ),
+                _buildScreenBlocker(),
+              ],
+            ),
+            floatingActionButton: widget.allowPickNewPdf
+                ? FloatingActionButton.extended(
+              onPressed: _pickAndReplace,
+              icon: const Icon(Icons.swap_horiz),
+              label: const Text('Trocar DXF'),
+            )
+                : null,
+          );
+        }
+
+        return Scaffold(
+          body: Stack(
+            children: [
+              const BackgroundChange(),
+              ScheduleCivilBoard(
+                showBoard: true,
+                contentPadding: 0,
+                onInsetsReady: _onInsetsReady,
+                childBuilder: (context, inset, viewport) {
+                  return _buildInteractiveViewer();
+                },
+              ),
+              _buildScreenBlocker(),
+            ],
+          ),
+          floatingActionButton: widget.allowPickNewPdf
+              ? FloatingActionButton.extended(
+            onPressed: _pickAndReplace,
+            icon: const Icon(Icons.swap_horiz),
+            label: const Text('Trocar DXF'),
+          )
+              : null,
+        );
+      },
+    );
+  }
+}
