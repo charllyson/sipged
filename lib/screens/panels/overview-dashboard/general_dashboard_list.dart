@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 
@@ -12,7 +12,7 @@ import 'package:sipged/_widgets/cards/chip/chip_card.dart';
 import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
 class GeneralDashboardList extends StatelessWidget {
-  final List<ReportMeasurementData> currentFiltered;
+  final List<ReportExecutedData> currentFiltered;
   final int? selectedPointIndex;
   final String? selectedContractSummary;
 

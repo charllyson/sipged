@@ -10,7 +10,7 @@ import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/list/files/box_list_files.dart';
 
 import 'package:sipged/_blocs/modules/financial/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/financial/budget/budget_state.dart';
@@ -468,7 +468,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                   ],
                 );
 
-                final side = SideListBox(
+                final side = BoxListFiles(
                   title: 'Arquivos do Orçamento',
                   items: budgetState.attachments,
                   selectedIndex: budgetState.selectedSideIndex,

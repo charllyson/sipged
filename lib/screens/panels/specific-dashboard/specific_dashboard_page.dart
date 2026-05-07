@@ -10,7 +10,7 @@ import 'package:sipged/_blocs/panels/specific_dashboard/specific_dashboard_cubit
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_repository.dart';
 
 // Validity
@@ -60,7 +60,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
             dfdRepository: DfdRepository(),
             additivesRepository: AdditivesRepository(),
             apostillesRepository: ApostillesRepository(),
-            reportRepository: ReportMeasurementRepository(),
+            reportRepository: ReportExecutedRepository(),
             adjustmentRepository: AdjustmentMeasurementRepository(),
             revisionRepository: RevisionMeasurementRepository(),
           )..loadForContract(contractId),

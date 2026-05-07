@@ -9,9 +9,8 @@ import 'minuta_contrato_repository.dart';
 import 'minuta_contrato_state.dart';
 
 class MinutaContratoCubit extends Cubit<MinutaState> {
-  MinutaContratoCubit(MinutaContratoRepository repo)
-      : repo = repo,
-        super(MinutaState.initial());
+  MinutaContratoCubit(this.repo)
+      : super(MinutaState.initial());
 
   final MinutaContratoRepository repo;
 

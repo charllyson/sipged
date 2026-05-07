@@ -1,22 +1,25 @@
+// lib/screens/menus/drawer_menu.dart
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/module/module_data.dart';
+import 'package:sipged/_blocs/system/module/module_catalog.dart';
+
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart' as perm;
+import 'package:sipged/_blocs/system/permission/permission_resolver.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
+
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 
 import 'package:sipged/_widgets/images/logos/sipged_logo.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
-import 'package:sipged/_widgets/menu/drawer/menu_drawer_item.dart';
-import 'package:sipged/_widgets/menu/drawer/menu_drawer_sub_item.dart';
 import 'package:sipged/_widgets/texts/divider_text.dart';
 
-import 'package:sipged/screens/menus/drawer_palette.dart';
 import 'package:sipged/screens/menus/menu_sub_item.dart';
 
 class DrawerMenu extends StatefulWidget {
@@ -26,7 +29,7 @@ class DrawerMenu extends StatefulWidget {
     this.onTapHome,
   });
 
-  final void Function(ModuleItem) onTap;
+  final void Function(ModuleEnum) onTap;
   final VoidCallback? onTapHome;
 
   @override
@@ -62,22 +65,48 @@ class _DrawerMenuState extends State<DrawerMenu> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<UserCubit, UserState>(
-      builder: (context, userState) {
-        return BlocBuilder<PermissionCubit, PermissionState>(
-          builder: (context, permissionState) {
-            final userData = _resolveCurrentUserData(userState);
-            final bgPalette = UserData.drawerPaletteForUser(userData);
-
+    return BlocSelector<
+        UserCubit,
+        UserState,
+        ({
+        UserData? user,
+        bool isLoading,
+        })>(
+      selector: (state) {
+        return (
+        user: _resolveCurrentUserDataFromState(state),
+        isLoading: state.isLoadingUsers,
+        );
+      },
+      builder: (context, userView) {
+        return BlocSelector<
+            PermissionCubit,
+            PermissionState,
+            ({
+            perm.UserPermissionData? permissions,
+            String? activeTenantId,
+            })>(
+          selector: (state) {
+            return (
+            permissions: PermissionResolver.resolveForUser(
+              user: userView.user,
+              permissionState: state,
+            ),
+            activeTenantId: PermissionResolver.cleanTenantId(
+              state.activeTenantId,
+            ),
+            );
+          },
+          builder: (context, permissionView) {
             return Drawer(
               width: 250,
-              backgroundColor: bgPalette.background,
+              backgroundColor: const Color(0xFF1B2033),
               child: _buildContent(
                 context: context,
-                userData: userData,
-                userState: userState,
-                permissionState: permissionState,
-                palette: bgPalette,
+                userData: userView.user,
+                isLoadingUser: userView.isLoading,
+                permissions: permissionView.permissions,
+                activeTenantId: permissionView.activeTenantId,
               ),
             );
           },
@@ -89,38 +118,59 @@ class _DrawerMenuState extends State<DrawerMenu> {
   Widget _buildContent({
     required BuildContext context,
     required UserData? userData,
-    required UserState userState,
-    required PermissionState permissionState,
-    required DrawerPalette palette,
+    required bool isLoadingUser,
+    required perm.UserPermissionData? permissions,
+    required String? activeTenantId,
   }) {
     if (_firebaseUser == null) {
       return const Center(
         child: Text(
           'Não autenticado',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(
+            color: Colors.white70,
+          ),
         ),
       );
     }
 
-    if (userData == null || userState.isLoadingUsers) {
+    if (userData == null || isLoadingUser) {
       return const LoadingTreeDots(
         message: Text(
           'Carregando módulos',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(
+            color: Colors.white,
+          ),
         ),
         variant: LoadingTreeDotsVariant.white,
       );
     }
 
-    final permissions = _permissionDataOf(
-      userData: userData,
-      permissionState: permissionState,
-    );
+    if (permissions == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(18),
+          child: Text(
+            'Permissões não encontradas.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white70,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final drawerMainGroups = <ModuleGroupData>[
+      ...ModuleCatalog.drawerDocuments,
+      ...ModuleCatalog.drawerDepartments,
+    ];
 
     return ListView(
+      padding: EdgeInsets.zero,
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
           child: SipgedLogo(
             fontSize: 40,
             heightLogo: 30,
@@ -135,21 +185,14 @@ class _DrawerMenuState extends State<DrawerMenu> {
         ..._buildSection(
           title: 'MÓDULOS',
           permissions: permissions,
-          activeTenantId: permissionState.activeTenantId,
-          colorTitle: palette.sectionTitle,
-          colorSubTitle: palette.sectionSubtitle,
-          items: [
-            ...ModuleData.drawerDocuments,
-            ...ModuleData.drawerDepartments,
-          ],
+          activeTenantId: activeTenantId,
+          groups: drawerMainGroups,
         ),
         ..._buildSection(
           title: 'ATIVOS',
           permissions: permissions,
-          activeTenantId: permissionState.activeTenantId,
-          colorTitle: palette.sectionTitle,
-          colorSubTitle: palette.sectionSubtitle,
-          items: ModuleData.drawerActives,
+          activeTenantId: activeTenantId,
+          groups: ModuleCatalog.drawerActives,
         ),
       ],
     );
@@ -159,30 +202,31 @@ class _DrawerMenuState extends State<DrawerMenu> {
     required String title,
     required perm.UserPermissionData permissions,
     required String? activeTenantId,
-    required Color colorTitle,
-    required Color colorSubTitle,
-    required List<MenuDrawerItemModule> items,
+    required List<ModuleGroupData> groups,
   }) {
-    final visibleGroups = items
+    final visibleGroups = groups
         .map(
-          (item) => _buildExpandableGroup(
-        icon: item.icon,
-        label: item.label,
-        children: item.subItems,
+          (group) => _buildExpandableGroup(
+        icon: group.iconSection,
+        label: group.labelSection,
+        sectionLabelColor: group.colorSectionLabel,
+        children: group.moduleItems,
         permissions: permissions,
         activeTenantId: activeTenantId,
       ),
     )
         .whereType<Widget>()
-        .toList();
+        .toList(growable: false);
 
-    if (visibleGroups.isEmpty) return const <Widget>[];
+    if (visibleGroups.isEmpty) {
+      return const <Widget>[];
+    }
 
     return [
       DividerText(
         text: title,
-        colorTitle: colorTitle,
-        subTitle: colorSubTitle,
+        colorTitle: Colors.white70,
+        subTitle: Colors.white38,
       ),
       const SizedBox(height: 8),
       ...visibleGroups,
@@ -193,85 +237,62 @@ class _DrawerMenuState extends State<DrawerMenu> {
   Widget? _buildExpandableGroup({
     required IconData icon,
     required String label,
-    required List<MenuDrawerSubItem> children,
+    required Color sectionLabelColor,
+    required List<ModuleData> children,
     required perm.UserPermissionData permissions,
     required String? activeTenantId,
   }) {
-    final visible = children.where((sub) {
-      return permissions.canModuleString(
-        module: sub.permissionModule,
-        action: 'read',
-        tenantId: _cleanTenantId(activeTenantId),
+    final visible = children.where((module) {
+      return PermissionResolver.canReadModule(
+        permissions: permissions,
+        module: module.permissionModule,
+        tenantId: activeTenantId,
       );
-    }).toList();
+    }).toList(growable: false);
 
-    if (visible.isEmpty) return null;
+    if (visible.isEmpty) {
+      return null;
+    }
 
     return Theme(
       data: ThemeData.dark().copyWith(
         dividerColor: Colors.transparent,
       ),
       child: ExpansionTile(
+        key: PageStorageKey<String>('drawer-group-${label.trim()}'),
         leading: Icon(
           icon,
-          color: Colors.white,
+          color: sectionLabelColor,
         ),
         title: Text(
           label,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: sectionLabelColor,
             fontSize: 14,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        iconColor: Colors.white,
-        collapsedIconColor: Colors.white,
+        iconColor: sectionLabelColor,
+        collapsedIconColor: sectionLabelColor,
         children: visible
             .map(
-              (sub) => MenuSubItem(
-            label: sub.label,
-            onTap: () => widget.onTap(sub.menuItem),
+              (module) => MenuSubItem(
+            label: module.labelModule,
+            onTap: () {
+              Navigator.of(context).maybePop();
+              widget.onTap(module.menuModuleItem);
+            },
           ),
         )
-            .toList(),
+            .toList(growable: false),
       ),
     );
   }
 
-  perm.UserPermissionData _permissionDataOf({
-    required UserData userData,
-    required PermissionState permissionState,
-  }) {
-    final uid = (userData.uid ?? '').trim();
-    final current = permissionState.current;
-
-    if (current != null && current.uid.trim() == uid) {
-      return current;
+  UserData? _resolveCurrentUserDataFromState(UserState state) {
+    if (state.current != null) {
+      return state.current;
     }
-
-    final raw = userData.userSnap?.data();
-
-    if (raw is Map<String, dynamic>) {
-      return perm.UserPermissionData.fromMap(
-        uid: uid,
-        map: raw,
-      );
-    }
-
-    return perm.UserPermissionData(
-      uid: uid,
-    );
-  }
-
-  String? _cleanTenantId(String? tenantId) {
-    final id = tenantId?.trim();
-
-    if (id == null || id.isEmpty) return null;
-
-    return id;
-  }
-
-  UserData? _resolveCurrentUserData(UserState state) {
-    if (state.current != null) return state.current;
 
     final uid = _firebaseUser?.uid;
 

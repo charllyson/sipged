@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/screens/menus/drawer_palette.dart';
 
 class UserData extends ChangeNotifier {
   String? uid;
@@ -133,14 +132,6 @@ class UserData extends ChangeNotifier {
           Color(0xFFE3F2FD),
         ],
       ),
-    );
-  }
-
-  static DrawerPalette drawerPaletteForUser(UserData? user) {
-    return const DrawerPalette(
-      background: Color(0xFF1B2033),
-      sectionTitle: Colors.white70,
-      sectionSubtitle: Colors.white38,
     );
   }
 

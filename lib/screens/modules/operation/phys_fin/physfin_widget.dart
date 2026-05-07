@@ -164,7 +164,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     } catch (_) {}
 
     try {
-      final dynamic value = service.label;
+      final dynamic value = service.labelSection;
 
       if (value is String && value.trim().isNotEmpty) {
         return value.trim();

@@ -321,7 +321,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     } catch (_) {}
 
     try {
-      final value = (lane as dynamic).label;
+      final value = (lane as dynamic).labelSection;
       if (value != null) return value.toString();
     } catch (_) {}
 

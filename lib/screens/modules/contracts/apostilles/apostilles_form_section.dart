@@ -14,7 +14,7 @@ import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart'
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/list/files/box_list_files.dart';
 
 class ApostilleFormSection extends StatelessWidget {
   final bool isEditable;
@@ -213,7 +213,7 @@ class ApostilleFormSection extends StatelessWidget {
           ],
         );
 
-        final side = SideListBox(
+        final side = BoxListFiles(
           title: 'Arquivos do Apostilamento',
           items: sideItems,
           selectedIndex: selectedSideIndex,

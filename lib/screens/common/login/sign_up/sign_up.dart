@@ -638,12 +638,11 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
 
     _loading.value = true;
 
+    final navigator = Navigator.of(context);
+    final repo = context.read<UserRepository>();
+    final userCubit = context.read<UserCubit>();
+
     try {
-      final navigator = Navigator.of(context);
-
-      final repo = context.read<UserRepository>();
-      final userCubit = context.read<UserCubit>();
-
       final email = _emailController.text.trim().toLowerCase();
       _emailController.text = email;
 
@@ -821,6 +820,9 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
 
     if (uid == null || uid.isEmpty) return;
 
+    final userCubit = context.read<UserCubit>();
+    final navigator = Navigator.of(context);
+
     final isInactive = _isUserInactive;
 
     final confirmed = await _confirmDangerAction(
@@ -834,12 +836,13 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
     );
 
     if (!confirmed) return;
+    if (!mounted) return;
 
     _loading.value = true;
 
     try {
       if (isInactive) {
-        await context.read<UserCubit>().reactivateUser(uid);
+        await userCubit.reactivateUser(uid);
 
         widget.userData
           ..isActive = true
@@ -848,7 +851,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
           ..deactivatedAt = null
           ..deactivatedReason = null;
       } else {
-        await context.read<UserCubit>().deactivateUser(uid);
+        await userCubit.deactivateUser(uid);
 
         widget.userData
           ..isActive = false
@@ -865,7 +868,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
         status: NotificationStatus.success,
       );
 
-      Navigator.of(context).pop(true);
+      navigator.pop(true);
     } catch (e) {
       if (!mounted) return;
 
@@ -886,6 +889,9 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
 
     if (uid == null || uid.isEmpty) return;
 
+    final userCubit = context.read<UserCubit>();
+    final navigator = Navigator.of(context);
+
     final isBlocked = _isUserBlocked;
 
     final confirmed = await _confirmDangerAction(
@@ -899,12 +905,13 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
     );
 
     if (!confirmed) return;
+    if (!mounted) return;
 
     _loading.value = true;
 
     try {
       if (isBlocked) {
-        await context.read<UserCubit>().reactivateUser(uid);
+        await userCubit.reactivateUser(uid);
 
         widget.userData
           ..isActive = true
@@ -913,7 +920,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
           ..blockedAt = null
           ..blockedReason = null;
       } else {
-        await context.read<UserCubit>().blockUser(uid);
+        await userCubit.blockUser(uid);
 
         widget.userData
           ..isActive = false
@@ -930,7 +937,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
         status: NotificationStatus.success,
       );
 
-      Navigator.of(context).pop(true);
+      navigator.pop(true);
     } catch (e) {
       if (!mounted) return;
 
@@ -951,6 +958,9 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
 
     if (uid == null || uid.isEmpty) return;
 
+    final userCubit = context.read<UserCubit>();
+    final navigator = Navigator.of(context);
+
     final confirmed = await _confirmDangerAction(
       title: 'Apagar usuário',
       message:
@@ -960,11 +970,12 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
     );
 
     if (!confirmed) return;
+    if (!mounted) return;
 
     _loading.value = true;
 
     try {
-      await context.read<UserCubit>().hardDeleteUserDocument(uid);
+      await userCubit.hardDeleteUserDocument(uid);
 
       if (!mounted) return;
 
@@ -980,7 +991,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
         status: NotificationStatus.success,
       );
 
-      Navigator.of(context).pop(true);
+      navigator.pop(true);
     } catch (e) {
       if (!mounted) return;
 

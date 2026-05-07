@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/screens/modules/contracts/measurement/create/info_grid.dart';
@@ -23,7 +23,7 @@ class MeasurementReportHeader extends StatelessWidget {
   });
 
   final ProcessData contract;
-  final ReportMeasurementData? measurement;
+  final ReportExecutedData? measurement;
 
   final String? descricaoObjeto;
   final String? numeroContrato;

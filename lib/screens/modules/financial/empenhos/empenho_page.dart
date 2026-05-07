@@ -5,19 +5,20 @@ import 'package:intl/intl.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_cubit.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_state.dart';
-import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
-import 'empenho_form_section.dart';
-import 'empenho_table_section.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
+
+import 'package:sipged/screens/modules/financial/empenhos/empenho_form_section.dart';
+import 'package:sipged/screens/modules/financial/empenhos/empenho_table_section.dart';
 
 class EmpenhoPage extends StatefulWidget {
-  final ProcessData? contractData;
-
   const EmpenhoPage({
     super.key,
-    required this.contractData,
+    this.contractData,
   });
+
+  final ProcessData? contractData;
 
   @override
   State<EmpenhoPage> createState() => _EmpenhoPageState();
@@ -29,60 +30,93 @@ class _EmpenhoPageState extends State<EmpenhoPage> {
 
   bool _initialized = false;
 
+  String? get _contractId {
+    final value = widget.contractData?.id?.trim();
+
+    if (value == null || value.isEmpty) return null;
+
+    return value;
+  }
+
   @override
   void initState() {
     super.initState();
+    _initLoad();
+  }
 
+  @override
+  void didUpdateWidget(covariant EmpenhoPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final oldId = oldWidget.contractData?.id?.trim() ?? '';
+    final newId = widget.contractData?.id?.trim() ?? '';
+
+    if (oldId != newId) {
+      _initialized = false;
+      _initLoad();
+    }
+  }
+
+  void _initLoad() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _initialized) return;
 
       _initialized = true;
 
-      final contractId = widget.contractData?.id?.trim();
-
       await context.read<EmpenhoCubit>().init(
-        contractId:
-        contractId == null || contractId.isEmpty ? null : contractId,
+        contractId: _contractId,
       );
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: UpBar(),
-      body: BlocBuilder<EmpenhoCubit, EmpenhoState>(
-        builder: (context, st) {
-          return Stack(
-            children: [
-              BackgroundChange(),
-              SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: EmpenhoFormSection(currency: _currency),
+    return BlocBuilder<EmpenhoCubit, EmpenhoState>(
+      builder: (context, st) {
+        final isInitialLoading =
+            st.status == EmpenhoStatus.loading && st.items.isEmpty;
+
+        return Stack(
+          children: [
+            const BackgroundChange(),
+            SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: EmpenhoFormSection(
+                      currency: _currency,
                     ),
-                    const SizedBox(height: 12),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                      child: EmpenhoTableSection(
-                        items: st.items,
-                        selected: st.selected,
-                        currency: _currency,
-                        onSelect: (e) {
-                          context.read<EmpenhoCubit>().select(e);
-                        },
-                      ),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: EmpenhoTableSection(
+                      items: st.items,
+                      selected: st.selected,
+                      currency: _currency,
+                      onSelect: (e) {
+                        context.read<EmpenhoCubit>().select(e);
+                      },
                     ),
-                  ],
+                  ),
+                  const SizedBox(height: 18),
+                ],
+              ),
+            ),
+            if (isInitialLoading)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Color(0x11FFFFFF),
+                  child: Center(
+                    child: LoadingTreeDots(size: 90),
+                  ),
                 ),
               ),
-            ],
-          );
-        },
-      ),
+          ],
+        );
+      },
     );
   }
 }

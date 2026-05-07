@@ -9,9 +9,8 @@ import 'habilitacao_repository.dart';
 import 'habilitacao_state.dart';
 
 class HabilitacaoCubit extends Cubit<HabilitacaoState> {
-  HabilitacaoCubit(HabilitacaoRepository repo)
-      : repo = repo,
-        super(HabilitacaoState.initial());
+  HabilitacaoCubit(this.repo)
+      : super(HabilitacaoState.initial());
 
   final HabilitacaoRepository repo;
 

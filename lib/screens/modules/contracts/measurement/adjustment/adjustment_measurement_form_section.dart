@@ -11,7 +11,7 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
-import 'package:sipged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/list/files/box_list_files.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class AdjustmentMeasurementFormSection extends StatelessWidget {
@@ -207,7 +207,7 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       ],
     );
 
-    final side = SideListBox(
+    final side = BoxListFiles(
       title: 'Arquivos do Reajuste',
       items: sideItems,
       selectedIndex: selectedSideIndex,

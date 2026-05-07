@@ -13,7 +13,7 @@ import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/list/files/box_list_files.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_yes_no.dart';
@@ -296,7 +296,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
 
             final attachmentsPanel = SizedBox(
               width: panelWidth,
-              child: SideListBox(
+              child: BoxListFiles(
                 title: 'Documentos do DFD',
                 items: _items,
                 width: panelWidth,

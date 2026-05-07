@@ -1,8 +1,11 @@
+// lib/admPanel/system/permission_user_card.dart
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart' as perm;
 import 'package:sipged/_blocs/system/user/user_data.dart';
+
 import 'package:sipged/admPanel/system/users/permission_group_expansion.dart';
 
 import 'module_permission_tile.dart';
@@ -31,7 +34,10 @@ class PermissionUserCard extends StatefulWidget {
   final bool isSuper;
   final perm.UserPermissionData userPermissions;
   final String? tenantId;
-  final Map<String, List<PermItem>> groups;
+
+  /// Grupos de permissões por seção.
+  /// A chave é o nome da seção e a lista contém os módulos daquela seção.
+  final Map<String, List<ModuleData>> groups;
 
   final Future<void> Function()? onEditUser;
 
@@ -64,11 +70,12 @@ class _PermissionUserCardState extends State<PermissionUserCard> {
     return widget.groups.values.fold<int>(
       0,
           (total, items) {
-        return total +
-            items
-                .map((e) => e.module.trim())
-                .where((module) => module.isNotEmpty)
-                .length;
+        final validModules = items
+            .map((e) => e.permissionModule.trim())
+            .where((module) => module.isNotEmpty)
+            .length;
+
+        return total + validModules;
       },
     );
   }
@@ -78,15 +85,17 @@ class _PermissionUserCardState extends State<PermissionUserCard> {
 
     for (final items in widget.groups.values) {
       for (final item in items) {
-        final module = item.module.trim();
+        final module = item.permissionModule.trim();
 
         if (module.isEmpty) continue;
 
-        if (widget.userPermissions.canModuleString(
+        final canRead = widget.userPermissions.canModuleString(
           module: module,
           action: 'read',
           tenantId: widget.tenantId,
-        )) {
+        );
+
+        if (canRead) {
           readable++;
         }
       }
@@ -179,18 +188,20 @@ class _PermissionUserCardState extends State<PermissionUserCard> {
         final items = entry.value;
 
         final modules = items
-            .map((e) => e.module.trim())
+            .map((e) => e.permissionModule.trim())
             .where((module) => module.isNotEmpty)
             .toList(growable: false);
 
         int checkedCount = 0;
 
         for (final module in modules) {
-          if (widget.userPermissions.canModuleString(
+          final canRead = widget.userPermissions.canModuleString(
             module: module,
             action: 'read',
             tenantId: widget.tenantId,
-          )) {
+          );
+
+          if (canRead) {
             checkedCount++;
           }
         }
@@ -219,7 +230,7 @@ class _PermissionUserCardState extends State<PermissionUserCard> {
             },
             children: [
               ...items.map((item) {
-                final moduleId = item.module.trim();
+                final moduleId = item.permissionModule.trim();
 
                 if (moduleId.isEmpty) {
                   return const SizedBox.shrink();
@@ -233,7 +244,7 @@ class _PermissionUserCardState extends State<PermissionUserCard> {
 
                 return ModulePermissionTile(
                   moduleId: moduleId,
-                  title: item.label.trim().toUpperCase(),
+                  title: item.labelModule.trim().toUpperCase(),
                   isSuper: widget.isSuper,
                   effective: effective,
                   onChanged: ({

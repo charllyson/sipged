@@ -11,7 +11,7 @@ import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/list/files/box_list_files.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ValidityFormSection extends StatefulWidget {
@@ -253,7 +253,7 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
           ],
         );
 
-        final side = SideListBox(
+        final side = BoxListFiles(
           title: 'Arquivos da ordem',
           items: state.attachments,
           selectedIndex: _selectedSideIndex,

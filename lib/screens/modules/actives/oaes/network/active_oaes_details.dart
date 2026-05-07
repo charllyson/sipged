@@ -21,7 +21,7 @@ import 'package:sipged/_widgets/images/carousel/photo_item.dart';
 import 'package:sipged/_widgets/images/carousel/photo_picker_square.dart';
 import 'package:sipged/_widgets/images/carousel/photo_thumb.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/list/files/box_list_files.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
@@ -357,7 +357,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
                 child: SizedBox(
                   width: sideWidth,
-                  child: SideListBox(
+                  child: BoxListFiles(
                     title: widget.titleSideList,
                     items: widget.sideItems,
                     selectedIndex: widget.selectedSideIndex,

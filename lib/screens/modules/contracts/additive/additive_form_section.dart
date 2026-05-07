@@ -11,7 +11,7 @@ import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/list/files/box_list_files.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class AdditiveFormSection extends StatefulWidget {
@@ -317,7 +317,7 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
           ],
         );
 
-        final side = SideListBox(
+        final side = BoxListFiles(
           title: 'Arquivos do Aditivo',
           items: widget.sideItems,
           selectedIndex: widget.selectedSideIndex,

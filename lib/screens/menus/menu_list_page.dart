@@ -19,7 +19,9 @@ import 'package:sipged/_blocs/modules/operation/schedule/vertical/civil_schedule
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
 
+import 'package:sipged/_blocs/system/module/module_access_guard.dart';
 import 'package:sipged/_blocs/system/module/module_data.dart';
+import 'package:sipged/_blocs/system/module/module_catalog.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
@@ -27,6 +29,7 @@ import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
+import 'package:sipged/_blocs/system/permission/permission_resolver.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
@@ -54,11 +57,9 @@ import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart
 import 'package:sipged/screens/modules/contracts/measurement/tab_bar_measurement_page.dart';
 import 'package:sipged/screens/modules/contracts/validity/validity_tab_bar.dart';
 
-import 'package:sipged/screens/modules/financial/budget/budget_network_page.dart';
 import 'package:sipged/screens/modules/financial/dashboard/financial_dashboard_network_page.dart';
-import 'package:sipged/screens/modules/financial/empenhos/empenho_network_page.dart';
+import 'package:sipged/screens/modules/financial/tab_bar_financial_page.dart';
 
-import 'package:sipged/screens/modules/operation/phys_fin/hiring_schedule_page.dart';
 import 'package:sipged/screens/modules/operation/schedule/horizontal/schedule_road_workspace_page.dart';
 import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_controller.dart';
 import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_workspace_page.dart';
@@ -74,6 +75,11 @@ import 'package:sipged/screens/modules/traffic/infractions/infractions_records_p
 import 'package:sipged/screens/panels/overview-dashboard/general_dashboard_page.dart';
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_page.dart';
 
+typedef DemandNavigationCallback = void Function(
+    BuildContext context,
+    ProcessData contract,
+    );
+
 class MenuListPage extends StatefulWidget {
   const MenuListPage({super.key});
 
@@ -82,7 +88,7 @@ class MenuListPage extends StatefulWidget {
 }
 
 class _MenuListPageState extends State<MenuListPage> {
-  ModuleItem? _selectedItem;
+  ModuleEnum? _selectedItem;
 
   bool _didWarmupUserCubit = false;
   bool _didWarmupProcessCubit = false;
@@ -115,17 +121,53 @@ class _MenuListPageState extends State<MenuListPage> {
     );
   }
 
-  void _onSelectPage(ModuleItem item) {
+  void _onSelectPage(ModuleEnum item) {
     if (!mounted) return;
 
-    setState(() => _selectedItem = item);
+    final permissionState = context.read<PermissionCubit>().state;
+    final currentUser = context.read<UserCubit>().state.current;
+
+    final permissions = PermissionResolver.resolveForUser(
+      user: currentUser,
+      permissionState: permissionState,
+    );
+
+    final tenantId = PermissionResolver.cleanTenantId(
+      permissionState.activeTenantId,
+    );
+
+    final canRead = ModuleAccessGuard.canRead(
+      item: item,
+      permissions: permissions,
+      tenantId: tenantId,
+    );
+
+    if (!canRead) {
+      _showNotification(
+        title: 'Acesso não permitido',
+        subtitle: 'Você não possui permissão para abrir este módulo.',
+        leadingLabel: 'Permissões',
+        status: NotificationStatus.warning,
+      );
+
+      Navigator.of(context).maybePop();
+      return;
+    }
+
+    setState(() {
+      _selectedItem = item;
+    });
+
     Navigator.of(context).maybePop();
   }
 
   void _goHome() {
     if (!mounted) return;
 
-    setState(() => _selectedItem = null);
+    setState(() {
+      _selectedItem = null;
+    });
+
     Navigator.of(context).maybePop();
   }
 
@@ -134,6 +176,12 @@ class _MenuListPageState extends State<MenuListPage> {
       String contractId, {
         DfdData? dfdData,
       }) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      return 'Contrato não identificado';
+    }
+
     final dfdCubit = context.read<DfdCubit>();
     final pubCubit = context.read<PublicacaoExtratoCubit>();
 
@@ -141,14 +189,14 @@ class _MenuListPageState extends State<MenuListPage> {
 
     if (dfd == null) {
       try {
-        dfd = await dfdCubit.getDataForContract(contractId);
+        dfd = await dfdCubit.getDataForContract(cleanContractId);
       } catch (_) {}
     }
 
     PublicacaoExtratoData? publicacao;
 
     try {
-      publicacao = await pubCubit.getDataForContract(contractId);
+      publicacao = await pubCubit.getDataForContract(cleanContractId);
     } catch (_) {}
 
     final numero = (publicacao?.numeroContrato ?? '').trim();
@@ -161,7 +209,7 @@ class _MenuListPageState extends State<MenuListPage> {
     if (numero.isNotEmpty) return numero;
     if (descricao.isNotEmpty) return descricao;
 
-    return 'Contrato $contractId';
+    return 'Contrato $cleanContractId';
   }
 
   Future<void> _navigateByWorkType(
@@ -171,7 +219,7 @@ class _MenuListPageState extends State<MenuListPage> {
     final navigator = Navigator.of(context);
     final dfdCubit = context.read<DfdCubit>();
 
-    final contractId = contract.id ?? '';
+    final contractId = (contract.id ?? '').trim();
 
     if (contractId.isEmpty) {
       _showNotification(
@@ -227,7 +275,9 @@ class _MenuListPageState extends State<MenuListPage> {
                 summarySubjectContract: resumoContrato,
               ),
               child: Scaffold(
-                body: ScheduleRoadWorkspacePage(contractData: contract),
+                body: ScheduleRoadWorkspacePage(
+                  contractData: contract,
+                ),
               ),
             ),
           ),
@@ -306,7 +356,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
     processCubit.select(contract);
 
-    final contractId = contract.id ?? '';
+    final contractId = (contract.id ?? '').trim();
 
     if (contractId.isEmpty) {
       _showNotification(
@@ -354,30 +404,44 @@ class _MenuListPageState extends State<MenuListPage> {
   }
 
   Widget _getPage({
-    required ModuleItem item,
+    required ModuleEnum item,
     required UserData currentUser,
     required UserPermissionData? permissions,
     required String? tenantId,
   }) {
+    final canReadCurrentModule = ModuleAccessGuard.canRead(
+      item: item,
+      permissions: permissions,
+      tenantId: tenantId,
+    );
+
+    if (!canReadCurrentModule) {
+      return ModuleAccessGuard.deniedPage(
+        item: item,
+      );
+    }
+
     switch (item) {
-      case ModuleItem.overviewDashboard:
+      case ModuleEnum.overviewDashboard:
         return const GeneralDashboardPage();
 
-      case ModuleItem.specificDashboard:
+      case ModuleEnum.specificDashboard:
         return _buildContractsListPage(
               (context, contract) async {
             await _openScheduleRoadContextPage(
               context: context,
               contract: contract,
               pageBuilder: (contract) {
-                return SpecificDashboardPage(contractData: contract);
+                return SpecificDashboardPage(
+                  contractData: contract,
+                );
               },
             );
           },
           pageTitle: 'Planejamento específico',
         );
 
-      case ModuleItem.processHiringRecords:
+      case ModuleEnum.processHiringRecords:
         return _buildContractsListPage(
               (context, contract) {
             final storesCtx = context;
@@ -385,7 +449,9 @@ class _MenuListPageState extends State<MenuListPage> {
             Navigator.of(context)
                 .push(
               MaterialPageRoute(
-                builder: (_) => TabBarHiringPage(contractData: contract),
+                builder: (_) => TabBarHiringPage(
+                  contractData: contract,
+                ),
               ),
             )
                 .then((_) async {
@@ -401,178 +467,161 @@ class _MenuListPageState extends State<MenuListPage> {
           pageTitle: 'Contratos',
         );
 
-      case ModuleItem.processValidityRecords:
+      case ModuleEnum.processValidityRecords:
         return _buildContractsListPage(
               (context, contract) {
             context.read<ProcessCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => ValidityTabBarPage(contractData: contract),
+                builder: (_) => ValidityTabBarPage(
+                  contractData: contract,
+                ),
               ),
             );
           },
           pageTitle: 'Ordens e Vigência',
         );
 
-      case ModuleItem.processAdditiveRecords:
+      case ModuleEnum.processAdditiveRecords:
         return _buildContractsListPage(
               (context, contract) {
             context.read<ProcessCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => TabBarAdditivePage(contractData: contract),
+                builder: (_) => TabBarAdditivePage(
+                  contractData: contract,
+                ),
               ),
             );
           },
           pageTitle: 'Aditivos',
         );
 
-      case ModuleItem.processApostillesRecords:
+      case ModuleEnum.processApostillesRecords:
         return _buildContractsListPage(
               (context, contract) {
             context.read<ProcessCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => TabBarApostillesPage(contractData: contract),
+                builder: (_) => TabBarApostillesPage(
+                  contractData: contract,
+                ),
               ),
             );
           },
           pageTitle: 'Apostilamentos',
         );
 
-      case ModuleItem.processHiringBudget:
+      case ModuleEnum.processHiringBudget:
         return _buildContractsListPage(
               (context, contract) {
             context.read<ProcessCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => BudgetPage(contractData: contract),
+                builder: (_) => BudgetPage(
+                  contractData: contract,
+                ),
               ),
             );
           },
           pageTitle: 'Orçamento',
         );
 
-      case ModuleItem.processHiringSchedule:
-        return _buildContractsListPage(
-              (context, contract) async {
-            await _openScheduleRoadContextPage(
-              context: context,
-              contract: contract,
-              emptyIdMessage: 'Não foi possível abrir o cronograma.',
-              pageBuilder: (contract) {
-                return HiringSchedulePage(contract: contract);
-              },
-            );
-          },
-          pageTitle: 'Cronograma',
-        );
-
-      case ModuleItem.processMeasurementsRecords:
+      case ModuleEnum.processMeasurementsRecords:
         return _buildContractsListPage(
               (context, contract) {
             context.read<ProcessCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => TabBarMeasurementPage(contractData: contract),
+                builder: (_) => TabBarMeasurementPage(
+                  contractData: contract,
+                ),
               ),
             );
           },
           pageTitle: 'Medições',
         );
 
-      case ModuleItem.operationMonitoringWork:
+      case ModuleEnum.operationMonitoringWork:
         return _buildContractsListPage(
               (context, contract) async {
             context.read<ProcessCubit>().select(contract);
-            await _navigateByWorkType(context, contract);
+
+            await _navigateByWorkType(
+              context,
+              contract,
+            );
           },
           pageTitle: 'Diário de Obra',
         );
 
-      case ModuleItem.planningProjectRegistration:
+      case ModuleEnum.planningProjectRegistration:
         return const GeoNetworkPage();
 
-      case ModuleItem.planningRightOfWayRecords:
+      case ModuleEnum.planningRightOfWayRecords:
         return _buildContractsListPage(
               (context, contract) {
             context.read<ProcessCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => LandPage(contractData: contract),
+                builder: (_) => LandPage(
+                  contractData: contract,
+                ),
               ),
             );
           },
           pageTitle: 'Faixa de Domínio',
         );
 
-      case ModuleItem.planningEnvironmentRecords:
-        return const GeoNetworkPage();
-
-      case ModuleItem.trafficAccidentsDashboard:
+      case ModuleEnum.trafficAccidentsDashboard:
         return const AccidentDashboardPage();
 
-      case ModuleItem.trafficAccidentsRecords:
+      case ModuleEnum.trafficAccidentsRecords:
         return const AccidentsRecordsNetworkPage();
 
-      case ModuleItem.trafficInfractionsDashboard:
+      case ModuleEnum.trafficInfractionsDashboard:
         return const InfractionsDashboardPage();
 
-      case ModuleItem.trafficInfractionsRecords:
+      case ModuleEnum.trafficInfractionsRecords:
         return const InfractionsRecordsPage();
 
-      case ModuleItem.financialDashboard:
-        return const FinancialDashboardNetworkPage();
 
-      case ModuleItem.financialBudget:
+      case ModuleEnum.financialDashboard:
+        return FinancialDashboardNetworkPage();
+
+      case ModuleEnum.financialCommitmentRecords:
         return _buildContractsListPage(
               (context, contract) {
             context.read<ProcessCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => BudgetNetworkPage(contractData: contract),
-              ),
-            );
-          },
-          pageTitle: 'Orçamento (por contrato)',
-        );
-
-      case ModuleItem.financialEmpenhos:
-        return const EmpenhoNetworkPage();
-
-      case ModuleItem.financialCommitmentRecords:
-        return _buildContractsListPage(
-              (context, contract) {
-            context.read<ProcessCubit>().select(contract);
-
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => FinancialDashboardNetworkPage(
+                builder: (_) => TabBarFinancialPage(
                   contractData: contract,
                 ),
               ),
             );
           },
-          pageTitle: 'Financeiro (por contrato)',
+          pageTitle: 'Orçamento',
         );
 
-      case ModuleItem.activeRoadNetwork:
+
+      case ModuleEnum.activeRoadNetwork:
         return const ActiveRoadsNetworkPage();
 
-      case ModuleItem.activeRoadRegistration:
+      case ModuleEnum.activeRoadRegistration:
         return const ActiveRoadsRecordsPage();
 
-      case ModuleItem.activesOAEsNetwork:
+      case ModuleEnum.activesOAEsNetwork:
         return const ActiveOAEsNetworkPage();
 
-      case ModuleItem.activeOAEsRegistration:
+      case ModuleEnum.activeOAEsRegistration:
         return const ActiveOaesRecordsPage();
     }
   }
@@ -616,7 +665,19 @@ class _MenuListPageState extends State<MenuListPage> {
   }) {
     if (_didWarmupProcessCubit) return;
 
-    if (permissions == null || permissions.uid.trim().isEmpty) {
+    final cleanUid = permissions?.uid.trim();
+
+    if (cleanUid == null || cleanUid.isEmpty) {
+      return;
+    }
+
+    final canReadContracts = permissions!.canModuleString(
+      module: ModuleCatalog.modContractsList,
+      action: 'read',
+      tenantId: tenantId,
+    );
+
+    if (!canReadContracts) {
       return;
     }
 
@@ -639,14 +700,11 @@ class _MenuListPageState extends State<MenuListPage> {
   Widget build(BuildContext context) {
     _warmupUserCubitOnce();
 
-    return BlocBuilder<UserCubit, UserState>(
-      buildWhen: (prev, curr) {
-        return prev.current != curr.current ||
-            prev.isLoadingUsers != curr.isLoadingUsers;
+    return BlocSelector<UserCubit, UserState, UserData?>(
+      selector: (state) {
+        return state.current;
       },
-      builder: (context, userState) {
-        final currentUser = userState.current;
-
+      builder: (context, currentUser) {
         if (currentUser == null) {
           return const Scaffold(
             backgroundColor: Colors.white,
@@ -659,15 +717,21 @@ class _MenuListPageState extends State<MenuListPage> {
         _watchPermissionsForUser(currentUser);
 
         return BlocBuilder<PermissionCubit, PermissionState>(
-          buildWhen: (prev, curr) {
-            return prev.current != curr.current ||
-                prev.isLoading != curr.isLoading ||
-                prev.activeTenantId != curr.activeTenantId ||
-                prev.error != curr.error;
+          buildWhen: (previous, current) {
+            return previous.current != current.current ||
+                previous.isLoading != current.isLoading ||
+                previous.activeTenantId != current.activeTenantId ||
+                previous.error != current.error;
           },
           builder: (context, permissionState) {
-            final permissions = permissionState.current;
-            final tenantId = permissionState.activeTenantId;
+            final permissions = PermissionResolver.resolveForUser(
+              user: currentUser,
+              permissionState: permissionState,
+            );
+
+            final tenantId = PermissionResolver.cleanTenantId(
+              permissionState.activeTenantId,
+            );
 
             if (permissionState.isLoading && permissions == null) {
               return const Scaffold(
@@ -712,7 +776,9 @@ class _MenuListPageState extends State<MenuListPage> {
               body: Stack(
                 children: [
                   if (_selectedItem == null)
-                    HomePage(onSelect: _onSelectPage)
+                    HomePage(
+                      onSelect: _onSelectPage,
+                    )
                   else
                     _getPage(
                       item: _selectedItem!,

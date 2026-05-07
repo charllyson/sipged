@@ -6,7 +6,7 @@ import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_state.d
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/list/resume/list_resumed.dart';
@@ -32,7 +32,7 @@ class GeneralDashboardPage extends StatefulWidget {
 }
 
 class _GeneralDashboardPageState extends State<GeneralDashboardPage> {
-  List<ReportMeasurementData> _filteredMeasurements = [];
+  List<ReportExecutedData> _filteredMeasurements = [];
   int? _selectedPointIndex;
   String? _selectedContractSummary;
 

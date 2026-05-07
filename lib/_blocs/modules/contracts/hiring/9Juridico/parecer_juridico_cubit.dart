@@ -9,9 +9,8 @@ import 'parecer_juridico_repository.dart';
 import 'parecer_juridico_state.dart';
 
 class ParecerJuridicoCubit extends Cubit<ParecerState> {
-  ParecerJuridicoCubit(ParecerJuridicoRepository repo)
-      : repo = repo,
-        super(ParecerState.initial());
+  ParecerJuridicoCubit(this.repo)
+      : super(ParecerState.initial());
 
   final ParecerJuridicoRepository repo;
 

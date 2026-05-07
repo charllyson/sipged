@@ -179,7 +179,10 @@ class AdditivesRepository {
     QuerySnapshot<Map<String, dynamic>> snap;
 
     try {
-      snap = await contractRef.collection('additives').orderBy('additiveorder').get();
+      snap = await contractRef
+          .collection('additives')
+          .orderBy('additiveorder')
+          .get();
     } on FirebaseException catch (e) {
       if (e.code == 'failed-precondition' || e.code == 'not-found') {
         snap = await contractRef.collection('additives').get();
@@ -286,11 +289,13 @@ class AdditivesRepository {
         try {
           final snap = await _col(contractId).get();
 
-          return snap.docs.fold<double>(0.0, (sum, doc) {
+          return snap.docs.fold<double>(0.0, (totalAtual, doc) {
             final data = doc.data();
             final raw = data['additivevalue'] ?? data['additiveValue'];
 
-            if (raw is num) return sum + raw.toDouble();
+            if (raw is num) {
+              return totalAtual + raw.toDouble();
+            }
 
             if (raw is String) {
               final normalized = raw
@@ -299,10 +304,10 @@ class AdditivesRepository {
                   .replaceAll('.', '')
                   .replaceAll(',', '.');
 
-              return sum + (double.tryParse(normalized) ?? 0.0);
+              return totalAtual + (double.tryParse(normalized) ?? 0.0);
             }
 
-            return sum;
+            return totalAtual;
           });
         } catch (_) {
           return 0.0;
@@ -310,7 +315,7 @@ class AdditivesRepository {
       }),
     );
 
-    return values.fold<double>(0.0, (a, b) => a + b);
+    return values.fold<double>(0.0, (totalAtual, value) => totalAtual + value);
   }
 
   Future<double> somarValoresAditivosPorStatus({
@@ -353,9 +358,9 @@ class AdditivesRepository {
 
     final snap = await _col(cleanContractId).get();
 
-    return snap.docs.fold<double>(0.0, (sum, doc) {
+    return snap.docs.fold<double>(0.0, (totalAtual, doc) {
       final additive = AdditivesData.fromDocument(snapshot: doc);
-      return sum + (additive.additiveValue ?? 0.0);
+      return totalAtual + (additive.additiveValue ?? 0.0);
     });
   }
 
@@ -761,7 +766,7 @@ class AdditivesRepository {
   }
 
   // ---------------------------------------------------------------------------
-  // PDF legado
+  // PDF antigo
   // ---------------------------------------------------------------------------
 
   String legacyFileName(ProcessData contract, AdditivesData additive) {
@@ -830,7 +835,9 @@ class AdditivesRepository {
     required AdditivesData additive,
   }) async {
     try {
-      return await _storage.ref(legacyPathFor(contract, additive)).getDownloadURL();
+      return await _storage
+          .ref(legacyPathFor(contract, additive))
+          .getDownloadURL();
     } catch (_) {
       return null;
     }

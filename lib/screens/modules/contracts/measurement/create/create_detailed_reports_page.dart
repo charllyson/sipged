@@ -11,7 +11,7 @@ import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 
 import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
@@ -42,7 +42,7 @@ class CreateDetailedReportPage extends StatefulWidget {
 
   final String titulo;
   final ProcessData contractData;
-  final ReportMeasurementData? measurement;
+  final ReportExecutedData? measurement;
 
   @override
   State<CreateDetailedReportPage> createState() =>

@@ -326,18 +326,14 @@ class _GatePageState extends State<GatePage> {
                       },
                     );
                   }
-
                   return BlocBuilder<TenantCubit, TenantState>(
                     builder: (context, tenantState) {
                       final base = const MenuListPage();
-
                       final needsSetup = kForceInitialSetupOverlay ||
                           tenantState.tenantProfile == null;
-
                       if (!needsSetup) {
                         return base;
                       }
-
                       return Stack(
                         children: [
                           base,

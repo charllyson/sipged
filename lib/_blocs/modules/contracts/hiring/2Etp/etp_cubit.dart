@@ -9,9 +9,8 @@ import 'etp_repository.dart';
 import 'etp_state.dart';
 
 class EtpCubit extends Cubit<EtpState> {
-  EtpCubit(EtpRepository repo)
-      : repo = repo,
-        super(EtpState.initial());
+  EtpCubit(this.repo)
+      : super(EtpState.initial());
 
   final EtpRepository repo;
 

@@ -1,5 +1,3 @@
-// lib/_blocs/system/notification/notification_source.dart
-
 import 'package:flutter/material.dart';
 
 enum NotificationSource {
@@ -9,6 +7,7 @@ enum NotificationSource {
   additives,
   apostilles,
   measurements,
+  payments,
   validity,
   schedule,
 }
@@ -28,6 +27,8 @@ extension NotificationSourceExtension on NotificationSource {
         return 'apostilles';
       case NotificationSource.measurements:
         return 'measurements';
+      case NotificationSource.payments:
+        return 'payments';
       case NotificationSource.validity:
         return 'validity';
       case NotificationSource.schedule:
@@ -49,6 +50,8 @@ extension NotificationSourceExtension on NotificationSource {
         return 'Apostilamentos';
       case NotificationSource.measurements:
         return 'Medições';
+      case NotificationSource.payments:
+        return 'Pagamentos';
       case NotificationSource.validity:
         return 'Vigências';
       case NotificationSource.schedule:
@@ -70,6 +73,8 @@ extension NotificationSourceExtension on NotificationSource {
         return 'Criação, atualização e acompanhamento de apostilamentos.';
       case NotificationSource.measurements:
         return 'Boletins, reajustes, revisões e atualizações de medições.';
+      case NotificationSource.payments:
+        return 'Pagamentos vinculados a boletins, reajustes e revisões de medição.';
       case NotificationSource.validity:
         return 'Alertas e atualizações de vigência contratual.';
       case NotificationSource.schedule:
@@ -90,6 +95,8 @@ extension NotificationSourceExtension on NotificationSource {
       case NotificationSource.apostilles:
         return Icons.edit_document;
       case NotificationSource.measurements:
+        return Icons.receipt_long_rounded;
+      case NotificationSource.payments:
         return Icons.payments_rounded;
       case NotificationSource.validity:
         return Icons.event_available_rounded;
@@ -167,6 +174,14 @@ enum NotificationSubSource {
   measurementsRevision,
 
   // ---------------------------------------------------------------------------
+  // PAGAMENTOS
+  // ---------------------------------------------------------------------------
+
+  paymentsBulletin,
+  paymentsAdjustments,
+  paymentsRevision,
+
+  // ---------------------------------------------------------------------------
   // VIGÊNCIAS
   // ---------------------------------------------------------------------------
 
@@ -213,6 +228,11 @@ extension NotificationSubSourceExtension on NotificationSubSource {
       case NotificationSubSource.measurementsAdjustments:
       case NotificationSubSource.measurementsRevision:
         return NotificationSource.measurements;
+
+      case NotificationSubSource.paymentsBulletin:
+      case NotificationSubSource.paymentsAdjustments:
+      case NotificationSubSource.paymentsRevision:
+        return NotificationSource.payments;
 
       case NotificationSubSource.validityGeneral:
         return NotificationSource.validity;
@@ -270,6 +290,13 @@ extension NotificationSubSourceExtension on NotificationSubSource {
       case NotificationSubSource.measurementsRevision:
         return 'measurements_revision';
 
+      case NotificationSubSource.paymentsBulletin:
+        return 'payments_bulletin';
+      case NotificationSubSource.paymentsAdjustments:
+        return 'payments_adjustments';
+      case NotificationSubSource.paymentsRevision:
+        return 'payments_revision';
+
       case NotificationSubSource.validityGeneral:
         return 'validity_general';
 
@@ -325,6 +352,13 @@ extension NotificationSubSourceExtension on NotificationSubSource {
         return 'Reajustes';
       case NotificationSubSource.measurementsRevision:
         return 'Revisão';
+
+      case NotificationSubSource.paymentsBulletin:
+        return 'Pagamento de boletim';
+      case NotificationSubSource.paymentsAdjustments:
+        return 'Pagamento de reajuste';
+      case NotificationSubSource.paymentsRevision:
+        return 'Pagamento de revisão';
 
       case NotificationSubSource.validityGeneral:
         return 'Vigências';
@@ -382,6 +416,13 @@ extension NotificationSubSourceExtension on NotificationSubSource {
       case NotificationSubSource.measurementsRevision:
         return 'Revisões, processos de revisão e valores revisados.';
 
+      case NotificationSubSource.paymentsBulletin:
+        return 'Pagamentos realizados sobre boletins de medição.';
+      case NotificationSubSource.paymentsAdjustments:
+        return 'Pagamentos realizados sobre reajustes de medição.';
+      case NotificationSubSource.paymentsRevision:
+        return 'Pagamentos realizados sobre revisões de medição.';
+
       case NotificationSubSource.validityGeneral:
         return 'Prazos, alertas de vencimento e atualizações de vigência.';
 
@@ -437,6 +478,13 @@ extension NotificationSubSourceExtension on NotificationSubSource {
         return Icons.trending_up_rounded;
       case NotificationSubSource.measurementsRevision:
         return Icons.manage_search_rounded;
+
+      case NotificationSubSource.paymentsBulletin:
+        return Icons.payments_outlined;
+      case NotificationSubSource.paymentsAdjustments:
+        return Icons.price_check_rounded;
+      case NotificationSubSource.paymentsRevision:
+        return Icons.fact_check_outlined;
 
       case NotificationSubSource.validityGeneral:
         return Icons.event_available_rounded;

@@ -478,9 +478,9 @@ class ApostillesRepository {
 
     final snap = await _col(cleanContractId).get();
 
-    return snap.docs.fold<double>(0.0, (sum, doc) {
+    return snap.docs.fold<double>(0.0, (totalAtual, doc) {
       final apostille = ApostillesData.fromDocument(snapshot: doc);
-      return sum + (apostille.apostilleValue ?? 0.0);
+      return totalAtual + (apostille.apostilleValue ?? 0.0);
     });
   }
 

@@ -9,9 +9,8 @@ import 'tr_repository.dart';
 import 'tr_state.dart';
 
 class TrCubit extends Cubit<TrState> {
-  TrCubit(TrRepository repo)
-      : repo = repo,
-        super(TrState.initial());
+  TrCubit(this.repo)
+      : super(TrState.initial());
 
   final TrRepository repo;
 

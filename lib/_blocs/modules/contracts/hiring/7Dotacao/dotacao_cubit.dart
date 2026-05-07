@@ -9,9 +9,8 @@ import 'dotacao_repository.dart';
 import 'dotacao_state.dart';
 
 class DotacaoCubit extends Cubit<DotacaoState> {
-  DotacaoCubit(DotacaoRepository repo)
-      : repo = repo,
-        super(DotacaoState.initial());
+  DotacaoCubit(this.repo)
+      : super(DotacaoState.initial());
 
   final DotacaoRepository repo;
 

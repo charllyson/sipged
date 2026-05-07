@@ -9,9 +9,8 @@ import 'edital_repository.dart';
 import 'edital_state.dart';
 
 class EditalCubit extends Cubit<EditalState> {
-  EditalCubit(EditalRepository repo)
-      : repo = repo,
-        super(EditalState.initial());
+  EditalCubit(this.repo)
+      : super(EditalState.initial());
 
   final EditalRepository repo;
 

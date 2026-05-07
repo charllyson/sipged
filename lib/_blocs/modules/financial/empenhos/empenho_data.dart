@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/screens/modules/financial/finance_utils.dart';
+import 'package:sipged/screens/modules/financial/dashboard/finance_utils.dart';
 
 class EmpenhoData {
   /// Coleção legada/global.

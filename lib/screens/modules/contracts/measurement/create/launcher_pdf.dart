@@ -5,12 +5,12 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart' show PdfGoogleFonts;
 import 'package:sipged/_widgets/table/magic/magic_table_controller.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 
 Future<Uint8List> buildPdfBytes({
   required MagicTableController ctrl,
   required ProcessData contractData,
-  required ReportMeasurementData? measurement,
+  required ReportExecutedData? measurement,
 
   String? descricaoObjeto,
   String? numeroContrato,
@@ -257,7 +257,7 @@ Future<Uint8List> buildPdfBytes({
 
 pw.Widget _pdfHeader({
   required ProcessData contractData,
-  required ReportMeasurementData? measurement,
+  required ReportExecutedData? measurement,
   required DateTime emittedAt,
   String? descricaoObjeto,
   String? numeroContrato,

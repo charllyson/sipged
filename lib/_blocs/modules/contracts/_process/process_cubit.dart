@@ -4,18 +4,19 @@ import 'process_data.dart';
 import 'process_repository.dart';
 import 'process_state.dart';
 
-import 'package:sipged/_blocs/system/module/module_data.dart';
+import 'package:sipged/_blocs/system/module/module_catalog.dart';
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
+import 'package:sipged/_blocs/system/permission/permission_resolver.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 class ProcessCubit extends Cubit<ProcessState> {
-  final ProcessRepository _repository;
-
   ProcessCubit({
     required ProcessRepository repository,
   })  : _repository = repository,
         super(ProcessState.initial());
+
+  final ProcessRepository _repository;
 
   List<ProcessData> get allProcesses => state.allProcesses;
   ProcessData? get selectedProcess => state.selectedProcess;
@@ -27,7 +28,7 @@ class ProcessCubit extends Cubit<ProcessState> {
     UserPermissionData? currentPermissions,
     String? tenantId,
   }) async {
-    if (state.initialized) return;
+    if (state.initialized || state.loading) return;
 
     await refresh(
       currentUser: currentUser,
@@ -35,7 +36,13 @@ class ProcessCubit extends Cubit<ProcessState> {
       tenantId: tenantId,
     );
 
-    emit(state.copyWith(initialized: true));
+    if (isClosed) return;
+
+    emit(
+      state.copyWith(
+        initialized: true,
+      ),
+    );
   }
 
   Future<void> refresh({
@@ -53,23 +60,35 @@ class ProcessCubit extends Cubit<ProcessState> {
     );
 
     try {
+      final permissions = currentPermissions ?? _permissionsFromUser(currentUser);
+
+      if (permissions == null) {
+        emit(
+          state.copyWith(
+            loading: false,
+            allProcesses: const <ProcessData>[],
+            clearSelectedProcess: true,
+            errorMessage: 'Permissões do usuário não carregadas.',
+          ),
+        );
+        return;
+      }
+
       final loaded = await _repository.getAllContracts();
 
       final filtered = _applyAclFilter(
         source: loaded,
-        user: currentUser,
-        permissions: currentPermissions,
+        permissions: permissions,
         tenantId: tenantId,
       );
 
       ProcessData? selected = state.selectedProcess;
 
       if (selected != null) {
-        try {
-          selected = filtered.firstWhere((e) => e.id == selected!.id);
-        } catch (_) {
-          selected = null;
-        }
+        selected = _findByIdOrNull(
+          filtered,
+          selected.id,
+        );
       }
 
       emit(
@@ -77,6 +96,7 @@ class ProcessCubit extends Cubit<ProcessState> {
           loading: false,
           allProcesses: filtered,
           selectedProcess: selected,
+          clearSelectedProcess: selected == null,
           clearErrorMessage: true,
         ),
       );
@@ -92,21 +112,14 @@ class ProcessCubit extends Cubit<ProcessState> {
 
   List<ProcessData> _applyAclFilter({
     required List<ProcessData> source,
-    required UserData? user,
-    required UserPermissionData? permissions,
+    required UserPermissionData permissions,
     required String? tenantId,
   }) {
-    final resolvedPermissions = permissions ?? _permissionsFromUser(user);
-
-    if (resolvedPermissions == null) {
-      return const <ProcessData>[];
-    }
-
     return SystemPermission.filterVisibleContracts(
-      permissions: resolvedPermissions,
+      permissions: permissions,
       contracts: source,
-      module: ModuleData.modContractsList,
-      tenantId: _cleanTenantId(tenantId),
+      module: ModuleCatalog.modContractsList,
+      tenantId: PermissionResolver.cleanTenantId(tenantId),
     );
   }
 
@@ -114,6 +127,7 @@ class ProcessCubit extends Cubit<ProcessState> {
     if (user == null) return null;
 
     final uid = (user.uid ?? '').trim();
+
     if (uid.isEmpty) return null;
 
     final raw = user.userSnap?.data();
@@ -125,27 +139,57 @@ class ProcessCubit extends Cubit<ProcessState> {
       );
     }
 
-    return UserPermissionData(uid: uid);
+    return UserPermissionData(
+      uid: uid,
+    );
   }
 
-  String? _cleanTenantId(String? tenantId) {
-    final id = tenantId?.trim();
-    if (id == null || id.isEmpty) return null;
-    return id;
+  ProcessData? _findByIdOrNull(
+      Iterable<ProcessData> items,
+      String? id,
+      ) {
+    final cleanId = id?.trim();
+
+    if (cleanId == null || cleanId.isEmpty) {
+      return null;
+    }
+
+    for (final item in items) {
+      if ((item.id ?? '').trim() == cleanId) {
+        return item;
+      }
+    }
+
+    return null;
   }
 
   void select(ProcessData process) {
-    emit(state.copyWith(selectedProcess: process));
+    if (isClosed) return;
+
+    emit(
+      state.copyWith(
+        selectedProcess: process,
+      ),
+    );
   }
 
   void clearSelection() {
-    emit(state.copyWith(clearSelectedProcess: true));
+    if (isClosed) return;
+
+    emit(
+      state.copyWith(
+        clearSelectedProcess: true,
+      ),
+    );
   }
 
   Future<ProcessData?> getById(String id) async {
-    if (id.trim().isEmpty) return null;
+    final cleanId = id.trim();
 
-    final cached = _findInCache(id);
+    if (cleanId.isEmpty) return null;
+
+    final cached = _findInCache(cleanId);
+
     if (cached != null) return cached;
 
     emit(
@@ -156,10 +200,15 @@ class ProcessCubit extends Cubit<ProcessState> {
     );
 
     try {
-      final process = await _repository.getContractById(id);
+      final process = await _repository.getContractById(cleanId);
 
       if (process == null) {
-        emit(state.copyWith(loading: false));
+        emit(
+          state.copyWith(
+            loading: false,
+          ),
+        );
+
         return null;
       }
 
@@ -171,6 +220,7 @@ class ProcessCubit extends Cubit<ProcessState> {
         state.copyWith(
           loading: false,
           allProcesses: updatedList,
+          clearErrorMessage: true,
         ),
       );
 
@@ -182,6 +232,7 @@ class ProcessCubit extends Cubit<ProcessState> {
           errorMessage: 'Erro ao buscar contrato por id: $e',
         ),
       );
+
       return null;
     }
   }
@@ -189,6 +240,10 @@ class ProcessCubit extends Cubit<ProcessState> {
   Future<ProcessData?> getSpecificContract({
     required String uidContract,
   }) async {
+    final cleanId = uidContract.trim();
+
+    if (cleanId.isEmpty) return null;
+
     emit(
       state.copyWith(
         loading: true,
@@ -198,11 +253,16 @@ class ProcessCubit extends Cubit<ProcessState> {
 
     try {
       final process = await _repository.getSpecificContract(
-        uidContract: uidContract,
+        uidContract: cleanId,
       );
 
       if (process == null) {
-        emit(state.copyWith(loading: false));
+        emit(
+          state.copyWith(
+            loading: false,
+          ),
+        );
+
         return null;
       }
 
@@ -219,6 +279,7 @@ class ProcessCubit extends Cubit<ProcessState> {
           loading: false,
           allProcesses: updatedList,
           selectedProcess: selected,
+          clearErrorMessage: true,
         ),
       );
 
@@ -230,12 +291,15 @@ class ProcessCubit extends Cubit<ProcessState> {
           errorMessage: 'Erro ao buscar contrato específico: $e',
         ),
       );
+
       return null;
     }
   }
 
   Future<void> delete(String id) async {
-    if (id.trim().isEmpty) return;
+    final cleanId = id.trim();
+
+    if (cleanId.isEmpty) return;
 
     emit(
       state.copyWith(
@@ -245,18 +309,19 @@ class ProcessCubit extends Cubit<ProcessState> {
     );
 
     try {
-      await _repository.delete(id);
+      await _repository.delete(cleanId);
 
       final updatedList = List<ProcessData>.from(state.allProcesses)
-        ..removeWhere((p) => p.id == id);
+        ..removeWhere((p) => p.id == cleanId);
 
-      final shouldClearSelected = state.selectedProcess?.id == id;
+      final shouldClearSelected = state.selectedProcess?.id == cleanId;
 
       emit(
         state.copyWith(
           loading: false,
           allProcesses: updatedList,
           clearSelectedProcess: shouldClearSelected,
+          clearErrorMessage: true,
         ),
       );
     } catch (e) {
@@ -275,6 +340,14 @@ class ProcessCubit extends Cubit<ProcessState> {
     required String permissionType,
     required bool value,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
+    final cleanType = permissionType.trim();
+
+    if (cleanContractId.isEmpty || cleanUserId.isEmpty || cleanType.isEmpty) {
+      return;
+    }
+
     emit(
       state.copyWith(
         loading: true,
@@ -284,22 +357,27 @@ class ProcessCubit extends Cubit<ProcessState> {
 
     try {
       await _repository.updateContractPermissions(
-        contractId: contractId,
-        userId: userId,
-        permissionType: permissionType,
+        contractId: cleanContractId,
+        userId: cleanUserId,
+        permissionType: cleanType,
         value: value,
       );
 
       _updateItemInState(
-        contractId,
+        cleanContractId,
             (process) => process.copyWithUpdatedPermission(
-          userId: userId,
-          permissionType: permissionType,
+          userId: cleanUserId,
+          permissionType: cleanType,
           value: value,
         ),
       );
 
-      emit(state.copyWith(loading: false));
+      emit(
+        state.copyWith(
+          loading: false,
+          clearErrorMessage: true,
+        ),
+      );
     } catch (e) {
       emit(
         state.copyWith(
@@ -315,6 +393,13 @@ class ProcessCubit extends Cubit<ProcessState> {
     required String userId,
     required Map<String, bool> permsMap,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
+
+    if (cleanContractId.isEmpty || cleanUserId.isEmpty) {
+      return;
+    }
+
     emit(
       state.copyWith(
         loading: true,
@@ -326,20 +411,25 @@ class ProcessCubit extends Cubit<ProcessState> {
       final normalized = SystemPermission.normalizeDocPerms(permsMap);
 
       await _repository.setParticipantPerms(
-        contractId: contractId,
-        userId: userId,
+        contractId: cleanContractId,
+        userId: cleanUserId,
         permsMap: normalized,
       );
 
       _updateItemInState(
-        contractId,
+        cleanContractId,
             (process) => process.copyWithParticipantPerms(
-          userId: userId,
+          userId: cleanUserId,
           perms: normalized,
         ),
       );
 
-      emit(state.copyWith(loading: false));
+      emit(
+        state.copyWith(
+          loading: false,
+          clearErrorMessage: true,
+        ),
+      );
     } catch (e) {
       emit(
         state.copyWith(
@@ -355,6 +445,14 @@ class ProcessCubit extends Cubit<ProcessState> {
     required String userId,
     required String role,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
+    final cleanRole = role.trim();
+
+    if (cleanContractId.isEmpty || cleanUserId.isEmpty || cleanRole.isEmpty) {
+      return;
+    }
+
     emit(
       state.copyWith(
         loading: true,
@@ -364,20 +462,25 @@ class ProcessCubit extends Cubit<ProcessState> {
 
     try {
       await _repository.setParticipantRole(
-        contractId: contractId,
-        userId: userId,
-        role: role,
+        contractId: cleanContractId,
+        userId: cleanUserId,
+        role: cleanRole,
       );
 
       _updateItemInState(
-        contractId,
+        cleanContractId,
             (process) => process.copyWithParticipantRole(
-          userId: userId,
-          role: role,
+          userId: cleanUserId,
+          role: cleanRole,
         ),
       );
 
-      emit(state.copyWith(loading: false));
+      emit(
+        state.copyWith(
+          loading: false,
+          clearErrorMessage: true,
+        ),
+      );
     } catch (e) {
       emit(
         state.copyWith(
@@ -389,8 +492,11 @@ class ProcessCubit extends Cubit<ProcessState> {
   }
 
   Future<void> saveContractPermissions(ProcessData contractData) async {
-    final contractId = contractData.id;
-    if (contractId == null || contractId.isEmpty) return;
+    final contractId = contractData.id?.trim();
+
+    if (contractId == null || contractId.isEmpty) {
+      return;
+    }
 
     emit(
       state.copyWith(
@@ -402,9 +508,17 @@ class ProcessCubit extends Cubit<ProcessState> {
     try {
       await _repository.saveContractPermissions(contractData);
 
-      _updateItemInState(contractId, (_) => contractData);
+      _updateItemInState(
+        contractId,
+            (_) => contractData,
+      );
 
-      emit(state.copyWith(loading: false));
+      emit(
+        state.copyWith(
+          loading: false,
+          clearErrorMessage: true,
+        ),
+      );
     } catch (e) {
       emit(
         state.copyWith(
@@ -421,6 +535,13 @@ class ProcessCubit extends Cubit<ProcessState> {
     Map<String, bool>? permMap,
     Map<String, dynamic> meta = const {},
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
+
+    if (cleanContractId.isEmpty || cleanUserId.isEmpty) {
+      return;
+    }
+
     emit(
       state.copyWith(
         loading: true,
@@ -434,22 +555,27 @@ class ProcessCubit extends Cubit<ProcessState> {
       );
 
       await _repository.addParticipant(
-        contractId: contractId,
-        userId: userId,
+        contractId: cleanContractId,
+        userId: cleanUserId,
         permMap: normalizedPerms,
         meta: meta,
       );
 
       _updateItemInState(
-        contractId,
+        cleanContractId,
             (process) => process.copyWithAddedParticipant(
-          userId: userId,
+          userId: cleanUserId,
           perms: normalizedPerms,
           meta: meta,
         ),
       );
 
-      emit(state.copyWith(loading: false));
+      emit(
+        state.copyWith(
+          loading: false,
+          clearErrorMessage: true,
+        ),
+      );
     } catch (e) {
       emit(
         state.copyWith(
@@ -464,6 +590,13 @@ class ProcessCubit extends Cubit<ProcessState> {
     required String contractId,
     required String userId,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
+
+    if (cleanContractId.isEmpty || cleanUserId.isEmpty) {
+      return;
+    }
+
     emit(
       state.copyWith(
         loading: true,
@@ -473,16 +606,21 @@ class ProcessCubit extends Cubit<ProcessState> {
 
     try {
       await _repository.removeParticipant(
-        contractId: contractId,
-        userId: userId,
+        contractId: cleanContractId,
+        userId: cleanUserId,
       );
 
       _updateItemInState(
-        contractId,
-            (process) => process.copyWithRemovedParticipant(userId),
+        cleanContractId,
+            (process) => process.copyWithRemovedParticipant(cleanUserId),
       );
 
-      emit(state.copyWith(loading: false));
+      emit(
+        state.copyWith(
+          loading: false,
+          clearErrorMessage: true,
+        ),
+      );
     } catch (e) {
       emit(
         state.copyWith(
@@ -498,6 +636,13 @@ class ProcessCubit extends Cubit<ProcessState> {
     required String userId,
     required Map<String, dynamic> meta,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanUserId = userId.trim();
+
+    if (cleanContractId.isEmpty || cleanUserId.isEmpty) {
+      return;
+    }
+
     emit(
       state.copyWith(
         loading: true,
@@ -507,20 +652,25 @@ class ProcessCubit extends Cubit<ProcessState> {
 
     try {
       await _repository.updateParticipantMeta(
-        contractId: contractId,
-        userId: userId,
+        contractId: cleanContractId,
+        userId: cleanUserId,
         meta: meta,
       );
 
       _updateItemInState(
-        contractId,
+        cleanContractId,
             (process) => process.copyWithParticipantMeta(
-          userId: userId,
+          userId: cleanUserId,
           meta: meta,
         ),
       );
 
-      emit(state.copyWith(loading: false));
+      emit(
+        state.copyWith(
+          loading: false,
+          clearErrorMessage: true,
+        ),
+      );
     } catch (e) {
       emit(
         state.copyWith(
@@ -556,27 +706,31 @@ class ProcessCubit extends Cubit<ProcessState> {
   }
 
   ProcessData? _findInCache(String id) {
-    try {
-      return state.allProcesses.firstWhere((p) => (p.id ?? '') == id);
-    } catch (_) {
-      return null;
-    }
+    return _findByIdOrNull(
+      state.allProcesses,
+      id,
+    );
   }
 
   void _updateItemInState(
       String contractId,
       ProcessData Function(ProcessData current) transform,
       ) {
+    final cleanId = contractId.trim();
+
+    if (cleanId.isEmpty) return;
+
     final updatedList = state.allProcesses.map((item) {
-      if (item.id == contractId) {
+      if ((item.id ?? '').trim() == cleanId) {
         return transform(item);
       }
+
       return item;
-    }).toList();
+    }).toList(growable: false);
 
     ProcessData? updatedSelected = state.selectedProcess;
 
-    if (updatedSelected?.id == contractId) {
+    if ((updatedSelected?.id ?? '').trim() == cleanId) {
       updatedSelected = transform(updatedSelected!);
     }
 

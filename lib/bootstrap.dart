@@ -12,6 +12,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:sipged/_blocs/system/module/module_cubit.dart';
 
 import '_blocs/system/permission/permission_cubit.dart';
 import 'firebase_options_flavors.dart';
@@ -53,7 +54,7 @@ import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
 
 import 'package:sipged/_blocs/modules/contracts/validity/validity_cubit.dart';
@@ -178,6 +179,9 @@ Future<void> bootstrapAndRunApp() async {
       runApp(
         MultiProvider(
           providers: [
+            BlocProvider<ModuleCubit>(
+              create: (_) => ModuleCubit(),
+            ),
             BlocProvider(
               create: (_) => PermissionCubit(),
             ),
@@ -279,8 +283,8 @@ Future<void> bootstrapAndRunApp() async {
               ),
             ),
 
-            BlocProvider<ReportMeasurementCubit>(
-              create: (_) => ReportMeasurementCubit(),
+            BlocProvider<ReportExecutedCubit>(
+              create: (_) => ReportExecutedCubit(),
             ),
 
             BlocProvider<ValidityCubit>(
@@ -355,7 +359,7 @@ Future<void> bootstrapAndRunApp() async {
                 processCubit: ctx.read<ProcessCubit>(),
                 additivesRepository: ctx.read<AdditivesRepository>(),
                 apostillesRepository: ctx.read<ApostillesRepository>(),
-                reportMeasurementCubit: ctx.read<ReportMeasurementCubit>(),
+                reportMeasurementCubit: ctx.read<ReportExecutedCubit>(),
                 adjustmentMeasurementCubit:
                 ctx.read<AdjustmentMeasurementCubit>(),
                 revisionMeasurementCubit: ctx.read<RevisionMeasurementCubit>(),

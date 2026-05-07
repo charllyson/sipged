@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
@@ -19,7 +19,7 @@ class GeneralDashboardState extends Equatable {
   final List<ProcessData> allContracts;
   final List<ProcessData> filteredContracts;
 
-  final List<ReportMeasurementData> allMeasurements;
+  final List<ReportExecutedData> allMeasurements;
   final List<AdjustmentMeasurementData> allAdjustments;
   final List<RevisionMeasurementData> allRevisions;
 
@@ -140,7 +140,7 @@ class GeneralDashboardState extends Equatable {
     bool? isRecalculatingCharts,
     List<ProcessData>? allContracts,
     List<ProcessData>? filteredContracts,
-    List<ReportMeasurementData>? allMeasurements,
+    List<ReportExecutedData>? allMeasurements,
     List<AdjustmentMeasurementData>? allAdjustments,
     List<RevisionMeasurementData>? allRevisions,
     List<AdditivesData>? allAdditives,

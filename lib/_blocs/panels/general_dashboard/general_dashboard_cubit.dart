@@ -13,8 +13,8 @@ import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart'
 
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 
@@ -41,7 +41,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
 
   final ProcessCubit processCubit;
 
-  final ReportMeasurementCubit reportMeasurementCubit;
+  final ReportExecutedCubit reportMeasurementCubit;
   final AdjustmentMeasurementCubit adjustmentMeasurementCubit;
   final RevisionMeasurementCubit revisionMeasurementCubit;
 
@@ -698,7 +698,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       revisionMeasurementCubit.getAllRevisionsCollectionGroup(),
     ]);
 
-    final allMeasurements = results[0] as List<ReportMeasurementData>;
+    final allMeasurements = results[0] as List<ReportExecutedData>;
     final allAdjustments = results[1] as List<AdjustmentMeasurementData>;
     final allRevisions = results[2] as List<RevisionMeasurementData>;
 

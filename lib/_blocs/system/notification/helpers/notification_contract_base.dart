@@ -1,4 +1,5 @@
 // lib/_blocs/system/notification/helpers/notification_contract_base.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -26,31 +27,24 @@ class NotificationContractBase {
     required String sourceKey,
     required String defaultModule,
     required String defaultLeadingLabel,
-
     String? subtitle,
     String? details,
     String? leadingLabel,
     String? module,
-
     NotificationStatus status = NotificationStatus.info,
 
     /// Compatibilidade temporária.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 5),
-
     bool saveInBell = false,
     bool sendPush = false,
-
     NotificationDelivery? delivery,
     Set<NotificationChannel>? channels,
-
     String? actorId,
     String? actorName,
     Iterable<String> targetUserIds = const <String>[],
     bool includeCurrentUser = true,
     bool global = false,
-
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!context.mounted) return;
@@ -90,8 +84,10 @@ class NotificationContractBase {
       contract: contract,
     );
 
-    final contractSummary = clean(resolvedDisplay.summary) ??
-        fallbackContractSummary(contract);
+    if (!context.mounted) return;
+
+    final contractSummary =
+        clean(resolvedDisplay.summary) ?? fallbackContractSummary(contract);
 
     final contractNumber = clean(resolvedDisplay.number) ?? contractId;
 
@@ -213,9 +209,11 @@ class NotificationContractBase {
 
     for (final path in candidatePaths) {
       final data = await _tryReadDocument(path);
+
       if (data == null) continue;
 
       final parsed = _parsePublicacaoExtrato(data);
+
       if (parsed != null) return parsed;
     }
 
@@ -254,6 +252,7 @@ class NotificationContractBase {
 
     for (final path in candidatePaths) {
       final data = await _tryReadDocument(path);
+
       if (data == null) continue;
 
       final parsed = _parseDfd(
@@ -331,7 +330,10 @@ class NotificationContractBase {
       } else if (value is Map) {
         result[key] = Map<String, dynamic>.from(
           value.map(
-                (k, v) => MapEntry(k.toString(), v),
+                (k, v) => MapEntry(
+              k.toString(),
+              v,
+            ),
           ),
         );
       }
@@ -612,7 +614,10 @@ class NotificationContractBase {
 
     if (fullName != null) return fullName;
 
-    final name = clean((meta['name'] ?? meta['nome'] ?? '').toString());
+    final name = clean(
+      (meta['name'] ?? meta['nome'] ?? '').toString(),
+    );
+
     final surname = clean(
       (meta['surname'] ?? meta['sobrenome'] ?? '').toString(),
     );
@@ -624,7 +629,9 @@ class NotificationContractBase {
 
     if (composed.isNotEmpty) return composed;
 
-    final email = clean((meta['email'] ?? '').toString());
+    final email = clean(
+      (meta['email'] ?? '').toString(),
+    );
 
     if (email != null) return email;
 

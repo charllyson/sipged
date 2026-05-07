@@ -1,5 +1,3 @@
-// lib/_blocs/system/notification/bell/notification_bell_state.dart
-
 import 'package:equatable/equatable.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
@@ -19,7 +17,7 @@ class NotificationBellState extends Equatable {
   /// Contém notificações vistas e não vistas.
   final List<NotificationData> userBellNotifications;
 
-  /// Lista usada somente para badge e destaque verde.
+  /// Lista usada somente para badge e destaque visual.
   final List<NotificationData> unreadUserNotifications;
 
   final bool loading;
@@ -98,12 +96,16 @@ class NotificationBellState extends Equatable {
     final action = _clean(extra['action']?.toString());
     final actorId = _clean(extra['actorId']?.toString());
     final actorName = _clean(extra['actorName']?.toString());
+
     final contractId = _clean(extra['contractId']?.toString());
     final contractSummary = _clean(extra['contractSummary']?.toString());
     final contractTitle = _clean(extra['contractTitle']?.toString());
     final nomeDemanda = _clean(extra['nomeDemanda']?.toString());
     final descricaoObjeto = _clean(extra['descricaoObjeto']?.toString());
+
     final measurementId = _clean(extra['measurementId']?.toString());
+    final paymentId = _clean(extra['paymentId']?.toString());
+
     final notificationSource = _clean(
       extra['notificationSource']?.toString(),
     );
@@ -121,6 +123,7 @@ class NotificationBellState extends Equatable {
         actorName.isNotEmpty ||
         contractId.isNotEmpty ||
         measurementId.isNotEmpty ||
+        paymentId.isNotEmpty ||
         notificationSource.isNotEmpty;
 
     if (!hasText && !hasMetadata) return false;
@@ -145,9 +148,14 @@ class NotificationBellState extends Equatable {
     final extra = item.extra;
 
     final action = _clean(extra['action']?.toString());
+
     final contractId = _clean(extra['contractId']?.toString());
+
     final measurementId = _clean(extra['measurementId']?.toString());
     final measurementOrder = _clean(extra['measurementOrder']?.toString());
+
+    final paymentId = _clean(extra['paymentId']?.toString());
+    final paymentOrder = _clean(extra['paymentOrder']?.toString());
 
     final validityId = _clean(extra['validityId']?.toString());
     final additiveId = _clean(extra['additiveId']?.toString());
@@ -162,6 +170,10 @@ class NotificationBellState extends Equatable {
           extra['source'])
           ?.toString(),
     );
+
+    if (source.isNotEmpty && action.isNotEmpty && paymentId.isNotEmpty) {
+      return '$source|$action|$paymentId';
+    }
 
     if (source.isNotEmpty && action.isNotEmpty && measurementId.isNotEmpty) {
       return '$source|$action|$measurementId';
@@ -185,6 +197,14 @@ class NotificationBellState extends Equatable {
 
     if (source.isNotEmpty && action.isNotEmpty && adjustmentId.isNotEmpty) {
       return '$source|$action|$adjustmentId';
+    }
+
+    if (source.isNotEmpty &&
+        action.isNotEmpty &&
+        contractId.isNotEmpty &&
+        measurementId.isNotEmpty &&
+        paymentOrder.isNotEmpty) {
+      return '$source|$action|$contractId|$measurementId|$paymentOrder';
     }
 
     if (source.isNotEmpty &&
@@ -237,12 +257,21 @@ class NotificationBellState extends Equatable {
     final action = _clean(extra['action']?.toString());
     final actorId = _clean(extra['actorId']?.toString());
     final actorName = _clean(extra['actorName']?.toString());
+
     final contractId = _clean(extra['contractId']?.toString());
     final contractSummary = _clean(extra['contractSummary']?.toString());
     final contractTitle = _clean(extra['contractTitle']?.toString());
     final nomeDemanda = _clean(extra['nomeDemanda']?.toString());
     final descricaoObjeto = _clean(extra['descricaoObjeto']?.toString());
+
     final measurementId = _clean(extra['measurementId']?.toString());
+
+    final paymentId = _clean(extra['paymentId']?.toString());
+    final paymentValue = _clean(extra['paymentValue']?.toString());
+    final paymentTotalValue = _clean(extra['paymentTotalValue']?.toString());
+    final paymentFundingSourceLabel = _clean(
+      extra['paymentFundingSourceLabel']?.toString(),
+    );
 
     if (title.isNotEmpty && title.toLowerCase() != 'notificação') score += 10;
     if (subtitle.isNotEmpty) score += 5;
@@ -251,12 +280,19 @@ class NotificationBellState extends Equatable {
     if (action.isNotEmpty) score += 4;
     if (actorId.isNotEmpty) score += 8;
     if (actorName.isNotEmpty) score += 6;
+
     if (contractId.isNotEmpty) score += 4;
     if (contractSummary.isNotEmpty) score += 7;
     if (contractTitle.isNotEmpty) score += 5;
     if (nomeDemanda.isNotEmpty) score += 8;
     if (descricaoObjeto.isNotEmpty) score += 8;
+
     if (measurementId.isNotEmpty) score += 4;
+
+    if (paymentId.isNotEmpty) score += 5;
+    if (paymentValue.isNotEmpty) score += 3;
+    if (paymentTotalValue.isNotEmpty) score += 3;
+    if (paymentFundingSourceLabel.isNotEmpty) score += 3;
 
     return score;
   }

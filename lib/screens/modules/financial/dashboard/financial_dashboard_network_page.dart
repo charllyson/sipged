@@ -15,12 +15,12 @@ import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/screens/modules/financial/dashboard/finance_dashboard_page.dart';
 
 class FinancialDashboardNetworkPage extends StatefulWidget {
-  final ProcessData? contractData;
-
   const FinancialDashboardNetworkPage({
     super.key,
     this.contractData,
   });
+
+  final ProcessData? contractData;
 
   @override
   State<FinancialDashboardNetworkPage> createState() =>
@@ -31,6 +31,8 @@ class _FinancialDashboardNetworkPageState
     extends State<FinancialDashboardNetworkPage> {
   final NumberFormat _currency =
   NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+  String get _contractId => widget.contractData?.id?.trim() ?? '';
 
   @override
   Widget build(BuildContext context) {
@@ -46,69 +48,61 @@ class _FinancialDashboardNetworkPageState
         ),
         BlocProvider<FinancialDashboardCubit>(
           create: (ctx) {
-            final c = FinancialDashboardCubit(
+            final cubit = FinancialDashboardCubit(
               dfdCubit: ctx.read<DfdCubit>(),
             );
 
-            final contractId = widget.contractData?.id?.trim() ?? '';
-            if (contractId.isNotEmpty) {
-              c.loadByContract(contractId);
+            if (_contractId.isNotEmpty) {
+              cubit.loadByContract(_contractId);
             } else {
-              c.loadAll();
+              cubit.loadAll();
             }
-            return c;
+
+            return cubit;
           },
         ),
       ],
-      child: Scaffold(
-        body: BlocBuilder<FinancialDashboardCubit, FinancialDashboardState>(
-          builder: (context, st) {
-            final cubit = context.read<FinancialDashboardCubit>();
+      child: BlocBuilder<FinancialDashboardCubit, FinancialDashboardState>(
+        builder: (context, st) {
+          final cubit = context.read<FinancialDashboardCubit>();
 
-            if (st.status == FinancialDashboardStatus.loading &&
-                st.budgets.isEmpty &&
-                st.empenhos.isEmpty) {
-              return const Center(
-                child: LoadingTreeDots(size: 110),
-              );
-            }
-
-            if (st.status == FinancialDashboardStatus.failure &&
-                st.budgets.isEmpty &&
-                st.empenhos.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(st.error ?? 'Erro ao carregar dashboard.'),
-                ),
-              );
-            }
-
-            final totals = cubit.computeTotals();
-            final selected = cubit.selectedEmpenho;
-
-            return Column(
-              children: [
-                Expanded(
-                  child: FinancialDashboardPage(
-                    currency: _currency,
-                    theme: theme,
-                    budgets: st.budgets,
-                    empenhos: st.empenhos,
-                    selectedEmpenhoId: st.selectedEmpenhoId,
-                    selectedEmpenho: selected,
-                    onSelectEmpenho: cubit.selectEmpenho,
-                    totalOrcamento: totals.orcamento,
-                    totalEmpenhado: totals.empenhado,
-                    totalMedido: totals.medido,
-                    totalPago: totals.pago,
-                    totalSaldo: totals.saldo,
-                  ),
-                ),
-              ],
+          if (st.status == FinancialDashboardStatus.loading &&
+              st.budgets.isEmpty &&
+              st.empenhos.isEmpty) {
+            return const Center(
+              child: LoadingTreeDots(size: 110),
             );
-          },
-        ),
+          }
+
+          if (st.status == FinancialDashboardStatus.failure &&
+              st.budgets.isEmpty &&
+              st.empenhos.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(st.error ?? 'Erro ao carregar dashboard.'),
+              ),
+            );
+          }
+
+          final totals = cubit.computeTotals();
+          final selected = cubit.selectedEmpenho;
+
+          return FinancialDashboardPage(
+            currency: _currency,
+            theme: theme,
+            budgets: st.budgets,
+            empenhos: st.empenhos,
+            selectedEmpenhoId: st.selectedEmpenhoId,
+            selectedEmpenho: selected,
+            onSelectEmpenho: cubit.selectEmpenho,
+            totalOrcamento: totals.orcamento,
+            totalEmpenhado: totals.empenhado,
+            totalMedido: totals.medido,
+            totalPago: totals.pago,
+            totalSaldo: totals.saldo,
+          );
+        },
       ),
     );
   }

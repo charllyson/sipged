@@ -8,7 +8,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_repository.dart';
 
@@ -19,7 +19,7 @@ class SpecificDashboardCubit extends Cubit<SpecificDashboardState> {
   final AdditivesRepository additivesRepository;
   final ApostillesRepository apostillesRepository;
 
-  final ReportMeasurementRepository reportRepository;
+  final ReportExecutedRepository reportRepository;
   final AdjustmentMeasurementRepository adjustmentRepository;
   final RevisionMeasurementRepository revisionRepository;
 

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/charts/lines/line_chart_changed.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 
 class MeasurementContractSection extends StatelessWidget {
-  final List<ReportMeasurementData> filteredMeasurements;
+  final List<ReportExecutedData> filteredMeasurements;
   final int? selectedIndex;
   final void Function(int index)? onPointTap;
 

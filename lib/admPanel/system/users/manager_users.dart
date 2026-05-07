@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
-import 'package:sipged/_blocs/system/module/module_data.dart';
+import 'package:sipged/_blocs/system/module/module_catalog.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart' as perm;
@@ -434,7 +434,7 @@ class _ManagerUsersState extends State<ManagerUsers> {
         }
 
         final tenantId = _activeTenantId();
-        final groups = ModuleData.permissionModulesByDrawerGroup();
+        final groups = ModuleCatalog.permissionModulesByDrawerGroup();
 
         return Scaffold(
           floatingActionButton: _buildAddUserButton(),

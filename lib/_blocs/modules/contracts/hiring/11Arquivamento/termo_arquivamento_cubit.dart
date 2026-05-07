@@ -9,9 +9,8 @@ import 'termo_arquivamento_repository.dart';
 import 'termo_arquivamento_state.dart';
 
 class TermoArquivamentoCubit extends Cubit<TermoArquivamentoState> {
-  TermoArquivamentoCubit(TermoArquivamentoRepository repo)
-      : repo = repo,
-        super(TermoArquivamentoState.initial());
+  TermoArquivamentoCubit(this.repo)
+      : super(TermoArquivamentoState.initial());
 
   final TermoArquivamentoRepository repo;
 

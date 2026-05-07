@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/DataTime/selector/selector_dates.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 
 class MeasurementSelectorDatesSection extends StatefulWidget {
-  final List<ReportMeasurementData> allMeasurements;
+  final List<ReportExecutedData> allMeasurements;
   final int? initialYear;
   final int? initialMonth;
   final ValueChanged<SelectorDatesFilterResult> onSelectionChanged;
@@ -48,7 +48,7 @@ class _MeasurementSelectorDatesSectionState
 
   @override
   Widget build(BuildContext context) {
-    return SelectorDates<ReportMeasurementData>(
+    return SelectorDates<ReportExecutedData>(
       items: widget.allMeasurements,
       getDate: (item) => item.date,
       initialYear: _effectiveInitialYear,
@@ -57,7 +57,7 @@ class _MeasurementSelectorDatesSectionState
       sortByDate: true,
       sortDescending: false,
       onSelectionChanged: ({
-        required List<ReportMeasurementData> filteredItems,
+        required List<ReportExecutedData> filteredItems,
         int? selectedYear,
         int? selectedMonth,
         int? selectedDay,
@@ -75,7 +75,7 @@ class _MeasurementSelectorDatesSectionState
 }
 
 class SelectorDatesFilterResult {
-  final List<ReportMeasurementData> filteredItems;
+  final List<ReportExecutedData> filteredItems;
   final int? selectedYear;
   final int? selectedMonth;
 

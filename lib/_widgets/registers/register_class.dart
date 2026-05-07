@@ -3,7 +3,7 @@ import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 
 class Registro {
   final String? id;
@@ -38,8 +38,8 @@ class Registro {
           '${data.year}';
 
   String get titulo {
-    if (original is ReportMeasurementData) {
-      final m = original as ReportMeasurementData;
+    if (original is ReportExecutedData) {
+      final m = original as ReportExecutedData;
       return '${m.order}ª Medição';
     } else if (original is AdditivesData) {
       final a = original as AdditivesData;
