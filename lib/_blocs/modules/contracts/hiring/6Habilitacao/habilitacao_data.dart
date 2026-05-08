@@ -1,19 +1,37 @@
+// lib/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart
+
 import 'package:equatable/equatable.dart';
 
-import 'habilitacao_sections.dart';
-
 class HabilitacaoData extends Equatable {
+  /// Chaves estáveis das seções da Habilitação.
+  /// Substitui o antigo arquivo habilitacao_sections.dart.
+  static const sectionMetadados = 'metadados';
+  static const sectionEmpresa = 'empresa';
+  static const sectionCertidoes = 'certidoes';
+  static const sectionJuridicaTecnica = 'juridicaTecnica';
+  static const sectionLicitacaoAdesao = 'licitacaoAdesao';
+  static const sectionConsolidacao = 'consolidacao';
+
+  static const sectionKeys = <String>[
+    sectionMetadados,
+    sectionEmpresa,
+    sectionCertidoes,
+    sectionJuridicaTecnica,
+    sectionLicitacaoAdesao,
+    sectionConsolidacao,
+  ];
+
   // ───── 1) Metadados ─────
   final String? numeroDossie;
-  final String? dataMontagem;       // dd/mm/aaaa
-  final String? responsavelNome;    // nome p/ UI
-  final String? responsavelUserId;  // id p/ Autocomplete
+  final String? dataMontagem;
+  final String? responsavelNome;
+  final String? responsavelUserId;
   final String? linksPasta;
 
   // ───── 2) Empresa ─────
   final String? razaoSocial;
   final String? cnpj;
-  final String? sociosRepresentantes; // multi-linha
+  final String? sociosRepresentantes;
 
   // ───── 3) Certidões ─────
   final String? fgtsStatus;
@@ -56,23 +74,18 @@ class HabilitacaoData extends Equatable {
 
   // ───── 6) Consolidação/Parecer ─────
   final String? situacaoHabilitacao;
-  final String? dataConclusao;      // dd/mm/aaaa
+  final String? dataConclusao;
   final String? parecerConclusivo;
 
   const HabilitacaoData({
-    // 1) Metadados
     this.numeroDossie,
     this.dataMontagem,
     this.responsavelNome,
     this.responsavelUserId,
     this.linksPasta,
-
-    // 2) Empresa
     this.razaoSocial,
     this.cnpj,
     this.sociosRepresentantes,
-
-    // 3) Certidões
     this.fgtsStatus,
     this.fgtsValidade,
     this.fgtsLink,
@@ -91,28 +104,21 @@ class HabilitacaoData extends Equatable {
     this.cndtStatus,
     this.cndtValidade,
     this.cndtLink,
-
-    // 4) Jurídica/Técnica
     this.contratoSocialLink,
     this.cartaoCnpjLink,
     this.atestadosStatus,
     this.atestadosLinks,
-
-    // 5) Licitação/Adesão
     this.modalidade,
     this.numeroProcesso,
     this.ataSessaoLink,
     this.ataAdjudicacaoLink,
     this.editalLink,
     this.oficiosLinks,
-
-    // 6) Consolidação/Parecer
     this.situacaoHabilitacao,
     this.dataConclusao,
     this.parecerConclusivo,
   });
 
-  /// Construtor "vazio" no mesmo padrão dos outros Data
   const HabilitacaoData.empty()
       : numeroDossie = '',
         dataMontagem = '',
@@ -154,242 +160,150 @@ class HabilitacaoData extends Equatable {
         dataConclusao = '',
         parecerConclusivo = '';
 
-  // ---------------------------------------------------------------------------
-  // Map "flat" — compatível com um doc único no Firestore, se quiser
-  // ---------------------------------------------------------------------------
-  Map<String, dynamic> toMap() => {
-    // Metadados
-    'numeroDossie': numeroDossie,
-    'dataMontagem': dataMontagem,
-    'responsavelNome': responsavelNome,
-    'responsavelUserId': responsavelUserId,
-    'linksPasta': linksPasta,
+  static String _text(dynamic value) {
+    return (value ?? '').toString();
+  }
 
-    // Empresa
-    'razaoSocial': razaoSocial,
-    'cnpj': cnpj,
-    'sociosRepresentantes': sociosRepresentantes,
-
-    // Certidões
-    'fgtsStatus': fgtsStatus,
-    'fgtsValidade': fgtsValidade,
-    'fgtsLink': fgtsLink,
-    'inssStatus': inssStatus,
-    'inssValidade': inssValidade,
-    'inssLink': inssLink,
-    'federalStatus': federalStatus,
-    'federalValidade': federalValidade,
-    'federalLink': federalLink,
-    'estadualStatus': estadualStatus,
-    'estadualValidade': estadualValidade,
-    'estadualLink': estadualLink,
-    'municipalStatus': municipalStatus,
-    'municipalValidade': municipalValidade,
-    'municipalLink': municipalLink,
-    'cndtStatus': cndtStatus,
-    'cndtValidade': cndtValidade,
-    'cndtLink': cndtLink,
-
-    // Jurídica/Técnica
-    'contratoSocialLink': contratoSocialLink,
-    'cartaoCnpjLink': cartaoCnpjLink,
-    'atestadosStatus': atestadosStatus,
-    'atestadosLinks': atestadosLinks,
-
-    // Licitação/Adesão
-    'modalidade': modalidade,
-    'numeroProcesso': numeroProcesso,
-    'ataSessaoLink': ataSessaoLink,
-    'ataAdjudicacaoLink': ataAdjudicacaoLink,
-    'editalLink': editalLink,
-    'oficiosLinks': oficiosLinks,
-
-    // Consolidação
-    'situacaoHabilitacao': situacaoHabilitacao,
-    'dataConclusao': dataConclusao,
-    'parecerConclusivo': parecerConclusivo,
-  };
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'numeroDossie': numeroDossie,
+      'dataMontagem': dataMontagem,
+      'responsavelNome': responsavelNome,
+      'responsavelUserId': responsavelUserId,
+      'linksPasta': linksPasta,
+      'razaoSocial': razaoSocial,
+      'cnpj': cnpj,
+      'sociosRepresentantes': sociosRepresentantes,
+      'fgtsStatus': fgtsStatus,
+      'fgtsValidade': fgtsValidade,
+      'fgtsLink': fgtsLink,
+      'inssStatus': inssStatus,
+      'inssValidade': inssValidade,
+      'inssLink': inssLink,
+      'federalStatus': federalStatus,
+      'federalValidade': federalValidade,
+      'federalLink': federalLink,
+      'estadualStatus': estadualStatus,
+      'estadualValidade': estadualValidade,
+      'estadualLink': estadualLink,
+      'municipalStatus': municipalStatus,
+      'municipalValidade': municipalValidade,
+      'municipalLink': municipalLink,
+      'cndtStatus': cndtStatus,
+      'cndtValidade': cndtValidade,
+      'cndtLink': cndtLink,
+      'contratoSocialLink': contratoSocialLink,
+      'cartaoCnpjLink': cartaoCnpjLink,
+      'atestadosStatus': atestadosStatus,
+      'atestadosLinks': atestadosLinks,
+      'modalidade': modalidade,
+      'numeroProcesso': numeroProcesso,
+      'ataSessaoLink': ataSessaoLink,
+      'ataAdjudicacaoLink': ataAdjudicacaoLink,
+      'editalLink': editalLink,
+      'oficiosLinks': oficiosLinks,
+      'situacaoHabilitacao': situacaoHabilitacao,
+      'dataConclusao': dataConclusao,
+      'parecerConclusivo': parecerConclusivo,
+    };
+  }
 
   factory HabilitacaoData.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const HabilitacaoData.empty();
 
     return HabilitacaoData(
-      // Metadados
-      numeroDossie: (map['numeroDossie'] ?? '').toString(),
-      dataMontagem: (map['dataMontagem'] ?? '').toString(),
-      responsavelNome:
-      (map['responsavelNome'] ?? '').toString(),
-      responsavelUserId:
-      map['responsavelUserId']?.toString(),
-      linksPasta: (map['linksPasta'] ?? '').toString(),
-
-      // Empresa
-      razaoSocial: (map['razaoSocial'] ?? '').toString(),
-      cnpj: (map['cnpj'] ?? '').toString(),
-      sociosRepresentantes:
-      (map['sociosRepresentantes'] ?? '').toString(),
-
-      // Certidões
-      fgtsStatus: (map['fgtsStatus'] ?? '').toString(),
-      fgtsValidade: (map['fgtsValidade'] ?? '').toString(),
-      fgtsLink: (map['fgtsLink'] ?? '').toString(),
-      inssStatus: (map['inssStatus'] ?? '').toString(),
-      inssValidade: (map['inssValidade'] ?? '').toString(),
-      inssLink: (map['inssLink'] ?? '').toString(),
-      federalStatus:
-      (map['federalStatus'] ?? '').toString(),
-      federalValidade:
-      (map['federalValidade'] ?? '').toString(),
-      federalLink: (map['federalLink'] ?? '').toString(),
-      estadualStatus:
-      (map['estadualStatus'] ?? '').toString(),
-      estadualValidade:
-      (map['estadualValidade'] ?? '').toString(),
-      estadualLink:
-      (map['estadualLink'] ?? '').toString(),
-      municipalStatus:
-      (map['municipalStatus'] ?? '').toString(),
-      municipalValidade:
-      (map['municipalValidade'] ?? '').toString(),
-      municipalLink:
-      (map['municipalLink'] ?? '').toString(),
-      cndtStatus: (map['cndtStatus'] ?? '').toString(),
-      cndtValidade:
-      (map['cndtValidade'] ?? '').toString(),
-      cndtLink: (map['cndtLink'] ?? '').toString(),
-
-      // Jurídica/Técnica
-      contratoSocialLink:
-      (map['contratoSocialLink'] ?? '').toString(),
-      cartaoCnpjLink:
-      (map['cartaoCnpjLink'] ?? '').toString(),
-      atestadosStatus:
-      (map['atestadosStatus'] ?? '').toString(),
-      atestadosLinks:
-      (map['atestadosLinks'] ?? '').toString(),
-
-      // Licitação/Adesão
-      modalidade: (map['modalidade'] ?? '').toString(),
-      numeroProcesso:
-      (map['numeroProcesso'] ?? '').toString(),
-      ataSessaoLink:
-      (map['ataSessaoLink'] ?? '').toString(),
-      ataAdjudicacaoLink:
-      (map['ataAdjudicacaoLink'] ?? '').toString(),
-      editalLink: (map['editalLink'] ?? '').toString(),
-      oficiosLinks:
-      (map['oficiosLinks'] ?? '').toString(),
-
-      // Consolidação
-      situacaoHabilitacao:
-      (map['situacaoHabilitacao'] ?? '').toString(),
-      dataConclusao:
-      (map['dataConclusao'] ?? '').toString(),
-      parecerConclusivo:
-      (map['parecerConclusivo'] ?? '').toString(),
+      numeroDossie: _text(map['numeroDossie']),
+      dataMontagem: _text(map['dataMontagem']),
+      responsavelNome: _text(map['responsavelNome']),
+      responsavelUserId: map['responsavelUserId']?.toString(),
+      linksPasta: _text(map['linksPasta']),
+      razaoSocial: _text(map['razaoSocial']),
+      cnpj: _text(map['cnpj']),
+      sociosRepresentantes: _text(map['sociosRepresentantes']),
+      fgtsStatus: _text(map['fgtsStatus']),
+      fgtsValidade: _text(map['fgtsValidade']),
+      fgtsLink: _text(map['fgtsLink']),
+      inssStatus: _text(map['inssStatus']),
+      inssValidade: _text(map['inssValidade']),
+      inssLink: _text(map['inssLink']),
+      federalStatus: _text(map['federalStatus']),
+      federalValidade: _text(map['federalValidade']),
+      federalLink: _text(map['federalLink']),
+      estadualStatus: _text(map['estadualStatus']),
+      estadualValidade: _text(map['estadualValidade']),
+      estadualLink: _text(map['estadualLink']),
+      municipalStatus: _text(map['municipalStatus']),
+      municipalValidade: _text(map['municipalValidade']),
+      municipalLink: _text(map['municipalLink']),
+      cndtStatus: _text(map['cndtStatus']),
+      cndtValidade: _text(map['cndtValidade']),
+      cndtLink: _text(map['cndtLink']),
+      contratoSocialLink: _text(map['contratoSocialLink']),
+      cartaoCnpjLink: _text(map['cartaoCnpjLink']),
+      atestadosStatus: _text(map['atestadosStatus']),
+      atestadosLinks: _text(map['atestadosLinks']),
+      modalidade: _text(map['modalidade']),
+      numeroProcesso: _text(map['numeroProcesso']),
+      ataSessaoLink: _text(map['ataSessaoLink']),
+      ataAdjudicacaoLink: _text(map['ataAdjudicacaoLink']),
+      editalLink: _text(map['editalLink']),
+      oficiosLinks: _text(map['oficiosLinks']),
+      situacaoHabilitacao: _text(map['situacaoHabilitacao']),
+      dataConclusao: _text(map['dataConclusao']),
+      parecerConclusivo: _text(map['parecerConclusivo']),
     );
   }
 
-  /// A partir da estrutura de seções usada no Firestore
   factory HabilitacaoData.fromSectionsMap(
       Map<String, Map<String, dynamic>> sections,
       ) {
-    final m =
-        sections[HabilitacaoSections.metadados] ??
-            const <String, dynamic>{};
-    final e =
-        sections[HabilitacaoSections.empresa] ??
-            const <String, dynamic>{};
-    final c =
-        sections[HabilitacaoSections.certidoes] ??
-            const <String, dynamic>{};
-    final jt =
-        sections[HabilitacaoSections.juridicaTecnica] ??
-            const <String, dynamic>{};
-    final l =
-        sections[HabilitacaoSections.licitacaoAdesao] ??
-            const <String, dynamic>{};
-    final co =
-        sections[HabilitacaoSections.consolidacao] ??
-            const <String, dynamic>{};
+    final m = sections[sectionMetadados] ?? const <String, dynamic>{};
+    final e = sections[sectionEmpresa] ?? const <String, dynamic>{};
+    final c = sections[sectionCertidoes] ?? const <String, dynamic>{};
+    final jt = sections[sectionJuridicaTecnica] ?? const <String, dynamic>{};
+    final l = sections[sectionLicitacaoAdesao] ?? const <String, dynamic>{};
+    final co = sections[sectionConsolidacao] ?? const <String, dynamic>{};
 
     return HabilitacaoData(
-      // Metadados
-      numeroDossie: (m['numeroDossie'] ?? '').toString(),
-      dataMontagem: (m['dataMontagem'] ?? '').toString(),
-      responsavelNome:
-      (m['responsavelNome'] ?? '').toString(),
-      responsavelUserId:
-      m['responsavelUserId']?.toString(),
-      linksPasta: (m['linksPasta'] ?? '').toString(),
-
-      // Empresa
-      razaoSocial:
-      (e['razaoSocial'] ?? '').toString(),
-      cnpj: (e['cnpj'] ?? '').toString(),
-      sociosRepresentantes:
-      (e['sociosRepresentantes'] ?? '').toString(),
-
-      // Certidões
-      fgtsStatus: (c['fgtsStatus'] ?? '').toString(),
-      fgtsValidade:
-      (c['fgtsValidade'] ?? '').toString(),
-      fgtsLink: (c['fgtsLink'] ?? '').toString(),
-      inssStatus: (c['inssStatus'] ?? '').toString(),
-      inssValidade:
-      (c['inssValidade'] ?? '').toString(),
-      inssLink: (c['inssLink'] ?? '').toString(),
-      federalStatus:
-      (c['federalStatus'] ?? '').toString(),
-      federalValidade:
-      (c['federalValidade'] ?? '').toString(),
-      federalLink: (c['federalLink'] ?? '').toString(),
-      estadualStatus:
-      (c['estadualStatus'] ?? '').toString(),
-      estadualValidade:
-      (c['estadualValidade'] ?? '').toString(),
-      estadualLink:
-      (c['estadualLink'] ?? '').toString(),
-      municipalStatus:
-      (c['municipalStatus'] ?? '').toString(),
-      municipalValidade:
-      (c['municipalValidade'] ?? '').toString(),
-      municipalLink:
-      (c['municipalLink'] ?? '').toString(),
-      cndtStatus: (c['cndtStatus'] ?? '').toString(),
-      cndtValidade:
-      (c['cndtValidade'] ?? '').toString(),
-      cndtLink: (c['cndtLink'] ?? '').toString(),
-
-      // Jurídica/Técnica
-      contratoSocialLink:
-      (jt['contratoSocialLink'] ?? '').toString(),
-      cartaoCnpjLink:
-      (jt['cartaoCnpjLink'] ?? '').toString(),
-      atestadosStatus:
-      (jt['atestadosStatus'] ?? '').toString(),
-      atestadosLinks:
-      (jt['atestadosLinks'] ?? '').toString(),
-
-      // Licitação/Adesão
-      modalidade: (l['modalidade'] ?? '').toString(),
-      numeroProcesso:
-      (l['numeroProcesso'] ?? '').toString(),
-      ataSessaoLink:
-      (l['ataSessaoLink'] ?? '').toString(),
-      ataAdjudicacaoLink:
-      (l['ataAdjudicacaoLink'] ?? '').toString(),
-      editalLink: (l['editalLink'] ?? '').toString(),
-      oficiosLinks:
-      (l['oficiosLinks'] ?? '').toString(),
-
-      // Consolidação
-      situacaoHabilitacao:
-      (co['situacaoHabilitacao'] ?? '').toString(),
-      dataConclusao:
-      (co['dataConclusao'] ?? '').toString(),
-      parecerConclusivo:
-      (co['parecerConclusivo'] ?? '').toString(),
+      numeroDossie: _text(m['numeroDossie']),
+      dataMontagem: _text(m['dataMontagem']),
+      responsavelNome: _text(m['responsavelNome']),
+      responsavelUserId: m['responsavelUserId']?.toString(),
+      linksPasta: _text(m['linksPasta']),
+      razaoSocial: _text(e['razaoSocial']),
+      cnpj: _text(e['cnpj']),
+      sociosRepresentantes: _text(e['sociosRepresentantes']),
+      fgtsStatus: _text(c['fgtsStatus']),
+      fgtsValidade: _text(c['fgtsValidade']),
+      fgtsLink: _text(c['fgtsLink']),
+      inssStatus: _text(c['inssStatus']),
+      inssValidade: _text(c['inssValidade']),
+      inssLink: _text(c['inssLink']),
+      federalStatus: _text(c['federalStatus']),
+      federalValidade: _text(c['federalValidade']),
+      federalLink: _text(c['federalLink']),
+      estadualStatus: _text(c['estadualStatus']),
+      estadualValidade: _text(c['estadualValidade']),
+      estadualLink: _text(c['estadualLink']),
+      municipalStatus: _text(c['municipalStatus']),
+      municipalValidade: _text(c['municipalValidade']),
+      municipalLink: _text(c['municipalLink']),
+      cndtStatus: _text(c['cndtStatus']),
+      cndtValidade: _text(c['cndtValidade']),
+      cndtLink: _text(c['cndtLink']),
+      contratoSocialLink: _text(jt['contratoSocialLink']),
+      cartaoCnpjLink: _text(jt['cartaoCnpjLink']),
+      atestadosStatus: _text(jt['atestadosStatus']),
+      atestadosLinks: _text(jt['atestadosLinks']),
+      modalidade: _text(l['modalidade']),
+      numeroProcesso: _text(l['numeroProcesso']),
+      ataSessaoLink: _text(l['ataSessaoLink']),
+      ataAdjudicacaoLink: _text(l['ataAdjudicacaoLink']),
+      editalLink: _text(l['editalLink']),
+      oficiosLinks: _text(l['oficiosLinks']),
+      situacaoHabilitacao: _text(co['situacaoHabilitacao']),
+      dataConclusao: _text(co['dataConclusao']),
+      parecerConclusivo: _text(co['parecerConclusivo']),
     );
   }
 
@@ -437,10 +351,8 @@ class HabilitacaoData extends Equatable {
     return HabilitacaoData(
       numeroDossie: numeroDossie ?? this.numeroDossie,
       dataMontagem: dataMontagem ?? this.dataMontagem,
-      responsavelNome:
-      responsavelNome ?? this.responsavelNome,
-      responsavelUserId:
-      responsavelUserId ?? this.responsavelUserId,
+      responsavelNome: responsavelNome ?? this.responsavelNome,
+      responsavelUserId: responsavelUserId ?? this.responsavelUserId,
       linksPasta: linksPasta ?? this.linksPasta,
       razaoSocial: razaoSocial ?? this.razaoSocial,
       cnpj: cnpj ?? this.cnpj,
@@ -452,53 +364,93 @@ class HabilitacaoData extends Equatable {
       inssStatus: inssStatus ?? this.inssStatus,
       inssValidade: inssValidade ?? this.inssValidade,
       inssLink: inssLink ?? this.inssLink,
-      federalStatus:
-      federalStatus ?? this.federalStatus,
-      federalValidade:
-      federalValidade ?? this.federalValidade,
+      federalStatus: federalStatus ?? this.federalStatus,
+      federalValidade: federalValidade ?? this.federalValidade,
       federalLink: federalLink ?? this.federalLink,
-      estadualStatus:
-      estadualStatus ?? this.estadualStatus,
-      estadualValidade:
-      estadualValidade ?? this.estadualValidade,
+      estadualStatus: estadualStatus ?? this.estadualStatus,
+      estadualValidade: estadualValidade ?? this.estadualValidade,
       estadualLink: estadualLink ?? this.estadualLink,
-      municipalStatus:
-      municipalStatus ?? this.municipalStatus,
-      municipalValidade:
-      municipalValidade ?? this.municipalValidade,
-      municipalLink:
-      municipalLink ?? this.municipalLink,
+      municipalStatus: municipalStatus ?? this.municipalStatus,
+      municipalValidade: municipalValidade ?? this.municipalValidade,
+      municipalLink: municipalLink ?? this.municipalLink,
       cndtStatus: cndtStatus ?? this.cndtStatus,
       cndtValidade: cndtValidade ?? this.cndtValidade,
       cndtLink: cndtLink ?? this.cndtLink,
-      contratoSocialLink:
-      contratoSocialLink ?? this.contratoSocialLink,
-      cartaoCnpjLink:
-      cartaoCnpjLink ?? this.cartaoCnpjLink,
-      atestadosStatus:
-      atestadosStatus ?? this.atestadosStatus,
-      atestadosLinks:
-      atestadosLinks ?? this.atestadosLinks,
+      contratoSocialLink: contratoSocialLink ?? this.contratoSocialLink,
+      cartaoCnpjLink: cartaoCnpjLink ?? this.cartaoCnpjLink,
+      atestadosStatus: atestadosStatus ?? this.atestadosStatus,
+      atestadosLinks: atestadosLinks ?? this.atestadosLinks,
       modalidade: modalidade ?? this.modalidade,
-      numeroProcesso:
-      numeroProcesso ?? this.numeroProcesso,
-      ataSessaoLink:
-      ataSessaoLink ?? this.ataSessaoLink,
-      ataAdjudicacaoLink:
-      ataAdjudicacaoLink ?? this.ataAdjudicacaoLink,
+      numeroProcesso: numeroProcesso ?? this.numeroProcesso,
+      ataSessaoLink: ataSessaoLink ?? this.ataSessaoLink,
+      ataAdjudicacaoLink: ataAdjudicacaoLink ?? this.ataAdjudicacaoLink,
       editalLink: editalLink ?? this.editalLink,
-      oficiosLinks:
-      oficiosLinks ?? this.oficiosLinks,
+      oficiosLinks: oficiosLinks ?? this.oficiosLinks,
       situacaoHabilitacao:
       situacaoHabilitacao ?? this.situacaoHabilitacao,
       dataConclusao: dataConclusao ?? this.dataConclusao,
-      parecerConclusivo:
-      parecerConclusivo ?? this.parecerConclusivo,
+      parecerConclusivo: parecerConclusivo ?? this.parecerConclusivo,
     );
   }
 
+  Map<String, Map<String, dynamic>> toSectionsMap() {
+    return <String, Map<String, dynamic>>{
+      sectionMetadados: <String, dynamic>{
+        'numeroDossie': numeroDossie,
+        'dataMontagem': dataMontagem,
+        'responsavelNome': responsavelNome,
+        'responsavelUserId': responsavelUserId,
+        'linksPasta': linksPasta,
+      },
+      sectionEmpresa: <String, dynamic>{
+        'razaoSocial': razaoSocial,
+        'cnpj': cnpj,
+        'sociosRepresentantes': sociosRepresentantes,
+      },
+      sectionCertidoes: <String, dynamic>{
+        'fgtsStatus': fgtsStatus,
+        'fgtsValidade': fgtsValidade,
+        'fgtsLink': fgtsLink,
+        'inssStatus': inssStatus,
+        'inssValidade': inssValidade,
+        'inssLink': inssLink,
+        'federalStatus': federalStatus,
+        'federalValidade': federalValidade,
+        'federalLink': federalLink,
+        'estadualStatus': estadualStatus,
+        'estadualValidade': estadualValidade,
+        'estadualLink': estadualLink,
+        'municipalStatus': municipalStatus,
+        'municipalValidade': municipalValidade,
+        'municipalLink': municipalLink,
+        'cndtStatus': cndtStatus,
+        'cndtValidade': cndtValidade,
+        'cndtLink': cndtLink,
+      },
+      sectionJuridicaTecnica: <String, dynamic>{
+        'contratoSocialLink': contratoSocialLink,
+        'cartaoCnpjLink': cartaoCnpjLink,
+        'atestadosStatus': atestadosStatus,
+        'atestadosLinks': atestadosLinks,
+      },
+      sectionLicitacaoAdesao: <String, dynamic>{
+        'modalidade': modalidade,
+        'numeroProcesso': numeroProcesso,
+        'ataSessaoLink': ataSessaoLink,
+        'ataAdjudicacaoLink': ataAdjudicacaoLink,
+        'editalLink': editalLink,
+        'oficiosLinks': oficiosLinks,
+      },
+      sectionConsolidacao: <String, dynamic>{
+        'situacaoHabilitacao': situacaoHabilitacao,
+        'dataConclusao': dataConclusao,
+        'parecerConclusivo': parecerConclusivo,
+      },
+    };
+  }
+
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     numeroDossie,
     dataMontagem,
     responsavelNome,
@@ -539,65 +491,4 @@ class HabilitacaoData extends Equatable {
     dataConclusao,
     parecerConclusivo,
   ];
-}
-
-// -----------------------------------------------------------------------------
-// Mapeamento para estrutura em seções (Firest
-// -----------------------------------------------------------------------------
-extension HabilitacaoDataSections on HabilitacaoData {
-  Map<String, Map<String, dynamic>> toSectionsMap() {
-    return {
-      HabilitacaoSections.metadados: {
-        'numeroDossie': numeroDossie,
-        'dataMontagem': dataMontagem,
-        'responsavelNome': responsavelNome,
-        'responsavelUserId': responsavelUserId,
-        'linksPasta': linksPasta,
-      },
-      HabilitacaoSections.empresa: {
-        'razaoSocial': razaoSocial,
-        'cnpj': cnpj,
-        'sociosRepresentantes': sociosRepresentantes,
-      },
-      HabilitacaoSections.certidoes: {
-        'fgtsStatus': fgtsStatus,
-        'fgtsValidade': fgtsValidade,
-        'fgtsLink': fgtsLink,
-        'inssStatus': inssStatus,
-        'inssValidade': inssValidade,
-        'inssLink': inssLink,
-        'federalStatus': federalStatus,
-        'federalValidade': federalValidade,
-        'federalLink': federalLink,
-        'estadualStatus': estadualStatus,
-        'estadualValidade': estadualValidade,
-        'estadualLink': estadualLink,
-        'municipalStatus': municipalStatus,
-        'municipalValidade': municipalValidade,
-        'municipalLink': municipalLink,
-        'cndtStatus': cndtStatus,
-        'cndtValidade': cndtValidade,
-        'cndtLink': cndtLink,
-      },
-      HabilitacaoSections.juridicaTecnica: {
-        'contratoSocialLink': contratoSocialLink,
-        'cartaoCnpjLink': cartaoCnpjLink,
-        'atestadosStatus': atestadosStatus,
-        'atestadosLinks': atestadosLinks,
-      },
-      HabilitacaoSections.licitacaoAdesao: {
-        'modalidade': modalidade,
-        'numeroProcesso': numeroProcesso,
-        'ataSessaoLink': ataSessaoLink,
-        'ataAdjudicacaoLink': ataAdjudicacaoLink,
-        'editalLink': editalLink,
-        'oficiosLinks': oficiosLinks,
-      },
-      HabilitacaoSections.consolidacao: {
-        'situacaoHabilitacao': situacaoHabilitacao,
-        'dataConclusao': dataConclusao,
-        'parecerConclusivo': parecerConclusivo,
-      },
-    };
-  }
 }

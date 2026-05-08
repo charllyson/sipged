@@ -2,15 +2,16 @@
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'edital_data.dart';
 import 'edital_repository.dart';
 import 'edital_state.dart';
 
 class EditalCubit extends Cubit<EditalState> {
-  EditalCubit(this.repo)
-      : super(EditalState.initial());
+  EditalCubit([EditalRepository? repository])
+      : repo = repository ?? EditalRepository(),
+        super(EditalState.initial());
 
   final EditalRepository repo;
 
@@ -82,7 +83,7 @@ class EditalCubit extends Cubit<EditalState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _loadSeq) return;
 
       emit(
@@ -90,7 +91,7 @@ class EditalCubit extends Cubit<EditalState> {
           loading: false,
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -98,7 +99,7 @@ class EditalCubit extends Cubit<EditalState> {
 
   Future<void> saveAll({
     required String contractId,
-    required SectionsMap sectionsData,
+    required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
     final cleanContractId = contractId.trim();
 
@@ -161,14 +162,14 @@ class EditalCubit extends Cubit<EditalState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -220,7 +221,7 @@ class EditalCubit extends Cubit<EditalState> {
       final ids = await repo.ensureEditalStructure(cleanContractId);
       final sectionId = ids.sectionIds[cleanSectionKey];
 
-      if (sectionId == null) {
+      if (sectionId == null || sectionId.trim().isEmpty) {
         if (!_alive || reqId != _saveSeq) return;
 
         emit(
@@ -267,17 +268,167 @@ class EditalCubit extends Cubit<EditalState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
+  }
+
+  Future<List<Attachment>> listFiles({
+    required String contractId,
+    String? editalId,
+    required String sectionKey,
+    String? sectionDocId,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanEditalId = (editalId ?? state.editalId ?? '').trim();
+    final cleanSectionKey = sectionKey.trim();
+    final cleanSectionDocId =
+    (sectionDocId ?? state.sectionIds[cleanSectionKey] ?? '').trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanEditalId.isEmpty ||
+        cleanSectionKey.isEmpty ||
+        cleanSectionDocId.isEmpty) {
+      return const <Attachment>[];
+    }
+
+    return repo.listFiles(
+      contractId: cleanContractId,
+      editalId: cleanEditalId,
+      sectionKey: cleanSectionKey,
+      sectionDocId: cleanSectionDocId,
+    );
+  }
+
+  Future<List<Attachment>> listDocumentFiles({
+    required String contractId,
+    String? editalId,
+    String? sectionDocId,
+  }) {
+    return listFiles(
+      contractId: contractId,
+      editalId: editalId,
+      sectionKey: EditalData.sectionDocumentos,
+      sectionDocId: sectionDocId,
+    );
+  }
+
+  Future<Attachment> uploadFile({
+    required String contractId,
+    String? editalId,
+    required String sectionKey,
+    String? sectionDocId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanEditalId = (editalId ?? state.editalId ?? '').trim();
+    final cleanSectionKey = sectionKey.trim();
+    final cleanSectionDocId =
+    (sectionDocId ?? state.sectionIds[cleanSectionKey] ?? '').trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanEditalId.isEmpty ||
+        cleanSectionKey.isEmpty ||
+        cleanSectionDocId.isEmpty) {
+      throw Exception('Caminho inválido para upload do edital.');
+    }
+
+    return repo.uploadFile(
+      contractId: cleanContractId,
+      editalId: cleanEditalId,
+      sectionKey: cleanSectionKey,
+      sectionDocId: cleanSectionDocId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadDocumentFile({
+    required String contractId,
+    String? editalId,
+    String? sectionDocId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
+  }) {
+    return uploadFile(
+      contractId: contractId,
+      editalId: editalId,
+      sectionKey: EditalData.sectionDocumentos,
+      sectionDocId: sectionDocId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<bool> deleteFile({
+    required String contractId,
+    String? editalId,
+    required String sectionKey,
+    String? sectionDocId,
+    required String fileName,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanEditalId = (editalId ?? state.editalId ?? '').trim();
+    final cleanSectionKey = sectionKey.trim();
+    final cleanSectionDocId =
+    (sectionDocId ?? state.sectionIds[cleanSectionKey] ?? '').trim();
+    final cleanFileName = fileName.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanEditalId.isEmpty ||
+        cleanSectionKey.isEmpty ||
+        cleanSectionDocId.isEmpty ||
+        cleanFileName.isEmpty) {
+      return false;
+    }
+
+    return repo.deleteFile(
+      contractId: cleanContractId,
+      editalId: cleanEditalId,
+      sectionKey: cleanSectionKey,
+      sectionDocId: cleanSectionDocId,
+      fileName: cleanFileName,
+    );
+  }
+
+  Future<bool> deleteDocumentFile({
+    required String contractId,
+    String? editalId,
+    String? sectionDocId,
+    required String fileName,
+  }) {
+    return deleteFile(
+      contractId: contractId,
+      editalId: editalId,
+      sectionKey: EditalData.sectionDocumentos,
+      sectionDocId: sectionDocId,
+      fileName: fileName,
+    );
+  }
+
+  Future<bool> deleteByPath(String path) {
+    return repo.deleteByPath(path);
   }
 
   void clearSuccessFlag() {

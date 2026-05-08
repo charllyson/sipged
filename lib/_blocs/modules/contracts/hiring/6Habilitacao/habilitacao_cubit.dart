@@ -2,15 +2,16 @@
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'habilitacao_data.dart';
 import 'habilitacao_repository.dart';
 import 'habilitacao_state.dart';
 
 class HabilitacaoCubit extends Cubit<HabilitacaoState> {
-  HabilitacaoCubit(this.repo)
-      : super(HabilitacaoState.initial());
+  HabilitacaoCubit([HabilitacaoRepository? repository])
+      : repo = repository ?? HabilitacaoRepository(),
+        super(HabilitacaoState.initial());
 
   final HabilitacaoRepository repo;
 
@@ -82,7 +83,7 @@ class HabilitacaoCubit extends Cubit<HabilitacaoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _loadSeq) return;
 
       emit(
@@ -90,7 +91,7 @@ class HabilitacaoCubit extends Cubit<HabilitacaoState> {
           loading: false,
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -98,7 +99,7 @@ class HabilitacaoCubit extends Cubit<HabilitacaoState> {
 
   Future<void> saveAll({
     required String contractId,
-    required SectionsMap sectionsData,
+    required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
     final cleanContractId = contractId.trim();
 
@@ -161,14 +162,14 @@ class HabilitacaoCubit extends Cubit<HabilitacaoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -220,7 +221,7 @@ class HabilitacaoCubit extends Cubit<HabilitacaoState> {
       final ids = await repo.ensureStructure(cleanContractId);
       final sectionId = ids.sectionIds[cleanSectionKey];
 
-      if (sectionId == null) {
+      if (sectionId == null || sectionId.trim().isEmpty) {
         if (!_alive || reqId != _saveSeq) return;
 
         emit(
@@ -267,17 +268,158 @@ class HabilitacaoCubit extends Cubit<HabilitacaoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
+  }
+
+  Future<List<Attachment>> listFiles({
+    required String contractId,
+    String? habId,
+    String? licitacaoDocId,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanHabId = (habId ?? state.habId ?? '').trim();
+    final cleanLicitacaoDocId = (licitacaoDocId ??
+        state.sectionIds[HabilitacaoData.sectionLicitacaoAdesao] ??
+        '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanHabId.isEmpty ||
+        cleanLicitacaoDocId.isEmpty) {
+      return const <Attachment>[];
+    }
+
+    return repo.listFiles(
+      contractId: cleanContractId,
+      habId: cleanHabId,
+      licitacaoDocId: cleanLicitacaoDocId,
+    );
+  }
+
+  Future<List<Attachment>> listLicitacaoFiles({
+    required String contractId,
+    String? habId,
+    String? licitacaoDocId,
+  }) {
+    return listFiles(
+      contractId: contractId,
+      habId: habId,
+      licitacaoDocId: licitacaoDocId,
+    );
+  }
+
+  Future<Attachment> uploadFile({
+    required String contractId,
+    String? habId,
+    String? licitacaoDocId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanHabId = (habId ?? state.habId ?? '').trim();
+    final cleanLicitacaoDocId = (licitacaoDocId ??
+        state.sectionIds[HabilitacaoData.sectionLicitacaoAdesao] ??
+        '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanHabId.isEmpty ||
+        cleanLicitacaoDocId.isEmpty) {
+      throw Exception('Caminho inválido para upload da habilitação.');
+    }
+
+    return repo.uploadFile(
+      contractId: cleanContractId,
+      habId: cleanHabId,
+      licitacaoDocId: cleanLicitacaoDocId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadLicitacaoFile({
+    required String contractId,
+    String? habId,
+    String? licitacaoDocId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
+  }) {
+    return uploadFile(
+      contractId: contractId,
+      habId: habId,
+      licitacaoDocId: licitacaoDocId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<bool> deleteFile({
+    required String contractId,
+    String? habId,
+    String? licitacaoDocId,
+    required String fileName,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanHabId = (habId ?? state.habId ?? '').trim();
+    final cleanLicitacaoDocId = (licitacaoDocId ??
+        state.sectionIds[HabilitacaoData.sectionLicitacaoAdesao] ??
+        '')
+        .trim();
+    final cleanFileName = fileName.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanHabId.isEmpty ||
+        cleanLicitacaoDocId.isEmpty ||
+        cleanFileName.isEmpty) {
+      return false;
+    }
+
+    return repo.deleteFile(
+      contractId: cleanContractId,
+      habId: cleanHabId,
+      licitacaoDocId: cleanLicitacaoDocId,
+      fileName: cleanFileName,
+    );
+  }
+
+  Future<bool> deleteLicitacaoFile({
+    required String contractId,
+    String? habId,
+    String? licitacaoDocId,
+    required String fileName,
+  }) {
+    return deleteFile(
+      contractId: contractId,
+      habId: habId,
+      licitacaoDocId: licitacaoDocId,
+      fileName: fileName,
+    );
+  }
+
+  Future<bool> deleteByPath(String path) {
+    return repo.deleteByPath(path);
   }
 
   void clearSuccessFlag() {

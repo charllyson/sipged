@@ -1,5 +1,3 @@
-// lib/screens/modules/contracts/hiring/4Cotacao/cotacao_page.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,8 +10,7 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -29,8 +26,8 @@ import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.da
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/screens/modules/contracts/hiring/progress_stage.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
-import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_1_metadados.dart';
@@ -44,14 +41,14 @@ import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_7_anexo
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 class CotacaoPage extends StatefulWidget {
-  final String contractId;
-  final bool readOnly;
-
   const CotacaoPage({
     super.key,
     required this.contractId,
     this.readOnly = false,
   });
+
+  final String contractId;
+  final bool readOnly;
 
   @override
   State<CotacaoPage> createState() => _CotacaoPageState();
@@ -59,15 +56,15 @@ class CotacaoPage extends StatefulWidget {
 
 class _CotacaoPageState extends State<CotacaoPage>
     with SipGedValidation, AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
   static const String _notificationSource = 'contracts_hiring_cotacao';
   static const String _route = 'contracts_hiring_cotacao';
 
   final DfdRepository _dfdRepository = DfdRepository();
 
   late final ProgressCubit _progressBloc;
+
+  /// Cubit pai da cadeia de etapas, fornecido pelo TabBarHiringPage.
+  ProgressCubit? _pipelineProgressCubit;
 
   CotacaoData _formData = const CotacaoData.empty();
   ContractData _contract = ContractData.empty();
@@ -81,6 +78,9 @@ class _CotacaoPageState extends State<CotacaoPage>
   final ScrollController _scrollController = ScrollController();
 
   int _fornCount = 1;
+
+  @override
+  bool get wantKeepAlive => true;
 
   bool get _isEditable => !widget.readOnly;
 
@@ -133,8 +133,27 @@ class _CotacaoPageState extends State<CotacaoPage>
         context.read<CotacaoCubit>().load(_contractId);
         unawaited(_loadContract(_contractId));
         unawaited(_loadDfdData(_contractId));
+        unawaited(
+          _progressBloc.bindToStage(
+            contractId: _contractId,
+            collectionName: ProgressData.cotacao,
+          ),
+        );
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_pipelineProgressCubit != null) return;
+
+    try {
+      _pipelineProgressCubit = context.read<ProgressCubit>();
+    } catch (_) {
+      _pipelineProgressCubit = null;
+    }
   }
 
   @override
@@ -153,10 +172,8 @@ class _CotacaoPageState extends State<CotacaoPage>
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(cid)
-          .get();
+      final snapshot =
+      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
 
       if (!mounted) return;
 
@@ -369,9 +386,11 @@ class _CotacaoPageState extends State<CotacaoPage>
 
       if (!mounted) return false;
 
-      _progressBloc.bindToStage(
-        contractId: _contractId,
-        collectionName: 'cotacao',
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.cotacao,
+        ),
       );
 
       if (notifySuccess) {
@@ -411,7 +430,6 @@ class _CotacaoPageState extends State<CotacaoPage>
 
   Future<void> _saveApproveAndNext() async {
     final cotacaoCubit = context.read<CotacaoCubit>();
-    final pipeline = context.read<PipelineCubit>();
     final controller = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
@@ -439,21 +457,28 @@ class _CotacaoPageState extends State<CotacaoPage>
     try {
       await repo.approveStage(
         contractId: _contractId,
-        collectionName: 'cotacao',
+        collectionName: ProgressData.cotacao,
         approverUid: uid,
         approverName: actorName,
       );
 
       await repo.setCompleted(
         contractId: _contractId,
-        collectionName: 'cotacao',
+        collectionName: ProgressData.cotacao,
         completed: true,
       );
 
       if (!mounted) return;
 
-      pipeline.setStageEnabled(HiringStageKey.edital, true);
-      unawaited(pipeline.refresh());
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.cotacao,
+        ),
+      );
+
+      _pipelineProgressCubit?.setStageEnabled(ProgressData.edital, true);
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       controller.animateTo(
         (controller.index + 1).clamp(0, controller.length - 1),
@@ -473,7 +498,7 @@ class _CotacaoPageState extends State<CotacaoPage>
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
-          'nextStage': 'edital',
+          'nextStage': ProgressData.edital,
         },
       );
     } catch (e) {
@@ -517,12 +542,21 @@ class _CotacaoPageState extends State<CotacaoPage>
     try {
       await repo.touchApproval(
         contractId: _contractId,
-        collectionName: 'cotacao',
+        collectionName: ProgressData.cotacao,
         updatedByUid: uid,
         updatedByName: actorName,
       );
 
       if (!mounted) return;
+
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.cotacao,
+        ),
+      );
+
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       await _notify(
         title: 'Aprovação da Cotação atualizada',
@@ -553,11 +587,8 @@ class _CotacaoPageState extends State<CotacaoPage>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-
-    return BlocProvider.value(
+  Widget _buildContent() {
+    return BlocProvider<ProgressCubit>.value(
       value: _progressBloc,
       child: BlocListener<CotacaoCubit, CotacaoState>(
         listenWhen: (prev, curr) {
@@ -582,9 +613,11 @@ class _CotacaoPageState extends State<CotacaoPage>
           }
 
           if ((incomingId ?? '').isNotEmpty) {
-            _progressBloc.bindToStage(
-              contractId: _contractId,
-              collectionName: 'cotacao',
+            unawaited(
+              _progressBloc.bindToStage(
+                contractId: _contractId,
+                collectionName: ProgressData.cotacao,
+              ),
             );
 
             if ((_contract.id ?? '') != _contractId) {
@@ -617,105 +650,122 @@ class _CotacaoPageState extends State<CotacaoPage>
               message: msg,
               details: locked ? 'Por favor, aguarde.' : null,
               keepAppBarUndimmed: true,
-              child: StageGate(
-                stageKey: HiringStageKey.cotacao,
-                child: Scaffold(
-                  body: Stack(
-                    children: [
-                      const BackgroundChange(),
-                      SingleChildScrollView(
-                        key: const PageStorageKey('cotacao-scroll'),
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SectionMetadados(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionObjetoItens(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionConviteDivulgacao(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionRespostasFornecedores(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              fornCount: _fornCount,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                              onAdd: _isEditable && _fornCount < 3
-                                  ? _addFornecedor
-                                  : null,
-                              onRemoveOne: _isEditable && _fornCount > 1
-                                  ? _removeFornecedor
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            SectionVencedora(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionConsolidacaoResultado(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionAnexos(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                        ),
+              child: Scaffold(
+                body: Stack(
+                  children: <Widget>[
+                    const BackgroundChange(),
+                    SingleChildScrollView(
+                      key: const PageStorageKey<String>('cotacao-scroll'),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SectionMetadados(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionObjetoItens(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionConviteDivulgacao(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionRespostasFornecedores(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            fornCount: _fornCount,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                            onAdd: _isEditable && _fornCount < 3
+                                ? _addFornecedor
+                                : null,
+                            onRemoveOne: _isEditable && _fornCount > 1
+                                ? _removeFornecedor
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          SectionVencedora(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionConsolidacaoResultado(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionAnexos(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                       ),
-                    ],
-                  ),
-                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
-                    builder: (context, pstate) {
-                      return StageProgress(
-                        title: 'Cotação de preços',
-                        icon: Icons.request_quote_outlined,
-                        busy: state.saving || pstate.loading,
-                        approved: pstate.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: _saveApproveAndNext,
-                        onUpdateApproved: _updateApproved,
-                      );
-                    },
-                  ),
+                    ),
+                  ],
+                ),
+                bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
+                  builder: (context, progressState) {
+                    return StageProgress(
+                      title: 'Cotação de preços',
+                      icon: Icons.request_quote_outlined,
+                      busy: state.saving || progressState.loading,
+                      approved: progressState.approved,
+                      onSave: _saveOnly,
+                      onSaveAndNext: _saveApproveAndNext,
+                      onUpdateApproved: _updateApproved,
+                    );
+                  },
                 ),
               ),
             );
           },
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    final content = _buildContent();
+    final pipelineCubit = _pipelineProgressCubit;
+
+    if (pipelineCubit == null) {
+      return content;
+    }
+
+    return BlocProvider<ProgressCubit>.value(
+      value: pipelineCubit,
+      child: ProgressStage(
+        stageKey: ProgressData.cotacao,
+        child: content,
       ),
     );
   }

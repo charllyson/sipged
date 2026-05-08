@@ -1,7 +1,22 @@
+// lib/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_data.dart
+
 import 'package:equatable/equatable.dart';
-import 'minuta_contrato_sections.dart';
 
 class MinutaContratoData extends Equatable {
+  /// Chaves estáveis das seções da Minuta.
+  /// Substitui o antigo arquivo minuta_contrato_sections.dart.
+  static const sectionIdentificacao = 'identificacao';
+  static const sectionPartesObjeto = 'partes_objeto';
+  static const sectionValor = 'valor';
+  static const sectionGestaoRefs = 'gestao_refs';
+
+  static const sectionKeys = <String>[
+    sectionIdentificacao,
+    sectionPartesObjeto,
+    sectionValor,
+    sectionGestaoRefs,
+  ];
+
   // 1) Identificação
   final String? numero;
   final String? versao;
@@ -43,7 +58,6 @@ class MinutaContratoData extends Equatable {
     this.prazosRef,
   });
 
-  /// Construtor "vazio" no mesmo padrão dos outros Data
   const MinutaContratoData.empty()
       : numero = '',
         versao = '',
@@ -61,85 +75,76 @@ class MinutaContratoData extends Equatable {
         regimeExecucaoRef = '',
         prazosRef = '';
 
-  // ---------------------------------------------------------------------------
-  // Map "flat" — compatível com doc único no Firestore
-  // ---------------------------------------------------------------------------
-  Map<String, dynamic> toMap() => {
-    'numero': numero,
-    'versao': versao,
-    'dataElaboracao': dataElaboracao,
-    'contratante': contratante,
-    'contratadaRazao': contratadaRazao,
-    'contratadaCnpj': contratadaCnpj,
-    'objetoResumo': objetoResumo,
-    'valorGlobal': valorGlobal,
-    'gestorUserId': gestorUserId,
-    'gestorNome': gestorNome,
-    'fiscalUserId': fiscalUserId,
-    'fiscalNome': fiscalNome,
-    'linksAnexos': linksAnexos,
-    'regimeExecucaoRef': regimeExecucaoRef,
-    'prazosRef': prazosRef,
-  };
+  static String _text(dynamic value) {
+    return (value ?? '').toString();
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'numero': numero,
+      'versao': versao,
+      'dataElaboracao': dataElaboracao,
+      'contratante': contratante,
+      'contratadaRazao': contratadaRazao,
+      'contratadaCnpj': contratadaCnpj,
+      'objetoResumo': objetoResumo,
+      'valorGlobal': valorGlobal,
+      'gestorUserId': gestorUserId,
+      'gestorNome': gestorNome,
+      'fiscalUserId': fiscalUserId,
+      'fiscalNome': fiscalNome,
+      'linksAnexos': linksAnexos,
+      'regimeExecucaoRef': regimeExecucaoRef,
+      'prazosRef': prazosRef,
+    };
+  }
 
   factory MinutaContratoData.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const MinutaContratoData.empty();
 
     return MinutaContratoData(
-      numero: (map['numero'] ?? '').toString(),
-      versao: (map['versao'] ?? '').toString(),
-      dataElaboracao: (map['dataElaboracao'] ?? '').toString(),
-      contratante: (map['contratante'] ?? '').toString(),
-      contratadaRazao: (map['contratadaRazao'] ?? '').toString(),
-      contratadaCnpj: (map['contratadaCnpj'] ?? '').toString(),
-      objetoResumo: (map['objetoResumo'] ?? '').toString(),
-      valorGlobal: (map['valorGlobal'] ?? '').toString(),
+      numero: _text(map['numero']),
+      versao: _text(map['versao']),
+      dataElaboracao: _text(map['dataElaboracao']),
+      contratante: _text(map['contratante']),
+      contratadaRazao: _text(map['contratadaRazao']),
+      contratadaCnpj: _text(map['contratadaCnpj']),
+      objetoResumo: _text(map['objetoResumo']),
+      valorGlobal: _text(map['valorGlobal']),
       gestorUserId: map['gestorUserId']?.toString(),
-      gestorNome: (map['gestorNome'] ?? '').toString(),
+      gestorNome: _text(map['gestorNome']),
       fiscalUserId: map['fiscalUserId']?.toString(),
-      fiscalNome: (map['fiscalNome'] ?? '').toString(),
-      linksAnexos: (map['linksAnexos'] ?? '').toString(),
-      regimeExecucaoRef: (map['regimeExecucaoRef'] ?? '').toString(),
-      prazosRef: (map['prazosRef'] ?? '').toString(),
+      fiscalNome: _text(map['fiscalNome']),
+      linksAnexos: _text(map['linksAnexos']),
+      regimeExecucaoRef: _text(map['regimeExecucaoRef']),
+      prazosRef: _text(map['prazosRef']),
     );
   }
 
-  /// A partir da estrutura em seções usada no Firestore
   factory MinutaContratoData.fromSectionsMap(
       Map<String, Map<String, dynamic>> sections,
       ) {
-    final id  = sections[MinutaSections.identificacao]
-        ?? const <String, dynamic>{};
-    final po  = sections[MinutaSections.partesObjeto]
-        ?? const <String, dynamic>{};
-    final val = sections[MinutaSections.valor]
-        ?? const <String, dynamic>{};
-    final gr  = sections[MinutaSections.gestaoRefs]
-        ?? const <String, dynamic>{};
+    final id = sections[sectionIdentificacao] ?? const <String, dynamic>{};
+    final po = sections[sectionPartesObjeto] ?? const <String, dynamic>{};
+    final val = sections[sectionValor] ?? const <String, dynamic>{};
+    final gr = sections[sectionGestaoRefs] ?? const <String, dynamic>{};
 
     return MinutaContratoData(
-      // 1) Identificação
-      numero: (id['numero'] ?? '').toString(),
-      versao: (id['versao'] ?? '').toString(),
-      dataElaboracao: (id['dataElaboracao'] ?? '').toString(),
-
-      // 2) Partes / Objeto
-      contratante: (po['contratante'] ?? '').toString(),
-      contratadaRazao: (po['contratadaRazao'] ?? '').toString(),
-      contratadaCnpj: (po['contratadaCnpj'] ?? '').toString(),
-      objetoResumo: (po['objetoResumo'] ?? '').toString(),
-
-      // 3) Valor
-      valorGlobal: (val['valorGlobal'] ?? '').toString(),
-
-      // 4) Gestão / Referências
+      numero: _text(id['numero']),
+      versao: _text(id['versao']),
+      dataElaboracao: _text(id['dataElaboracao']),
+      contratante: _text(po['contratante']),
+      contratadaRazao: _text(po['contratadaRazao']),
+      contratadaCnpj: _text(po['contratadaCnpj']),
+      objetoResumo: _text(po['objetoResumo']),
+      valorGlobal: _text(val['valorGlobal']),
       gestorUserId: gr['gestorUserId']?.toString(),
-      gestorNome: (gr['gestorNome'] ?? '').toString(),
+      gestorNome: _text(gr['gestorNome']),
       fiscalUserId: gr['fiscalUserId']?.toString(),
-      fiscalNome: (gr['fiscalNome'] ?? '').toString(),
-      linksAnexos: (gr['linksAnexos'] ?? '').toString(),
-      regimeExecucaoRef: (gr['regimeExecucaoRef'] ?? '').toString(),
-      prazosRef: (gr['prazosRef'] ?? '').toString(),
+      fiscalNome: _text(gr['fiscalNome']),
+      linksAnexos: _text(gr['linksAnexos']),
+      regimeExecucaoRef: _text(gr['regimeExecucaoRef']),
+      prazosRef: _text(gr['prazosRef']),
     );
   }
 
@@ -179,8 +184,36 @@ class MinutaContratoData extends Equatable {
     );
   }
 
+  Map<String, Map<String, dynamic>> toSectionsMap() {
+    return <String, Map<String, dynamic>>{
+      sectionIdentificacao: <String, dynamic>{
+        'numero': numero,
+        'versao': versao,
+        'dataElaboracao': dataElaboracao,
+      },
+      sectionPartesObjeto: <String, dynamic>{
+        'contratante': contratante,
+        'contratadaRazao': contratadaRazao,
+        'contratadaCnpj': contratadaCnpj,
+        'objetoResumo': objetoResumo,
+      },
+      sectionValor: <String, dynamic>{
+        'valorGlobal': valorGlobal,
+      },
+      sectionGestaoRefs: <String, dynamic>{
+        'gestorUserId': gestorUserId,
+        'gestorNome': gestorNome,
+        'fiscalUserId': fiscalUserId,
+        'fiscalNome': fiscalNome,
+        'linksAnexos': linksAnexos,
+        'regimeExecucaoRef': regimeExecucaoRef,
+        'prazosRef': prazosRef,
+      },
+    };
+  }
+
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     numero,
     versao,
     dataElaboracao,
@@ -197,37 +230,4 @@ class MinutaContratoData extends Equatable {
     regimeExecucaoRef,
     prazosRef,
   ];
-}
-
-// -----------------------------------------------------------------------------
-// Mapeamento para estrutura em seções (Firestore)
-// -----------------------------------------------------------------------------
-extension MinutaContratoDataSections on MinutaContratoData {
-  Map<String, Map<String, dynamic>> toSectionsMap() {
-    return {
-      MinutaSections.identificacao: {
-        'numero': numero,
-        'versao': versao,
-        'dataElaboracao': dataElaboracao,
-      },
-      MinutaSections.partesObjeto: {
-        'contratante': contratante,
-        'contratadaRazao': contratadaRazao,
-        'contratadaCnpj': contratadaCnpj,
-        'objetoResumo': objetoResumo,
-      },
-      MinutaSections.valor: {
-        'valorGlobal': valorGlobal,
-      },
-      MinutaSections.gestaoRefs: {
-        'gestorUserId': gestorUserId,
-        'gestorNome': gestorNome,
-        'fiscalUserId': fiscalUserId,
-        'fiscalNome': fiscalNome,
-        'linksAnexos': linksAnexos,
-        'regimeExecucaoRef': regimeExecucaoRef,
-        'prazosRef': prazosRef,
-      },
-    };
-  }
 }

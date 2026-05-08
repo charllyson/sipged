@@ -1,5 +1,3 @@
-// lib/screens/modules/contracts/hiring/8Minuta/minuta_contrato_page.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,9 +11,9 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/screens/modules/contracts/hiring/progress_stage.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
-import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
@@ -25,8 +23,7 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -41,14 +38,14 @@ import 'package:sipged/screens/modules/contracts/hiring/8Minuta/section_3_valor.
 import 'package:sipged/screens/modules/contracts/hiring/8Minuta/section_4_gestao_refs.dart';
 
 class MinutaContratoPage extends StatefulWidget {
-  final String contractId;
-  final bool readOnly;
-
   const MinutaContratoPage({
     super.key,
     required this.contractId,
     this.readOnly = false,
   });
+
+  final String contractId;
+  final bool readOnly;
 
   @override
   State<MinutaContratoPage> createState() => _MinutaContratoPageState();
@@ -56,15 +53,14 @@ class MinutaContratoPage extends StatefulWidget {
 
 class _MinutaContratoPageState extends State<MinutaContratoPage>
     with SipGedValidation, AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
   static const String _route = 'contracts_hiring_minuta';
   static const String _notificationSource = 'contracts_hiring_minuta';
 
   final DfdRepository _dfdRepository = DfdRepository();
 
   late final ProgressCubit _progressBloc;
+
+  ProgressCubit? _pipelineProgressCubit;
 
   MinutaContratoData _formData = const MinutaContratoData.empty();
   ContractData _contract = ContractData.empty();
@@ -76,6 +72,9 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
   String? _currentMinutaId;
 
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   bool get _isEditable => !widget.readOnly;
 
@@ -133,7 +132,26 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
       context.read<MinutaContratoCubit>().load(contractId);
       unawaited(_loadContract(contractId));
       unawaited(_loadDfdData(contractId));
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.minuta,
+        ),
+      );
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_pipelineProgressCubit != null) return;
+
+    try {
+      _pipelineProgressCubit = context.read<ProgressCubit>();
+    } catch (_) {
+      _pipelineProgressCubit = null;
+    }
   }
 
   @override
@@ -152,10 +170,8 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(cid)
-          .get();
+      final snapshot =
+      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
 
       if (!mounted) return;
 
@@ -235,17 +251,11 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
-
-    /// Vazio = helper resolve todos os usuários com permissão ao contrato.
     Iterable<String> targetUserIds = const <String>[],
-
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
@@ -353,9 +363,11 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
 
       if (!mounted) return false;
 
-      _progressBloc.bindToStage(
-        contractId: contractId,
-        collectionName: 'minuta',
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.minuta,
+        ),
       );
 
       if (notifySuccess) {
@@ -395,13 +407,10 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
 
   Future<void> _saveApproveAndNext() async {
     final minutaCubit = context.read<MinutaContratoCubit>();
-    final pipeline = context.read<PipelineCubit>();
     final tab = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly(
-      notifySuccess: false,
-    );
+    final saved = await _saveOnly(notifySuccess: false);
 
     if (!mounted || !saved) return;
 
@@ -432,25 +441,30 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
     try {
       await repo.approveStage(
         contractId: contractId,
-        collectionName: 'minuta',
+        collectionName: ProgressData.minuta,
         approverUid: user?.uid ?? '',
         approverName: actorName,
       );
 
       await repo.setCompleted(
         contractId: contractId,
-        collectionName: 'minuta',
+        collectionName: ProgressData.minuta,
         completed: true,
       );
 
       if (!mounted) return;
 
-      pipeline.setStageEnabled(HiringStageKey.parecer, true);
-      unawaited(pipeline.refresh());
-
-      tab.animateTo(
-        (tab.index + 1).clamp(0, tab.length - 1),
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.minuta,
+        ),
       );
+
+      _pipelineProgressCubit?.setStageEnabled(ProgressData.parecer, true);
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
+
+      tab.animateTo((tab.index + 1).clamp(0, tab.length - 1));
 
       await _notify(
         title: 'Minuta aprovada',
@@ -466,7 +480,7 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
           'contractId': contractId,
           'route': _route,
           'notificationSource': _notificationSource,
-          'nextStage': 'parecer',
+          'nextStage': ProgressData.parecer,
         },
       );
     } catch (e) {
@@ -486,9 +500,7 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
     final minutaCubit = context.read<MinutaContratoCubit>();
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly(
-      notifySuccess: false,
-    );
+    final saved = await _saveOnly(notifySuccess: false);
 
     if (!mounted || !saved) return;
 
@@ -519,12 +531,21 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
     try {
       await repo.touchApproval(
         contractId: contractId,
-        collectionName: 'minuta',
+        collectionName: ProgressData.minuta,
         updatedByUid: user?.uid ?? '',
         updatedByName: actorName,
       );
 
       if (!mounted) return;
+
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.minuta,
+        ),
+      );
+
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       await _notify(
         title: 'Aprovação da Minuta atualizada',
@@ -555,11 +576,8 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-
-    return BlocProvider.value(
+  Widget _buildContent() {
+    return BlocProvider<ProgressCubit>.value(
       value: _progressBloc,
       child: BlocListener<MinutaContratoCubit, MinutaState>(
         listenWhen: (prev, curr) {
@@ -587,9 +605,11 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
           final contractId = _contractId;
 
           if ((incomingId ?? '').isNotEmpty && contractId.isNotEmpty) {
-            _progressBloc.bindToStage(
-              contractId: contractId,
-              collectionName: 'minuta',
+            unawaited(
+              _progressBloc.bindToStage(
+                contractId: contractId,
+                collectionName: ProgressData.minuta,
+              ),
             );
 
             if ((_contract.id ?? '') != contractId) {
@@ -622,70 +642,87 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
               message: msg,
               details: locked ? 'Por favor, aguarde.' : null,
               keepAppBarUndimmed: true,
-              child: StageGate(
-                stageKey: HiringStageKey.minuta,
-                child: Scaffold(
-                  body: Stack(
-                    children: [
-                      const BackgroundChange(),
-                      SingleChildScrollView(
-                        key: const PageStorageKey('minuta-scroll'),
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SectionIdentificacao(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionPartesObjeto(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionValor(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionGestaoRefs(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                          ],
-                        ),
+              child: Scaffold(
+                body: Stack(
+                  children: <Widget>[
+                    const BackgroundChange(),
+                    SingleChildScrollView(
+                      key: const PageStorageKey<String>('minuta-scroll'),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SectionIdentificacao(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionPartesObjeto(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionValor(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionGestaoRefs(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
-                    builder: (context, progressState) {
-                      return StageProgress(
-                        title: 'Minuta do Contrato',
-                        icon: Icons.description_outlined,
-                        busy: state.saving || progressState.loading,
-                        approved: progressState.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: _saveApproveAndNext,
-                        onUpdateApproved: _updateApproved,
-                      );
-                    },
-                  ),
+                    ),
+                  ],
+                ),
+                bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
+                  builder: (context, progressState) {
+                    return StageProgress(
+                      title: 'Minuta do Contrato',
+                      icon: Icons.description_outlined,
+                      busy: state.saving || progressState.loading,
+                      approved: progressState.approved,
+                      onSave: _saveOnly,
+                      onSaveAndNext: _saveApproveAndNext,
+                      onUpdateApproved: _updateApproved,
+                    );
+                  },
                 ),
               ),
             );
           },
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    final content = _buildContent();
+    final pipelineCubit = _pipelineProgressCubit;
+
+    if (pipelineCubit == null) {
+      return content;
+    }
+
+    return BlocProvider<ProgressCubit>.value(
+      value: pipelineCubit,
+      child: ProgressStage(
+        stageKey: ProgressData.minuta,
+        child: content,
       ),
     );
   }

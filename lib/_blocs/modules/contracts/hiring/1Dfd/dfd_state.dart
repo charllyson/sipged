@@ -1,8 +1,8 @@
-// lib/_blocs/modules/contracts/hiring/dfd/dfd_state.dart
+// lib/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart
 
 import 'package:equatable/equatable.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'dfd_data.dart';
 
 class DfdState extends Equatable {
   final bool loading;
@@ -13,8 +13,8 @@ class DfdState extends Equatable {
   final String? contractId;
   final String? dfdId;
 
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final Map<String, String> sectionIds;
+  final Map<String, Map<String, dynamic>> sectionsData;
 
   const DfdState({
     this.loading = false,
@@ -37,7 +37,9 @@ class DfdState extends Equatable {
         sectionIds.isNotEmpty;
   }
 
-  String? get currentDocsCheckId => sectionIds['documentos'];
+  String? get currentDocsCheckId {
+    return sectionIds[DfdData.sectionDocumentos];
+  }
 
   DfdState copyWith({
     bool? loading,
@@ -46,8 +48,8 @@ class DfdState extends Equatable {
     String? error,
     String? contractId,
     String? dfdId,
-    SectionIds? sectionIds,
-    SectionsMap? sectionsData,
+    Map<String, String>? sectionIds,
+    Map<String, Map<String, dynamic>>? sectionsData,
     bool clearError = false,
     bool clearContractId = false,
     bool clearDfdId = false,

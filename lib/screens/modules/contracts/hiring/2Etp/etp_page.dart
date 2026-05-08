@@ -1,5 +1,3 @@
-// lib/screens/modules/contracts/hiring/2Etp/etp_page.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,11 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
+import 'package:sipged/screens/modules/contracts/hiring/progress_stage.dart';
 
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
-import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
@@ -23,8 +21,7 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -45,14 +42,14 @@ import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_7_documento
 import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_8_conclusao.dart';
 
 class EtpPage extends StatefulWidget {
-  final String contractId;
-  final bool readOnly;
-
   const EtpPage({
     super.key,
     required this.contractId,
     this.readOnly = false,
   });
+
+  final String contractId;
+  final bool readOnly;
 
   @override
   State<EtpPage> createState() => _EtpPageState();
@@ -60,15 +57,16 @@ class EtpPage extends StatefulWidget {
 
 class _EtpPageState extends State<EtpPage>
     with SipGedValidation, AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
   static const String _notificationSource = 'contracts_hiring_etp';
   static const String _route = 'contracts_hiring_etp';
 
   final DfdRepository _dfdRepository = DfdRepository();
 
   late final ProgressCubit _progressBloc;
+
+  /// Cubit pai responsável pela cadeia das etapas.
+  /// Ele vem do TabBarHiringPage.
+  ProgressCubit? _pipelineProgressCubit;
 
   EtpData _formData = const EtpData.empty();
   ContractData _contract = ContractData.empty();
@@ -80,6 +78,9 @@ class _EtpPageState extends State<EtpPage>
   String? _currentEtpId;
 
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   bool get _isEditable => !widget.readOnly;
 
@@ -132,8 +133,27 @@ class _EtpPageState extends State<EtpPage>
         context.read<EtpCubit>().load(_contractId);
         unawaited(_loadContract(_contractId));
         unawaited(_loadDfdData(_contractId));
+        unawaited(
+          _progressBloc.bindToStage(
+            contractId: _contractId,
+            collectionName: ProgressData.etp,
+          ),
+        );
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_pipelineProgressCubit != null) return;
+
+    try {
+      _pipelineProgressCubit = context.read<ProgressCubit>();
+    } catch (_) {
+      _pipelineProgressCubit = null;
+    }
   }
 
   @override
@@ -152,10 +172,8 @@ class _EtpPageState extends State<EtpPage>
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(cid)
-          .get();
+      final snapshot =
+      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
 
       if (!mounted) return;
 
@@ -277,20 +295,17 @@ class _EtpPageState extends State<EtpPage>
         'sourceKey': _notificationSource,
         'subSource': _notificationSource,
         'notificationSource': _notificationSource,
-
         'actorId': actorId,
         'actorName': actorName,
         if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
         if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
         if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
         if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
-
         if (effectiveContractId.isNotEmpty) 'contractId': effectiveContractId,
         'contractTitle': demandName,
         'contractSummary': demandName,
         'descricaoObjeto': demandName,
         'nomeDemanda': demandName,
-
         if (_processNumber.trim().isNotEmpty) 'contractNumber': _processNumber,
         if (_processNumber.trim().isNotEmpty) 'processNumber': _processNumber,
         if (_dfdData?.processoAdministrativo?.trim().isNotEmpty == true)
@@ -340,9 +355,11 @@ class _EtpPageState extends State<EtpPage>
 
       if (!mounted) return false;
 
-      _progressBloc.bindToStage(
-        contractId: _contractId,
-        collectionName: 'etp',
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.etp,
+        ),
       );
 
       if (notifySuccess) {
@@ -382,7 +399,6 @@ class _EtpPageState extends State<EtpPage>
 
   Future<void> _saveApproveAndNext() async {
     final etpCubit = context.read<EtpCubit>();
-    final pipeline = context.read<PipelineCubit>();
     final tab = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
@@ -410,21 +426,28 @@ class _EtpPageState extends State<EtpPage>
     try {
       await repo.approveStage(
         contractId: _contractId,
-        collectionName: 'etp',
+        collectionName: ProgressData.etp,
         approverUid: uid,
         approverName: actorName,
       );
 
       await repo.setCompleted(
         contractId: _contractId,
-        collectionName: 'etp',
+        collectionName: ProgressData.etp,
         completed: true,
       );
 
       if (!mounted) return;
 
-      pipeline.setStageEnabled(HiringStageKey.tr, true);
-      unawaited(pipeline.refresh());
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.etp,
+        ),
+      );
+
+      _pipelineProgressCubit?.setStageEnabled(ProgressData.tr, true);
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       tab.animateTo(
         (tab.index + 1).clamp(0, tab.length - 1),
@@ -444,7 +467,7 @@ class _EtpPageState extends State<EtpPage>
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
-          'nextStage': 'tr',
+          'nextStage': ProgressData.tr,
         },
       );
     } catch (e) {
@@ -488,12 +511,21 @@ class _EtpPageState extends State<EtpPage>
     try {
       await repo.touchApproval(
         contractId: _contractId,
-        collectionName: 'etp',
+        collectionName: ProgressData.etp,
         updatedByUid: uid,
         updatedByName: actorName,
       );
 
       if (!mounted) return;
+
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.etp,
+        ),
+      );
+
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       await _notify(
         title: 'Aprovação do ETP atualizada',
@@ -524,11 +556,8 @@ class _EtpPageState extends State<EtpPage>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-
-    return BlocProvider.value(
+  Widget _buildContent() {
+    return BlocProvider<ProgressCubit>.value(
       value: _progressBloc,
       child: BlocListener<EtpCubit, EtpState>(
         listenWhen: (prev, curr) {
@@ -551,9 +580,11 @@ class _EtpPageState extends State<EtpPage>
           }
 
           if ((incomingId ?? '').isNotEmpty) {
-            _progressBloc.bindToStage(
-              contractId: _contractId,
-              collectionName: 'etp',
+            unawaited(
+              _progressBloc.bindToStage(
+                contractId: _contractId,
+                collectionName: ProgressData.etp,
+              ),
             );
 
             if ((_contract.id ?? '') != _contractId) {
@@ -586,106 +617,123 @@ class _EtpPageState extends State<EtpPage>
               message: msg,
               details: locked ? 'Por favor, aguarde.' : null,
               keepAppBarUndimmed: true,
-              child: StageGate(
-                stageKey: HiringStageKey.etp,
-                child: Scaffold(
-                  body: Stack(
-                    children: [
-                      const BackgroundChange(),
-                      SingleChildScrollView(
-                        key: const PageStorageKey('etp-scroll'),
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SectionIdentificacaoEtp(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionMotivationObj(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionAlternativeSolution(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionMercadoEstimativa(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionCronogramaIndicadores(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionPremissasRestricoesLicenciamento(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionDocumentosEquipe(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionConclusao(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                        ),
+              child: Scaffold(
+                body: Stack(
+                  children: <Widget>[
+                    const BackgroundChange(),
+                    SingleChildScrollView(
+                      key: const PageStorageKey<String>('etp-scroll'),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SectionIdentificacaoEtp(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionMotivationObj(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionAlternativeSolution(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionMercadoEstimativa(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionCronogramaIndicadores(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionPremissasRestricoesLicenciamento(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionDocumentosEquipe(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionConclusao(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                       ),
-                    ],
-                  ),
-                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
-                    builder: (context, pstate) {
-                      return StageProgress(
-                        title: 'Estudo Técnico Preliminar (ETP)',
-                        icon: Icons.description_outlined,
-                        busy: state.saving || pstate.loading,
-                        approved: pstate.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: _saveApproveAndNext,
-                        onUpdateApproved: _updateApproved,
-                      );
-                    },
-                  ),
+                    ),
+                  ],
+                ),
+                bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
+                  builder: (context, pstate) {
+                    return StageProgress(
+                      title: 'Estudo Técnico Preliminar (ETP)',
+                      icon: Icons.description_outlined,
+                      busy: state.saving || pstate.loading,
+                      approved: pstate.approved,
+                      onSave: _saveOnly,
+                      onSaveAndNext: _saveApproveAndNext,
+                      onUpdateApproved: _updateApproved,
+                    );
+                  },
                 ),
               ),
             );
           },
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    final content = _buildContent();
+    final pipelineCubit = _pipelineProgressCubit;
+
+    if (pipelineCubit == null) {
+      return content;
+    }
+
+    return BlocProvider<ProgressCubit>.value(
+      value: pipelineCubit,
+      child: ProgressStage(
+        stageKey: ProgressData.etp,
+        child: content,
       ),
     );
   }

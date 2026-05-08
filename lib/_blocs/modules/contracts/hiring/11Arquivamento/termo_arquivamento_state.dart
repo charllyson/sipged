@@ -2,9 +2,7 @@
 
 import 'package:equatable/equatable.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
-
-import 'termo_arquivamento_sections.dart';
+import 'termo_arquivamento_data.dart';
 
 class TermoArquivamentoState extends Equatable {
   final bool loading;
@@ -15,8 +13,8 @@ class TermoArquivamentoState extends Equatable {
   final String? contractId;
   final String? taId;
 
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final Map<String, String> sectionIds;
+  final Map<String, Map<String, dynamic>> sectionsData;
 
   const TermoArquivamentoState({
     this.loading = false,
@@ -42,8 +40,12 @@ class TermoArquivamentoState extends Equatable {
   }
 
   String? get currentContractId => contractId;
+
   String? get currentTaId => taId;
-  String? get currentPecasDocId => sectionIds[TermoArquivamentoSections.pecas];
+
+  String? get currentPecasDocId {
+    return sectionIds[TermoArquivamentoData.sectionPecas];
+  }
 
   TermoArquivamentoState copyWith({
     bool? loading,
@@ -52,8 +54,8 @@ class TermoArquivamentoState extends Equatable {
     String? error,
     String? contractId,
     String? taId,
-    SectionIds? sectionIds,
-    SectionsMap? sectionsData,
+    Map<String, String>? sectionIds,
+    Map<String, Map<String, dynamic>>? sectionsData,
     bool clearError = false,
     bool clearContractId = false,
     bool clearTaId = false,

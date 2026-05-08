@@ -1,8 +1,11 @@
 // lib/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart
 
+import 'dart:typed_data';
+
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'publicacao_extrato_data.dart';
 import 'publicacao_extrato_repository.dart';
@@ -86,7 +89,7 @@ class PublicacaoExtratoCubit extends Cubit<PublicacaoExtratoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _loadSeq) return;
 
       emit(
@@ -94,7 +97,7 @@ class PublicacaoExtratoCubit extends Cubit<PublicacaoExtratoState> {
           loading: false,
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -102,7 +105,7 @@ class PublicacaoExtratoCubit extends Cubit<PublicacaoExtratoState> {
 
   Future<void> saveAll({
     required String contractId,
-    required SectionsMap sectionsData,
+    required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
     final cleanContractId = contractId.trim();
 
@@ -165,14 +168,14 @@ class PublicacaoExtratoCubit extends Cubit<PublicacaoExtratoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -271,17 +274,195 @@ class PublicacaoExtratoCubit extends Cubit<PublicacaoExtratoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
+  }
+
+  Future<List<Attachment>> listFiles({
+    required String contractId,
+    String? pubId,
+    String? veiculoDocId,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanPubId = (pubId ?? state.pubId ?? '').trim();
+    final cleanVeiculoDocId =
+    (veiculoDocId ??
+        state.sectionIds[PublicacaoExtratoData.sectionVeiculo] ??
+        '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanPubId.isEmpty ||
+        cleanVeiculoDocId.isEmpty) {
+      return const <Attachment>[];
+    }
+
+    return repo.listFiles(
+      contractId: cleanContractId,
+      pubId: cleanPubId,
+      veiculoDocId: cleanVeiculoDocId,
+    );
+  }
+
+  Future<List<Attachment>> listVeiculoFiles({
+    required String contractId,
+    String? pubId,
+    String? veiculoDocId,
+  }) {
+    return listFiles(
+      contractId: contractId,
+      pubId: pubId,
+      veiculoDocId: veiculoDocId,
+    );
+  }
+
+  Future<Attachment> uploadFile({
+    required String contractId,
+    String? pubId,
+    String? veiculoDocId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanPubId = (pubId ?? state.pubId ?? '').trim();
+    final cleanVeiculoDocId =
+    (veiculoDocId ??
+        state.sectionIds[PublicacaoExtratoData.sectionVeiculo] ??
+        '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanPubId.isEmpty ||
+        cleanVeiculoDocId.isEmpty) {
+      throw Exception('Caminho inválido para upload da publicação.');
+    }
+
+    return repo.uploadFile(
+      contractId: cleanContractId,
+      pubId: cleanPubId,
+      veiculoDocId: cleanVeiculoDocId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadVeiculoFile({
+    required String contractId,
+    String? pubId,
+    String? veiculoDocId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
+  }) {
+    return uploadFile(
+      contractId: contractId,
+      pubId: pubId,
+      veiculoDocId: veiculoDocId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadBytes({
+    required String contractId,
+    String? pubId,
+    String? veiculoDocId,
+    required Uint8List bytes,
+    required String fileName,
+    required void Function(double progress) onProgress,
+    SettableMetadata? metadata,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanPubId = (pubId ?? state.pubId ?? '').trim();
+    final cleanVeiculoDocId =
+    (veiculoDocId ??
+        state.sectionIds[PublicacaoExtratoData.sectionVeiculo] ??
+        '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanPubId.isEmpty ||
+        cleanVeiculoDocId.isEmpty) {
+      throw Exception('Caminho inválido para upload da publicação.');
+    }
+
+    return repo.uploadBytes(
+      contractId: cleanContractId,
+      pubId: cleanPubId,
+      veiculoDocId: cleanVeiculoDocId,
+      bytes: bytes,
+      fileName: fileName,
+      onProgress: onProgress,
+      metadata: metadata,
+    );
+  }
+
+  Future<bool> deleteFile({
+    required String contractId,
+    String? pubId,
+    String? veiculoDocId,
+    required String fileName,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanPubId = (pubId ?? state.pubId ?? '').trim();
+    final cleanVeiculoDocId =
+    (veiculoDocId ??
+        state.sectionIds[PublicacaoExtratoData.sectionVeiculo] ??
+        '')
+        .trim();
+    final cleanFileName = fileName.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanPubId.isEmpty ||
+        cleanVeiculoDocId.isEmpty ||
+        cleanFileName.isEmpty) {
+      return false;
+    }
+
+    return repo.deleteFile(
+      contractId: cleanContractId,
+      pubId: cleanPubId,
+      veiculoDocId: cleanVeiculoDocId,
+      fileName: cleanFileName,
+    );
+  }
+
+  Future<bool> deleteVeiculoFile({
+    required String contractId,
+    String? pubId,
+    String? veiculoDocId,
+    required String fileName,
+  }) {
+    return deleteFile(
+      contractId: contractId,
+      pubId: pubId,
+      veiculoDocId: veiculoDocId,
+      fileName: fileName,
+    );
+  }
+
+  Future<bool> deleteByPath(String path) {
+    return repo.deleteByPath(path);
   }
 
   void clearSuccessFlag() {

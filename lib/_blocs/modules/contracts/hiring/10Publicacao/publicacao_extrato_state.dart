@@ -2,9 +2,7 @@
 
 import 'package:equatable/equatable.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
-
-import 'publicacao_extrato_sections.dart';
+import 'publicacao_extrato_data.dart';
 
 class PublicacaoExtratoState extends Equatable {
   final bool loading;
@@ -15,8 +13,8 @@ class PublicacaoExtratoState extends Equatable {
   final String? contractId;
   final String? pubId;
 
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final Map<String, String> sectionIds;
+  final Map<String, Map<String, dynamic>> sectionsData;
 
   const PublicacaoExtratoState({
     this.loading = false,
@@ -29,7 +27,9 @@ class PublicacaoExtratoState extends Equatable {
     this.sectionsData = const <String, Map<String, dynamic>>{},
   });
 
-  factory PublicacaoExtratoState.initial() => const PublicacaoExtratoState();
+  factory PublicacaoExtratoState.initial() {
+    return const PublicacaoExtratoState();
+  }
 
   bool get hasValidPath {
     return contractId != null &&
@@ -42,7 +42,7 @@ class PublicacaoExtratoState extends Equatable {
   String? get currentPubId => pubId;
 
   String? get currentVeiculoDocId {
-    return sectionIds[PublicacaoExtratoSections.veiculo];
+    return sectionIds[PublicacaoExtratoData.sectionVeiculo];
   }
 
   PublicacaoExtratoState copyWith({
@@ -52,8 +52,8 @@ class PublicacaoExtratoState extends Equatable {
     String? error,
     String? contractId,
     String? pubId,
-    SectionIds? sectionIds,
-    SectionsMap? sectionsData,
+    Map<String, String>? sectionIds,
+    Map<String, Map<String, dynamic>>? sectionsData,
     bool clearError = false,
     bool clearContractId = false,
     bool clearPubId = false,

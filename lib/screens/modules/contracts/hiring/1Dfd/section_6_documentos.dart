@@ -6,7 +6,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_storage_bloc.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
@@ -37,7 +36,6 @@ class SectionDocumentos extends StatefulWidget {
 }
 
 class _SectionDocumentosState extends State<SectionDocumentos> {
-  late final DfdStorageBloc _storage;
   StreamSubscription<DfdState>? _sub;
 
   bool _busy = false;
@@ -53,8 +51,6 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
   void initState() {
     super.initState();
 
-    _storage = DfdStorageBloc();
-
     final cubit = context.read<DfdCubit>();
 
     _sub = cubit.stream.listen((state) async {
@@ -62,7 +58,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
       if (state.loading) return;
 
       final dfdId = state.dfdId;
-      final docsId = state.sectionIds['documentos'];
+      final docsId = state.currentDocsCheckId;
 
       if (dfdId == null || docsId == null) return;
 
@@ -73,7 +69,28 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
       _lastDfdId = dfdId;
       _lastDocsId = docsId;
 
-      await _refreshDocs(dfdId, docsId);
+      await _refreshDocs(
+        dfdId: dfdId,
+        documentosId: docsId,
+      );
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final state = context.read<DfdCubit>().state;
+      final dfdId = state.dfdId;
+      final docsId = state.currentDocsCheckId;
+
+      if (dfdId == null || docsId == null) return;
+
+      _lastDfdId = dfdId;
+      _lastDocsId = docsId;
+
+      _refreshDocs(
+        dfdId: dfdId,
+        documentosId: docsId,
+      );
     });
   }
 
@@ -109,13 +126,16 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     );
   }
 
-  Future<void> _refreshDocs(String dfdId, String documentosId) async {
+  Future<void> _refreshDocs({
+    required String dfdId,
+    required String documentosId,
+  }) async {
     if (!mounted) return;
 
     setState(() => _busy = true);
 
     try {
-      final list = await _storage.listarDocsDfd(
+      final list = await context.read<DfdCubit>().listarDocsDfd(
         contractId: widget.contractId,
         dfdId: dfdId,
         documentosId: documentosId,
@@ -140,9 +160,10 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
   }
 
   Future<void> _addDoc() async {
-    final state = context.read<DfdCubit>().state;
+    final cubit = context.read<DfdCubit>();
+    final state = cubit.state;
     final dfdId = state.dfdId;
-    final documentosId = state.sectionIds['documentos'];
+    final documentosId = state.currentDocsCheckId;
 
     if (dfdId == null || documentosId == null) {
       _notifyWarning('Aguarde: preparando área de documentos...');
@@ -152,25 +173,45 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     setState(() => _uploadProgress = 0.0);
 
     try {
-      final a = await _storage.uploadFile(
+      final attachment = await cubit.uploadDocDfd(
         contractId: widget.contractId,
         dfdId: dfdId,
         documentosId: documentosId,
-        onProgress: (p) {
+        onProgress: (progress) {
           if (mounted) {
-            setState(() => _uploadProgress = p);
+            setState(() => _uploadProgress = progress);
           }
         },
-        allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
+        allowedExtensions: const <String>[
+          'pdf',
+          'png',
+          'jpg',
+          'jpeg',
+          'webp',
+        ],
       );
 
       if (!mounted) return;
 
       setState(() {
-        _items = [..._items, a];
-        _selectedIndex = _items.length - 1;
+        _items = <Attachment>[..._items, attachment]
+          ..sort((a, b) => a.label.compareTo(b.label));
+
+        _selectedIndex = _items.indexWhere(
+              (item) => item.path == attachment.path,
+        );
+
+        if (_selectedIndex == -1) {
+          _selectedIndex = _items.length - 1;
+        }
       });
-    } catch (_) {
+    } catch (error) {
+      final text = error.toString();
+
+      if (text.contains('Nenhum arquivo selecionado')) {
+        return;
+      }
+
       _notifyError('Falha no upload do anexo.');
     } finally {
       if (mounted) {
@@ -179,18 +220,22 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     }
   }
 
-  Future<void> _deleteAt(int i) async {
-    if (i < 0 || i >= _items.length) return;
+  Future<void> _deleteAt(int index) async {
+    if (index < 0 || index >= _items.length) return;
 
-    final state = context.read<DfdCubit>().state;
+    final cubit = context.read<DfdCubit>();
+    final state = cubit.state;
     final dfdId = state.dfdId;
-    final documentosId = state.sectionIds['documentos'];
+    final documentosId = state.currentDocsCheckId;
 
-    if (dfdId == null || documentosId == null) return;
+    if (dfdId == null || documentosId == null) {
+      _notifyWarning('Área de documentos ainda não está pronta.');
+      return;
+    }
 
-    final fileName = _items[i].label;
+    final fileName = _items[index].label;
 
-    final ok = await _storage.deleteFile(
+    final ok = await cubit.deleteDocDfd(
       contractId: widget.contractId,
       dfdId: dfdId,
       documentosId: documentosId,
@@ -201,15 +246,15 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
 
     if (ok) {
       setState(() {
-        final list = [..._items]..removeAt(i);
+        final list = <Attachment>[..._items]..removeAt(index);
         _items = list;
 
         if (_items.isEmpty) {
           _selectedIndex = null;
         } else if (_selectedIndex != null) {
-          if (_selectedIndex! == i) {
-            _selectedIndex = (i - 1).clamp(0, _items.length - 1);
-          } else if (_selectedIndex! > i) {
+          if (_selectedIndex! == index) {
+            _selectedIndex = (index - 1).clamp(0, _items.length - 1);
+          } else if (_selectedIndex! > index) {
             _selectedIndex = _selectedIndex! - 1;
           }
         }
@@ -219,16 +264,16 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     }
   }
 
-  void _updateEtp(String? v) {
-    widget.onChanged(widget.data.copyWith(etpAnexo: v));
+  void _updateEtp(String? value) {
+    widget.onChanged(widget.data.copyWith(etpAnexo: value));
   }
 
-  void _updateProjetoBasico(String? v) {
-    widget.onChanged(widget.data.copyWith(projetoBasico: v));
+  void _updateProjetoBasico(String? value) {
+    widget.onChanged(widget.data.copyWith(projetoBasico: value));
   }
 
-  void _updateTermoMatriz(String? v) {
-    widget.onChanged(widget.data.copyWith(termoMatrizRiscos: v));
+  void _updateTermoMatriz(String? value) {
+    widget.onChanged(widget.data.copyWith(termoMatrizRiscos: value));
   }
 
   @override

@@ -1,8 +1,8 @@
-// lib/_blocs/modules/contracts/hiring/dfd/dfd_cubit.dart
+// lib/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'dfd_data.dart';
 import 'dfd_repository.dart';
@@ -29,6 +29,7 @@ class DfdCubit extends Cubit<DfdState> {
 
   Future<void> load(String contractId) async {
     final cleanContractId = contractId.trim();
+
     if (cleanContractId.isEmpty) {
       emit(
         state.copyWith(
@@ -82,7 +83,7 @@ class DfdCubit extends Cubit<DfdState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _loadSeq) return;
 
       emit(
@@ -90,7 +91,7 @@ class DfdCubit extends Cubit<DfdState> {
           loading: false,
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -98,9 +99,10 @@ class DfdCubit extends Cubit<DfdState> {
 
   Future<void> saveAll({
     required String contractId,
-    required SectionsMap sectionsData,
+    required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
     final cleanContractId = contractId.trim();
+
     if (cleanContractId.isEmpty) {
       emit(
         state.copyWith(
@@ -160,14 +162,14 @@ class DfdCubit extends Cubit<DfdState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -218,14 +220,14 @@ class DfdCubit extends Cubit<DfdState> {
       );
 
       return finalContractId;
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return null;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
 
@@ -326,17 +328,106 @@ class DfdCubit extends Cubit<DfdState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
+  }
+
+  Future<List<Attachment>> listarDocsDfd({
+    required String contractId,
+    String? dfdId,
+    String? documentosId,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanDfdId = (dfdId ?? state.dfdId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ?? state.sectionIds[DfdData.sectionDocumentos] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanDfdId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      return const <Attachment>[];
+    }
+
+    return repo.listarDocsDfd(
+      contractId: cleanContractId,
+      dfdId: cleanDfdId,
+      documentosId: cleanDocumentosId,
+    );
+  }
+
+  Future<Attachment> uploadDocDfd({
+    required String contractId,
+    String? dfdId,
+    String? documentosId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanDfdId = (dfdId ?? state.dfdId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ?? state.sectionIds[DfdData.sectionDocumentos] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanDfdId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      throw Exception('Caminho inválido para upload do DFD.');
+    }
+
+    return repo.uploadDocDfd(
+      contractId: cleanContractId,
+      dfdId: cleanDfdId,
+      documentosId: cleanDocumentosId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<bool> deleteDocDfd({
+    required String contractId,
+    String? dfdId,
+    String? documentosId,
+    required String fileName,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanDfdId = (dfdId ?? state.dfdId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ?? state.sectionIds[DfdData.sectionDocumentos] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanDfdId.isEmpty ||
+        cleanDocumentosId.isEmpty ||
+        fileName.trim().isEmpty) {
+      return false;
+    }
+
+    return repo.deleteDocDfd(
+      contractId: cleanContractId,
+      dfdId: cleanDfdId,
+      documentosId: cleanDocumentosId,
+      fileName: fileName,
+    );
+  }
+
+  Future<bool> deleteDocDfdByPath(String path) {
+    return repo.deleteDocDfdByPath(path);
   }
 
   void clearSuccessFlag() {

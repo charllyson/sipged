@@ -1,22 +1,45 @@
-import 'package:equatable/equatable.dart';
-import 'package:sipged/_utils/formatters/sipged_format_firestore.dart';
+// lib/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart
 
-import 'dfd_sections.dart';
+import 'package:equatable/equatable.dart';
+
+import 'package:sipged/_utils/formatters/sipged_format_firestore.dart';
 
 /// =============================================================================
 ///                              DFD DATA MODEL
 /// =============================================================================
 class DfdData extends Equatable {
-  /// Runtime only: id do contrato (vem do path).
-  /// NÃO deve ser persistido no Firestore (já é implícito no caminho).
+  /// Chaves estáveis das seções do DFD.
+  /// Substitui o antigo arquivo dfd_sections.dart.
+  static const sectionIdentificacao = 'identificacao';
+  static const sectionObjeto = 'objeto';
+  static const sectionLocalizacao = 'localizacao';
+  static const sectionEstimativa = 'estimativa';
+  static const sectionRiscos = 'riscos';
+  static const sectionDocumentos = 'documentos';
+  static const sectionAprovacao = 'aprovacao';
+  static const sectionObservacoes = 'observacoes';
+
+  static const sectionKeys = <String>[
+    sectionIdentificacao,
+    sectionObjeto,
+    sectionLocalizacao,
+    sectionEstimativa,
+    sectionRiscos,
+    sectionDocumentos,
+    sectionAprovacao,
+    sectionObservacoes,
+  ];
+
+  /// Runtime only: id do contrato vem do path.
+  /// Não deve ser persistido no Firestore.
   final String? contractId;
 
-  // 1) Identificação (labels)
+  // 1) Identificação - labels
   final String? orgaoDemandante;
   final String? unidadeSolicitante;
   final String? regional;
 
-  // 1) Identificação (IDs do Setup)
+  // 1) Identificação - IDs
   final String? orgaoDemandanteId;
   final String? unidadeSolicitanteId;
   final String? regionalId;
@@ -31,12 +54,12 @@ class DfdData extends Equatable {
   final String? processoAdministrativo;
   final String? statusDemanda;
 
-  /// IDs auxiliares (para dropdowns dinâmicos globais)
+  /// IDs auxiliares para dropdowns dinâmicos globais.
   final String? companyId;
   final String? unitId;
   final String? regionId;
 
-  // 2) Objeto (labels)
+  // 2) Objeto - labels
   final String? tipoContratacao;
   final String? modalidadeEstimativa;
   final String? regimeExecucao;
@@ -45,13 +68,13 @@ class DfdData extends Equatable {
   final String? tipoObra;
   final double? valorDemanda;
 
-  // 2) Objeto (IDs do Setup)
+  // 2) Objeto - IDs
   final String? tipoContratacaoId;
   final String? modalidadeEstimativaId;
   final String? regimeExecucaoId;
   final String? tipoObraId;
 
-  // 3) Localização (labels)
+  // 3) Localização - labels
   final String? uf;
   final String? municipio;
   final String? rodovia;
@@ -62,13 +85,13 @@ class DfdData extends Equatable {
   final int? vigenciaMeses;
   final double? extensaoKm;
 
-  // 3) Localização (IDs do Setup)
+  // 3) Localização - IDs
   final String? ufId;
   final String? municipioId;
   final String? rodoviaId;
   final String? naturezaIntervencaoId;
 
-  // 4) Estimativa (labels)
+  // 4) Estimativa - labels
   final String? fonteRecurso;
   final String? programaTrabalho;
   final String? ptres;
@@ -76,14 +99,14 @@ class DfdData extends Equatable {
   final double? estimativaValor;
   final String? metodologiaEstimativa;
 
-  // 4) Estimativa (IDs do Setup)
+  // 4) Estimativa - IDs
   final String? fonteRecursoId;
   final String? programaTrabalhoId;
   final String? ptresId;
   final String? naturezaDespesaId;
   final String? metodologiaEstimativaId;
 
-  // 5) Riscos (labels)
+  // 5) Riscos - labels
   final String? riscos;
   final String? impactoNaoContratar;
   final String? prioridade;
@@ -91,7 +114,7 @@ class DfdData extends Equatable {
   final String? motivacaoLegal;
   final String? amparoNormativo;
 
-  // 5) Riscos (IDs do Setup)
+  // 5) Riscos - IDs
   final String? prioridadeId;
 
   // 6) Documentos
@@ -102,14 +125,14 @@ class DfdData extends Equatable {
   final String? autorizacaoAbertura;
   final String? linksDocumentos;
 
-  // 7) Aprovação (labels)
+  // 7) Aprovação - labels
   final String? autoridadeAprovadora;
   final String? autoridadeUserId;
   final String? autoridadeCpf;
   final DateTime? dataAprovacao;
   final String? parecerResumo;
 
-  // 7) Aprovação (IDs do Setup)
+  // 7) Aprovação - IDs
   final String? autoridadeAprovadoraId;
 
   // 8) Observações
@@ -117,17 +140,12 @@ class DfdData extends Equatable {
 
   const DfdData({
     this.contractId,
-
-    // 1) Identificação (labels)
     this.orgaoDemandante,
     this.unidadeSolicitante,
     this.regional,
-
-    // 1) Identificação (ids)
     this.orgaoDemandanteId,
     this.unidadeSolicitanteId,
     this.regionalId,
-
     this.solicitanteNome,
     this.solicitanteUserId,
     this.solicitanteCpf,
@@ -137,13 +155,9 @@ class DfdData extends Equatable {
     this.dataSolicitacao,
     this.processoAdministrativo,
     this.statusDemanda,
-
-    // auxiliary
     this.companyId,
     this.unitId,
     this.regionId,
-
-    // 2) Objeto (labels)
     this.tipoContratacao,
     this.modalidadeEstimativa,
     this.regimeExecucao,
@@ -151,14 +165,10 @@ class DfdData extends Equatable {
     this.justificativa,
     this.tipoObra,
     this.valorDemanda,
-
-    // 2) Objeto (ids)
     this.tipoContratacaoId,
     this.modalidadeEstimativaId,
     this.regimeExecucaoId,
     this.tipoObraId,
-
-    // 3) Localização (labels)
     this.uf,
     this.municipio,
     this.rodovia,
@@ -168,58 +178,40 @@ class DfdData extends Equatable {
     this.prazoExecucaoDias,
     this.vigenciaMeses,
     this.extensaoKm,
-
-    // 3) Localização (ids)
     this.ufId,
     this.municipioId,
     this.rodoviaId,
     this.naturezaIntervencaoId,
-
-    // 4) Estimativa (labels)
     this.fonteRecurso,
     this.programaTrabalho,
     this.ptres,
     this.naturezaDespesa,
     this.estimativaValor,
     this.metodologiaEstimativa,
-
-    // 4) Estimativa (ids)
     this.fonteRecursoId,
     this.programaTrabalhoId,
     this.ptresId,
     this.naturezaDespesaId,
     this.metodologiaEstimativaId,
-
-    // 5) Riscos (labels)
     this.riscos,
     this.impactoNaoContratar,
     this.prioridade,
     this.dataLimite,
     this.motivacaoLegal,
     this.amparoNormativo,
-
-    // 5) Riscos (ids)
     this.prioridadeId,
-
-    // 6) Documentos
     this.etpAnexo,
     this.projetoBasico,
     this.termoMatrizRiscos,
     this.parecerJuridico,
     this.autorizacaoAbertura,
     this.linksDocumentos,
-
-    // 7) Aprovação (labels)
     this.autoridadeAprovadora,
     this.autoridadeUserId,
     this.autoridadeCpf,
     this.dataAprovacao,
     this.parecerResumo,
-
-    // 7) Aprovação (ids)
     this.autoridadeAprovadoraId,
-
-    // 8) Observações
     this.observacoes,
   });
 
@@ -299,9 +291,6 @@ class DfdData extends Equatable {
         autoridadeAprovadoraId = null,
         observacoes = '';
 
-  /// ---------------------------------------------------------------------------
-  /// Deserialização a partir de sectionsData (DFD em subdocumentos)
-  /// ---------------------------------------------------------------------------
   factory DfdData.fromSectionsMap(
       Map<String, dynamic>? sections, {
         String? contractId,
@@ -312,55 +301,88 @@ class DfdData extends Equatable {
 
     Map<String, dynamic> sec(String key) {
       final raw = sections[key];
+
       if (raw is Map<String, dynamic>) return raw;
+
       if (raw is Map) {
-        return raw.map((k, v) => MapEntry(k.toString(), v));
+        return raw.map(
+              (key, value) => MapEntry(
+            key.toString(),
+            value,
+          ),
+        );
       }
+
       return const <String, dynamic>{};
     }
 
-    final ident = sec(DfdSections.identificacao);
-    final objeto = sec(DfdSections.objeto);
-    final localizacao = sec(DfdSections.localizacao);
-    final estimativa = sec(DfdSections.estimativa);
-    final riscos = sec(DfdSections.riscos);
-    final documentos = sec(DfdSections.documentos);
-    final aprovacao = sec(DfdSections.aprovacao);
-    final observacoes = sec(DfdSections.observacoes);
+    final ident = sec(sectionIdentificacao);
+    final objeto = sec(sectionObjeto);
+    final localizacao = sec(sectionLocalizacao);
+    final estimativa = sec(sectionEstimativa);
+    final riscosMap = sec(sectionRiscos);
+    final documentos = sec(sectionDocumentos);
+    final aprovacao = sec(sectionAprovacao);
+    final observacoesMap = sec(sectionObservacoes);
 
-    String? s(Map<String, dynamic> m, String key) => m[key]?.toString();
+    String? s(Map<String, dynamic> map, String key) {
+      final value = map[key];
 
-    int? i(Map<String, dynamic> m, String key) =>
-        SipGedFormatFirestore.toInt(m[key]);
+      if (value == null) return null;
+
+      return value.toString();
+    }
+
+    int? i(Map<String, dynamic> map, String key) {
+      return SipGedFormatFirestore.toInt(map[key]);
+    }
 
     String? readIdCompat(
-        Map<String, dynamic> m,
+        Map<String, dynamic> map,
         String newKey,
         List<String> oldKeys,
         ) {
-      final direct = m[newKey]?.toString();
-      if (direct != null && direct.trim().isNotEmpty) return direct.trim();
-      for (final k in oldKeys) {
-        final v = m[k]?.toString();
-        if (v != null && v.trim().isNotEmpty) return v.trim();
+      final direct = map[newKey]?.toString();
+
+      if (direct != null && direct.trim().isNotEmpty) {
+        return direct.trim();
       }
+
+      for (final oldKey in oldKeys) {
+        final value = map[oldKey]?.toString();
+
+        if (value != null && value.trim().isNotEmpty) {
+          return value.trim();
+        }
+      }
+
       return null;
     }
 
     return DfdData(
       contractId: contractId,
 
-      // 1) Identificação (labels)
+      // 1) Identificação - labels
       orgaoDemandante: s(ident, 'orgaoDemandante'),
       unidadeSolicitante: s(ident, 'unidadeSolicitante'),
       regional: s(ident, 'regional'),
 
-      // 1) Identificação (ids)
-      orgaoDemandanteId:
-      readIdCompat(ident, 'orgaoDemandanteId', const ['orgaoDemandante_id']),
+      // 1) Identificação - IDs
+      orgaoDemandanteId: readIdCompat(
+        ident,
+        'orgaoDemandanteId',
+        const ['orgaoDemandante_id'],
+      ),
       unidadeSolicitanteId: readIdCompat(
-          ident, 'unidadeSolicitanteId', const ['unidadeSolicitante_id']),
-      regionalId: readIdCompat(ident, 'regionalId', const ['regional_id']),
+        ident,
+        'unidadeSolicitanteId',
+        const ['unidadeSolicitante_id'],
+      ),
+      regionalId: readIdCompat(
+        ident,
+        'regionalId',
+        const ['regional_id'],
+      ),
 
       solicitanteNome: s(ident, 'solicitanteNome'),
       solicitanteUserId: s(ident, 'solicitanteUserId'),
@@ -368,7 +390,9 @@ class DfdData extends Equatable {
       solicitanteCargo: s(ident, 'solicitanteCargo'),
       solicitanteEmail: s(ident, 'solicitanteEmail'),
       solicitanteTelefone: s(ident, 'solicitanteTelefone'),
-      dataSolicitacao: SipGedFormatFirestore.toDate(ident['dataSolicitacao']),
+      dataSolicitacao: SipGedFormatFirestore.toDate(
+        ident['dataSolicitacao'],
+      ),
       processoAdministrativo: s(ident, 'numeroProcessoContratacao'),
       statusDemanda: s(ident, 'statusContrato'),
 
@@ -376,74 +400,128 @@ class DfdData extends Equatable {
       unitId: s(ident, 'unitId'),
       regionId: s(ident, 'regionId') ?? s(localizacao, 'regionId'),
 
-      // 2) Objeto (labels)
+      // 2) Objeto - labels
       tipoContratacao: s(objeto, 'tipoContratacao'),
       modalidadeEstimativa: s(objeto, 'modalidadeEstimativa'),
       regimeExecucao: s(objeto, 'regimeExecucao'),
       descricaoObjeto: s(objeto, 'descricaoObjeto'),
       justificativa: s(objeto, 'justificativa'),
       tipoObra: s(objeto, 'tipoObra'),
-      valorDemanda: SipGedFormatFirestore.toDouble(objeto['valorDemanda']),
+      valorDemanda: SipGedFormatFirestore.toDouble(
+        objeto['valorDemanda'],
+      ),
 
-      // 2) Objeto (ids)
+      // 2) Objeto - IDs
       tipoContratacaoId: readIdCompat(
-          objeto, 'tipoContratacaoId', const ['tipoContratacao_id']),
+        objeto,
+        'tipoContratacaoId',
+        const ['tipoContratacao_id'],
+      ),
       modalidadeEstimativaId: readIdCompat(
-          objeto, 'modalidadeEstimativaId', const ['modalidadeEstimativa_id']),
-      regimeExecucaoId:
-      readIdCompat(objeto, 'regimeExecucaoId', const ['regimeExecucao_id']),
-      tipoObraId: readIdCompat(objeto, 'tipoObraId', const ['tipoObra_id']),
+        objeto,
+        'modalidadeEstimativaId',
+        const ['modalidadeEstimativa_id'],
+      ),
+      regimeExecucaoId: readIdCompat(
+        objeto,
+        'regimeExecucaoId',
+        const ['regimeExecucao_id'],
+      ),
+      tipoObraId: readIdCompat(
+        objeto,
+        'tipoObraId',
+        const ['tipoObra_id'],
+      ),
 
-      // 3) Localização (labels)
+      // 3) Localização - labels
       uf: s(localizacao, 'uf'),
       municipio: s(localizacao, 'municipio'),
       rodovia: s(localizacao, 'rodovia'),
       kmInicial: s(localizacao, 'kmInicial'),
       kmFinal: s(localizacao, 'kmFinal'),
-      naturezaIntervencao:
-      s(localizacao, 'naturezaIntervencao') ?? s(ident, 'naturezaIntervencao'),
+      naturezaIntervencao: s(localizacao, 'naturezaIntervencao') ??
+          s(ident, 'naturezaIntervencao'),
       prazoExecucaoDias: i(localizacao, 'prazoExecucaoDias'),
       vigenciaMeses: i(localizacao, 'vigenciaMeses'),
-      extensaoKm: SipGedFormatFirestore.toDouble(localizacao['extensaoKm']),
+      extensaoKm: SipGedFormatFirestore.toDouble(
+        localizacao['extensaoKm'],
+      ),
 
-      // 3) Localização (ids)
-      ufId: readIdCompat(localizacao, 'ufId', const ['uf_id']),
-      municipioId:
-      readIdCompat(localizacao, 'municipioId', const ['municipio_id']),
-      rodoviaId: readIdCompat(localizacao, 'rodoviaId', const ['rodovia_id']),
+      // 3) Localização - IDs
+      ufId: readIdCompat(
+        localizacao,
+        'ufId',
+        const ['uf_id'],
+      ),
+      municipioId: readIdCompat(
+        localizacao,
+        'municipioId',
+        const ['municipio_id'],
+      ),
+      rodoviaId: readIdCompat(
+        localizacao,
+        'rodoviaId',
+        const ['rodovia_id'],
+      ),
       naturezaIntervencaoId: readIdCompat(
-          localizacao, 'naturezaIntervencaoId', const ['naturezaIntervencao_id']),
+        localizacao,
+        'naturezaIntervencaoId',
+        const ['naturezaIntervencao_id'],
+      ),
 
-      // 4) Estimativa (labels)
+      // 4) Estimativa - labels
       fonteRecurso: s(estimativa, 'fonteRecurso'),
       programaTrabalho: s(estimativa, 'programaTrabalho'),
       ptres: s(estimativa, 'ptres'),
       naturezaDespesa: s(estimativa, 'naturezaDespesa'),
-      estimativaValor: SipGedFormatFirestore.toDouble(estimativa['estimativaValor']),
+      estimativaValor: SipGedFormatFirestore.toDouble(
+        estimativa['estimativaValor'],
+      ),
       metodologiaEstimativa: s(estimativa, 'metodologiaEstimativa'),
 
-      // 4) Estimativa (ids)
-      fonteRecursoId:
-      readIdCompat(estimativa, 'fonteRecursoId', const ['fonteRecurso_id']),
+      // 4) Estimativa - IDs
+      fonteRecursoId: readIdCompat(
+        estimativa,
+        'fonteRecursoId',
+        const ['fonteRecurso_id'],
+      ),
       programaTrabalhoId: readIdCompat(
-          estimativa, 'programaTrabalhoId', const ['programaTrabalho_id']),
-      ptresId: readIdCompat(estimativa, 'ptresId', const ['ptres_id']),
+        estimativa,
+        'programaTrabalhoId',
+        const ['programaTrabalho_id'],
+      ),
+      ptresId: readIdCompat(
+        estimativa,
+        'ptresId',
+        const ['ptres_id'],
+      ),
       naturezaDespesaId: readIdCompat(
-          estimativa, 'naturezaDespesaId', const ['naturezaDespesa_id']),
+        estimativa,
+        'naturezaDespesaId',
+        const ['naturezaDespesa_id'],
+      ),
       metodologiaEstimativaId: readIdCompat(
-          estimativa, 'metodologiaEstimativaId', const ['metodologiaEstimativa_id']),
+        estimativa,
+        'metodologiaEstimativaId',
+        const ['metodologiaEstimativa_id'],
+      ),
 
-      // 5) Riscos (labels)
-      riscos: s(riscos, 'riscos'),
-      impactoNaoContratar: s(riscos, 'impactoNaoContratar'),
-      prioridade: s(riscos, 'prioridade'),
-      dataLimite: SipGedFormatFirestore.toDate(riscos['dataLimite']),
-      motivacaoLegal: s(riscos, 'motivacaoLegal'),
-      amparoNormativo: s(riscos, 'amparoNormativo'),
+      // 5) Riscos - labels
+      riscos: s(riscosMap, 'riscos'),
+      impactoNaoContratar: s(riscosMap, 'impactoNaoContratar'),
+      prioridade: s(riscosMap, 'prioridade'),
+      dataLimite: SipGedFormatFirestore.toDate(
+        riscosMap['dataLimite'],
+      ),
+      motivacaoLegal: s(riscosMap, 'motivacaoLegal'),
+      amparoNormativo: s(riscosMap, 'amparoNormativo'),
 
-      // 5) Riscos (ids)
-      prioridadeId:
-      readIdCompat(riscos, 'prioridadeId', const ['prioridade_id']),
+      // 5) Riscos - IDs
+      prioridadeId: readIdCompat(
+        riscosMap,
+        'prioridadeId',
+        const ['prioridade_id'],
+      ),
 
       // 6) Documentos
       etpAnexo: s(documentos, 'etpAnexo'),
@@ -453,149 +531,231 @@ class DfdData extends Equatable {
       autorizacaoAbertura: s(documentos, 'autorizacaoAbertura'),
       linksDocumentos: s(documentos, 'linksDocumentos'),
 
-      // 7) Aprovação (labels)
+      // 7) Aprovação - labels
       autoridadeAprovadora: s(aprovacao, 'autoridadeAprovadora'),
       autoridadeUserId: s(aprovacao, 'autoridadeUserId'),
       autoridadeCpf: s(aprovacao, 'autoridadeCpf'),
-      dataAprovacao: SipGedFormatFirestore.toDate(aprovacao['dataAprovacao']),
+      dataAprovacao: SipGedFormatFirestore.toDate(
+        aprovacao['dataAprovacao'],
+      ),
       parecerResumo: s(aprovacao, 'parecerResumo'),
 
-      // 7) Aprovação (ids)
+      // 7) Aprovação - IDs
       autoridadeAprovadoraId: readIdCompat(
-          aprovacao, 'autoridadeAprovadoraId', const ['autoridadeAprovadora_id']),
+        aprovacao,
+        'autoridadeAprovadoraId',
+        const ['autoridadeAprovadora_id'],
+      ),
 
       // 8) Observações
-      observacoes: s(observacoes, 'observacoes'),
+      observacoes: s(observacoesMap, 'observacoes'),
     );
   }
 
-  /// ---------------------------------------------------------------------------
-  /// Deserialização do Firestore (map flat)
-  /// ---------------------------------------------------------------------------
   factory DfdData.fromMap(
       Map<String, dynamic>? map, {
         String? contractId,
       }) {
     if (map == null) return const DfdData.empty();
 
+    String? s(String key) {
+      final value = map[key];
+
+      if (value == null) return null;
+
+      return value.toString();
+    }
+
     String? idCompat(String newKey, List<String> oldKeys) {
       final direct = map[newKey]?.toString();
-      if (direct != null && direct.trim().isNotEmpty) return direct.trim();
-      for (final k in oldKeys) {
-        final v = map[k]?.toString();
-        if (v != null && v.trim().isNotEmpty) return v.trim();
+
+      if (direct != null && direct.trim().isNotEmpty) {
+        return direct.trim();
       }
+
+      for (final oldKey in oldKeys) {
+        final value = map[oldKey]?.toString();
+
+        if (value != null && value.trim().isNotEmpty) {
+          return value.trim();
+        }
+      }
+
       return null;
     }
 
     return DfdData(
       contractId: contractId,
 
-      orgaoDemandante: map['orgaoDemandante']?.toString(),
-      unidadeSolicitante: map['unidadeSolicitante']?.toString(),
-      regional: map['regional']?.toString(),
+      orgaoDemandante: s('orgaoDemandante'),
+      unidadeSolicitante: s('unidadeSolicitante'),
+      regional: s('regional'),
 
-      orgaoDemandanteId: idCompat('orgaoDemandanteId', const ['orgaoDemandante_id']),
-      unidadeSolicitanteId: idCompat('unidadeSolicitanteId', const ['unidadeSolicitante_id']),
-      regionalId: idCompat('regionalId', const ['regional_id']),
+      orgaoDemandanteId: idCompat(
+        'orgaoDemandanteId',
+        const ['orgaoDemandante_id'],
+      ),
+      unidadeSolicitanteId: idCompat(
+        'unidadeSolicitanteId',
+        const ['unidadeSolicitante_id'],
+      ),
+      regionalId: idCompat(
+        'regionalId',
+        const ['regional_id'],
+      ),
 
-      solicitanteNome: map['solicitanteNome']?.toString(),
-      solicitanteUserId: map['solicitanteUserId']?.toString(),
-      solicitanteCpf: map['solicitanteCpf']?.toString(),
-      solicitanteCargo: map['solicitanteCargo']?.toString(),
-      solicitanteEmail: map['solicitanteEmail']?.toString(),
-      solicitanteTelefone: map['solicitanteTelefone']?.toString(),
-      dataSolicitacao: SipGedFormatFirestore.toDate(map['dataSolicitacao']),
-      processoAdministrativo: map['numeroProcessoContratacao']?.toString(),
-      statusDemanda: map['statusContrato']?.toString(),
+      solicitanteNome: s('solicitanteNome'),
+      solicitanteUserId: s('solicitanteUserId'),
+      solicitanteCpf: s('solicitanteCpf'),
+      solicitanteCargo: s('solicitanteCargo'),
+      solicitanteEmail: s('solicitanteEmail'),
+      solicitanteTelefone: s('solicitanteTelefone'),
+      dataSolicitacao: SipGedFormatFirestore.toDate(
+        map['dataSolicitacao'],
+      ),
+      processoAdministrativo: s('numeroProcessoContratacao'),
+      statusDemanda: s('statusContrato'),
 
-      companyId: map['companyId']?.toString(),
-      unitId: map['unitId']?.toString(),
-      regionId: map['regionId']?.toString(),
+      companyId: s('companyId'),
+      unitId: s('unitId'),
+      regionId: s('regionId'),
 
-      tipoContratacao: map['tipoContratacao']?.toString(),
-      modalidadeEstimativa: map['modalidadeEstimativa']?.toString(),
-      regimeExecucao: map['regimeExecucao']?.toString(),
-      descricaoObjeto: map['descricaoObjeto']?.toString(),
-      justificativa: map['justificativa']?.toString(),
-      tipoObra: map['tipoObra']?.toString(),
-      valorDemanda: SipGedFormatFirestore.toDouble(map['valorDemanda']),
+      tipoContratacao: s('tipoContratacao'),
+      modalidadeEstimativa: s('modalidadeEstimativa'),
+      regimeExecucao: s('regimeExecucao'),
+      descricaoObjeto: s('descricaoObjeto'),
+      justificativa: s('justificativa'),
+      tipoObra: s('tipoObra'),
+      valorDemanda: SipGedFormatFirestore.toDouble(
+        map['valorDemanda'],
+      ),
 
-      tipoContratacaoId: idCompat('tipoContratacaoId', const ['tipoContratacao_id']),
-      modalidadeEstimativaId: idCompat('modalidadeEstimativaId', const ['modalidadeEstimativa_id']),
-      regimeExecucaoId: idCompat('regimeExecucaoId', const ['regimeExecucao_id']),
-      tipoObraId: idCompat('tipoObraId', const ['tipoObra_id']),
+      tipoContratacaoId: idCompat(
+        'tipoContratacaoId',
+        const ['tipoContratacao_id'],
+      ),
+      modalidadeEstimativaId: idCompat(
+        'modalidadeEstimativaId',
+        const ['modalidadeEstimativa_id'],
+      ),
+      regimeExecucaoId: idCompat(
+        'regimeExecucaoId',
+        const ['regimeExecucao_id'],
+      ),
+      tipoObraId: idCompat(
+        'tipoObraId',
+        const ['tipoObra_id'],
+      ),
 
-      uf: map['uf']?.toString(),
-      municipio: map['municipio']?.toString(),
-      rodovia: map['rodovia']?.toString(),
-      kmInicial: map['kmInicial']?.toString(),
-      kmFinal: map['kmFinal']?.toString(),
-      naturezaIntervencao: map['naturezaIntervencao']?.toString(),
-      prazoExecucaoDias: SipGedFormatFirestore.toInt(map['prazoExecucaoDias']),
-      vigenciaMeses: SipGedFormatFirestore.toInt(map['vigenciaMeses']),
-      extensaoKm: SipGedFormatFirestore.toDouble(map['extensaoKm']),
+      uf: s('uf'),
+      municipio: s('municipio'),
+      rodovia: s('rodovia'),
+      kmInicial: s('kmInicial'),
+      kmFinal: s('kmFinal'),
+      naturezaIntervencao: s('naturezaIntervencao'),
+      prazoExecucaoDias: SipGedFormatFirestore.toInt(
+        map['prazoExecucaoDias'],
+      ),
+      vigenciaMeses: SipGedFormatFirestore.toInt(
+        map['vigenciaMeses'],
+      ),
+      extensaoKm: SipGedFormatFirestore.toDouble(
+        map['extensaoKm'],
+      ),
 
-      ufId: idCompat('ufId', const ['uf_id']),
-      municipioId: idCompat('municipioId', const ['municipio_id']),
-      rodoviaId: idCompat('rodoviaId', const ['rodovia_id']),
-      naturezaIntervencaoId: idCompat('naturezaIntervencaoId', const ['naturezaIntervencao_id']),
+      ufId: idCompat(
+        'ufId',
+        const ['uf_id'],
+      ),
+      municipioId: idCompat(
+        'municipioId',
+        const ['municipio_id'],
+      ),
+      rodoviaId: idCompat(
+        'rodoviaId',
+        const ['rodovia_id'],
+      ),
+      naturezaIntervencaoId: idCompat(
+        'naturezaIntervencaoId',
+        const ['naturezaIntervencao_id'],
+      ),
 
-      fonteRecurso: map['fonteRecurso']?.toString(),
-      programaTrabalho: map['programaTrabalho']?.toString(),
-      ptres: map['ptres']?.toString(),
-      naturezaDespesa: map['naturezaDespesa']?.toString(),
-      estimativaValor: SipGedFormatFirestore.toDouble(map['estimativaValor']),
-      metodologiaEstimativa: map['metodologiaEstimativa']?.toString(),
+      fonteRecurso: s('fonteRecurso'),
+      programaTrabalho: s('programaTrabalho'),
+      ptres: s('ptres'),
+      naturezaDespesa: s('naturezaDespesa'),
+      estimativaValor: SipGedFormatFirestore.toDouble(
+        map['estimativaValor'],
+      ),
+      metodologiaEstimativa: s('metodologiaEstimativa'),
 
-      fonteRecursoId: idCompat('fonteRecursoId', const ['fonteRecurso_id']),
-      programaTrabalhoId: idCompat('programaTrabalhoId', const ['programaTrabalho_id']),
-      ptresId: idCompat('ptresId', const ['ptres_id']),
-      naturezaDespesaId: idCompat('naturezaDespesaId', const ['naturezaDespesa_id']),
-      metodologiaEstimativaId: idCompat('metodologiaEstimativaId', const ['metodologiaEstimativa_id']),
+      fonteRecursoId: idCompat(
+        'fonteRecursoId',
+        const ['fonteRecurso_id'],
+      ),
+      programaTrabalhoId: idCompat(
+        'programaTrabalhoId',
+        const ['programaTrabalho_id'],
+      ),
+      ptresId: idCompat(
+        'ptresId',
+        const ['ptres_id'],
+      ),
+      naturezaDespesaId: idCompat(
+        'naturezaDespesaId',
+        const ['naturezaDespesa_id'],
+      ),
+      metodologiaEstimativaId: idCompat(
+        'metodologiaEstimativaId',
+        const ['metodologiaEstimativa_id'],
+      ),
 
-      riscos: map['riscos']?.toString(),
-      impactoNaoContratar: map['impactoNaoContratar']?.toString(),
-      prioridade: map['prioridade']?.toString(),
-      dataLimite: SipGedFormatFirestore.toDate(map['dataLimite']),
-      motivacaoLegal: map['motivacaoLegal']?.toString(),
-      amparoNormativo: map['amparoNormativo']?.toString(),
+      riscos: s('riscos'),
+      impactoNaoContratar: s('impactoNaoContratar'),
+      prioridade: s('prioridade'),
+      dataLimite: SipGedFormatFirestore.toDate(
+        map['dataLimite'],
+      ),
+      motivacaoLegal: s('motivacaoLegal'),
+      amparoNormativo: s('amparoNormativo'),
 
-      prioridadeId: idCompat('prioridadeId', const ['prioridade_id']),
+      prioridadeId: idCompat(
+        'prioridadeId',
+        const ['prioridade_id'],
+      ),
 
-      etpAnexo: map['etpAnexo']?.toString(),
-      projetoBasico: map['projetoBasico']?.toString(),
-      termoMatrizRiscos: map['termoMatrizRiscos']?.toString(),
-      parecerJuridico: map['parecerJuridico']?.toString(),
-      autorizacaoAbertura: map['autorizacaoAbertura']?.toString(),
-      linksDocumentos: map['linksDocumentos']?.toString(),
+      etpAnexo: s('etpAnexo'),
+      projetoBasico: s('projetoBasico'),
+      termoMatrizRiscos: s('termoMatrizRiscos'),
+      parecerJuridico: s('parecerJuridico'),
+      autorizacaoAbertura: s('autorizacaoAbertura'),
+      linksDocumentos: s('linksDocumentos'),
 
-      autoridadeAprovadora: map['autoridadeAprovadora']?.toString(),
-      autoridadeUserId: map['autoridadeUserId']?.toString(),
-      autoridadeCpf: map['autoridadeCpf']?.toString(),
-      dataAprovacao: SipGedFormatFirestore.toDate(map['dataAprovacao']),
-      parecerResumo: map['parecerResumo']?.toString(),
+      autoridadeAprovadora: s('autoridadeAprovadora'),
+      autoridadeUserId: s('autoridadeUserId'),
+      autoridadeCpf: s('autoridadeCpf'),
+      dataAprovacao: SipGedFormatFirestore.toDate(
+        map['dataAprovacao'],
+      ),
+      parecerResumo: s('parecerResumo'),
 
-      autoridadeAprovadoraId: idCompat('autoridadeAprovadoraId', const ['autoridadeAprovadora_id']),
+      autoridadeAprovadoraId: idCompat(
+        'autoridadeAprovadoraId',
+        const ['autoridadeAprovadora_id'],
+      ),
 
-      observacoes: map['observacoes']?.toString(),
+      observacoes: s('observacoes'),
     );
   }
 
-  /// ---------------------------------------------------------------------------
-  /// COPYWITH
-  /// ---------------------------------------------------------------------------
   DfdData copyWith({
     String? contractId,
-
     String? orgaoDemandante,
     String? unidadeSolicitante,
     String? regional,
-
     String? orgaoDemandanteId,
     String? unidadeSolicitanteId,
     String? regionalId,
-
     String? solicitanteNome,
     String? solicitanteUserId,
     String? solicitanteCpf,
@@ -605,11 +765,9 @@ class DfdData extends Equatable {
     DateTime? dataSolicitacao,
     String? processoAdministrativo,
     String? statusDemanda,
-
     String? companyId,
     String? unitId,
     String? regionId,
-
     String? tipoContratacao,
     String? modalidadeEstimativa,
     String? regimeExecucao,
@@ -617,12 +775,10 @@ class DfdData extends Equatable {
     String? justificativa,
     String? tipoObra,
     double? valorDemanda,
-
     String? tipoContratacaoId,
     String? modalidadeEstimativaId,
     String? regimeExecucaoId,
     String? tipoObraId,
-
     String? uf,
     String? municipio,
     String? rodovia,
@@ -632,62 +788,50 @@ class DfdData extends Equatable {
     int? prazoExecucaoDias,
     int? vigenciaMeses,
     double? extensaoKm,
-
     String? ufId,
     String? municipioId,
     String? rodoviaId,
     String? naturezaIntervencaoId,
-
     String? fonteRecurso,
     String? programaTrabalho,
     String? ptres,
     String? naturezaDespesa,
     double? estimativaValor,
     String? metodologiaEstimativa,
-
     String? fonteRecursoId,
     String? programaTrabalhoId,
     String? ptresId,
     String? naturezaDespesaId,
     String? metodologiaEstimativaId,
-
     String? riscos,
     String? impactoNaoContratar,
     String? prioridade,
     DateTime? dataLimite,
     String? motivacaoLegal,
     String? amparoNormativo,
-
     String? prioridadeId,
-
     String? etpAnexo,
     String? projetoBasico,
     String? termoMatrizRiscos,
     String? parecerJuridico,
     String? autorizacaoAbertura,
     String? linksDocumentos,
-
     String? autoridadeAprovadora,
     String? autoridadeUserId,
     String? autoridadeCpf,
     DateTime? dataAprovacao,
     String? parecerResumo,
-
     String? autoridadeAprovadoraId,
-
     String? observacoes,
   }) {
     return DfdData(
       contractId: contractId ?? this.contractId,
-
       orgaoDemandante: orgaoDemandante ?? this.orgaoDemandante,
       unidadeSolicitante: unidadeSolicitante ?? this.unidadeSolicitante,
       regional: regional ?? this.regional,
-
       orgaoDemandanteId: orgaoDemandanteId ?? this.orgaoDemandanteId,
       unidadeSolicitanteId: unidadeSolicitanteId ?? this.unidadeSolicitanteId,
       regionalId: regionalId ?? this.regionalId,
-
       solicitanteNome: solicitanteNome ?? this.solicitanteNome,
       solicitanteUserId: solicitanteUserId ?? this.solicitanteUserId,
       solicitanteCpf: solicitanteCpf ?? this.solicitanteCpf,
@@ -695,299 +839,366 @@ class DfdData extends Equatable {
       solicitanteEmail: solicitanteEmail ?? this.solicitanteEmail,
       solicitanteTelefone: solicitanteTelefone ?? this.solicitanteTelefone,
       dataSolicitacao: dataSolicitacao ?? this.dataSolicitacao,
-      processoAdministrativo: processoAdministrativo ?? this.processoAdministrativo,
+      processoAdministrativo:
+      processoAdministrativo ?? this.processoAdministrativo,
       statusDemanda: statusDemanda ?? this.statusDemanda,
-
       companyId: companyId ?? this.companyId,
       unitId: unitId ?? this.unitId,
       regionId: regionId ?? this.regionId,
-
       tipoContratacao: tipoContratacao ?? this.tipoContratacao,
-      modalidadeEstimativa: modalidadeEstimativa ?? this.modalidadeEstimativa,
+      modalidadeEstimativa:
+      modalidadeEstimativa ?? this.modalidadeEstimativa,
       regimeExecucao: regimeExecucao ?? this.regimeExecucao,
       descricaoObjeto: descricaoObjeto ?? this.descricaoObjeto,
       justificativa: justificativa ?? this.justificativa,
       tipoObra: tipoObra ?? this.tipoObra,
       valorDemanda: valorDemanda ?? this.valorDemanda,
-
       tipoContratacaoId: tipoContratacaoId ?? this.tipoContratacaoId,
-      modalidadeEstimativaId: modalidadeEstimativaId ?? this.modalidadeEstimativaId,
+      modalidadeEstimativaId:
+      modalidadeEstimativaId ?? this.modalidadeEstimativaId,
       regimeExecucaoId: regimeExecucaoId ?? this.regimeExecucaoId,
       tipoObraId: tipoObraId ?? this.tipoObraId,
-
       uf: uf ?? this.uf,
       municipio: municipio ?? this.municipio,
       rodovia: rodovia ?? this.rodovia,
       kmInicial: kmInicial ?? this.kmInicial,
       kmFinal: kmFinal ?? this.kmFinal,
-      naturezaIntervencao: naturezaIntervencao ?? this.naturezaIntervencao,
+      naturezaIntervencao:
+      naturezaIntervencao ?? this.naturezaIntervencao,
       prazoExecucaoDias: prazoExecucaoDias ?? this.prazoExecucaoDias,
       vigenciaMeses: vigenciaMeses ?? this.vigenciaMeses,
       extensaoKm: extensaoKm ?? this.extensaoKm,
-
       ufId: ufId ?? this.ufId,
       municipioId: municipioId ?? this.municipioId,
       rodoviaId: rodoviaId ?? this.rodoviaId,
-      naturezaIntervencaoId: naturezaIntervencaoId ?? this.naturezaIntervencaoId,
-
+      naturezaIntervencaoId:
+      naturezaIntervencaoId ?? this.naturezaIntervencaoId,
       fonteRecurso: fonteRecurso ?? this.fonteRecurso,
       programaTrabalho: programaTrabalho ?? this.programaTrabalho,
       ptres: ptres ?? this.ptres,
       naturezaDespesa: naturezaDespesa ?? this.naturezaDespesa,
       estimativaValor: estimativaValor ?? this.estimativaValor,
-      metodologiaEstimativa: metodologiaEstimativa ?? this.metodologiaEstimativa,
-
+      metodologiaEstimativa:
+      metodologiaEstimativa ?? this.metodologiaEstimativa,
       fonteRecursoId: fonteRecursoId ?? this.fonteRecursoId,
       programaTrabalhoId: programaTrabalhoId ?? this.programaTrabalhoId,
       ptresId: ptresId ?? this.ptresId,
       naturezaDespesaId: naturezaDespesaId ?? this.naturezaDespesaId,
-      metodologiaEstimativaId: metodologiaEstimativaId ?? this.metodologiaEstimativaId,
-
+      metodologiaEstimativaId:
+      metodologiaEstimativaId ?? this.metodologiaEstimativaId,
       riscos: riscos ?? this.riscos,
-      impactoNaoContratar: impactoNaoContratar ?? this.impactoNaoContratar,
+      impactoNaoContratar:
+      impactoNaoContratar ?? this.impactoNaoContratar,
       prioridade: prioridade ?? this.prioridade,
       dataLimite: dataLimite ?? this.dataLimite,
       motivacaoLegal: motivacaoLegal ?? this.motivacaoLegal,
       amparoNormativo: amparoNormativo ?? this.amparoNormativo,
-
       prioridadeId: prioridadeId ?? this.prioridadeId,
-
       etpAnexo: etpAnexo ?? this.etpAnexo,
       projetoBasico: projetoBasico ?? this.projetoBasico,
-      termoMatrizRiscos: termoMatrizRiscos ?? this.termoMatrizRiscos,
+      termoMatrizRiscos:
+      termoMatrizRiscos ?? this.termoMatrizRiscos,
       parecerJuridico: parecerJuridico ?? this.parecerJuridico,
-      autorizacaoAbertura: autorizacaoAbertura ?? this.autorizacaoAbertura,
+      autorizacaoAbertura:
+      autorizacaoAbertura ?? this.autorizacaoAbertura,
       linksDocumentos: linksDocumentos ?? this.linksDocumentos,
-
-      autoridadeAprovadora: autoridadeAprovadora ?? this.autoridadeAprovadora,
+      autoridadeAprovadora:
+      autoridadeAprovadora ?? this.autoridadeAprovadora,
       autoridadeUserId: autoridadeUserId ?? this.autoridadeUserId,
       autoridadeCpf: autoridadeCpf ?? this.autoridadeCpf,
       dataAprovacao: dataAprovacao ?? this.dataAprovacao,
       parecerResumo: parecerResumo ?? this.parecerResumo,
-
-      autoridadeAprovadoraId: autoridadeAprovadoraId ?? this.autoridadeAprovadoraId,
-
+      autoridadeAprovadoraId:
+      autoridadeAprovadoraId ?? this.autoridadeAprovadoraId,
       observacoes: observacoes ?? this.observacoes,
     );
   }
 
-  /// ---------------------------------------------------------------------------
-  /// Serialização Firestore (map flat) — NÃO inclui contractId
-  /// ---------------------------------------------------------------------------
-  Map<String, dynamic> toMap() => {
-    // 1) Identificação (labels)
-    'orgaoDemandante': SipGedFormatFirestore.toFirestoreValue(orgaoDemandante),
-    'unidadeSolicitante': SipGedFormatFirestore.toFirestoreValue(unidadeSolicitante),
-    'regional': SipGedFormatFirestore.toFirestoreValue(regional),
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'orgaoDemandante':
+      SipGedFormatFirestore.toFirestoreValue(orgaoDemandante),
+      'unidadeSolicitante':
+      SipGedFormatFirestore.toFirestoreValue(unidadeSolicitante),
+      'regional': SipGedFormatFirestore.toFirestoreValue(regional),
+      'orgaoDemandanteId':
+      SipGedFormatFirestore.toFirestoreValue(orgaoDemandanteId),
+      'unidadeSolicitanteId':
+      SipGedFormatFirestore.toFirestoreValue(unidadeSolicitanteId),
+      'regionalId': SipGedFormatFirestore.toFirestoreValue(regionalId),
+      'solicitanteNome':
+      SipGedFormatFirestore.toFirestoreValue(solicitanteNome),
+      'solicitanteUserId':
+      SipGedFormatFirestore.toFirestoreValue(solicitanteUserId),
+      'solicitanteCpf':
+      SipGedFormatFirestore.toFirestoreValue(solicitanteCpf),
+      'solicitanteCargo':
+      SipGedFormatFirestore.toFirestoreValue(solicitanteCargo),
+      'solicitanteEmail':
+      SipGedFormatFirestore.toFirestoreValue(solicitanteEmail),
+      'solicitanteTelefone':
+      SipGedFormatFirestore.toFirestoreValue(solicitanteTelefone),
+      'dataSolicitacao':
+      SipGedFormatFirestore.toFirestoreValue(dataSolicitacao),
+      'numeroProcessoContratacao':
+      SipGedFormatFirestore.toFirestoreValue(processoAdministrativo),
+      'statusContrato':
+      SipGedFormatFirestore.toFirestoreValue(statusDemanda),
+      'companyId': SipGedFormatFirestore.toFirestoreValue(companyId),
+      'unitId': SipGedFormatFirestore.toFirestoreValue(unitId),
+      'regionId': SipGedFormatFirestore.toFirestoreValue(regionId),
+      'tipoContratacao':
+      SipGedFormatFirestore.toFirestoreValue(tipoContratacao),
+      'modalidadeEstimativa':
+      SipGedFormatFirestore.toFirestoreValue(modalidadeEstimativa),
+      'regimeExecucao':
+      SipGedFormatFirestore.toFirestoreValue(regimeExecucao),
+      'descricaoObjeto':
+      SipGedFormatFirestore.toFirestoreValue(descricaoObjeto),
+      'justificativa':
+      SipGedFormatFirestore.toFirestoreValue(justificativa),
+      'tipoObra': SipGedFormatFirestore.toFirestoreValue(tipoObra),
+      'valorDemanda':
+      SipGedFormatFirestore.toFirestoreValue(valorDemanda),
+      'tipoContratacaoId':
+      SipGedFormatFirestore.toFirestoreValue(tipoContratacaoId),
+      'modalidadeEstimativaId':
+      SipGedFormatFirestore.toFirestoreValue(modalidadeEstimativaId),
+      'regimeExecucaoId':
+      SipGedFormatFirestore.toFirestoreValue(regimeExecucaoId),
+      'tipoObraId': SipGedFormatFirestore.toFirestoreValue(tipoObraId),
+      'uf': SipGedFormatFirestore.toFirestoreValue(uf),
+      'municipio': SipGedFormatFirestore.toFirestoreValue(municipio),
+      'rodovia': SipGedFormatFirestore.toFirestoreValue(rodovia),
+      'kmInicial': SipGedFormatFirestore.toFirestoreValue(kmInicial),
+      'kmFinal': SipGedFormatFirestore.toFirestoreValue(kmFinal),
+      'naturezaIntervencao':
+      SipGedFormatFirestore.toFirestoreValue(naturezaIntervencao),
+      'prazoExecucaoDias':
+      SipGedFormatFirestore.toFirestoreValue(prazoExecucaoDias),
+      'vigenciaMeses':
+      SipGedFormatFirestore.toFirestoreValue(vigenciaMeses),
+      'extensaoKm': SipGedFormatFirestore.toFirestoreValue(extensaoKm),
+      'ufId': SipGedFormatFirestore.toFirestoreValue(ufId),
+      'municipioId': SipGedFormatFirestore.toFirestoreValue(municipioId),
+      'rodoviaId': SipGedFormatFirestore.toFirestoreValue(rodoviaId),
+      'naturezaIntervencaoId':
+      SipGedFormatFirestore.toFirestoreValue(naturezaIntervencaoId),
+      'fonteRecurso':
+      SipGedFormatFirestore.toFirestoreValue(fonteRecurso),
+      'programaTrabalho':
+      SipGedFormatFirestore.toFirestoreValue(programaTrabalho),
+      'ptres': SipGedFormatFirestore.toFirestoreValue(ptres),
+      'naturezaDespesa':
+      SipGedFormatFirestore.toFirestoreValue(naturezaDespesa),
+      'estimativaValor':
+      SipGedFormatFirestore.toFirestoreValue(estimativaValor),
+      'metodologiaEstimativa':
+      SipGedFormatFirestore.toFirestoreValue(metodologiaEstimativa),
+      'fonteRecursoId':
+      SipGedFormatFirestore.toFirestoreValue(fonteRecursoId),
+      'programaTrabalhoId':
+      SipGedFormatFirestore.toFirestoreValue(programaTrabalhoId),
+      'ptresId': SipGedFormatFirestore.toFirestoreValue(ptresId),
+      'naturezaDespesaId':
+      SipGedFormatFirestore.toFirestoreValue(naturezaDespesaId),
+      'metodologiaEstimativaId':
+      SipGedFormatFirestore.toFirestoreValue(metodologiaEstimativaId),
+      'riscos': SipGedFormatFirestore.toFirestoreValue(riscos),
+      'impactoNaoContratar':
+      SipGedFormatFirestore.toFirestoreValue(impactoNaoContratar),
+      'prioridade': SipGedFormatFirestore.toFirestoreValue(prioridade),
+      'dataLimite': SipGedFormatFirestore.toFirestoreValue(dataLimite),
+      'motivacaoLegal':
+      SipGedFormatFirestore.toFirestoreValue(motivacaoLegal),
+      'amparoNormativo':
+      SipGedFormatFirestore.toFirestoreValue(amparoNormativo),
+      'prioridadeId':
+      SipGedFormatFirestore.toFirestoreValue(prioridadeId),
+      'etpAnexo': SipGedFormatFirestore.toFirestoreValue(etpAnexo),
+      'projetoBasico':
+      SipGedFormatFirestore.toFirestoreValue(projetoBasico),
+      'termoMatrizRiscos':
+      SipGedFormatFirestore.toFirestoreValue(termoMatrizRiscos),
+      'parecerJuridico':
+      SipGedFormatFirestore.toFirestoreValue(parecerJuridico),
+      'autorizacaoAbertura':
+      SipGedFormatFirestore.toFirestoreValue(autorizacaoAbertura),
+      'linksDocumentos':
+      SipGedFormatFirestore.toFirestoreValue(linksDocumentos),
+      'autoridadeAprovadora':
+      SipGedFormatFirestore.toFirestoreValue(autoridadeAprovadora),
+      'autoridadeUserId':
+      SipGedFormatFirestore.toFirestoreValue(autoridadeUserId),
+      'autoridadeCpf':
+      SipGedFormatFirestore.toFirestoreValue(autoridadeCpf),
+      'dataAprovacao':
+      SipGedFormatFirestore.toFirestoreValue(dataAprovacao),
+      'parecerResumo':
+      SipGedFormatFirestore.toFirestoreValue(parecerResumo),
+      'autoridadeAprovadoraId':
+      SipGedFormatFirestore.toFirestoreValue(autoridadeAprovadoraId),
+      'observacoes':
+      SipGedFormatFirestore.toFirestoreValue(observacoes),
+    };
+  }
 
-    // 1) Identificação (ids)
-    'orgaoDemandanteId': SipGedFormatFirestore.toFirestoreValue(orgaoDemandanteId),
-    'unidadeSolicitanteId': SipGedFormatFirestore.toFirestoreValue(unidadeSolicitanteId),
-    'regionalId': SipGedFormatFirestore.toFirestoreValue(regionalId),
-
-    'solicitanteNome': SipGedFormatFirestore.toFirestoreValue(solicitanteNome),
-    'solicitanteUserId': SipGedFormatFirestore.toFirestoreValue(solicitanteUserId),
-    'solicitanteCpf': SipGedFormatFirestore.toFirestoreValue(solicitanteCpf),
-    'solicitanteCargo': SipGedFormatFirestore.toFirestoreValue(solicitanteCargo),
-    'solicitanteEmail': SipGedFormatFirestore.toFirestoreValue(solicitanteEmail),
-    'solicitanteTelefone': SipGedFormatFirestore.toFirestoreValue(solicitanteTelefone),
-    'dataSolicitacao': SipGedFormatFirestore.toFirestoreValue(dataSolicitacao),
-    'numeroProcessoContratacao': SipGedFormatFirestore.toFirestoreValue(processoAdministrativo),
-    'statusContrato': SipGedFormatFirestore.toFirestoreValue(statusDemanda),
-    'companyId': SipGedFormatFirestore.toFirestoreValue(companyId),
-    'unitId': SipGedFormatFirestore.toFirestoreValue(unitId),
-    'regionId': SipGedFormatFirestore.toFirestoreValue(regionId),
-
-    // 2) Objeto (labels)
-    'tipoContratacao': SipGedFormatFirestore.toFirestoreValue(tipoContratacao),
-    'modalidadeEstimativa': SipGedFormatFirestore.toFirestoreValue(modalidadeEstimativa),
-    'regimeExecucao': SipGedFormatFirestore.toFirestoreValue(regimeExecucao),
-    'descricaoObjeto': SipGedFormatFirestore.toFirestoreValue(descricaoObjeto),
-    'justificativa': SipGedFormatFirestore.toFirestoreValue(justificativa),
-    'tipoObra': SipGedFormatFirestore.toFirestoreValue(tipoObra),
-    'valorDemanda': SipGedFormatFirestore.toFirestoreValue(valorDemanda),
-
-    // 2) Objeto (ids)
-    'tipoContratacaoId': SipGedFormatFirestore.toFirestoreValue(tipoContratacaoId),
-    'modalidadeEstimativaId': SipGedFormatFirestore.toFirestoreValue(modalidadeEstimativaId),
-    'regimeExecucaoId': SipGedFormatFirestore.toFirestoreValue(regimeExecucaoId),
-    'tipoObraId': SipGedFormatFirestore.toFirestoreValue(tipoObraId),
-
-    // 3) Localização (labels)
-    'uf': SipGedFormatFirestore.toFirestoreValue(uf),
-    'municipio': SipGedFormatFirestore.toFirestoreValue(municipio),
-    'rodovia': SipGedFormatFirestore.toFirestoreValue(rodovia),
-    'kmInicial': SipGedFormatFirestore.toFirestoreValue(kmInicial),
-    'kmFinal': SipGedFormatFirestore.toFirestoreValue(kmFinal),
-    'naturezaIntervencao': SipGedFormatFirestore.toFirestoreValue(naturezaIntervencao),
-    'prazoExecucaoDias': SipGedFormatFirestore.toFirestoreValue(prazoExecucaoDias),
-    'vigenciaMeses': SipGedFormatFirestore.toFirestoreValue(vigenciaMeses),
-    'extensaoKm': SipGedFormatFirestore.toFirestoreValue(extensaoKm),
-
-    // 3) Localização (ids)
-    'ufId': SipGedFormatFirestore.toFirestoreValue(ufId),
-    'municipioId': SipGedFormatFirestore.toFirestoreValue(municipioId),
-    'rodoviaId': SipGedFormatFirestore.toFirestoreValue(rodoviaId),
-    'naturezaIntervencaoId': SipGedFormatFirestore.toFirestoreValue(naturezaIntervencaoId),
-
-    // 4) Estimativa (labels)
-    'fonteRecurso': SipGedFormatFirestore.toFirestoreValue(fonteRecurso),
-    'programaTrabalho': SipGedFormatFirestore.toFirestoreValue(programaTrabalho),
-    'ptres': SipGedFormatFirestore.toFirestoreValue(ptres),
-    'naturezaDespesa': SipGedFormatFirestore.toFirestoreValue(naturezaDespesa),
-    'estimativaValor': SipGedFormatFirestore.toFirestoreValue(estimativaValor),
-    'metodologiaEstimativa': SipGedFormatFirestore.toFirestoreValue(metodologiaEstimativa),
-
-    // 4) Estimativa (ids)
-    'fonteRecursoId': SipGedFormatFirestore.toFirestoreValue(fonteRecursoId),
-    'programaTrabalhoId': SipGedFormatFirestore.toFirestoreValue(programaTrabalhoId),
-    'ptresId': SipGedFormatFirestore.toFirestoreValue(ptresId),
-    'naturezaDespesaId': SipGedFormatFirestore.toFirestoreValue(naturezaDespesaId),
-    'metodologiaEstimativaId': SipGedFormatFirestore.toFirestoreValue(metodologiaEstimativaId),
-
-    // 5) Riscos (labels)
-    'riscos': SipGedFormatFirestore.toFirestoreValue(riscos),
-    'impactoNaoContratar': SipGedFormatFirestore.toFirestoreValue(impactoNaoContratar),
-    'prioridade': SipGedFormatFirestore.toFirestoreValue(prioridade),
-    'dataLimite': SipGedFormatFirestore.toFirestoreValue(dataLimite),
-    'motivacaoLegal': SipGedFormatFirestore.toFirestoreValue(motivacaoLegal),
-    'amparoNormativo': SipGedFormatFirestore.toFirestoreValue(amparoNormativo),
-
-    // 5) Riscos (ids)
-    'prioridadeId': SipGedFormatFirestore.toFirestoreValue(prioridadeId),
-
-    // 6) Documentos
-    'etpAnexo': SipGedFormatFirestore.toFirestoreValue(etpAnexo),
-    'projetoBasico': SipGedFormatFirestore.toFirestoreValue(projetoBasico),
-    'termoMatrizRiscos': SipGedFormatFirestore.toFirestoreValue(termoMatrizRiscos),
-    'parecerJuridico': SipGedFormatFirestore.toFirestoreValue(parecerJuridico),
-    'autorizacaoAbertura': SipGedFormatFirestore.toFirestoreValue(autorizacaoAbertura),
-    'linksDocumentos': SipGedFormatFirestore.toFirestoreValue(linksDocumentos),
-
-    // 7) Aprovação (labels)
-    'autoridadeAprovadora': SipGedFormatFirestore.toFirestoreValue(autoridadeAprovadora),
-    'autoridadeUserId': SipGedFormatFirestore.toFirestoreValue(autoridadeUserId),
-    'autoridadeCpf': SipGedFormatFirestore.toFirestoreValue(autoridadeCpf),
-    'dataAprovacao': SipGedFormatFirestore.toFirestoreValue(dataAprovacao),
-    'parecerResumo': SipGedFormatFirestore.toFirestoreValue(parecerResumo),
-
-    // 7) Aprovação (ids)
-    'autoridadeAprovadoraId': SipGedFormatFirestore.toFirestoreValue(autoridadeAprovadoraId),
-
-    // 8) Observações
-    'observacoes': SipGedFormatFirestore.toFirestoreValue(observacoes),
-  };
-
-  /// ---------------------------------------------------------------------------
-  /// Seções para salvar no Firestore (submaps) — NÃO inclui contractId
-  /// ---------------------------------------------------------------------------
   Map<String, Map<String, dynamic>> toSectionsMap() {
-    return {
-      DfdSections.identificacao: {
-        'orgaoDemandante': SipGedFormatFirestore.toFirestoreValue(orgaoDemandante),
-        'unidadeSolicitante': SipGedFormatFirestore.toFirestoreValue(unidadeSolicitante),
+    return <String, Map<String, dynamic>>{
+      sectionIdentificacao: <String, dynamic>{
+        'orgaoDemandante':
+        SipGedFormatFirestore.toFirestoreValue(orgaoDemandante),
+        'unidadeSolicitante':
+        SipGedFormatFirestore.toFirestoreValue(unidadeSolicitante),
         'regional': SipGedFormatFirestore.toFirestoreValue(regional),
-        'orgaoDemandanteId': SipGedFormatFirestore.toFirestoreValue(orgaoDemandanteId),
-        'unidadeSolicitanteId': SipGedFormatFirestore.toFirestoreValue(unidadeSolicitanteId),
+        'orgaoDemandanteId':
+        SipGedFormatFirestore.toFirestoreValue(orgaoDemandanteId),
+        'unidadeSolicitanteId':
+        SipGedFormatFirestore.toFirestoreValue(unidadeSolicitanteId),
         'regionalId': SipGedFormatFirestore.toFirestoreValue(regionalId),
-        'solicitanteNome': SipGedFormatFirestore.toFirestoreValue(solicitanteNome),
-        'solicitanteUserId': SipGedFormatFirestore.toFirestoreValue(solicitanteUserId),
-        'solicitanteCpf': SipGedFormatFirestore.toFirestoreValue(solicitanteCpf),
-        'solicitanteCargo': SipGedFormatFirestore.toFirestoreValue(solicitanteCargo),
-        'solicitanteEmail': SipGedFormatFirestore.toFirestoreValue(solicitanteEmail),
-        'solicitanteTelefone': SipGedFormatFirestore.toFirestoreValue(solicitanteTelefone),
-        'dataSolicitacao': SipGedFormatFirestore.toFirestoreValue(dataSolicitacao),
-        'numeroProcessoContratacao': SipGedFormatFirestore.toFirestoreValue(processoAdministrativo),
-        'statusContrato': SipGedFormatFirestore.toFirestoreValue(statusDemanda),
+        'solicitanteNome':
+        SipGedFormatFirestore.toFirestoreValue(solicitanteNome),
+        'solicitanteUserId':
+        SipGedFormatFirestore.toFirestoreValue(solicitanteUserId),
+        'solicitanteCpf':
+        SipGedFormatFirestore.toFirestoreValue(solicitanteCpf),
+        'solicitanteCargo':
+        SipGedFormatFirestore.toFirestoreValue(solicitanteCargo),
+        'solicitanteEmail':
+        SipGedFormatFirestore.toFirestoreValue(solicitanteEmail),
+        'solicitanteTelefone':
+        SipGedFormatFirestore.toFirestoreValue(solicitanteTelefone),
+        'dataSolicitacao':
+        SipGedFormatFirestore.toFirestoreValue(dataSolicitacao),
+        'numeroProcessoContratacao':
+        SipGedFormatFirestore.toFirestoreValue(processoAdministrativo),
+        'statusContrato':
+        SipGedFormatFirestore.toFirestoreValue(statusDemanda),
         'companyId': SipGedFormatFirestore.toFirestoreValue(companyId),
         'unitId': SipGedFormatFirestore.toFirestoreValue(unitId),
         'regionId': SipGedFormatFirestore.toFirestoreValue(regionId),
       },
-      DfdSections.objeto: {
-        'tipoContratacao': SipGedFormatFirestore.toFirestoreValue(tipoContratacao),
-        'modalidadeEstimativa': SipGedFormatFirestore.toFirestoreValue(modalidadeEstimativa),
-        'regimeExecucao': SipGedFormatFirestore.toFirestoreValue(regimeExecucao),
-        'descricaoObjeto': SipGedFormatFirestore.toFirestoreValue(descricaoObjeto),
-        'justificativa': SipGedFormatFirestore.toFirestoreValue(justificativa),
+      sectionObjeto: <String, dynamic>{
+        'tipoContratacao':
+        SipGedFormatFirestore.toFirestoreValue(tipoContratacao),
+        'modalidadeEstimativa':
+        SipGedFormatFirestore.toFirestoreValue(modalidadeEstimativa),
+        'regimeExecucao':
+        SipGedFormatFirestore.toFirestoreValue(regimeExecucao),
+        'descricaoObjeto':
+        SipGedFormatFirestore.toFirestoreValue(descricaoObjeto),
+        'justificativa':
+        SipGedFormatFirestore.toFirestoreValue(justificativa),
         'tipoObra': SipGedFormatFirestore.toFirestoreValue(tipoObra),
-        'valorDemanda': SipGedFormatFirestore.toFirestoreValue(valorDemanda),
-        'tipoContratacaoId': SipGedFormatFirestore.toFirestoreValue(tipoContratacaoId),
-        'modalidadeEstimativaId': SipGedFormatFirestore.toFirestoreValue(modalidadeEstimativaId),
-        'regimeExecucaoId': SipGedFormatFirestore.toFirestoreValue(regimeExecucaoId),
+        'valorDemanda':
+        SipGedFormatFirestore.toFirestoreValue(valorDemanda),
+        'tipoContratacaoId':
+        SipGedFormatFirestore.toFirestoreValue(tipoContratacaoId),
+        'modalidadeEstimativaId':
+        SipGedFormatFirestore.toFirestoreValue(modalidadeEstimativaId),
+        'regimeExecucaoId':
+        SipGedFormatFirestore.toFirestoreValue(regimeExecucaoId),
         'tipoObraId': SipGedFormatFirestore.toFirestoreValue(tipoObraId),
       },
-      DfdSections.localizacao: {
+      sectionLocalizacao: <String, dynamic>{
         'uf': SipGedFormatFirestore.toFirestoreValue(uf),
         'municipio': SipGedFormatFirestore.toFirestoreValue(municipio),
         'rodovia': SipGedFormatFirestore.toFirestoreValue(rodovia),
         'kmInicial': SipGedFormatFirestore.toFirestoreValue(kmInicial),
         'kmFinal': SipGedFormatFirestore.toFirestoreValue(kmFinal),
-        'naturezaIntervencao': SipGedFormatFirestore.toFirestoreValue(naturezaIntervencao),
-        'prazoExecucaoDias': SipGedFormatFirestore.toFirestoreValue(prazoExecucaoDias),
-        'vigenciaMeses': SipGedFormatFirestore.toFirestoreValue(vigenciaMeses),
+        'naturezaIntervencao':
+        SipGedFormatFirestore.toFirestoreValue(naturezaIntervencao),
+        'prazoExecucaoDias':
+        SipGedFormatFirestore.toFirestoreValue(prazoExecucaoDias),
+        'vigenciaMeses':
+        SipGedFormatFirestore.toFirestoreValue(vigenciaMeses),
         'extensaoKm': SipGedFormatFirestore.toFirestoreValue(extensaoKm),
         'ufId': SipGedFormatFirestore.toFirestoreValue(ufId),
-        'municipioId': SipGedFormatFirestore.toFirestoreValue(municipioId),
+        'municipioId':
+        SipGedFormatFirestore.toFirestoreValue(municipioId),
         'rodoviaId': SipGedFormatFirestore.toFirestoreValue(rodoviaId),
-        'naturezaIntervencaoId': SipGedFormatFirestore.toFirestoreValue(naturezaIntervencaoId),
+        'naturezaIntervencaoId':
+        SipGedFormatFirestore.toFirestoreValue(naturezaIntervencaoId),
         'regionId': SipGedFormatFirestore.toFirestoreValue(regionId),
       },
-      DfdSections.estimativa: {
-        'fonteRecurso': SipGedFormatFirestore.toFirestoreValue(fonteRecurso),
-        'programaTrabalho': SipGedFormatFirestore.toFirestoreValue(programaTrabalho),
+      sectionEstimativa: <String, dynamic>{
+        'fonteRecurso':
+        SipGedFormatFirestore.toFirestoreValue(fonteRecurso),
+        'programaTrabalho':
+        SipGedFormatFirestore.toFirestoreValue(programaTrabalho),
         'ptres': SipGedFormatFirestore.toFirestoreValue(ptres),
-        'naturezaDespesa': SipGedFormatFirestore.toFirestoreValue(naturezaDespesa),
-        'estimativaValor': SipGedFormatFirestore.toFirestoreValue(estimativaValor),
-        'metodologiaEstimativa': SipGedFormatFirestore.toFirestoreValue(metodologiaEstimativa),
-        'fonteRecursoId': SipGedFormatFirestore.toFirestoreValue(fonteRecursoId),
-        'programaTrabalhoId': SipGedFormatFirestore.toFirestoreValue(programaTrabalhoId),
+        'naturezaDespesa':
+        SipGedFormatFirestore.toFirestoreValue(naturezaDespesa),
+        'estimativaValor':
+        SipGedFormatFirestore.toFirestoreValue(estimativaValor),
+        'metodologiaEstimativa':
+        SipGedFormatFirestore.toFirestoreValue(metodologiaEstimativa),
+        'fonteRecursoId':
+        SipGedFormatFirestore.toFirestoreValue(fonteRecursoId),
+        'programaTrabalhoId':
+        SipGedFormatFirestore.toFirestoreValue(programaTrabalhoId),
         'ptresId': SipGedFormatFirestore.toFirestoreValue(ptresId),
-        'naturezaDespesaId': SipGedFormatFirestore.toFirestoreValue(naturezaDespesaId),
-        'metodologiaEstimativaId': SipGedFormatFirestore.toFirestoreValue(metodologiaEstimativaId),
+        'naturezaDespesaId':
+        SipGedFormatFirestore.toFirestoreValue(naturezaDespesaId),
+        'metodologiaEstimativaId':
+        SipGedFormatFirestore.toFirestoreValue(metodologiaEstimativaId),
       },
-      DfdSections.riscos: {
+      sectionRiscos: <String, dynamic>{
         'riscos': SipGedFormatFirestore.toFirestoreValue(riscos),
-        'impactoNaoContratar': SipGedFormatFirestore.toFirestoreValue(impactoNaoContratar),
+        'impactoNaoContratar':
+        SipGedFormatFirestore.toFirestoreValue(impactoNaoContratar),
         'prioridade': SipGedFormatFirestore.toFirestoreValue(prioridade),
-        'prioridadeId': SipGedFormatFirestore.toFirestoreValue(prioridadeId),
+        'prioridadeId':
+        SipGedFormatFirestore.toFirestoreValue(prioridadeId),
         'dataLimite': SipGedFormatFirestore.toFirestoreValue(dataLimite),
-        'motivacaoLegal': SipGedFormatFirestore.toFirestoreValue(motivacaoLegal),
-        'amparoNormativo': SipGedFormatFirestore.toFirestoreValue(amparoNormativo),
+        'motivacaoLegal':
+        SipGedFormatFirestore.toFirestoreValue(motivacaoLegal),
+        'amparoNormativo':
+        SipGedFormatFirestore.toFirestoreValue(amparoNormativo),
       },
-      DfdSections.documentos: {
+      sectionDocumentos: <String, dynamic>{
         'etpAnexo': SipGedFormatFirestore.toFirestoreValue(etpAnexo),
-        'projetoBasico': SipGedFormatFirestore.toFirestoreValue(projetoBasico),
-        'termoMatrizRiscos': SipGedFormatFirestore.toFirestoreValue(termoMatrizRiscos),
-        'parecerJuridico': SipGedFormatFirestore.toFirestoreValue(parecerJuridico),
-        'autorizacaoAbertura': SipGedFormatFirestore.toFirestoreValue(autorizacaoAbertura),
-        'linksDocumentos': SipGedFormatFirestore.toFirestoreValue(linksDocumentos),
+        'projetoBasico':
+        SipGedFormatFirestore.toFirestoreValue(projetoBasico),
+        'termoMatrizRiscos':
+        SipGedFormatFirestore.toFirestoreValue(termoMatrizRiscos),
+        'parecerJuridico':
+        SipGedFormatFirestore.toFirestoreValue(parecerJuridico),
+        'autorizacaoAbertura':
+        SipGedFormatFirestore.toFirestoreValue(autorizacaoAbertura),
+        'linksDocumentos':
+        SipGedFormatFirestore.toFirestoreValue(linksDocumentos),
       },
-      DfdSections.aprovacao: {
-        'autoridadeAprovadora': SipGedFormatFirestore.toFirestoreValue(autoridadeAprovadora),
-        'autoridadeAprovadoraId': SipGedFormatFirestore.toFirestoreValue(autoridadeAprovadoraId),
-        'autoridadeUserId': SipGedFormatFirestore.toFirestoreValue(autoridadeUserId),
-        'autoridadeCpf': SipGedFormatFirestore.toFirestoreValue(autoridadeCpf),
-        'dataAprovacao': SipGedFormatFirestore.toFirestoreValue(dataAprovacao),
-        'parecerResumo': SipGedFormatFirestore.toFirestoreValue(parecerResumo),
+      sectionAprovacao: <String, dynamic>{
+        'autoridadeAprovadora':
+        SipGedFormatFirestore.toFirestoreValue(autoridadeAprovadora),
+        'autoridadeAprovadoraId':
+        SipGedFormatFirestore.toFirestoreValue(autoridadeAprovadoraId),
+        'autoridadeUserId':
+        SipGedFormatFirestore.toFirestoreValue(autoridadeUserId),
+        'autoridadeCpf':
+        SipGedFormatFirestore.toFirestoreValue(autoridadeCpf),
+        'dataAprovacao':
+        SipGedFormatFirestore.toFirestoreValue(dataAprovacao),
+        'parecerResumo':
+        SipGedFormatFirestore.toFirestoreValue(parecerResumo),
       },
-      DfdSections.observacoes: {
-        'observacoes': SipGedFormatFirestore.toFirestoreValue(observacoes),
+      sectionObservacoes: <String, dynamic>{
+        'observacoes':
+        SipGedFormatFirestore.toFirestoreValue(observacoes),
       },
     };
   }
 
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     contractId,
-
     orgaoDemandante,
     unidadeSolicitante,
     regional,
-
     orgaoDemandanteId,
     unidadeSolicitanteId,
     regionalId,
-
     solicitanteNome,
     solicitanteUserId,
     solicitanteCpf,
@@ -1000,7 +1211,6 @@ class DfdData extends Equatable {
     companyId,
     unitId,
     regionId,
-
     tipoContratacao,
     modalidadeEstimativa,
     regimeExecucao,
@@ -1008,12 +1218,10 @@ class DfdData extends Equatable {
     justificativa,
     tipoObra,
     valorDemanda,
-
     tipoContratacaoId,
     modalidadeEstimativaId,
     regimeExecucaoId,
     tipoObraId,
-
     uf,
     municipio,
     rodovia,
@@ -1023,48 +1231,40 @@ class DfdData extends Equatable {
     prazoExecucaoDias,
     vigenciaMeses,
     extensaoKm,
-
     ufId,
     municipioId,
     rodoviaId,
     naturezaIntervencaoId,
-
     fonteRecurso,
     programaTrabalho,
     ptres,
     naturezaDespesa,
     estimativaValor,
     metodologiaEstimativa,
-
     fonteRecursoId,
     programaTrabalhoId,
     ptresId,
     naturezaDespesaId,
     metodologiaEstimativaId,
-
     riscos,
     impactoNaoContratar,
     prioridade,
     dataLimite,
     motivacaoLegal,
     amparoNormativo,
-
     prioridadeId,
-
     etpAnexo,
     projetoBasico,
     termoMatrizRiscos,
     parecerJuridico,
     autorizacaoAbertura,
     linksDocumentos,
-
     autoridadeAprovadora,
     autoridadeAprovadoraId,
     autoridadeUserId,
     autoridadeCpf,
     dataAprovacao,
     parecerResumo,
-
     observacoes,
   ];
 }

@@ -1,11 +1,29 @@
+// lib/_blocs/modules/contracts/hiring/10Arquivamento/termo_arquivamento_data.dart
+
 import 'package:equatable/equatable.dart';
 
-import 'termo_arquivamento_sections.dart';
-
 class TermoArquivamentoData extends Equatable {
+  /// Chaves estáveis das seções do Termo de Arquivamento.
+  /// Substitui o antigo arquivo termo_arquivamento_sections.dart.
+  static const sectionMetadados = 'metadados';
+  static const sectionMotivo = 'motivo';
+  static const sectionFundamentacao = 'fundamentacao';
+  static const sectionPecas = 'pecas';
+  static const sectionDecisao = 'decisao';
+  static const sectionReabertura = 'reabertura';
+
+  static const sectionKeys = <String>[
+    sectionMetadados,
+    sectionMotivo,
+    sectionFundamentacao,
+    sectionPecas,
+    sectionDecisao,
+    sectionReabertura,
+  ];
+
   // 1) Metadados
   final String? taNumero;
-  final String? taData;       // dd/MM/yyyy
+  final String? taData;
   final String? taProcesso;
   final String? taResponsavelUserId;
 
@@ -52,7 +70,6 @@ class TermoArquivamentoData extends Equatable {
     this.taPrazoReabertura,
   });
 
-  /// Construtor "vazio" para inicializar formulários
   const TermoArquivamentoData.empty()
       : taNumero = '',
         taData = '',
@@ -72,110 +89,93 @@ class TermoArquivamentoData extends Equatable {
         taReaberturaCondicao = '',
         taPrazoReabertura = '';
 
-  // ---------------------------------------------------------------------------
-  // Map "flat" (doc único no Firestore)
-  // ---------------------------------------------------------------------------
-  Map<String, dynamic> toMap() => {
-    'taNumero': taNumero,
-    'taData': taData,
-    'taProcesso': taProcesso,
-    'taResponsavelUserId': taResponsavelUserId,
-    'taMotivo': taMotivo,
-    'taAbrangencia': taAbrangencia,
-    'taDescricaoAbrangencia': taDescricaoAbrangencia,
-    'taFundamentosLegais': taFundamentosLegais,
-    'taJustificativa': taJustificativa,
-    'taPecasAnexas': taPecasAnexas,
-    'taLinks': taLinks,
-    'taAutoridadeUserId': taAutoridadeUserId,
-    'taDecisao': taDecisao,
-    'taDataDecisao': taDataDecisao,
-    'taObservacoesDecisao': taObservacoesDecisao,
-    'taReaberturaCondicao': taReaberturaCondicao,
-    'taPrazoReabertura': taPrazoReabertura,
-  };
+  static String _string(dynamic value) {
+    return (value ?? '').toString();
+  }
 
-  /// Mantém compatibilidade com o nome antigo, se você ainda estiver usando
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'taNumero': taNumero,
+      'taData': taData,
+      'taProcesso': taProcesso,
+      'taResponsavelUserId': taResponsavelUserId,
+      'taMotivo': taMotivo,
+      'taAbrangencia': taAbrangencia,
+      'taDescricaoAbrangencia': taDescricaoAbrangencia,
+      'taFundamentosLegais': taFundamentosLegais,
+      'taJustificativa': taJustificativa,
+      'taPecasAnexas': taPecasAnexas,
+      'taLinks': taLinks,
+      'taAutoridadeUserId': taAutoridadeUserId,
+      'taDecisao': taDecisao,
+      'taDataDecisao': taDataDecisao,
+      'taObservacoesDecisao': taObservacoesDecisao,
+      'taReaberturaCondicao': taReaberturaCondicao,
+      'taPrazoReabertura': taPrazoReabertura,
+    };
+  }
+
   Map<String, dynamic> toFlatMap() => toMap();
 
   factory TermoArquivamentoData.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const TermoArquivamentoData.empty();
 
     return TermoArquivamentoData(
-      taNumero: (map['taNumero'] ?? '').toString(),
-      taData: (map['taData'] ?? '').toString(),
-      taProcesso: (map['taProcesso'] ?? '').toString(),
+      taNumero: _string(map['taNumero']),
+      taData: _string(map['taData']),
+      taProcesso: _string(map['taProcesso']),
       taResponsavelUserId: map['taResponsavelUserId']?.toString(),
-      taMotivo: (map['taMotivo'] ?? '').toString(),
-      taAbrangencia: (map['taAbrangencia'] ?? '').toString(),
-      taDescricaoAbrangencia:
-      (map['taDescricaoAbrangencia'] ?? '').toString(),
-      taFundamentosLegais:
-      (map['taFundamentosLegais'] ?? '').toString(),
-      taJustificativa: (map['taJustificativa'] ?? '').toString(),
-      taPecasAnexas: (map['taPecasAnexas'] ?? '').toString(),
-      taLinks: (map['taLinks'] ?? '').toString(),
+      taMotivo: _string(map['taMotivo']),
+      taAbrangencia: _string(map['taAbrangencia']),
+      taDescricaoAbrangencia: _string(map['taDescricaoAbrangencia']),
+      taFundamentosLegais: _string(map['taFundamentosLegais']),
+      taJustificativa: _string(map['taJustificativa']),
+      taPecasAnexas: _string(map['taPecasAnexas']),
+      taLinks: _string(map['taLinks']),
       taAutoridadeUserId: map['taAutoridadeUserId']?.toString(),
-      taDecisao: (map['taDecisao'] ?? '').toString(),
-      taDataDecisao: (map['taDataDecisao'] ?? '').toString(),
-      taObservacoesDecisao:
-      (map['taObservacoesDecisao'] ?? '').toString(),
-      taReaberturaCondicao:
-      (map['taReaberturaCondicao'] ?? '').toString(),
-      taPrazoReabertura:
-      (map['taPrazoReabertura'] ?? '').toString(),
+      taDecisao: _string(map['taDecisao']),
+      taDataDecisao: _string(map['taDataDecisao']),
+      taObservacoesDecisao: _string(map['taObservacoesDecisao']),
+      taReaberturaCondicao: _string(map['taReaberturaCondicao']),
+      taPrazoReabertura: _string(map['taPrazoReabertura']),
     );
   }
 
-  /// Mantém compatibilidade com o nome antigo, se alguma coisa ainda chamar isso
-  factory TermoArquivamentoData.fromFlatMap(Map<String, dynamic>? map) =>
-      TermoArquivamentoData.fromMap(map);
+  factory TermoArquivamentoData.fromFlatMap(Map<String, dynamic>? map) {
+    return TermoArquivamentoData.fromMap(map);
+  }
 
-  /// A partir da estrutura em seções (usada no Firestore)
   factory TermoArquivamentoData.fromSectionsMap(
       Map<String, Map<String, dynamic>> sections,
       ) {
-    final m  = sections[TermoArquivamentoSections.metadados]     ?? const <String, dynamic>{};
-    final mot= sections[TermoArquivamentoSections.motivo]        ?? const <String, dynamic>{};
-    final f  = sections[TermoArquivamentoSections.fundamentacao] ?? const <String, dynamic>{};
-    final p  = sections[TermoArquivamentoSections.pecas]         ?? const <String, dynamic>{};
-    final d  = sections[TermoArquivamentoSections.decisao]       ?? const <String, dynamic>{};
-    final r  = sections[TermoArquivamentoSections.reabertura]    ?? const <String, dynamic>{};
+    final metadados =
+        sections[sectionMetadados] ?? const <String, dynamic>{};
+    final motivo = sections[sectionMotivo] ?? const <String, dynamic>{};
+    final fundamentacao =
+        sections[sectionFundamentacao] ?? const <String, dynamic>{};
+    final pecas = sections[sectionPecas] ?? const <String, dynamic>{};
+    final decisao = sections[sectionDecisao] ?? const <String, dynamic>{};
+    final reabertura =
+        sections[sectionReabertura] ?? const <String, dynamic>{};
 
     return TermoArquivamentoData(
-      // 1) Metadados
-      taNumero: (m['taNumero'] ?? '').toString(),
-      taData: (m['taData'] ?? '').toString(),
-      taProcesso: (m['taProcesso'] ?? '').toString(),
-      taResponsavelUserId: m['taResponsavelUserId']?.toString(),
-
-      // 2) Motivo e Abrangência
-      taMotivo: (mot['taMotivo'] ?? '').toString(),
-      taAbrangencia: (mot['taAbrangencia'] ?? '').toString(),
-      taDescricaoAbrangencia:
-      (mot['taDescricaoAbrangencia'] ?? '').toString(),
-
-      // 3) Fundamentação
-      taFundamentosLegais:
-      (f['taFundamentosLegais'] ?? '').toString(),
-      taJustificativa: (f['taJustificativa'] ?? '').toString(),
-
-      // 4) Peças Anexas
-      taPecasAnexas: (p['taPecasAnexas'] ?? '').toString(),
-      taLinks: (p['taLinks'] ?? '').toString(),
-
-      // 5) Decisão
-      taAutoridadeUserId: d['taAutoridadeUserId']?.toString(),
-      taDecisao: (d['taDecisao'] ?? '').toString(),
-      taDataDecisao: (d['taDataDecisao'] ?? '').toString(),
-      taObservacoesDecisao:
-      (d['taObservacoesDecisao'] ?? '').toString(),
-
-      // 6) Reabertura
-      taReaberturaCondicao:
-      (r['taReaberturaCondicao'] ?? '').toString(),
-      taPrazoReabertura:
-      (r['taPrazoReabertura'] ?? '').toString(),
+      taNumero: _string(metadados['taNumero']),
+      taData: _string(metadados['taData']),
+      taProcesso: _string(metadados['taProcesso']),
+      taResponsavelUserId: metadados['taResponsavelUserId']?.toString(),
+      taMotivo: _string(motivo['taMotivo']),
+      taAbrangencia: _string(motivo['taAbrangencia']),
+      taDescricaoAbrangencia: _string(motivo['taDescricaoAbrangencia']),
+      taFundamentosLegais: _string(fundamentacao['taFundamentosLegais']),
+      taJustificativa: _string(fundamentacao['taJustificativa']),
+      taPecasAnexas: _string(pecas['taPecasAnexas']),
+      taLinks: _string(pecas['taLinks']),
+      taAutoridadeUserId: decisao['taAutoridadeUserId']?.toString(),
+      taDecisao: _string(decisao['taDecisao']),
+      taDataDecisao: _string(decisao['taDataDecisao']),
+      taObservacoesDecisao: _string(decisao['taObservacoesDecisao']),
+      taReaberturaCondicao: _string(reabertura['taReaberturaCondicao']),
+      taPrazoReabertura: _string(reabertura['taPrazoReabertura']),
     );
   }
 
@@ -202,32 +202,62 @@ class TermoArquivamentoData extends Equatable {
       taNumero: taNumero ?? this.taNumero,
       taData: taData ?? this.taData,
       taProcesso: taProcesso ?? this.taProcesso,
-      taResponsavelUserId:
-      taResponsavelUserId ?? this.taResponsavelUserId,
+      taResponsavelUserId: taResponsavelUserId ?? this.taResponsavelUserId,
       taMotivo: taMotivo ?? this.taMotivo,
       taAbrangencia: taAbrangencia ?? this.taAbrangencia,
       taDescricaoAbrangencia:
       taDescricaoAbrangencia ?? this.taDescricaoAbrangencia,
-      taFundamentosLegais:
-      taFundamentosLegais ?? this.taFundamentosLegais,
+      taFundamentosLegais: taFundamentosLegais ?? this.taFundamentosLegais,
       taJustificativa: taJustificativa ?? this.taJustificativa,
       taPecasAnexas: taPecasAnexas ?? this.taPecasAnexas,
       taLinks: taLinks ?? this.taLinks,
-      taAutoridadeUserId:
-      taAutoridadeUserId ?? this.taAutoridadeUserId,
+      taAutoridadeUserId: taAutoridadeUserId ?? this.taAutoridadeUserId,
       taDecisao: taDecisao ?? this.taDecisao,
       taDataDecisao: taDataDecisao ?? this.taDataDecisao,
       taObservacoesDecisao:
       taObservacoesDecisao ?? this.taObservacoesDecisao,
       taReaberturaCondicao:
       taReaberturaCondicao ?? this.taReaberturaCondicao,
-      taPrazoReabertura:
-      taPrazoReabertura ?? this.taPrazoReabertura,
+      taPrazoReabertura: taPrazoReabertura ?? this.taPrazoReabertura,
     );
   }
 
+  Map<String, Map<String, dynamic>> toSectionsMap() {
+    return <String, Map<String, dynamic>>{
+      sectionMetadados: <String, dynamic>{
+        'taNumero': taNumero,
+        'taData': taData,
+        'taProcesso': taProcesso,
+        'taResponsavelUserId': taResponsavelUserId,
+      },
+      sectionMotivo: <String, dynamic>{
+        'taMotivo': taMotivo,
+        'taAbrangencia': taAbrangencia,
+        'taDescricaoAbrangencia': taDescricaoAbrangencia,
+      },
+      sectionFundamentacao: <String, dynamic>{
+        'taFundamentosLegais': taFundamentosLegais,
+        'taJustificativa': taJustificativa,
+      },
+      sectionPecas: <String, dynamic>{
+        'taPecasAnexas': taPecasAnexas,
+        'taLinks': taLinks,
+      },
+      sectionDecisao: <String, dynamic>{
+        'taAutoridadeUserId': taAutoridadeUserId,
+        'taDecisao': taDecisao,
+        'taDataDecisao': taDataDecisao,
+        'taObservacoesDecisao': taObservacoesDecisao,
+      },
+      sectionReabertura: <String, dynamic>{
+        'taReaberturaCondicao': taReaberturaCondicao,
+        'taPrazoReabertura': taPrazoReabertura,
+      },
+    };
+  }
+
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     taNumero,
     taData,
     taProcesso,
@@ -246,43 +276,4 @@ class TermoArquivamentoData extends Equatable {
     taReaberturaCondicao,
     taPrazoReabertura,
   ];
-}
-
-// -----------------------------------------------------------------------------
-// Mapeamento p/ estrutura em seções (mesma usada no Firestore)
-// -----------------------------------------------------------------------------
-extension TermoArquivamentoDataSections on TermoArquivamentoData {
-  Map<String, Map<String, dynamic>> toSectionsMap() {
-    return {
-      TermoArquivamentoSections.metadados: {
-        'taNumero': taNumero,
-        'taData': taData,
-        'taProcesso': taProcesso,
-        'taResponsavelUserId': taResponsavelUserId,
-      },
-      TermoArquivamentoSections.motivo: {
-        'taMotivo': taMotivo,
-        'taAbrangencia': taAbrangencia,
-        'taDescricaoAbrangencia': taDescricaoAbrangencia,
-      },
-      TermoArquivamentoSections.fundamentacao: {
-        'taFundamentosLegais': taFundamentosLegais,
-        'taJustificativa': taJustificativa,
-      },
-      TermoArquivamentoSections.pecas: {
-        'taPecasAnexas': taPecasAnexas,
-        'taLinks': taLinks,
-      },
-      TermoArquivamentoSections.decisao: {
-        'taAutoridadeUserId': taAutoridadeUserId,
-        'taDecisao': taDecisao,
-        'taDataDecisao': taDataDecisao,
-        'taObservacoesDecisao': taObservacoesDecisao,
-      },
-      TermoArquivamentoSections.reabertura: {
-        'taReaberturaCondicao': taReaberturaCondicao,
-        'taPrazoReabertura': taPrazoReabertura,
-      },
-    };
-  }
 }

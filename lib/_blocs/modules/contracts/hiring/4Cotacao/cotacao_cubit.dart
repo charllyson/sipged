@@ -2,15 +2,16 @@
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'cotacao_data.dart';
 import 'cotacao_repository.dart';
 import 'cotacao_state.dart';
 
 class CotacaoCubit extends Cubit<CotacaoState> {
-  CotacaoCubit(this.repo)
-      : super(CotacaoState.initial());
+  CotacaoCubit([CotacaoRepository? repository])
+      : repo = repository ?? CotacaoRepository(),
+        super(CotacaoState.initial());
 
   final CotacaoRepository repo;
 
@@ -82,7 +83,7 @@ class CotacaoCubit extends Cubit<CotacaoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _loadSeq) return;
 
       emit(
@@ -90,7 +91,7 @@ class CotacaoCubit extends Cubit<CotacaoState> {
           loading: false,
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -98,7 +99,7 @@ class CotacaoCubit extends Cubit<CotacaoState> {
 
   Future<void> saveAll({
     required String contractId,
-    required SectionsMap sectionsData,
+    required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
     final cleanContractId = contractId.trim();
 
@@ -161,14 +162,14 @@ class CotacaoCubit extends Cubit<CotacaoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -220,7 +221,7 @@ class CotacaoCubit extends Cubit<CotacaoState> {
       final ids = await repo.ensureStructure(cleanContractId);
       final sectionId = ids.sectionIds[cleanSectionKey];
 
-      if (sectionId == null) {
+      if (sectionId == null || sectionId.trim().isEmpty) {
         if (!_alive || reqId != _saveSeq) return;
 
         emit(
@@ -267,17 +268,101 @@ class CotacaoCubit extends Cubit<CotacaoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
+  }
+
+  Future<List<Attachment>> listAttachments({
+    required String contractId,
+    String? cotacaoId,
+    String? anexosId,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanCotacaoId = (cotacaoId ?? state.cotacaoId ?? '').trim();
+    final cleanAnexosId = (anexosId ?? state.currentDocsId ?? '').trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanCotacaoId.isEmpty ||
+        cleanAnexosId.isEmpty) {
+      return const <Attachment>[];
+    }
+
+    return repo.listAttachments(
+      contractId: cleanContractId,
+      cotacaoId: cleanCotacaoId,
+      anexosId: cleanAnexosId,
+    );
+  }
+
+  Future<Attachment> uploadAttachment({
+    required String contractId,
+    String? cotacaoId,
+    String? anexosId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanCotacaoId = (cotacaoId ?? state.cotacaoId ?? '').trim();
+    final cleanAnexosId = (anexosId ?? state.currentDocsId ?? '').trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanCotacaoId.isEmpty ||
+        cleanAnexosId.isEmpty) {
+      throw Exception('Caminho inválido para upload da cotação.');
+    }
+
+    return repo.uploadAttachment(
+      contractId: cleanContractId,
+      cotacaoId: cleanCotacaoId,
+      anexosId: cleanAnexosId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<bool> deleteAttachment({
+    required String contractId,
+    String? cotacaoId,
+    String? anexosId,
+    required String fileName,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanCotacaoId = (cotacaoId ?? state.cotacaoId ?? '').trim();
+    final cleanAnexosId = (anexosId ?? state.currentDocsId ?? '').trim();
+    final cleanFileName = fileName.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanCotacaoId.isEmpty ||
+        cleanAnexosId.isEmpty ||
+        cleanFileName.isEmpty) {
+      return false;
+    }
+
+    return repo.deleteAttachment(
+      contractId: cleanContractId,
+      cotacaoId: cleanCotacaoId,
+      anexosId: cleanAnexosId,
+      fileName: cleanFileName,
+    );
+  }
+
+  Future<bool> deleteAttachmentByPath(String path) {
+    return repo.deleteAttachmentByPath(path);
   }
 
   void clearSuccessFlag() {

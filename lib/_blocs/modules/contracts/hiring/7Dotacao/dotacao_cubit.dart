@@ -1,16 +1,20 @@
 // lib/_blocs/modules/contracts/hiring/7Dotacao/dotacao_cubit.dart
 
+import 'dart:typed_data';
+
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'dotacao_data.dart';
 import 'dotacao_repository.dart';
 import 'dotacao_state.dart';
 
 class DotacaoCubit extends Cubit<DotacaoState> {
-  DotacaoCubit(this.repo)
-      : super(DotacaoState.initial());
+  DotacaoCubit([DotacaoRepository? repository])
+      : repo = repository ?? DotacaoRepository(),
+        super(DotacaoState.initial());
 
   final DotacaoRepository repo;
 
@@ -85,7 +89,7 @@ class DotacaoCubit extends Cubit<DotacaoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _loadSeq) return;
 
       emit(
@@ -93,7 +97,7 @@ class DotacaoCubit extends Cubit<DotacaoState> {
           loading: false,
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -101,7 +105,7 @@ class DotacaoCubit extends Cubit<DotacaoState> {
 
   Future<void> saveAll({
     required String contractId,
-    required SectionsMap sectionsData,
+    required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
     final cleanContractId = contractId.trim();
 
@@ -164,14 +168,14 @@ class DotacaoCubit extends Cubit<DotacaoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -270,17 +274,187 @@ class DotacaoCubit extends Cubit<DotacaoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
+  }
+
+  Future<List<Attachment>> listFiles({
+    required String contractId,
+    String? dotacaoId,
+    String? documentosId,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanDotacaoId = (dotacaoId ?? state.dotacaoId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ?? state.sectionIds[DotacaoData.sectionDocumentos] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanDotacaoId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      return const <Attachment>[];
+    }
+
+    return repo.listFiles(
+      contractId: cleanContractId,
+      dotacaoId: cleanDotacaoId,
+      documentosId: cleanDocumentosId,
+    );
+  }
+
+  Future<List<Attachment>> listDocumentosFiles({
+    required String contractId,
+    String? dotacaoId,
+    String? documentosId,
+  }) {
+    return listFiles(
+      contractId: contractId,
+      dotacaoId: dotacaoId,
+      documentosId: documentosId,
+    );
+  }
+
+  Future<Attachment> uploadFile({
+    required String contractId,
+    String? dotacaoId,
+    String? documentosId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanDotacaoId = (dotacaoId ?? state.dotacaoId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ?? state.sectionIds[DotacaoData.sectionDocumentos] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanDotacaoId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      throw Exception('Caminho inválido para upload da dotação.');
+    }
+
+    return repo.uploadFile(
+      contractId: cleanContractId,
+      dotacaoId: cleanDotacaoId,
+      documentosId: cleanDocumentosId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadDocumentosFile({
+    required String contractId,
+    String? dotacaoId,
+    String? documentosId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
+  }) {
+    return uploadFile(
+      contractId: contractId,
+      dotacaoId: dotacaoId,
+      documentosId: documentosId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadBytes({
+    required String contractId,
+    String? dotacaoId,
+    String? documentosId,
+    required Uint8List bytes,
+    required String fileName,
+    required void Function(double progress) onProgress,
+    SettableMetadata? metadata,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanDotacaoId = (dotacaoId ?? state.dotacaoId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ?? state.sectionIds[DotacaoData.sectionDocumentos] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanDotacaoId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      throw Exception('Caminho inválido para upload da dotação.');
+    }
+
+    return repo.uploadBytes(
+      contractId: cleanContractId,
+      dotacaoId: cleanDotacaoId,
+      documentosId: cleanDocumentosId,
+      bytes: bytes,
+      fileName: fileName,
+      onProgress: onProgress,
+      metadata: metadata,
+    );
+  }
+
+  Future<bool> deleteFile({
+    required String contractId,
+    String? dotacaoId,
+    String? documentosId,
+    required String fileName,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanDotacaoId = (dotacaoId ?? state.dotacaoId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ?? state.sectionIds[DotacaoData.sectionDocumentos] ?? '')
+        .trim();
+    final cleanFileName = fileName.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanDotacaoId.isEmpty ||
+        cleanDocumentosId.isEmpty ||
+        cleanFileName.isEmpty) {
+      return false;
+    }
+
+    return repo.deleteFile(
+      contractId: cleanContractId,
+      dotacaoId: cleanDotacaoId,
+      documentosId: cleanDocumentosId,
+      fileName: cleanFileName,
+    );
+  }
+
+  Future<bool> deleteDocumentosFile({
+    required String contractId,
+    String? dotacaoId,
+    String? documentosId,
+    required String fileName,
+  }) {
+    return deleteFile(
+      contractId: contractId,
+      dotacaoId: dotacaoId,
+      documentosId: documentosId,
+      fileName: fileName,
+    );
+  }
+
+  Future<bool> deleteByPath(String path) {
+    return repo.deleteByPath(path);
   }
 
   void clearSuccessFlag() {

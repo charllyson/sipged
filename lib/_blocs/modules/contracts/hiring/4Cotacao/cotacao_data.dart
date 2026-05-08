@@ -1,8 +1,28 @@
+// lib/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart
+
 import 'package:equatable/equatable.dart';
 
-import 'cotacao_sections.dart';
-
 class CotacaoData extends Equatable {
+  /// Chaves estáveis das seções da Cotação.
+  /// Substitui o antigo arquivo cotacao_sections.dart.
+  static const sectionMetadados = 'metadados';
+  static const sectionObjetoItens = 'objetoItens';
+  static const sectionConviteDivulgacao = 'conviteDivulgacao';
+  static const sectionRespostasFornecedores = 'respostasFornecedores';
+  static const sectionVencedora = 'vencedora';
+  static const sectionConsolidacaoResultado = 'consolidacaoResultado';
+  static const sectionAnexosEvidencias = 'anexosEvidencias';
+
+  static const sectionKeys = <String>[
+    sectionMetadados,
+    sectionObjetoItens,
+    sectionConviteDivulgacao,
+    sectionRespostasFornecedores,
+    sectionVencedora,
+    sectionConsolidacaoResultado,
+    sectionAnexosEvidencias,
+  ];
+
   // ===== 1) Metadados =====
   final String? numero;
   final String? dataAbertura;
@@ -11,7 +31,7 @@ class CotacaoData extends Equatable {
   final String? responsavelUserId;
   final String? metodologia;
 
-  // ===== 2) Objeto/Itens (resumo) =====
+  // ===== 2) Objeto/Itens =====
   final String? objeto;
   final String? unidadeMedida;
   final String? quantidade;
@@ -22,61 +42,51 @@ class CotacaoData extends Equatable {
   final String? fornecedoresConvidados;
   final String? prazoResposta;
 
-  // ===== 4) Respostas dos Fornecedores (até 3) =====
-  // fornecedor 1
+  // ===== 4) Respostas dos Fornecedores =====
   final String? f1Nome;
   final String? f1Cnpj;
   final String? f1Valor;
   final String? f1DataRecebimento;
   final String? f1LinkProposta;
 
-  // fornecedor 2
   final String? f2Nome;
   final String? f2Cnpj;
   final String? f2Valor;
   final String? f2DataRecebimento;
   final String? f2LinkProposta;
 
-  // fornecedor 3
   final String? f3Nome;
   final String? f3Cnpj;
   final String? f3Valor;
   final String? f3DataRecebimento;
   final String? f3LinkProposta;
 
-  // ===== Empresa vencedora =====
+  // ===== 5) Empresa vencedora =====
   final String? empresaLider;
   final String? consorcioEnvolvidas;
 
-  // ===== 5) Consolidação/Resultado =====
+  // ===== 6) Consolidação/Resultado =====
   final String? criterioConsolidacao;
   final String? valorConsolidado;
   final String? observacoes;
 
-  // ===== 6) Anexos/Evidências =====
+  // ===== 7) Anexos/Evidências =====
   final String? linksAnexos;
 
   const CotacaoData({
-    // 1) Metadados
     this.numero,
     this.dataAbertura,
     this.dataEncerramento,
     this.responsavelNome,
     this.responsavelUserId,
     this.metodologia,
-
-    // 2) Objeto/Itens (resumo)
     this.objeto,
     this.unidadeMedida,
     this.quantidade,
     this.especificacoes,
-
-    // 3) Convite/Divulgação
     this.meioDivulgacao,
     this.fornecedoresConvidados,
     this.prazoResposta,
-
-    // 4) Respostas dos Fornecedores
     this.f1Nome,
     this.f1Cnpj,
     this.f1Valor,
@@ -92,21 +102,14 @@ class CotacaoData extends Equatable {
     this.f3Valor,
     this.f3DataRecebimento,
     this.f3LinkProposta,
-
-    // Empresa vencedora
     this.empresaLider,
     this.consorcioEnvolvidas,
-
-    // 5) Consolidação/Resultado
     this.criterioConsolidacao,
     this.valorConsolidado,
     this.observacoes,
-
-    // 6) Anexos/Evidências
     this.linksAnexos,
   });
 
-  /// Construtor "vazio" no mesmo padrão dos outros Data
   const CotacaoData.empty()
       : numero = '',
         dataAbertura = '',
@@ -143,229 +146,206 @@ class CotacaoData extends Equatable {
         observacoes = '',
         linksAnexos = '';
 
-  // ---------------------------------------------------------------------------
-  // Map "flat" (sem seções) — compat direto com Firestore se salvar tudo junto
-  // ---------------------------------------------------------------------------
-  Map<String, dynamic> toMap() => {
-    // 1) Metadados
-    'numero': numero,
-    'dataAbertura': dataAbertura,
-    'dataEncerramento': dataEncerramento,
-    'responsavelNome': responsavelNome,
-    'responsavelUserId': responsavelUserId,
-    'metodologia': metodologia,
+  static String _text(dynamic value) {
+    return (value ?? '').toString();
+  }
 
-    // 2) Objeto/Itens (resumo)
-    'objeto': objeto,
-    'unidadeMedida': unidadeMedida,
-    'quantidade': quantidade,
-    'especificacoes': especificacoes,
-
-    // 3) Convite/Divulgação
-    'meioDivulgacao': meioDivulgacao,
-    'fornecedoresConvidados': fornecedoresConvidados,
-    'prazoResposta': prazoResposta,
-
-    // 4) Respostas dos Fornecedores
-    'f1Nome': f1Nome,
-    'f1Cnpj': f1Cnpj,
-    'f1Valor': f1Valor,
-    'f1DataRecebimento': f1DataRecebimento,
-    'f1LinkProposta': f1LinkProposta,
-    'f2Nome': f2Nome,
-    'f2Cnpj': f2Cnpj,
-    'f2Valor': f2Valor,
-    'f2DataRecebimento': f2DataRecebimento,
-    'f2LinkProposta': f2LinkProposta,
-    'f3Nome': f3Nome,
-    'f3Cnpj': f3Cnpj,
-    'f3Valor': f3Valor,
-    'f3DataRecebimento': f3DataRecebimento,
-    'f3LinkProposta': f3LinkProposta,
-
-    // Empresa vencedora
-    'empresaLider': empresaLider,
-    'consorcioEnvolvidas': consorcioEnvolvidas,
-
-    // 5) Consolidação/Resultado
-    'criterioConsolidacao': criterioConsolidacao,
-    'valorConsolidado': valorConsolidado,
-    'observacoes': observacoes,
-
-    // 6) Anexos/Evidências
-    'linksAnexos': linksAnexos,
-  };
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'numero': numero,
+      'dataAbertura': dataAbertura,
+      'dataEncerramento': dataEncerramento,
+      'responsavelNome': responsavelNome,
+      'responsavelUserId': responsavelUserId,
+      'metodologia': metodologia,
+      'objeto': objeto,
+      'unidadeMedida': unidadeMedida,
+      'quantidade': quantidade,
+      'especificacoes': especificacoes,
+      'meioDivulgacao': meioDivulgacao,
+      'fornecedoresConvidados': fornecedoresConvidados,
+      'prazoResposta': prazoResposta,
+      'f1Nome': f1Nome,
+      'f1Cnpj': f1Cnpj,
+      'f1Valor': f1Valor,
+      'f1DataRecebimento': f1DataRecebimento,
+      'f1LinkProposta': f1LinkProposta,
+      'f2Nome': f2Nome,
+      'f2Cnpj': f2Cnpj,
+      'f2Valor': f2Valor,
+      'f2DataRecebimento': f2DataRecebimento,
+      'f2LinkProposta': f2LinkProposta,
+      'f3Nome': f3Nome,
+      'f3Cnpj': f3Cnpj,
+      'f3Valor': f3Valor,
+      'f3DataRecebimento': f3DataRecebimento,
+      'f3LinkProposta': f3LinkProposta,
+      'empresaLider': empresaLider,
+      'consorcioEnvolvidas': consorcioEnvolvidas,
+      'criterioConsolidacao': criterioConsolidacao,
+      'valorConsolidado': valorConsolidado,
+      'observacoes': observacoes,
+      'linksAnexos': linksAnexos,
+    };
+  }
 
   factory CotacaoData.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const CotacaoData.empty();
 
     return CotacaoData(
-      // 1) Metadados
-      numero: (map['numero'] ?? '').toString(),
-      dataAbertura: (map['dataAbertura'] ?? '').toString(),
-      dataEncerramento:
-      (map['dataEncerramento'] ?? '').toString(),
-      responsavelNome:
-      (map['responsavelNome'] ?? '').toString(),
-      responsavelUserId:
-      map['responsavelUserId']?.toString(),
-      metodologia: (map['metodologia'] ?? '').toString(),
-
-      // 2) Objeto/Itens (resumo)
-      objeto: (map['objeto'] ?? '').toString(),
-      unidadeMedida:
-      (map['unidadeMedida'] ?? '').toString(),
-      quantidade: (map['quantidade'] ?? '').toString(),
-      especificacoes:
-      (map['especificacoes'] ?? '').toString(),
-
-      // 3) Convite/Divulgação
-      meioDivulgacao:
-      (map['meioDivulgacao'] ?? '').toString(),
-      fornecedoresConvidados:
-      (map['fornecedoresConvidados'] ?? '').toString(),
-      prazoResposta:
-      (map['prazoResposta'] ?? '').toString(),
-
-      // 4) Respostas dos Fornecedores
-      f1Nome: (map['f1Nome'] ?? '').toString(),
-      f1Cnpj: (map['f1Cnpj'] ?? '').toString(),
-      f1Valor: (map['f1Valor'] ?? '').toString(),
-      f1DataRecebimento:
-      (map['f1DataRecebimento'] ?? '').toString(),
-      f1LinkProposta:
-      (map['f1LinkProposta'] ?? '').toString(),
-
-      f2Nome: (map['f2Nome'] ?? '').toString(),
-      f2Cnpj: (map['f2Cnpj'] ?? '').toString(),
-      f2Valor: (map['f2Valor'] ?? '').toString(),
-      f2DataRecebimento:
-      (map['f2DataRecebimento'] ?? '').toString(),
-      f2LinkProposta:
-      (map['f2LinkProposta'] ?? '').toString(),
-
-      f3Nome: (map['f3Nome'] ?? '').toString(),
-      f3Cnpj: (map['f3Cnpj'] ?? '').toString(),
-      f3Valor: (map['f3Valor'] ?? '').toString(),
-      f3DataRecebimento:
-      (map['f3DataRecebimento'] ?? '').toString(),
-      f3LinkProposta:
-      (map['f3LinkProposta'] ?? '').toString(),
-
-      // Empresa vencedora
-      empresaLider:
-      (map['empresaLider'] ?? '').toString(),
-      consorcioEnvolvidas:
-      (map['consorcioEnvolvidas'] ?? '').toString(),
-
-      // 5) Consolidação/Resultado
-      criterioConsolidacao:
-      (map['criterioConsolidacao'] ?? '').toString(),
-      valorConsolidado:
-      (map['valorConsolidado'] ?? '').toString(),
-      observacoes: (map['observacoes'] ?? '').toString(),
-
-      // 6) Anexos/Evidências
-      linksAnexos: (map['linksAnexos'] ?? '').toString(),
+      numero: _text(map['numero']),
+      dataAbertura: _text(map['dataAbertura']),
+      dataEncerramento: _text(map['dataEncerramento']),
+      responsavelNome: _text(map['responsavelNome']),
+      responsavelUserId: map['responsavelUserId']?.toString(),
+      metodologia: _text(map['metodologia']),
+      objeto: _text(map['objeto']),
+      unidadeMedida: _text(map['unidadeMedida']),
+      quantidade: _text(map['quantidade']),
+      especificacoes: _text(map['especificacoes']),
+      meioDivulgacao: _text(map['meioDivulgacao']),
+      fornecedoresConvidados: _text(map['fornecedoresConvidados']),
+      prazoResposta: _text(map['prazoResposta']),
+      f1Nome: _text(map['f1Nome']),
+      f1Cnpj: _text(map['f1Cnpj']),
+      f1Valor: _text(map['f1Valor']),
+      f1DataRecebimento: _text(map['f1DataRecebimento']),
+      f1LinkProposta: _text(map['f1LinkProposta']),
+      f2Nome: _text(map['f2Nome']),
+      f2Cnpj: _text(map['f2Cnpj']),
+      f2Valor: _text(map['f2Valor']),
+      f2DataRecebimento: _text(map['f2DataRecebimento']),
+      f2LinkProposta: _text(map['f2LinkProposta']),
+      f3Nome: _text(map['f3Nome']),
+      f3Cnpj: _text(map['f3Cnpj']),
+      f3Valor: _text(map['f3Valor']),
+      f3DataRecebimento: _text(map['f3DataRecebimento']),
+      f3LinkProposta: _text(map['f3LinkProposta']),
+      empresaLider: _text(map['empresaLider']),
+      consorcioEnvolvidas: _text(map['consorcioEnvolvidas']),
+      criterioConsolidacao: _text(map['criterioConsolidacao']),
+      valorConsolidado: _text(map['valorConsolidado']),
+      observacoes: _text(map['observacoes']),
+      linksAnexos: _text(map['linksAnexos']),
     );
   }
 
-  /// Mesmo padrão dos outros: monta a partir da estrutura em seções
   factory CotacaoData.fromSectionsMap(
       Map<String, Map<String, dynamic>> sections,
       ) {
-    final meta = sections[CotacaoSections.metadados] ??
-        const <String, dynamic>{};
-    final obj = sections[CotacaoSections.objetoItens] ??
-        const <String, dynamic>{};
-    final conv = sections[CotacaoSections.conviteDivulgacao] ??
-        const <String, dynamic>{};
+    final meta =
+        sections[sectionMetadados] ?? const <String, dynamic>{};
+
+    final obj =
+        sections[sectionObjetoItens] ?? const <String, dynamic>{};
+
+    final conv =
+        sections[sectionConviteDivulgacao] ?? const <String, dynamic>{};
+
     final resp =
-        sections[CotacaoSections.respostasFornecedores] ??
+        sections[sectionRespostasFornecedores] ??
             const <String, dynamic>{};
-    final venc = sections[CotacaoSections.vencedora] ??
-        const <String, dynamic>{};
-    final cons = sections[
-    CotacaoSections.consolidacaoResultado] ??
-        const <String, dynamic>{};
-    final anex = sections[
-    CotacaoSections.anexosEvidencias] ??
-        const <String, dynamic>{};
+
+    final venc =
+        sections[sectionVencedora] ?? const <String, dynamic>{};
+
+    final cons =
+        sections[sectionConsolidacaoResultado] ??
+            const <String, dynamic>{};
+
+    final anex =
+        sections[sectionAnexosEvidencias] ??
+            const <String, dynamic>{};
 
     return CotacaoData(
-      // 1) Metadados
-      numero: (meta['numero'] ?? '').toString(),
-      dataAbertura:
-      (meta['dataAbertura'] ?? '').toString(),
-      dataEncerramento:
-      (meta['dataEncerramento'] ?? '').toString(),
-      responsavelNome:
-      (meta['responsavelNome'] ?? '').toString(),
-      responsavelUserId:
-      meta['responsavelUserId']?.toString(),
-      metodologia:
-      (meta['metodologia'] ?? '').toString(),
-
-      // 2) Objeto/Itens
-      objeto: (obj['objeto'] ?? '').toString(),
-      unidadeMedida:
-      (obj['unidadeMedida'] ?? '').toString(),
-      quantidade:
-      (obj['quantidade'] ?? '').toString(),
-      especificacoes:
-      (obj['especificacoes'] ?? '').toString(),
-
-      // 3) Convite/Divulgação
-      meioDivulgacao:
-      (conv['meioDivulgacao'] ?? '').toString(),
-      fornecedoresConvidados:
-      (conv['fornecedoresConvidados'] ?? '').toString(),
-      prazoResposta:
-      (conv['prazoResposta'] ?? '').toString(),
-
-      // 4) Respostas dos Fornecedores
-      f1Nome: (resp['f1Nome'] ?? '').toString(),
-      f1Cnpj: (resp['f1Cnpj'] ?? '').toString(),
-      f1Valor: (resp['f1Valor'] ?? '').toString(),
-      f1DataRecebimento:
-      (resp['f1DataRecebimento'] ?? '').toString(),
-      f1LinkProposta:
-      (resp['f1LinkProposta'] ?? '').toString(),
-
-      f2Nome: (resp['f2Nome'] ?? '').toString(),
-      f2Cnpj: (resp['f2Cnpj'] ?? '').toString(),
-      f2Valor: (resp['f2Valor'] ?? '').toString(),
-      f2DataRecebimento:
-      (resp['f2DataRecebimento'] ?? '').toString(),
-      f2LinkProposta:
-      (resp['f2LinkProposta'] ?? '').toString(),
-
-      f3Nome: (resp['f3Nome'] ?? '').toString(),
-      f3Cnpj: (resp['f3Cnpj'] ?? '').toString(),
-      f3Valor: (resp['f3Valor'] ?? '').toString(),
-      f3DataRecebimento:
-      (resp['f3DataRecebimento'] ?? '').toString(),
-      f3LinkProposta:
-      (resp['f3LinkProposta'] ?? '').toString(),
-
-      // Vencedora
-      empresaLider:
-      (venc['empresaLider'] ?? '').toString(),
-      consorcioEnvolvidas:
-      (venc['consorcioEnvolvidas'] ?? '').toString(),
-
-      // Consolidação/Resultado
-      criterioConsolidacao:
-      (cons['criterioConsolidacao'] ?? '').toString(),
-      valorConsolidado:
-      (cons['valorConsolidado'] ?? '').toString(),
-      observacoes:
-      (cons['observacoes'] ?? '').toString(),
-
-      // Anexos/Evidências
-      linksAnexos:
-      (anex['linksAnexos'] ?? '').toString(),
+      numero: _text(meta['numero']),
+      dataAbertura: _text(meta['dataAbertura']),
+      dataEncerramento: _text(meta['dataEncerramento']),
+      responsavelNome: _text(meta['responsavelNome']),
+      responsavelUserId: meta['responsavelUserId']?.toString(),
+      metodologia: _text(meta['metodologia']),
+      objeto: _text(obj['objeto']),
+      unidadeMedida: _text(obj['unidadeMedida']),
+      quantidade: _text(obj['quantidade']),
+      especificacoes: _text(obj['especificacoes']),
+      meioDivulgacao: _text(conv['meioDivulgacao']),
+      fornecedoresConvidados: _text(conv['fornecedoresConvidados']),
+      prazoResposta: _text(conv['prazoResposta']),
+      f1Nome: _text(resp['f1Nome']),
+      f1Cnpj: _text(resp['f1Cnpj']),
+      f1Valor: _text(resp['f1Valor']),
+      f1DataRecebimento: _text(resp['f1DataRecebimento']),
+      f1LinkProposta: _text(resp['f1LinkProposta']),
+      f2Nome: _text(resp['f2Nome']),
+      f2Cnpj: _text(resp['f2Cnpj']),
+      f2Valor: _text(resp['f2Valor']),
+      f2DataRecebimento: _text(resp['f2DataRecebimento']),
+      f2LinkProposta: _text(resp['f2LinkProposta']),
+      f3Nome: _text(resp['f3Nome']),
+      f3Cnpj: _text(resp['f3Cnpj']),
+      f3Valor: _text(resp['f3Valor']),
+      f3DataRecebimento: _text(resp['f3DataRecebimento']),
+      f3LinkProposta: _text(resp['f3LinkProposta']),
+      empresaLider: _text(venc['empresaLider']),
+      consorcioEnvolvidas: _text(venc['consorcioEnvolvidas']),
+      criterioConsolidacao: _text(cons['criterioConsolidacao']),
+      valorConsolidado: _text(cons['valorConsolidado']),
+      observacoes: _text(cons['observacoes']),
+      linksAnexos: _text(anex['linksAnexos']),
     );
+  }
+
+  Map<String, Map<String, dynamic>> toSectionsMap() {
+    return <String, Map<String, dynamic>>{
+      sectionMetadados: <String, dynamic>{
+        'numero': numero,
+        'dataAbertura': dataAbertura,
+        'dataEncerramento': dataEncerramento,
+        'responsavelNome': responsavelNome,
+        'responsavelUserId': responsavelUserId,
+        'metodologia': metodologia,
+      },
+      sectionObjetoItens: <String, dynamic>{
+        'objeto': objeto,
+        'unidadeMedida': unidadeMedida,
+        'quantidade': quantidade,
+        'especificacoes': especificacoes,
+      },
+      sectionConviteDivulgacao: <String, dynamic>{
+        'meioDivulgacao': meioDivulgacao,
+        'fornecedoresConvidados': fornecedoresConvidados,
+        'prazoResposta': prazoResposta,
+      },
+      sectionRespostasFornecedores: <String, dynamic>{
+        'f1Nome': f1Nome,
+        'f1Cnpj': f1Cnpj,
+        'f1Valor': f1Valor,
+        'f1DataRecebimento': f1DataRecebimento,
+        'f1LinkProposta': f1LinkProposta,
+        'f2Nome': f2Nome,
+        'f2Cnpj': f2Cnpj,
+        'f2Valor': f2Valor,
+        'f2DataRecebimento': f2DataRecebimento,
+        'f2LinkProposta': f2LinkProposta,
+        'f3Nome': f3Nome,
+        'f3Cnpj': f3Cnpj,
+        'f3Valor': f3Valor,
+        'f3DataRecebimento': f3DataRecebimento,
+        'f3LinkProposta': f3LinkProposta,
+      },
+      sectionVencedora: <String, dynamic>{
+        'empresaLider': empresaLider,
+        'consorcioEnvolvidas': consorcioEnvolvidas,
+      },
+      sectionConsolidacaoResultado: <String, dynamic>{
+        'criterioConsolidacao': criterioConsolidacao,
+        'valorConsolidado': valorConsolidado,
+        'observacoes': observacoes,
+      },
+      sectionAnexosEvidencias: <String, dynamic>{
+        'linksAnexos': linksAnexos,
+      },
+    };
   }
 
   CotacaoData copyWith({
@@ -407,63 +387,45 @@ class CotacaoData extends Equatable {
     return CotacaoData(
       numero: numero ?? this.numero,
       dataAbertura: dataAbertura ?? this.dataAbertura,
-      dataEncerramento:
-      dataEncerramento ?? this.dataEncerramento,
-      responsavelNome:
-      responsavelNome ?? this.responsavelNome,
-      responsavelUserId:
-      responsavelUserId ?? this.responsavelUserId,
+      dataEncerramento: dataEncerramento ?? this.dataEncerramento,
+      responsavelNome: responsavelNome ?? this.responsavelNome,
+      responsavelUserId: responsavelUserId ?? this.responsavelUserId,
       metodologia: metodologia ?? this.metodologia,
       objeto: objeto ?? this.objeto,
-      unidadeMedida:
-      unidadeMedida ?? this.unidadeMedida,
+      unidadeMedida: unidadeMedida ?? this.unidadeMedida,
       quantidade: quantidade ?? this.quantidade,
-      especificacoes:
-      especificacoes ?? this.especificacoes,
-      meioDivulgacao:
-      meioDivulgacao ?? this.meioDivulgacao,
+      especificacoes: especificacoes ?? this.especificacoes,
+      meioDivulgacao: meioDivulgacao ?? this.meioDivulgacao,
       fornecedoresConvidados:
-      fornecedoresConvidados ??
-          this.fornecedoresConvidados,
+      fornecedoresConvidados ?? this.fornecedoresConvidados,
       prazoResposta: prazoResposta ?? this.prazoResposta,
       f1Nome: f1Nome ?? this.f1Nome,
       f1Cnpj: f1Cnpj ?? this.f1Cnpj,
       f1Valor: f1Valor ?? this.f1Valor,
-      f1DataRecebimento:
-      f1DataRecebimento ?? this.f1DataRecebimento,
-      f1LinkProposta:
-      f1LinkProposta ?? this.f1LinkProposta,
+      f1DataRecebimento: f1DataRecebimento ?? this.f1DataRecebimento,
+      f1LinkProposta: f1LinkProposta ?? this.f1LinkProposta,
       f2Nome: f2Nome ?? this.f2Nome,
       f2Cnpj: f2Cnpj ?? this.f2Cnpj,
       f2Valor: f2Valor ?? this.f2Valor,
-      f2DataRecebimento:
-      f2DataRecebimento ?? this.f2DataRecebimento,
-      f2LinkProposta:
-      f2LinkProposta ?? this.f2LinkProposta,
+      f2DataRecebimento: f2DataRecebimento ?? this.f2DataRecebimento,
+      f2LinkProposta: f2LinkProposta ?? this.f2LinkProposta,
       f3Nome: f3Nome ?? this.f3Nome,
       f3Cnpj: f3Cnpj ?? this.f3Cnpj,
       f3Valor: f3Valor ?? this.f3Valor,
-      f3DataRecebimento:
-      f3DataRecebimento ?? this.f3DataRecebimento,
-      f3LinkProposta:
-      f3LinkProposta ?? this.f3LinkProposta,
-      empresaLider:
-      empresaLider ?? this.empresaLider,
-      consorcioEnvolvidas:
-      consorcioEnvolvidas ??
-          this.consorcioEnvolvidas,
+      f3DataRecebimento: f3DataRecebimento ?? this.f3DataRecebimento,
+      f3LinkProposta: f3LinkProposta ?? this.f3LinkProposta,
+      empresaLider: empresaLider ?? this.empresaLider,
+      consorcioEnvolvidas: consorcioEnvolvidas ?? this.consorcioEnvolvidas,
       criterioConsolidacao:
-      criterioConsolidacao ??
-          this.criterioConsolidacao,
-      valorConsolidado:
-      valorConsolidado ?? this.valorConsolidado,
+      criterioConsolidacao ?? this.criterioConsolidacao,
+      valorConsolidado: valorConsolidado ?? this.valorConsolidado,
       observacoes: observacoes ?? this.observacoes,
       linksAnexos: linksAnexos ?? this.linksAnexos,
     );
   }
 
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     numero,
     dataAbertura,
     dataEncerramento,
@@ -499,62 +461,4 @@ class CotacaoData extends Equatable {
     observacoes,
     linksAnexos,
   ];
-}
-
-// -----------------------------------------------------------------------------
-// Mapeamento p/ estrutura em seções (mesma usada no Firestore)
-// -----------------------------------------------------------------------------
-extension CotacaoDataSections on CotacaoData {
-  Map<String, Map<String, dynamic>> toSectionsMap() {
-    return {
-      CotacaoSections.metadados: {
-        'numero': numero,
-        'dataAbertura': dataAbertura,
-        'dataEncerramento': dataEncerramento,
-        'responsavelNome': responsavelNome,
-        'responsavelUserId': responsavelUserId,
-        'metodologia': metodologia,
-      },
-      CotacaoSections.objetoItens: {
-        'objeto': objeto,
-        'unidadeMedida': unidadeMedida,
-        'quantidade': quantidade,
-        'especificacoes': especificacoes,
-      },
-      CotacaoSections.conviteDivulgacao: {
-        'meioDivulgacao': meioDivulgacao,
-        'fornecedoresConvidados': fornecedoresConvidados,
-        'prazoResposta': prazoResposta,
-      },
-      CotacaoSections.respostasFornecedores: {
-        'f1Nome': f1Nome,
-        'f1Cnpj': f1Cnpj,
-        'f1Valor': f1Valor,
-        'f1DataRecebimento': f1DataRecebimento,
-        'f1LinkProposta': f1LinkProposta,
-        'f2Nome': f2Nome,
-        'f2Cnpj': f2Cnpj,
-        'f2Valor': f2Valor,
-        'f2DataRecebimento': f2DataRecebimento,
-        'f2LinkProposta': f2LinkProposta,
-        'f3Nome': f3Nome,
-        'f3Cnpj': f3Cnpj,
-        'f3Valor': f3Valor,
-        'f3DataRecebimento': f3DataRecebimento,
-        'f3LinkProposta': f3LinkProposta,
-      },
-      CotacaoSections.vencedora: {
-        'empresaLider': empresaLider,
-        'consorcioEnvolvidas': consorcioEnvolvidas,
-      },
-      CotacaoSections.consolidacaoResultado: {
-        'criterioConsolidacao': criterioConsolidacao,
-        'valorConsolidado': valorConsolidado,
-        'observacoes': observacoes,
-      },
-      CotacaoSections.anexosEvidencias: {
-        'linksAnexos': linksAnexos,
-      },
-    };
-  }
 }

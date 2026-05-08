@@ -9,8 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
@@ -18,8 +17,8 @@ import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.da
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart';
-import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 
+import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 import 'package:sipged/_blocs/system/notification/notification_channel.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
@@ -43,14 +42,14 @@ import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_7_aprovacao
 import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_8_observacoes.dart';
 
 class DfdPage extends StatefulWidget {
-  final String contractId;
-  final bool readOnly;
-
   const DfdPage({
     super.key,
     required this.contractId,
     this.readOnly = false,
   });
+
+  final String contractId;
+  final bool readOnly;
 
   @override
   State<DfdPage> createState() => _DfdPageState();
@@ -58,13 +57,12 @@ class DfdPage extends StatefulWidget {
 
 class _DfdPageState extends State<DfdPage>
     with SipGedValidation, AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
   static const String _notificationSource = 'contracts_hiring_dfd';
   static const String _route = 'contracts_hiring_dfd';
 
   late final ProgressCubit _progressBloc;
+
+  ProgressCubit? _pipelineProgressCubit;
 
   DfdData _formData = const DfdData.empty();
   ContractData _contract = ContractData.empty();
@@ -75,6 +73,9 @@ class _DfdPageState extends State<DfdPage>
   String? _currentDfdId;
 
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   bool get _isEditable => !widget.readOnly;
 
@@ -145,7 +146,26 @@ class _DfdPageState extends State<DfdPage>
 
         context.read<DfdCubit>().load(contractId);
         unawaited(_loadContract(contractId));
+        unawaited(
+          _progressBloc.bindToStage(
+            contractId: contractId,
+            collectionName: ProgressRepository.stageDfd,
+          ),
+        );
       });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_pipelineProgressCubit != null) return;
+
+    try {
+      _pipelineProgressCubit = context.read<ProgressCubit>();
+    } catch (_) {
+      _pipelineProgressCubit = null;
     }
   }
 
@@ -169,10 +189,8 @@ class _DfdPageState extends State<DfdPage>
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(cid)
-          .get();
+      final snapshot =
+      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
 
       if (!mounted) return;
 
@@ -295,20 +313,17 @@ class _DfdPageState extends State<DfdPage>
         'subSource': _notificationSource,
         'notificationSource': _notificationSource,
         'requestedChannels': channels.map((item) => item.key).toList(),
-
         'actorId': actorId,
         'actorName': actorName,
         if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
         if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
         if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
         if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
-
         if (effectiveContractId.isNotEmpty) 'contractId': effectiveContractId,
         'contractTitle': demandName,
         'contractSummary': demandName,
         'descricaoObjeto': demandName,
         'nomeDemanda': demandName,
-
         if (_processNumber.trim().isNotEmpty) 'contractNumber': _processNumber,
         if (_processNumber.trim().isNotEmpty) 'processNumber': _processNumber,
         if (_formData.processoAdministrativo?.trim().isNotEmpty == true)
@@ -364,9 +379,11 @@ class _DfdPageState extends State<DfdPage>
 
       if (!mounted) return false;
 
-      _progressBloc.bindToStage(
-        contractId: finalContractId,
-        collectionName: 'dfd',
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: finalContractId,
+          collectionName: ProgressRepository.stageDfd,
+        ),
       );
 
       if (notifySuccess) {
@@ -410,7 +427,6 @@ class _DfdPageState extends State<DfdPage>
 
   Future<void> _saveApproveAndNext() async {
     final dfdCubit = context.read<DfdCubit>();
-    final pipeline = context.read<PipelineCubit>();
     final tabController = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
@@ -444,14 +460,14 @@ class _DfdPageState extends State<DfdPage>
     try {
       await repo.approveStage(
         contractId: contractIdForApprove,
-        collectionName: 'dfd',
+        collectionName: ProgressRepository.stageDfd,
         approverUid: uid,
         approverName: actorName,
       );
 
       await repo.setCompleted(
         contractId: contractIdForApprove,
-        collectionName: 'dfd',
+        collectionName: ProgressRepository.stageDfd,
         responsibleUserId: _formData.solicitanteUserId,
         approverUserId: _formData.autoridadeUserId,
         responsibleName: _formData.solicitanteNome,
@@ -461,8 +477,15 @@ class _DfdPageState extends State<DfdPage>
 
       if (!mounted) return;
 
-      pipeline.setStageEnabled(HiringStageKey.etp, true);
-      unawaited(pipeline.refresh());
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractIdForApprove,
+          collectionName: ProgressRepository.stageDfd,
+        ),
+      );
+
+      _pipelineProgressCubit?.setStageEnabled(ProgressData.etp, true);
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       tabController.animateTo(
         (tabController.index + 1).clamp(0, tabController.length - 1),
@@ -485,7 +508,7 @@ class _DfdPageState extends State<DfdPage>
           'contractId': contractIdForApprove,
           'route': _route,
           'notificationSource': _notificationSource,
-          'nextStage': 'etp',
+          'nextStage': ProgressData.etp,
           'responsibleUserId': _formData.solicitanteUserId,
           'approverUserId': _formData.autoridadeUserId,
         },
@@ -538,12 +561,21 @@ class _DfdPageState extends State<DfdPage>
     try {
       await repo.touchApproval(
         contractId: contractIdForApprove,
-        collectionName: 'dfd',
+        collectionName: ProgressRepository.stageDfd,
         updatedByUid: uid,
         updatedByName: actorName,
       );
 
       if (!mounted) return;
+
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractIdForApprove,
+          collectionName: ProgressRepository.stageDfd,
+        ),
+      );
+
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       await _notify(
         title: 'Aprovação do DFD atualizada',
@@ -588,7 +620,7 @@ class _DfdPageState extends State<DfdPage>
           (cubit) => cubit.state.all,
     );
 
-    return BlocProvider.value(
+    return BlocProvider<ProgressCubit>.value(
       value: _progressBloc,
       child: BlocListener<DfdCubit, DfdState>(
         listenWhen: (prev, curr) {
@@ -621,9 +653,11 @@ class _DfdPageState extends State<DfdPage>
               : widget.contractId.trim();
 
           if ((incomingId ?? '').isNotEmpty && effectiveContractId.isNotEmpty) {
-            _progressBloc.bindToStage(
-              contractId: effectiveContractId,
-              collectionName: 'dfd',
+            unawaited(
+              _progressBloc.bindToStage(
+                contractId: effectiveContractId,
+                collectionName: ProgressRepository.stageDfd,
+              ),
             );
 
             if ((_contract.id ?? '') != effectiveContractId) {
@@ -662,15 +696,15 @@ class _DfdPageState extends State<DfdPage>
               keepAppBarUndimmed: true,
               child: Scaffold(
                 body: Stack(
-                  children: [
+                  children: <Widget>[
                     const BackgroundChange(),
                     SingleChildScrollView(
-                      key: const PageStorageKey('dfd-scroll'),
+                      key: const PageStorageKey<String>('dfd-scroll'),
                       controller: _scrollController,
                       padding: const EdgeInsets.all(12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                        children: <Widget>[
                           SectionIdentificacao(
                             data: _formData,
                             isEditable: _isEditable,
@@ -747,7 +781,7 @@ class _DfdPageState extends State<DfdPage>
                     return StageProgress(
                       title: 'Documento de Formalização de Demanda (DFD)',
                       icon: Icons.assignment_turned_in_outlined,
-                      busy: state.saving || progressState.loading,
+                      busy: state.saving || pstate.loading,
                       approved: pstate.approved,
                       onSave: () => _saveOnly(),
                       onSaveAndNext: _saveApproveAndNext,

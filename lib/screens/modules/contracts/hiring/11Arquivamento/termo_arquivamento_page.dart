@@ -1,5 +1,3 @@
-// lib/screens/modules/contracts/hiring/11Arquivamento/termo_arquivamento_page.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,33 +5,27 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_state.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/screens/modules/contracts/hiring/progress_stage.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
-import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
-
-import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
-
-import 'package:sipged/_blocs/system/user/user_cubit.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_state.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_1_metadados.dart';
 import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_2_motivo_abrangencia.dart';
@@ -43,14 +35,14 @@ import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_5
 import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_6_reabertura.dart';
 
 class TermoArquivamentoPage extends StatefulWidget {
-  final String contractId;
-  final bool readOnly;
-
   const TermoArquivamentoPage({
     super.key,
     required this.contractId,
     this.readOnly = false,
   });
+
+  final String contractId;
+  final bool readOnly;
 
   @override
   State<TermoArquivamentoPage> createState() => _TermoArquivamentoPageState();
@@ -58,15 +50,14 @@ class TermoArquivamentoPage extends StatefulWidget {
 
 class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
     with SipGedValidation, AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
   static const String _route = 'contracts_hiring_arquivamento';
   static const String _notificationSource = 'contracts_hiring_arquivamento';
 
   final DfdRepository _dfdRepository = DfdRepository();
 
   late final ProgressCubit _progressBloc;
+
+  ProgressCubit? _pipelineProgressCubit;
 
   TermoArquivamentoData _formData = const TermoArquivamentoData.empty();
   ContractData _contract = ContractData.empty();
@@ -78,6 +69,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
   String? _currentTaId;
 
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   bool get _isEditable => !widget.readOnly;
 
@@ -135,7 +129,26 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
       context.read<TermoArquivamentoCubit>().load(contractId);
       unawaited(_loadContract(contractId));
       unawaited(_loadDfdData(contractId));
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.arquivamento,
+        ),
+      );
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_pipelineProgressCubit != null) return;
+
+    try {
+      _pipelineProgressCubit = context.read<ProgressCubit>();
+    } catch (_) {
+      _pipelineProgressCubit = null;
+    }
   }
 
   @override
@@ -154,10 +167,8 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(cid)
-          .get();
+      final snapshot =
+      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
 
       if (!mounted) return;
 
@@ -237,17 +248,11 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
-
-    /// Vazio = NotificationHiring resolve todos os usuários com permissão ao contrato.
     Iterable<String> targetUserIds = const <String>[],
-
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
@@ -355,9 +360,11 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
       if (!mounted) return false;
 
-      _progressBloc.bindToStage(
-        contractId: contractId,
-        collectionName: 'arquivamento',
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.arquivamento,
+        ),
       );
 
       if (notifySuccess) {
@@ -399,12 +406,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
   Future<void> _saveApproveAndNext() async {
     final taCubit = context.read<TermoArquivamentoCubit>();
-    final pipeline = context.read<PipelineCubit>();
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly(
-      notifySuccess: false,
-    );
+    final saved = await _saveOnly(notifySuccess: false);
 
     if (!mounted || !saved) return;
 
@@ -435,21 +439,28 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
     try {
       await repo.approveStage(
         contractId: contractId,
-        collectionName: 'arquivamento',
+        collectionName: ProgressData.arquivamento,
         approverUid: user?.uid ?? '',
         approverName: actorName,
       );
 
       await repo.setCompleted(
         contractId: contractId,
-        collectionName: 'arquivamento',
+        collectionName: ProgressData.arquivamento,
         completed: true,
       );
 
       if (!mounted) return;
 
-      pipeline.setStageEnabled(HiringStageKey.arquivamento, true);
-      unawaited(pipeline.refresh());
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.arquivamento,
+        ),
+      );
+
+      _pipelineProgressCubit?.setStageEnabled(ProgressData.arquivamento, true);
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       await _notify(
         title: 'Termo de Arquivamento aprovado',
@@ -484,9 +495,7 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
     final taCubit = context.read<TermoArquivamentoCubit>();
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly(
-      notifySuccess: false,
-    );
+    final saved = await _saveOnly(notifySuccess: false);
 
     if (!mounted || !saved) return;
 
@@ -517,12 +526,21 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
     try {
       await repo.touchApproval(
         contractId: contractId,
-        collectionName: 'arquivamento',
+        collectionName: ProgressData.arquivamento,
         updatedByUid: user?.uid ?? '',
         updatedByName: actorName,
       );
 
       if (!mounted) return;
+
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.arquivamento,
+        ),
+      );
+
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       await _notify(
         title: 'Aprovação do Termo de Arquivamento atualizada',
@@ -553,11 +571,8 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-
-    return BlocProvider.value(
+  Widget _buildContent() {
+    return BlocProvider<ProgressCubit>.value(
       value: _progressBloc,
       child: BlocListener<TermoArquivamentoCubit, TermoArquivamentoState>(
         listenWhen: (prev, curr) {
@@ -584,9 +599,11 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
           final contractId = _contractId;
 
           if ((incomingId ?? '').isNotEmpty && contractId.isNotEmpty) {
-            _progressBloc.bindToStage(
-              contractId: contractId,
-              collectionName: 'arquivamento',
+            unawaited(
+              _progressBloc.bindToStage(
+                contractId: contractId,
+                collectionName: ProgressData.arquivamento,
+              ),
             );
 
             if ((_contract.id ?? '') != contractId) {
@@ -619,90 +636,109 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
               message: msg,
               details: locked ? 'Por favor, aguarde.' : null,
               keepAppBarUndimmed: true,
-              child: StageGate(
-                stageKey: HiringStageKey.arquivamento,
-                child: Scaffold(
-                  body: Stack(
-                    children: [
-                      const BackgroundChange(),
-                      SingleChildScrollView(
-                        key: const PageStorageKey('termo-arquivamento-scroll'),
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SectionMetadadosTA(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionMotivoAbrangenciaTA(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionFundamentacaoTA(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionPecasAnexasTA(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionDecisaoAutoridadeTA(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionReaberturaTA(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                        ),
+              child: Scaffold(
+                body: Stack(
+                  children: <Widget>[
+                    const BackgroundChange(),
+                    SingleChildScrollView(
+                      key: const PageStorageKey<String>(
+                        'termo-arquivamento-scroll',
                       ),
-                    ],
-                  ),
-                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
-                    builder: (context, progressState) {
-                      return StageProgress(
-                        title: 'Termo de Arquivamento',
-                        icon: Icons.archive_outlined,
-                        busy: state.saving || progressState.loading,
-                        approved: progressState.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: _saveApproveAndNext,
-                        onUpdateApproved: _updateApproved,
-                      );
-                    },
-                  ),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SectionMetadadosTA(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionMotivoAbrangenciaTA(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionFundamentacaoTA(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionPecasAnexasTA(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionDecisaoAutoridadeTA(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionReaberturaTA(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
+                  builder: (context, progressState) {
+                    return StageProgress(
+                      title: 'Termo de Arquivamento',
+                      icon: Icons.archive_outlined,
+                      busy: state.saving || progressState.loading,
+                      approved: progressState.approved,
+                      onSave: _saveOnly,
+                      onSaveAndNext: _saveApproveAndNext,
+                      onUpdateApproved: _updateApproved,
+                    );
+                  },
                 ),
               ),
             );
           },
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    final content = _buildContent();
+    final pipelineCubit = _pipelineProgressCubit;
+
+    if (pipelineCubit == null) {
+      return content;
+    }
+
+    return BlocProvider<ProgressCubit>.value(
+      value: pipelineCubit,
+      child: ProgressStage(
+        stageKey: ProgressData.arquivamento,
+        child: content,
       ),
     );
   }

@@ -1,5 +1,3 @@
-// lib/screens/modules/contracts/hiring/10Publicacao/publicacao_extrato_page.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,33 +5,27 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_state.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/screens/modules/contracts/hiring/progress_stage.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
-import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
-
-import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
-
-import 'package:sipged/_blocs/system/user/user_cubit.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_state.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/10Publicacao/section_1_metadados.dart';
 import 'package:sipged/screens/modules/contracts/hiring/10Publicacao/section_2_partes_valores.dart';
@@ -42,14 +34,14 @@ import 'package:sipged/screens/modules/contracts/hiring/10Publicacao/section_4_s
 import 'package:sipged/screens/modules/contracts/hiring/10Publicacao/section_5_responsavel.dart';
 
 class PublicacaoExtratoPage extends StatefulWidget {
-  final String contractId;
-  final bool readOnly;
-
   const PublicacaoExtratoPage({
     super.key,
     required this.contractId,
     this.readOnly = false,
   });
+
+  final String contractId;
+  final bool readOnly;
 
   @override
   State<PublicacaoExtratoPage> createState() => _PublicacaoExtratoPageState();
@@ -57,15 +49,14 @@ class PublicacaoExtratoPage extends StatefulWidget {
 
 class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     with SipGedValidation, AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
   static const String _route = 'contracts_hiring_publicacao';
   static const String _notificationSource = 'contracts_hiring_publicacao';
 
   final DfdRepository _dfdRepository = DfdRepository();
 
   late final ProgressCubit _progressBloc;
+
+  ProgressCubit? _pipelineProgressCubit;
 
   PublicacaoExtratoData _formData = const PublicacaoExtratoData.empty();
   ContractData _contract = ContractData.empty();
@@ -77,6 +68,9 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
   String? _currentPubId;
 
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   bool get _isEditable => !widget.readOnly;
 
@@ -156,7 +150,26 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
       context.read<PublicacaoExtratoCubit>().load(contractId);
       unawaited(_loadContract(contractId));
       unawaited(_loadDfdData(contractId));
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.publicacao,
+        ),
+      );
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_pipelineProgressCubit != null) return;
+
+    try {
+      _pipelineProgressCubit = context.read<ProgressCubit>();
+    } catch (_) {
+      _pipelineProgressCubit = null;
+    }
   }
 
   @override
@@ -175,10 +188,8 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(cid)
-          .get();
+      final snapshot =
+      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
 
       if (!mounted) return;
 
@@ -258,17 +269,11 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
-
-    /// Vazio = NotificationHiring resolve todos os usuários com permissão ao contrato.
     Iterable<String> targetUserIds = const <String>[],
-
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
@@ -320,7 +325,8 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
         'nomeDemanda': demandName,
         if (_contractNumber.trim().isNotEmpty) 'contractNumber': _contractNumber,
         if (_processNumber.trim().isNotEmpty) 'processNumber': _processNumber,
-        if (_processNumber.trim().isNotEmpty) 'processoAdministrativo': _processNumber,
+        if (_processNumber.trim().isNotEmpty)
+          'processoAdministrativo': _processNumber,
         if (_formData.numeroContrato?.trim().isNotEmpty == true)
           'numeroContrato': _formData.numeroContrato,
       },
@@ -377,9 +383,11 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
       if (!mounted) return false;
 
-      _progressBloc.bindToStage(
-        contractId: contractId,
-        collectionName: 'publicacao',
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.publicacao,
+        ),
       );
 
       if (notifySuccess) {
@@ -421,13 +429,10 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
   Future<void> _saveApproveAndNext() async {
     final pubCubit = context.read<PublicacaoExtratoCubit>();
-    final pipeline = context.read<PipelineCubit>();
     final tabController = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly(
-      notifySuccess: false,
-    );
+    final saved = await _saveOnly(notifySuccess: false);
 
     if (!mounted || !saved) return;
 
@@ -458,21 +463,28 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     try {
       await repo.approveStage(
         contractId: contractId,
-        collectionName: 'publicacao',
+        collectionName: ProgressData.publicacao,
         approverUid: user?.uid ?? '',
         approverName: actorName,
       );
 
       await repo.setCompleted(
         contractId: contractId,
-        collectionName: 'publicacao',
+        collectionName: ProgressData.publicacao,
         completed: true,
       );
 
       if (!mounted) return;
 
-      pipeline.setStageEnabled(HiringStageKey.arquivamento, true);
-      unawaited(pipeline.refresh());
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.publicacao,
+        ),
+      );
+
+      _pipelineProgressCubit?.setStageEnabled(ProgressData.arquivamento, true);
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       tabController.animateTo(
         (tabController.index + 1).clamp(0, tabController.length - 1),
@@ -492,7 +504,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
           'contractId': contractId,
           'route': _route,
           'notificationSource': _notificationSource,
-          'nextStage': 'arquivamento',
+          'nextStage': ProgressData.arquivamento,
         },
       );
     } catch (e) {
@@ -512,9 +524,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     final pubCubit = context.read<PublicacaoExtratoCubit>();
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly(
-      notifySuccess: false,
-    );
+    final saved = await _saveOnly(notifySuccess: false);
 
     if (!mounted || !saved) return;
 
@@ -545,12 +555,21 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     try {
       await repo.touchApproval(
         contractId: contractId,
-        collectionName: 'publicacao',
+        collectionName: ProgressData.publicacao,
         updatedByUid: user?.uid ?? '',
         updatedByName: actorName,
       );
 
       if (!mounted) return;
+
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: contractId,
+          collectionName: ProgressData.publicacao,
+        ),
+      );
+
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       await _notify(
         title: 'Aprovação da Publicação / Extrato atualizada',
@@ -581,11 +600,8 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-
-    return BlocProvider.value(
+  Widget _buildContent() {
+    return BlocProvider<ProgressCubit>.value(
       value: _progressBloc,
       child: BlocListener<PublicacaoExtratoCubit, PublicacaoExtratoState>(
         listenWhen: (prev, curr) {
@@ -612,9 +628,11 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
           final contractId = _contractId;
 
           if ((incomingId ?? '').isNotEmpty && contractId.isNotEmpty) {
-            _progressBloc.bindToStage(
-              contractId: contractId,
-              collectionName: 'publicacao',
+            unawaited(
+              _progressBloc.bindToStage(
+                contractId: contractId,
+                collectionName: ProgressData.publicacao,
+              ),
             );
 
             if ((_contract.id ?? '') != contractId) {
@@ -647,81 +665,100 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
               message: msg,
               details: locked ? 'Por favor, aguarde.' : null,
               keepAppBarUndimmed: true,
-              child: StageGate(
-                stageKey: HiringStageKey.publicacao,
-                child: Scaffold(
-                  body: Stack(
-                    children: [
-                      const BackgroundChange(),
-                      SingleChildScrollView(
-                        key: const PageStorageKey('publicacao-extrato-scroll'),
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SectionMetadadosExtrato(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionPartesValoresVigencia(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionVeiculoPublicacao(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionStatusPrazos(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionResponsavel(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                          ],
-                        ),
+              child: Scaffold(
+                body: Stack(
+                  children: <Widget>[
+                    const BackgroundChange(),
+                    SingleChildScrollView(
+                      key: const PageStorageKey<String>(
+                        'publicacao-extrato-scroll',
                       ),
-                    ],
-                  ),
-                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
-                    builder: (context, progressState) {
-                      return StageProgress(
-                        title: 'Publicação / Extrato',
-                        icon: Icons.campaign_outlined,
-                        busy: state.saving || progressState.loading,
-                        approved: progressState.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: _saveApproveAndNext,
-                        onUpdateApproved: _updateApproved,
-                      );
-                    },
-                  ),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SectionMetadadosExtrato(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionPartesValoresVigencia(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionVeiculoPublicacao(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionStatusPrazos(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionResponsavel(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
+                  builder: (context, progressState) {
+                    return StageProgress(
+                      title: 'Publicação / Extrato',
+                      icon: Icons.campaign_outlined,
+                      busy: state.saving || progressState.loading,
+                      approved: progressState.approved,
+                      onSave: _saveOnly,
+                      onSaveAndNext: _saveApproveAndNext,
+                      onUpdateApproved: _updateApproved,
+                    );
+                  },
                 ),
               ),
             );
           },
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    final content = _buildContent();
+    final pipelineCubit = _pipelineProgressCubit;
+
+    if (pipelineCubit == null) {
+      return content;
+    }
+
+    return BlocProvider<ProgressCubit>.value(
+      value: pipelineCubit,
+      child: ProgressStage(
+        stageKey: ProgressData.publicacao,
+        child: content,
       ),
     );
   }

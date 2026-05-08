@@ -2,7 +2,7 @@
 
 import 'package:equatable/equatable.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'tr_data.dart';
 
 class TrState extends Equatable {
   final bool loading;
@@ -13,8 +13,8 @@ class TrState extends Equatable {
   final String? contractId;
   final String? trId;
 
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final Map<String, String> sectionIds;
+  final Map<String, Map<String, dynamic>> sectionsData;
 
   const TrState({
     this.loading = false,
@@ -38,7 +38,10 @@ class TrState extends Equatable {
   }
 
   String? get currentTrId => trId;
-  String? get currentDocsId => sectionIds['documentosReferencias'];
+
+  String? get currentDocsId {
+    return sectionIds[TrData.sectionDocumentosReferencias];
+  }
 
   TrState copyWith({
     bool? loading,
@@ -47,8 +50,8 @@ class TrState extends Equatable {
     String? error,
     String? contractId,
     String? trId,
-    SectionIds? sectionIds,
-    SectionsMap? sectionsData,
+    Map<String, String>? sectionIds,
+    Map<String, Map<String, dynamic>>? sectionsData,
     bool clearError = false,
     bool clearContractId = false,
     bool clearTrId = false,

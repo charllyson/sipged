@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_style.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -45,7 +45,7 @@ class CertidaoCard extends StatelessWidget {
             final status = value.text;
             final theme = Theme.of(context);
             final colors =
-            HiringStyle.certidaoColorsForStatus(status, theme);
+            ProgressData.certidaoColorsForStatus(status, theme);
 
             return Container(
               padding: const EdgeInsets.all(12),

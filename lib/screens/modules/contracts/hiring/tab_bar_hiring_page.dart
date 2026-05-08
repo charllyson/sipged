@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/screens/modules/contracts/hiring/progress_stage.dart';
 
-import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
@@ -45,11 +44,11 @@ class TabBarHiringPage extends StatefulWidget {
 
 class _TabBarHiringPageState extends State<TabBarHiringPage>
     with AutomaticKeepAliveClientMixin {
-  String get _contractId => widget.contractData?.id ?? '';
+  String get _contractId => widget.contractData?.id?.trim() ?? '';
 
   late final String _pageInstanceKey;
-  late final PipelineCubit _pipelineCubit;
-  final _progressRepo = ProgressRepository();
+  late final ProgressRepository _progressRepo;
+  late final ProgressCubit _progressCubit;
 
   String? _dfdDescricaoObjeto;
   String? _dfdProcessoAdministrativo;
@@ -66,20 +65,36 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
       _pageInstanceKey = 'NEW_${DateTime.now().microsecondsSinceEpoch}';
     }
 
-    _pipelineCubit = PipelineCubit(
-      service: PipelineProgress(),
-      contractId: _contractId,
-      progressRepo: _progressRepo,
-    );
+    _progressRepo = ProgressRepository();
+    _progressCubit = ProgressCubit(repo: _progressRepo);
+
+    if (rawId.isNotEmpty) {
+      _progressCubit.setContractForPipeline(rawId);
+    }
 
     _loadDfdDisplayData();
-    _pipelineCubit.refresh();
-    _pipelineCubit.watchChain();
+  }
+
+  @override
+  void didUpdateWidget(covariant TabBarHiringPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final oldContractId = oldWidget.contractData?.id?.trim() ?? '';
+    final newContractId = widget.contractData?.id?.trim() ?? '';
+
+    if (oldContractId != newContractId) {
+      if (newContractId.isNotEmpty) {
+        _progressCubit.setContractForPipeline(newContractId);
+        _loadDfdDisplayData();
+      } else {
+        _progressCubit.setContractForPipeline('');
+      }
+    }
   }
 
   @override
   void dispose() {
-    _pipelineCubit.close();
+    _progressCubit.close();
     super.dispose();
   }
 
@@ -88,28 +103,28 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
 
   String? _stageKeyForTabIndex(int index) {
     switch (index) {
+      case 0:
+        return ProgressData.dfd;
       case 1:
-        return HiringStageKey.dfd;
+        return ProgressData.etp;
       case 2:
-        return HiringStageKey.etp;
+        return ProgressData.tr;
       case 3:
-        return HiringStageKey.tr;
+        return ProgressData.cotacao;
       case 4:
-        return HiringStageKey.cotacao;
+        return ProgressData.edital;
       case 5:
-        return HiringStageKey.edital;
+        return ProgressData.habilitacao;
       case 6:
-        return HiringStageKey.habilitacao;
+        return ProgressData.dotacao;
       case 7:
-        return HiringStageKey.dotacao;
+        return ProgressData.minuta;
       case 8:
-        return HiringStageKey.minuta;
+        return ProgressData.parecer;
       case 9:
-        return HiringStageKey.parecer;
+        return ProgressData.publicacao;
       case 10:
-        return HiringStageKey.publicacao;
-      case 11:
-        return HiringStageKey.arquivamento;
+        return ProgressData.arquivamento;
       default:
         return null;
     }
@@ -151,85 +166,83 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
     return '';
   }
 
+  StampConfig _buildStampConfig({
+    required String? stageKey,
+    required bool approved,
+  }) {
+    if (stageKey == null) {
+      return const StampConfig(
+        show: false,
+        approved: false,
+        approvedLabel: '',
+        pendingLabel: '',
+        approvedIcon: Icons.verified_outlined,
+        pendingIcon: Icons.verified_outlined,
+        approvedColor: Colors.transparent,
+        pendingColor: Colors.transparent,
+      );
+    }
+
+    if (stageKey == ProgressData.cotacao) {
+      return StampConfig(
+        show: true,
+        approved: approved,
+        approvedLabel: 'Vencedor definido',
+        pendingLabel: 'Definir vencedor',
+        approvedIcon: Icons.emoji_events_outlined,
+        pendingIcon: Icons.emoji_events_outlined,
+        approvedColor: Colors.teal,
+        pendingColor: Colors.grey,
+      );
+    }
+
+    if (stageKey == ProgressData.edital) {
+      return StampConfig(
+        show: true,
+        approved: approved,
+        approvedLabel: 'Julgado',
+        pendingLabel: 'Aguardando julgamento',
+        approvedIcon: Icons.gavel_outlined,
+        pendingIcon: Icons.gavel_outlined,
+        approvedColor: Colors.teal,
+        pendingColor: Colors.grey,
+      );
+    }
+
+    return StampConfig(
+      show: true,
+      approved: approved,
+      approvedLabel: 'Aprovado',
+      pendingLabel: 'Pendente',
+      approvedIcon: Icons.verified_outlined,
+      pendingIcon: Icons.verified_user_outlined,
+      approvedColor: Colors.teal,
+      pendingColor: Colors.grey,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    final c = widget.contractData;
+    final contract = widget.contractData;
     final contractId = _contractId;
     final pageKey = _pageInstanceKey;
 
-    return BlocProvider.value(
-      value: _pipelineCubit,
-      child: Builder(
-        builder: (ctx) {
-          final pipeline = ctx.watch<PipelineCubit>().state;
-
+    return BlocProvider<ProgressCubit>.value(
+      value: _progressCubit,
+      child: BlocBuilder<ProgressCubit, ProgressState>(
+        builder: (context, progressState) {
           bool isApprovedForTab(int index) {
-            final key = _stageKeyForTabIndex(index);
-            if (key == null) return false;
-            return pipeline.completed[key] == true;
-          }
+            final stageKey = _stageKeyForTabIndex(index);
 
-          StampConfig makeConfig({
-            required int idx,
-            required bool approved,
-          }) {
-            final stageKey = _stageKeyForTabIndex(idx);
+            if (stageKey == null) return false;
 
-            if (stageKey == null) {
-              return const StampConfig(
-                show: false,
-                approved: false,
-                approvedLabel: '',
-                pendingLabel: '',
-                approvedIcon: Icons.verified_outlined,
-                pendingIcon: Icons.verified_outlined,
-                approvedColor: Colors.transparent,
-                pendingColor: Colors.transparent,
-              );
-            }
-
-            if (stageKey == HiringStageKey.cotacao) {
-              return StampConfig(
-                show: true,
-                approved: approved,
-                approvedLabel: 'Vencedor definido',
-                pendingLabel: 'Definir vencedor',
-                approvedIcon: Icons.emoji_events_outlined,
-                pendingIcon: Icons.emoji_events_outlined,
-                approvedColor: Colors.teal,
-                pendingColor: Colors.grey,
-              );
-            }
-
-            if (stageKey == HiringStageKey.edital) {
-              return StampConfig(
-                show: true,
-                approved: approved,
-                approvedLabel: 'Julgado',
-                pendingLabel: 'Aguardando julgamento',
-                approvedIcon: Icons.gavel_outlined,
-                pendingIcon: Icons.gavel_outlined,
-                approvedColor: Colors.teal,
-                pendingColor: Colors.grey,
-              );
-            }
-
-            return StampConfig(
-              show: true,
-              approved: approved,
-              approvedLabel: 'Aprovado',
-              pendingLabel: 'Pendente',
-              approvedIcon: Icons.verified_outlined,
-              pendingIcon: Icons.verified_user_outlined,
-              approvedColor: Colors.teal,
-              pendingColor: Colors.grey,
-            );
+            return progressState.completedByStage[stageKey] == true;
           }
 
           return TabChanged(
-            contractData: c,
+            contractData: contract,
             contractsCubit: widget.contractsCubit,
             initialTabIndex: widget.initialTabIndex,
             textBanner: _dfdDescricaoObjeto,
@@ -238,15 +251,20 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               required int tabIndex,
               required ContractData contract,
             }) {
-              final ok = isApprovedForTab(tabIndex);
-              return makeConfig(idx: tabIndex, approved: ok);
+              final stageKey = _stageKeyForTabIndex(tabIndex);
+              final approved = isApprovedForTab(tabIndex);
+
+              return _buildStampConfig(
+                stageKey: stageKey,
+                approved: approved,
+              );
             },
-            tabs: [
+            tabs: <ContractTabDescriptor>[
               ContractTabDescriptor(
                 label: 'Demanda',
                 builder: (_) {
                   return DfdPage(
-                    key: PageStorageKey('dfd-page-$pageKey'),
+                    key: PageStorageKey<String>('dfd-page-$pageKey'),
                     contractId: contractId,
                   );
                 },
@@ -254,10 +272,10 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               ContractTabDescriptor(
                 label: 'Estudo Preliminar',
                 builder: (_) {
-                  return StageGate(
-                    stageKey: HiringStageKey.etp,
+                  return ProgressStage(
+                    stageKey: ProgressData.etp,
                     child: EtpPage(
-                      key: PageStorageKey('etp-page-$pageKey'),
+                      key: PageStorageKey<String>('etp-page-$pageKey'),
                       contractId: contractId,
                     ),
                   );
@@ -266,10 +284,10 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               ContractTabDescriptor(
                 label: 'Termo de Referência',
                 builder: (_) {
-                  return StageGate(
-                    stageKey: HiringStageKey.tr,
+                  return ProgressStage(
+                    stageKey: ProgressData.tr,
                     child: TermoReferenciaPage(
-                      key: PageStorageKey('tr-page-$pageKey'),
+                      key: PageStorageKey<String>('tr-page-$pageKey'),
                       contractId: contractId,
                     ),
                   );
@@ -278,9 +296,10 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               ContractTabDescriptor(
                 label: 'Cotação',
                 builder: (_) {
-                  return StageGate(
-                    stageKey: HiringStageKey.cotacao,
+                  return ProgressStage(
+                    stageKey: ProgressData.cotacao,
                     child: CotacaoPage(
+                      key: PageStorageKey<String>('cotacao-page-$pageKey'),
                       contractId: contractId,
                     ),
                   );
@@ -289,9 +308,10 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               ContractTabDescriptor(
                 label: 'Edital',
                 builder: (_) {
-                  return StageGate(
-                    stageKey: HiringStageKey.edital,
+                  return ProgressStage(
+                    stageKey: ProgressData.edital,
                     child: EditalJulgamentoPage(
+                      key: PageStorageKey<String>('edital-page-$pageKey'),
                       contractId: contractId,
                     ),
                   );
@@ -300,9 +320,10 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               ContractTabDescriptor(
                 label: 'Habilitação',
                 builder: (_) {
-                  return StageGate(
-                    stageKey: HiringStageKey.habilitacao,
+                  return ProgressStage(
+                    stageKey: ProgressData.habilitacao,
                     child: HabilitacaoPage(
+                      key: PageStorageKey<String>('habilitacao-page-$pageKey'),
                       contractId: contractId,
                     ),
                   );
@@ -311,9 +332,10 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               ContractTabDescriptor(
                 label: 'Dotação Orçamentária',
                 builder: (_) {
-                  return StageGate(
-                    stageKey: HiringStageKey.dotacao,
+                  return ProgressStage(
+                    stageKey: ProgressData.dotacao,
                     child: DotacaoPage(
+                      key: PageStorageKey<String>('dotacao-page-$pageKey'),
                       contractId: contractId,
                     ),
                   );
@@ -322,9 +344,10 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               ContractTabDescriptor(
                 label: 'Minuta do Contrato',
                 builder: (_) {
-                  return StageGate(
-                    stageKey: HiringStageKey.minuta,
+                  return ProgressStage(
+                    stageKey: ProgressData.minuta,
                     child: MinutaContratoPage(
+                      key: PageStorageKey<String>('minuta-page-$pageKey'),
                       contractId: contractId,
                     ),
                   );
@@ -333,9 +356,10 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               ContractTabDescriptor(
                 label: 'Parecer Jurídico',
                 builder: (_) {
-                  return StageGate(
-                    stageKey: HiringStageKey.parecer,
+                  return ProgressStage(
+                    stageKey: ProgressData.parecer,
                     child: ParecerJuridicoPage(
+                      key: PageStorageKey<String>('parecer-page-$pageKey'),
                       contractId: contractId,
                     ),
                   );
@@ -344,9 +368,10 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               ContractTabDescriptor(
                 label: 'Publicação do Extrato',
                 builder: (_) {
-                  return StageGate(
-                    stageKey: HiringStageKey.publicacao,
+                  return ProgressStage(
+                    stageKey: ProgressData.publicacao,
                     child: PublicacaoExtratoPage(
+                      key: PageStorageKey<String>('publicacao-page-$pageKey'),
                       contractId: contractId,
                     ),
                   );
@@ -355,9 +380,10 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               ContractTabDescriptor(
                 label: 'Arquivamento',
                 builder: (_) {
-                  return StageGate(
-                    stageKey: HiringStageKey.arquivamento,
+                  return ProgressStage(
+                    stageKey: ProgressData.arquivamento,
                     child: TermoArquivamentoPage(
+                      key: PageStorageKey<String>('arquivamento-page-$pageKey'),
                       contractId: contractId,
                     ),
                   );

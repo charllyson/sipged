@@ -1,16 +1,20 @@
 // lib/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_cubit.dart
 
+import 'dart:typed_data';
+
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'minuta_contrato_data.dart';
 import 'minuta_contrato_repository.dart';
 import 'minuta_contrato_state.dart';
 
 class MinutaContratoCubit extends Cubit<MinutaState> {
-  MinutaContratoCubit(this.repo)
-      : super(MinutaState.initial());
+  MinutaContratoCubit([MinutaContratoRepository? repository])
+      : repo = repository ?? MinutaContratoRepository(),
+        super(MinutaState.initial());
 
   final MinutaContratoRepository repo;
 
@@ -85,7 +89,7 @@ class MinutaContratoCubit extends Cubit<MinutaState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _loadSeq) return;
 
       emit(
@@ -93,7 +97,7 @@ class MinutaContratoCubit extends Cubit<MinutaState> {
           loading: false,
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -101,7 +105,7 @@ class MinutaContratoCubit extends Cubit<MinutaState> {
 
   Future<void> saveAll({
     required String contractId,
-    required SectionsMap sectionsData,
+    required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
     final cleanContractId = contractId.trim();
 
@@ -164,14 +168,14 @@ class MinutaContratoCubit extends Cubit<MinutaState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -270,17 +274,189 @@ class MinutaContratoCubit extends Cubit<MinutaState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
+  }
+
+  Future<List<Attachment>> listFiles({
+    required String contractId,
+    String? minutaId,
+    String? gestaoId,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanMinutaId = (minutaId ?? state.minutaId ?? '').trim();
+    final cleanGestaoId =
+    (gestaoId ?? state.sectionIds[MinutaContratoData.sectionGestaoRefs] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanMinutaId.isEmpty ||
+        cleanGestaoId.isEmpty) {
+      return const <Attachment>[];
+    }
+
+    return repo.listFiles(
+      contractId: cleanContractId,
+      minutaId: cleanMinutaId,
+      gestaoId: cleanGestaoId,
+    );
+  }
+
+  Future<List<Attachment>> listGestaoFiles({
+    required String contractId,
+    String? minutaId,
+    String? gestaoId,
+  }) {
+    return listFiles(
+      contractId: contractId,
+      minutaId: minutaId,
+      gestaoId: gestaoId,
+    );
+  }
+
+  Future<Attachment> uploadFile({
+    required String contractId,
+    String? minutaId,
+    String? gestaoId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+      'docx',
+    ],
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanMinutaId = (minutaId ?? state.minutaId ?? '').trim();
+    final cleanGestaoId =
+    (gestaoId ?? state.sectionIds[MinutaContratoData.sectionGestaoRefs] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanMinutaId.isEmpty ||
+        cleanGestaoId.isEmpty) {
+      throw Exception('Caminho inválido para upload da minuta.');
+    }
+
+    return repo.uploadFile(
+      contractId: cleanContractId,
+      minutaId: cleanMinutaId,
+      gestaoId: cleanGestaoId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadGestaoFile({
+    required String contractId,
+    String? minutaId,
+    String? gestaoId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+      'docx',
+    ],
+  }) {
+    return uploadFile(
+      contractId: contractId,
+      minutaId: minutaId,
+      gestaoId: gestaoId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadBytes({
+    required String contractId,
+    String? minutaId,
+    String? gestaoId,
+    required Uint8List bytes,
+    required String fileName,
+    required void Function(double progress) onProgress,
+    SettableMetadata? metadata,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanMinutaId = (minutaId ?? state.minutaId ?? '').trim();
+    final cleanGestaoId =
+    (gestaoId ?? state.sectionIds[MinutaContratoData.sectionGestaoRefs] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanMinutaId.isEmpty ||
+        cleanGestaoId.isEmpty) {
+      throw Exception('Caminho inválido para upload da minuta.');
+    }
+
+    return repo.uploadBytes(
+      contractId: cleanContractId,
+      minutaId: cleanMinutaId,
+      gestaoId: cleanGestaoId,
+      bytes: bytes,
+      fileName: fileName,
+      onProgress: onProgress,
+      metadata: metadata,
+    );
+  }
+
+  Future<bool> deleteFile({
+    required String contractId,
+    String? minutaId,
+    String? gestaoId,
+    required String fileName,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanMinutaId = (minutaId ?? state.minutaId ?? '').trim();
+    final cleanGestaoId =
+    (gestaoId ?? state.sectionIds[MinutaContratoData.sectionGestaoRefs] ?? '')
+        .trim();
+    final cleanFileName = fileName.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanMinutaId.isEmpty ||
+        cleanGestaoId.isEmpty ||
+        cleanFileName.isEmpty) {
+      return false;
+    }
+
+    return repo.deleteFile(
+      contractId: cleanContractId,
+      minutaId: cleanMinutaId,
+      gestaoId: cleanGestaoId,
+      fileName: cleanFileName,
+    );
+  }
+
+  Future<bool> deleteGestaoFile({
+    required String contractId,
+    String? minutaId,
+    String? gestaoId,
+    required String fileName,
+  }) {
+    return deleteFile(
+      contractId: contractId,
+      minutaId: minutaId,
+      gestaoId: gestaoId,
+      fileName: fileName,
+    );
+  }
+
+  Future<bool> deleteByPath(String path) {
+    return repo.deleteByPath(path);
   }
 
   void clearSuccessFlag() {

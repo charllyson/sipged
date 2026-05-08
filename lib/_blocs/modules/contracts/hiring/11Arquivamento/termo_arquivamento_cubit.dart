@@ -1,16 +1,20 @@
 // lib/_blocs/modules/contracts/hiring/10Arquivamento/termo_arquivamento_cubit.dart
 
+import 'dart:typed_data';
+
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'termo_arquivamento_data.dart';
 import 'termo_arquivamento_repository.dart';
 import 'termo_arquivamento_state.dart';
 
 class TermoArquivamentoCubit extends Cubit<TermoArquivamentoState> {
-  TermoArquivamentoCubit(this.repo)
-      : super(TermoArquivamentoState.initial());
+  TermoArquivamentoCubit([TermoArquivamentoRepository? repository])
+      : repo = repository ?? TermoArquivamentoRepository(),
+        super(TermoArquivamentoState.initial());
 
   final TermoArquivamentoRepository repo;
 
@@ -19,9 +23,6 @@ class TermoArquivamentoCubit extends Cubit<TermoArquivamentoState> {
 
   bool get _alive => !isClosed;
 
-  // ===========================================================
-  // HELPER PÚBLICO: obter TermoArquivamentoData pelo contractId
-  // ===========================================================
   Future<TermoArquivamentoData?> getDataForContract(String contractId) {
     final cleanContractId = contractId.trim();
 
@@ -32,9 +33,6 @@ class TermoArquivamentoCubit extends Cubit<TermoArquivamentoState> {
     return repo.readDataForContract(cleanContractId);
   }
 
-  // ===========================================================
-  // LOAD
-  // ===========================================================
   Future<void> load(String contractId) async {
     final cleanContractId = contractId.trim();
 
@@ -91,7 +89,7 @@ class TermoArquivamentoCubit extends Cubit<TermoArquivamentoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _loadSeq) return;
 
       emit(
@@ -99,18 +97,15 @@ class TermoArquivamentoCubit extends Cubit<TermoArquivamentoState> {
           loading: false,
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
   }
 
-  // ===========================================================
-  // SAVE ALL
-  // ===========================================================
   Future<void> saveAll({
     required String contractId,
-    required SectionsMap sectionsData,
+    required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
     final cleanContractId = contractId.trim();
 
@@ -173,22 +168,19 @@ class TermoArquivamentoCubit extends Cubit<TermoArquivamentoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
   }
 
-  // ===========================================================
-  // SAVE ONE SECTION
-  // ===========================================================
   Future<void> saveOneSection({
     required String contractId,
     required String sectionKey,
@@ -282,22 +274,193 @@ class TermoArquivamentoCubit extends Cubit<TermoArquivamentoState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
   }
 
-  // ===========================================================
-  // CLEAR FLAGS
-  // ===========================================================
+  Future<List<Attachment>> listFiles({
+    required String contractId,
+    String? taId,
+    String? pecasDocId,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanTaId = (taId ?? state.taId ?? '').trim();
+    final cleanPecasDocId =
+    (pecasDocId ?? state.sectionIds[TermoArquivamentoData.sectionPecas] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanTaId.isEmpty ||
+        cleanPecasDocId.isEmpty) {
+      return const <Attachment>[];
+    }
+
+    return repo.listFiles(
+      contractId: cleanContractId,
+      taId: cleanTaId,
+      pecasDocId: cleanPecasDocId,
+    );
+  }
+
+  Future<List<Attachment>> listPecasFiles({
+    required String contractId,
+    String? taId,
+    String? pecasDocId,
+  }) {
+    return listFiles(
+      contractId: contractId,
+      taId: taId,
+      pecasDocId: pecasDocId,
+    );
+  }
+
+  Future<Attachment> uploadFile({
+    required String contractId,
+    String? taId,
+    String? pecasDocId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+      'doc',
+      'docx',
+    ],
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanTaId = (taId ?? state.taId ?? '').trim();
+    final cleanPecasDocId =
+    (pecasDocId ?? state.sectionIds[TermoArquivamentoData.sectionPecas] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanTaId.isEmpty ||
+        cleanPecasDocId.isEmpty) {
+      throw Exception('Caminho inválido para upload do termo de arquivamento.');
+    }
+
+    return repo.uploadFile(
+      contractId: cleanContractId,
+      taId: cleanTaId,
+      pecasDocId: cleanPecasDocId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadPecasFile({
+    required String contractId,
+    String? taId,
+    String? pecasDocId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+      'doc',
+      'docx',
+    ],
+  }) {
+    return uploadFile(
+      contractId: contractId,
+      taId: taId,
+      pecasDocId: pecasDocId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadBytes({
+    required String contractId,
+    String? taId,
+    String? pecasDocId,
+    required Uint8List bytes,
+    required String fileName,
+    required void Function(double progress) onProgress,
+    SettableMetadata? metadata,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanTaId = (taId ?? state.taId ?? '').trim();
+    final cleanPecasDocId =
+    (pecasDocId ?? state.sectionIds[TermoArquivamentoData.sectionPecas] ?? '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanTaId.isEmpty ||
+        cleanPecasDocId.isEmpty) {
+      throw Exception('Caminho inválido para upload do termo de arquivamento.');
+    }
+
+    return repo.uploadBytes(
+      contractId: cleanContractId,
+      taId: cleanTaId,
+      pecasDocId: cleanPecasDocId,
+      bytes: bytes,
+      fileName: fileName,
+      onProgress: onProgress,
+      metadata: metadata,
+    );
+  }
+
+  Future<bool> deleteFile({
+    required String contractId,
+    String? taId,
+    String? pecasDocId,
+    required String fileName,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanTaId = (taId ?? state.taId ?? '').trim();
+    final cleanPecasDocId =
+    (pecasDocId ?? state.sectionIds[TermoArquivamentoData.sectionPecas] ?? '')
+        .trim();
+    final cleanFileName = fileName.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanTaId.isEmpty ||
+        cleanPecasDocId.isEmpty ||
+        cleanFileName.isEmpty) {
+      return false;
+    }
+
+    return repo.deleteFile(
+      contractId: cleanContractId,
+      taId: cleanTaId,
+      pecasDocId: cleanPecasDocId,
+      fileName: cleanFileName,
+    );
+  }
+
+  Future<bool> deletePecasFile({
+    required String contractId,
+    String? taId,
+    String? pecasDocId,
+    required String fileName,
+  }) {
+    return deleteFile(
+      contractId: contractId,
+      taId: taId,
+      pecasDocId: pecasDocId,
+      fileName: fileName,
+    );
+  }
+
+  Future<bool> deleteByPath(String path) {
+    return repo.deleteByPath(path);
+  }
+
   void clearSuccessFlag() {
     if (state.saveSuccess) {
       emit(state.copyWith(saveSuccess: false));

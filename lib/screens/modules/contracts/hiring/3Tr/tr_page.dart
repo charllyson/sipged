@@ -1,5 +1,3 @@
-// lib/screens/modules/contracts/hiring/3Tr/tr_page.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,10 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
+import 'package:sipged/screens/modules/contracts/hiring/progress_stage.dart';
 
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
@@ -23,9 +21,7 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -47,14 +43,14 @@ import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_9_documentos
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 class TermoReferenciaPage extends StatefulWidget {
-  final String contractId;
-  final bool readOnly;
-
   const TermoReferenciaPage({
     super.key,
     required this.contractId,
     this.readOnly = false,
   });
+
+  final String contractId;
+  final bool readOnly;
 
   @override
   State<TermoReferenciaPage> createState() => _TermoReferenciaPageState();
@@ -62,15 +58,16 @@ class TermoReferenciaPage extends StatefulWidget {
 
 class _TermoReferenciaPageState extends State<TermoReferenciaPage>
     with SipGedValidation, AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
   static const String _notificationSource = 'contracts_hiring_tr';
   static const String _route = 'contracts_hiring_tr';
 
   final DfdRepository _dfdRepository = DfdRepository();
 
   late final ProgressCubit _progressBloc;
+
+  /// Cubit pai responsável pela cadeia das etapas.
+  /// Ele vem do TabBarHiringPage.
+  ProgressCubit? _pipelineProgressCubit;
 
   TrData _formData = const TrData.empty();
   ContractData _contract = ContractData.empty();
@@ -82,6 +79,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
   String? _currentTrId;
 
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   bool get _isEditable => !widget.readOnly;
 
@@ -134,8 +134,27 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         context.read<TrCubit>().load(_contractId);
         unawaited(_loadContract(_contractId));
         unawaited(_loadDfdData(_contractId));
+        unawaited(
+          _progressBloc.bindToStage(
+            contractId: _contractId,
+            collectionName: ProgressData.tr,
+          ),
+        );
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_pipelineProgressCubit != null) return;
+
+    try {
+      _pipelineProgressCubit = context.read<ProgressCubit>();
+    } catch (_) {
+      _pipelineProgressCubit = null;
+    }
   }
 
   @override
@@ -154,10 +173,8 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(cid)
-          .get();
+      final snapshot =
+      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
 
       if (!mounted) return;
 
@@ -279,20 +296,17 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         'sourceKey': _notificationSource,
         'subSource': _notificationSource,
         'notificationSource': _notificationSource,
-
         'actorId': actorId,
         'actorName': actorName,
         if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
         if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
         if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
         if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
-
         if (effectiveContractId.isNotEmpty) 'contractId': effectiveContractId,
         'contractTitle': demandName,
         'contractSummary': demandName,
         'descricaoObjeto': demandName,
         'nomeDemanda': demandName,
-
         if (_processNumber.trim().isNotEmpty) 'contractNumber': _processNumber,
         if (_processNumber.trim().isNotEmpty) 'processNumber': _processNumber,
         if (_dfdData?.processoAdministrativo?.trim().isNotEmpty == true)
@@ -342,9 +356,11 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
 
       if (!mounted) return false;
 
-      _progressBloc.bindToStage(
-        contractId: _contractId,
-        collectionName: 'tr',
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.tr,
+        ),
       );
 
       if (notifySuccess) {
@@ -384,7 +400,6 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
 
   Future<void> _saveApproveAndNext() async {
     final trCubit = context.read<TrCubit>();
-    final pipeline = context.read<PipelineCubit>();
     final tab = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
@@ -412,21 +427,28 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
     try {
       await repo.approveStage(
         contractId: _contractId,
-        collectionName: 'tr',
+        collectionName: ProgressData.tr,
         approverUid: uid,
         approverName: actorName,
       );
 
       await repo.setCompleted(
         contractId: _contractId,
-        collectionName: 'tr',
+        collectionName: ProgressData.tr,
         completed: true,
       );
 
       if (!mounted) return;
 
-      pipeline.setStageEnabled(HiringStageKey.cotacao, true);
-      unawaited(pipeline.refresh());
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.tr,
+        ),
+      );
+
+      _pipelineProgressCubit?.setStageEnabled(ProgressData.cotacao, true);
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       tab.animateTo(
         (tab.index + 1).clamp(0, tab.length - 1),
@@ -446,7 +468,7 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
-          'nextStage': 'cotacao',
+          'nextStage': ProgressData.cotacao,
         },
       );
     } catch (e) {
@@ -490,12 +512,21 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
     try {
       await repo.touchApproval(
         contractId: _contractId,
-        collectionName: 'tr',
+        collectionName: ProgressData.tr,
         updatedByUid: uid,
         updatedByName: actorName,
       );
 
       if (!mounted) return;
+
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.tr,
+        ),
+      );
+
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       await _notify(
         title: 'Aprovação do TR atualizada',
@@ -526,11 +557,8 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-
-    return BlocProvider.value(
+  Widget _buildContent() {
+    return BlocProvider<ProgressCubit>.value(
       value: _progressBloc,
       child: BlocListener<TrCubit, TrState>(
         listenWhen: (prev, curr) {
@@ -553,9 +581,11 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
           }
 
           if ((incomingId ?? '').isNotEmpty) {
-            _progressBloc.bindToStage(
-              contractId: _contractId,
-              collectionName: 'tr',
+            unawaited(
+              _progressBloc.bindToStage(
+                contractId: _contractId,
+                collectionName: ProgressData.tr,
+              ),
             );
 
             if ((_contract.id ?? '') != _contractId) {
@@ -588,114 +618,131 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
               message: msg,
               details: locked ? 'Por favor, aguarde.' : null,
               keepAppBarUndimmed: true,
-              child: StageGate(
-                stageKey: HiringStageKey.tr,
-                child: Scaffold(
-                  body: Stack(
-                    children: [
-                      const BackgroundChange(),
-                      SingleChildScrollView(
-                        key: const PageStorageKey('tr-scroll'),
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SectionObjetoFundamentacao(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionEscopoRequisitos(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionLocalPrazosCronograma(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionMedicaoAceiteIndicadores(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionObrigacoesEquipeGestao(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionLicenciamentoSegurancaSustentabilidade(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionPrecosPagamentoReajuste(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionRiscosPenalidadesCondicoes(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            SectionDocumentosReferencias(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                        ),
+              child: Scaffold(
+                body: Stack(
+                  children: <Widget>[
+                    const BackgroundChange(),
+                    SingleChildScrollView(
+                      key: const PageStorageKey<String>('tr-scroll'),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SectionObjetoFundamentacao(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionEscopoRequisitos(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionLocalPrazosCronograma(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionMedicaoAceiteIndicadores(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionObrigacoesEquipeGestao(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionLicenciamentoSegurancaSustentabilidade(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionPrecosPagamentoReajuste(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionRiscosPenalidadesCondicoes(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SectionDocumentosReferencias(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                       ),
-                    ],
-                  ),
-                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
-                    builder: (context, pstate) {
-                      return StageProgress(
-                        title: 'Termo de Referência',
-                        icon: Icons.rule_folder_outlined,
-                        busy: state.saving || pstate.loading,
-                        approved: pstate.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: _saveApproveAndNext,
-                        onUpdateApproved: _updateApproved,
-                      );
-                    },
-                  ),
+                    ),
+                  ],
+                ),
+                bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
+                  builder: (context, pstate) {
+                    return StageProgress(
+                      title: 'Termo de Referência',
+                      icon: Icons.rule_folder_outlined,
+                      busy: state.saving || pstate.loading,
+                      approved: pstate.approved,
+                      onSave: _saveOnly,
+                      onSaveAndNext: _saveApproveAndNext,
+                      onUpdateApproved: _updateApproved,
+                    );
+                  },
                 ),
               ),
             );
           },
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    final content = _buildContent();
+    final pipelineCubit = _pipelineProgressCubit;
+
+    if (pipelineCubit == null) {
+      return content;
+    }
+
+    return BlocProvider<ProgressCubit>.value(
+      value: pipelineCubit,
+      child: ProgressStage(
+        stageKey: ProgressData.tr,
+        child: content,
       ),
     );
   }

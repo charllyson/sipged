@@ -2,7 +2,7 @@
 
 import 'package:equatable/equatable.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'cotacao_data.dart';
 
 class CotacaoState extends Equatable {
   final bool loading;
@@ -13,8 +13,8 @@ class CotacaoState extends Equatable {
   final String? contractId;
   final String? cotacaoId;
 
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final Map<String, String> sectionIds;
+  final Map<String, Map<String, dynamic>> sectionsData;
 
   const CotacaoState({
     this.loading = false,
@@ -38,7 +38,10 @@ class CotacaoState extends Equatable {
   }
 
   String? get currentCotacaoId => cotacaoId;
-  String? get currentDocsId => sectionIds['anexosEvidencias'];
+
+  String? get currentDocsId {
+    return sectionIds[CotacaoData.sectionAnexosEvidencias];
+  }
 
   CotacaoState copyWith({
     bool? loading,
@@ -47,8 +50,8 @@ class CotacaoState extends Equatable {
     String? error,
     String? contractId,
     String? cotacaoId,
-    SectionIds? sectionIds,
-    SectionsMap? sectionsData,
+    Map<String, String>? sectionIds,
+    Map<String, Map<String, dynamic>>? sectionsData,
     bool clearError = false,
     bool clearContractId = false,
     bool clearCotacaoId = false,

@@ -1,5 +1,3 @@
-// lib/screens/modules/contracts/hiring/7Dotacao/dotacao_page.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,9 +10,9 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/screens/modules/contracts/hiring/progress_stage.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
-import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
@@ -25,8 +23,7 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -44,14 +41,14 @@ import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_6_crono
 import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_7_documentos_links.dart';
 
 class DotacaoPage extends StatefulWidget {
-  final String contractId;
-  final bool readOnly;
-
   const DotacaoPage({
     super.key,
     required this.contractId,
     this.readOnly = false,
   });
+
+  final String contractId;
+  final bool readOnly;
 
   @override
   State<DotacaoPage> createState() => _DotacaoPageState();
@@ -59,15 +56,14 @@ class DotacaoPage extends StatefulWidget {
 
 class _DotacaoPageState extends State<DotacaoPage>
     with SipGedValidation, AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
   static const String _route = 'contracts_hiring_dotacao';
   static const String _notificationSource = 'contracts_hiring_dotacao';
 
   final DfdRepository _dfdRepository = DfdRepository();
 
   late final ProgressCubit _progressBloc;
+
+  ProgressCubit? _pipelineProgressCubit;
 
   DotacaoData _formData = const DotacaoData.empty();
   ContractData _contract = ContractData.empty();
@@ -79,6 +75,9 @@ class _DotacaoPageState extends State<DotacaoPage>
   String? _currentDotId;
 
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   bool get _isEditable => !widget.readOnly;
 
@@ -131,8 +130,27 @@ class _DotacaoPageState extends State<DotacaoPage>
         context.read<DotacaoCubit>().load(_contractId);
         unawaited(_loadContract(_contractId));
         unawaited(_loadDfdData(_contractId));
+        unawaited(
+          _progressBloc.bindToStage(
+            contractId: _contractId,
+            collectionName: ProgressData.dotacao,
+          ),
+        );
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_pipelineProgressCubit != null) return;
+
+    try {
+      _pipelineProgressCubit = context.read<ProgressCubit>();
+    } catch (_) {
+      _pipelineProgressCubit = null;
+    }
   }
 
   @override
@@ -151,10 +169,8 @@ class _DotacaoPageState extends State<DotacaoPage>
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(cid)
-          .get();
+      final snapshot =
+      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
 
       if (!mounted) return;
 
@@ -234,17 +250,11 @@ class _DotacaoPageState extends State<DotacaoPage>
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
-
-    /// Vazio = helper resolve todos os usuários com permissão ao contrato.
     Iterable<String> targetUserIds = const <String>[],
-
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
@@ -343,9 +353,11 @@ class _DotacaoPageState extends State<DotacaoPage>
 
       if (!mounted) return false;
 
-      _progressBloc.bindToStage(
-        contractId: _contractId,
-        collectionName: 'dotacao',
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.dotacao,
+        ),
       );
 
       if (notifySuccess) {
@@ -385,13 +397,10 @@ class _DotacaoPageState extends State<DotacaoPage>
 
   Future<void> _saveApproveAndNext() async {
     final dotacaoCubit = context.read<DotacaoCubit>();
-    final pipeline = context.read<PipelineCubit>();
     final tab = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly(
-      notifySuccess: false,
-    );
+    final saved = await _saveOnly(notifySuccess: false);
 
     if (!mounted || !saved) return;
 
@@ -414,25 +423,30 @@ class _DotacaoPageState extends State<DotacaoPage>
     try {
       await repo.approveStage(
         contractId: _contractId,
-        collectionName: 'dotacao',
+        collectionName: ProgressData.dotacao,
         approverUid: uid,
         approverName: actorName,
       );
 
       await repo.setCompleted(
         contractId: _contractId,
-        collectionName: 'dotacao',
+        collectionName: ProgressData.dotacao,
         completed: true,
       );
 
       if (!mounted) return;
 
-      pipeline.setStageEnabled(HiringStageKey.minuta, true);
-      unawaited(pipeline.refresh());
-
-      tab.animateTo(
-        (tab.index + 1).clamp(0, tab.length - 1),
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.dotacao,
+        ),
       );
+
+      _pipelineProgressCubit?.setStageEnabled(ProgressData.minuta, true);
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
+
+      tab.animateTo((tab.index + 1).clamp(0, tab.length - 1));
 
       await _notify(
         title: 'Dotação aprovada',
@@ -448,7 +462,7 @@ class _DotacaoPageState extends State<DotacaoPage>
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
-          'nextStage': 'minuta',
+          'nextStage': ProgressData.minuta,
         },
       );
     } catch (e) {
@@ -468,9 +482,7 @@ class _DotacaoPageState extends State<DotacaoPage>
     final dotacaoCubit = context.read<DotacaoCubit>();
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly(
-      notifySuccess: false,
-    );
+    final saved = await _saveOnly(notifySuccess: false);
 
     if (!mounted || !saved) return;
 
@@ -493,12 +505,21 @@ class _DotacaoPageState extends State<DotacaoPage>
     try {
       await repo.touchApproval(
         contractId: _contractId,
-        collectionName: 'dotacao',
+        collectionName: ProgressData.dotacao,
         updatedByUid: uid,
         updatedByName: actorName,
       );
 
       if (!mounted) return;
+
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.dotacao,
+        ),
+      );
+
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       await _notify(
         title: 'Aprovação da Dotação atualizada',
@@ -529,11 +550,8 @@ class _DotacaoPageState extends State<DotacaoPage>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-
-    return BlocProvider.value(
+  Widget _buildContent() {
+    return BlocProvider<ProgressCubit>.value(
       value: _progressBloc,
       child: BlocListener<DotacaoCubit, DotacaoState>(
         listenWhen: (prev, curr) {
@@ -557,9 +575,11 @@ class _DotacaoPageState extends State<DotacaoPage>
           }
 
           if ((incomingId ?? '').isNotEmpty) {
-            _progressBloc.bindToStage(
-              contractId: _contractId,
-              collectionName: 'dotacao',
+            unawaited(
+              _progressBloc.bindToStage(
+                contractId: _contractId,
+                collectionName: ProgressData.dotacao,
+              ),
             );
 
             if ((_contract.id ?? '') != _contractId) {
@@ -592,91 +612,108 @@ class _DotacaoPageState extends State<DotacaoPage>
               message: msg,
               details: locked ? 'Por favor, aguarde.' : null,
               keepAppBarUndimmed: true,
-              child: StageGate(
-                stageKey: HiringStageKey.dotacao,
-                child: Scaffold(
-                  body: Stack(
-                    children: [
-                      const BackgroundChange(),
-                      SingleChildScrollView(
-                        key: const PageStorageKey('dotacao-scroll'),
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SectionIdentificacao(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionVinculacaoProgramatica(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionNaturezaDespesa(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionReserva(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionEmpenho(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionCronograma(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionDocumentosLinks(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                          ],
-                        ),
+              child: Scaffold(
+                body: Stack(
+                  children: <Widget>[
+                    const BackgroundChange(),
+                    SingleChildScrollView(
+                      key: const PageStorageKey<String>('dotacao-scroll'),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SectionIdentificacao(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionVinculacaoProgramatica(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionNaturezaDespesa(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionReserva(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionEmpenho(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionCronograma(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionDocumentosLinks(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
-                    builder: (context, progressState) {
-                      return StageProgress(
-                        title: 'Dotação Orçamentária',
-                        icon: Icons.account_balance_wallet_outlined,
-                        busy: state.saving || progressState.loading,
-                        approved: progressState.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: _saveApproveAndNext,
-                        onUpdateApproved: _updateApproved,
-                      );
-                    },
-                  ),
+                    ),
+                  ],
+                ),
+                bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
+                  builder: (context, progressState) {
+                    return StageProgress(
+                      title: 'Dotação Orçamentária',
+                      icon: Icons.account_balance_wallet_outlined,
+                      busy: state.saving || progressState.loading,
+                      approved: progressState.approved,
+                      onSave: _saveOnly,
+                      onSaveAndNext: _saveApproveAndNext,
+                      onUpdateApproved: _updateApproved,
+                    );
+                  },
                 ),
               ),
             );
           },
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    final content = _buildContent();
+    final pipelineCubit = _pipelineProgressCubit;
+
+    if (pipelineCubit == null) {
+      return content;
+    }
+
+    return BlocProvider<ProgressCubit>.value(
+      value: pipelineCubit,
+      child: ProgressStage(
+        stageKey: ProgressData.dotacao,
+        child: content,
       ),
     );
   }

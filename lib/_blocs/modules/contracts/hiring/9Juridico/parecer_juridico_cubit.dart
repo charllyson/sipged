@@ -1,16 +1,20 @@
 // lib/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_cubit.dart
 
+import 'dart:typed_data';
+
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'parecer_juridico_data.dart';
 import 'parecer_juridico_repository.dart';
 import 'parecer_juridico_state.dart';
 
 class ParecerJuridicoCubit extends Cubit<ParecerState> {
-  ParecerJuridicoCubit(this.repo)
-      : super(ParecerState.initial());
+  ParecerJuridicoCubit([ParecerJuridicoRepository? repository])
+      : repo = repository ?? ParecerJuridicoRepository(),
+        super(ParecerState.initial());
 
   final ParecerJuridicoRepository repo;
 
@@ -85,7 +89,7 @@ class ParecerJuridicoCubit extends Cubit<ParecerState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _loadSeq) return;
 
       emit(
@@ -93,7 +97,7 @@ class ParecerJuridicoCubit extends Cubit<ParecerState> {
           loading: false,
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -101,7 +105,7 @@ class ParecerJuridicoCubit extends Cubit<ParecerState> {
 
   Future<void> saveAll({
     required String contractId,
-    required SectionsMap sectionsData,
+    required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
     final cleanContractId = contractId.trim();
 
@@ -164,14 +168,14 @@ class ParecerJuridicoCubit extends Cubit<ParecerState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -270,17 +274,197 @@ class ParecerJuridicoCubit extends Cubit<ParecerState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
+  }
+
+  Future<List<Attachment>> listFiles({
+    required String contractId,
+    String? parecerId,
+    String? documentosId,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanParecerId = (parecerId ?? state.parecerId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ??
+        state.sectionIds[ParecerJuridicoData.sectionDocumentos] ??
+        '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanParecerId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      return const <Attachment>[];
+    }
+
+    return repo.listFiles(
+      contractId: cleanContractId,
+      parecerId: cleanParecerId,
+      documentosId: cleanDocumentosId,
+    );
+  }
+
+  Future<List<Attachment>> listDocumentosFiles({
+    required String contractId,
+    String? parecerId,
+    String? documentosId,
+  }) {
+    return listFiles(
+      contractId: contractId,
+      parecerId: parecerId,
+      documentosId: documentosId,
+    );
+  }
+
+  Future<Attachment> uploadFile({
+    required String contractId,
+    String? parecerId,
+    String? documentosId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+      'docx',
+    ],
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanParecerId = (parecerId ?? state.parecerId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ??
+        state.sectionIds[ParecerJuridicoData.sectionDocumentos] ??
+        '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanParecerId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      throw Exception('Caminho inválido para upload do parecer jurídico.');
+    }
+
+    return repo.uploadFile(
+      contractId: cleanContractId,
+      parecerId: cleanParecerId,
+      documentosId: cleanDocumentosId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadDocumentosFile({
+    required String contractId,
+    String? parecerId,
+    String? documentosId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+      'docx',
+    ],
+  }) {
+    return uploadFile(
+      contractId: contractId,
+      parecerId: parecerId,
+      documentosId: documentosId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<Attachment> uploadBytes({
+    required String contractId,
+    String? parecerId,
+    String? documentosId,
+    required Uint8List bytes,
+    required String fileName,
+    required void Function(double progress) onProgress,
+    SettableMetadata? metadata,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanParecerId = (parecerId ?? state.parecerId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ??
+        state.sectionIds[ParecerJuridicoData.sectionDocumentos] ??
+        '')
+        .trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanParecerId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      throw Exception('Caminho inválido para upload do parecer jurídico.');
+    }
+
+    return repo.uploadBytes(
+      contractId: cleanContractId,
+      parecerId: cleanParecerId,
+      documentosId: cleanDocumentosId,
+      bytes: bytes,
+      fileName: fileName,
+      onProgress: onProgress,
+      metadata: metadata,
+    );
+  }
+
+  Future<bool> deleteFile({
+    required String contractId,
+    String? parecerId,
+    String? documentosId,
+    required String fileName,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanParecerId = (parecerId ?? state.parecerId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ??
+        state.sectionIds[ParecerJuridicoData.sectionDocumentos] ??
+        '')
+        .trim();
+    final cleanFileName = fileName.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanParecerId.isEmpty ||
+        cleanDocumentosId.isEmpty ||
+        cleanFileName.isEmpty) {
+      return false;
+    }
+
+    return repo.deleteFile(
+      contractId: cleanContractId,
+      parecerId: cleanParecerId,
+      documentosId: cleanDocumentosId,
+      fileName: cleanFileName,
+    );
+  }
+
+  Future<bool> deleteDocumentosFile({
+    required String contractId,
+    String? parecerId,
+    String? documentosId,
+    required String fileName,
+  }) {
+    return deleteFile(
+      contractId: contractId,
+      parecerId: parecerId,
+      documentosId: documentosId,
+      fileName: fileName,
+    );
+  }
+
+  Future<bool> deleteByPath(String path) {
+    return repo.deleteByPath(path);
   }
 
   void clearSuccessFlag() {

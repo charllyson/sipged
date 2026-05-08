@@ -1,8 +1,28 @@
+// lib/_blocs/modules/contracts/hiring/7Dotacao/dotacao_data.dart
+
 import 'package:equatable/equatable.dart';
 
-import 'dotacao_sections.dart';
-
 class DotacaoData extends Equatable {
+  /// Chaves estáveis das seções da Dotação.
+  /// Substitui o antigo arquivo dotacao_sections.dart.
+  static const sectionIdentificacao = 'identificacao';
+  static const sectionVinculacaoProgramatica = 'vinculacao';
+  static const sectionNaturezaDespesa = 'natureza';
+  static const sectionReserva = 'reserva';
+  static const sectionEmpenho = 'empenho';
+  static const sectionCronograma = 'cronograma';
+  static const sectionDocumentos = 'documentos';
+
+  static const sectionKeys = <String>[
+    sectionIdentificacao,
+    sectionVinculacaoProgramatica,
+    sectionNaturezaDespesa,
+    sectionReserva,
+    sectionEmpenho,
+    sectionCronograma,
+    sectionDocumentos,
+  ];
+
   // 1) Identificação
   final String? exercicio;
   final String? processoSei;
@@ -74,7 +94,6 @@ class DotacaoData extends Equatable {
     this.links,
   });
 
-  /// Construtor "vazio" no mesmo padrão dos outros Data
   const DotacaoData.empty()
       : exercicio = '',
         processoSei = '',
@@ -104,148 +123,116 @@ class DotacaoData extends Equatable {
         desembolsoObservacoes = '',
         links = '';
 
-  // ---------------------------------------------------------------------------
-  // Map "flat" — compatível com doc único no Firestore
-  // ---------------------------------------------------------------------------
-  Map<String, dynamic> toMap() => {
-    'exercicio': exercicio,
-    'processoSei': processoSei,
-    'responsavelOrcUserId': responsavelOrcUserId,
-    'responsavelOrcNome': responsavelOrcNome,
-    'uo': uo,
-    'ug': ug,
-    'programa': programa,
-    'acao': acao,
-    'ptres': ptres,
-    'planoOrc': planoOrc,
-    'fonteRecurso': fonteRecurso,
-    'modalidadeAplicacao': modalidadeAplicacao,
-    'elementoDespesa': elementoDespesa,
-    'subelemento': subelemento,
-    'descricaoNd': descricaoNd,
-    'reservaNumero': reservaNumero,
-    'reservaData': reservaData,
-    'reservaValor': reservaValor,
-    'reservaObservacoes': reservaObservacoes,
-    'empenhoModalidade': empenhoModalidade,
-    'empenhoNumero': empenhoNumero,
-    'empenhoData': empenhoData,
-    'empenhoValor': empenhoValor,
-    'desembolsoPeriodicidade': desembolsoPeriodicidade,
-    'desembolsoMeses': desembolsoMeses,
-    'desembolsoObservacoes': desembolsoObservacoes,
-    'links': links,
-  };
+  static String _text(dynamic value) {
+    return (value ?? '').toString();
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'exercicio': exercicio,
+      'processoSei': processoSei,
+      'responsavelOrcUserId': responsavelOrcUserId,
+      'responsavelOrcNome': responsavelOrcNome,
+      'uo': uo,
+      'ug': ug,
+      'programa': programa,
+      'acao': acao,
+      'ptres': ptres,
+      'planoOrc': planoOrc,
+      'fonteRecurso': fonteRecurso,
+      'modalidadeAplicacao': modalidadeAplicacao,
+      'elementoDespesa': elementoDespesa,
+      'subelemento': subelemento,
+      'descricaoNd': descricaoNd,
+      'reservaNumero': reservaNumero,
+      'reservaData': reservaData,
+      'reservaValor': reservaValor,
+      'reservaObservacoes': reservaObservacoes,
+      'empenhoModalidade': empenhoModalidade,
+      'empenhoNumero': empenhoNumero,
+      'empenhoData': empenhoData,
+      'empenhoValor': empenhoValor,
+      'desembolsoPeriodicidade': desembolsoPeriodicidade,
+      'desembolsoMeses': desembolsoMeses,
+      'desembolsoObservacoes': desembolsoObservacoes,
+      'links': links,
+    };
+  }
 
   factory DotacaoData.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const DotacaoData.empty();
 
     return DotacaoData(
-      exercicio: (map['exercicio'] ?? '').toString(),
-      processoSei: (map['processoSei'] ?? '').toString(),
+      exercicio: _text(map['exercicio']),
+      processoSei: _text(map['processoSei']),
       responsavelOrcUserId: map['responsavelOrcUserId']?.toString(),
-      responsavelOrcNome: (map['responsavelOrcNome'] ?? '').toString(),
-      uo: (map['uo'] ?? '').toString(),
-      ug: (map['ug'] ?? '').toString(),
-      programa: (map['programa'] ?? '').toString(),
-      acao: (map['acao'] ?? '').toString(),
-      ptres: (map['ptres'] ?? '').toString(),
-      planoOrc: (map['planoOrc'] ?? '').toString(),
-      fonteRecurso: (map['fonteRecurso'] ?? '').toString(),
-      modalidadeAplicacao: (map['modalidadeAplicacao'] ?? '').toString(),
-      elementoDespesa: (map['elementoDespesa'] ?? '').toString(),
-      subelemento: (map['subelemento'] ?? '').toString(),
-      descricaoNd: (map['descricaoNd'] ?? '').toString(),
-      reservaNumero: (map['reservaNumero'] ?? '').toString(),
-      reservaData: (map['reservaData'] ?? '').toString(),
-      reservaValor: (map['reservaValor'] ?? '').toString(),
-      reservaObservacoes: (map['reservaObservacoes'] ?? '').toString(),
-      empenhoModalidade: (map['empenhoModalidade'] ?? '').toString(),
-      empenhoNumero: (map['empenhoNumero'] ?? '').toString(),
-      empenhoData: (map['empenhoData'] ?? '').toString(),
-      empenhoValor: (map['empenhoValor'] ?? '').toString(),
-      desembolsoPeriodicidade:
-      (map['desembolsoPeriodicidade'] ?? '').toString(),
-      desembolsoMeses: (map['desembolsoMeses'] ?? '').toString(),
-      desembolsoObservacoes:
-      (map['desembolsoObservacoes'] ?? '').toString(),
-      links: (map['links'] ?? '').toString(),
+      responsavelOrcNome: _text(map['responsavelOrcNome']),
+      uo: _text(map['uo']),
+      ug: _text(map['ug']),
+      programa: _text(map['programa']),
+      acao: _text(map['acao']),
+      ptres: _text(map['ptres']),
+      planoOrc: _text(map['planoOrc']),
+      fonteRecurso: _text(map['fonteRecurso']),
+      modalidadeAplicacao: _text(map['modalidadeAplicacao']),
+      elementoDespesa: _text(map['elementoDespesa']),
+      subelemento: _text(map['subelemento']),
+      descricaoNd: _text(map['descricaoNd']),
+      reservaNumero: _text(map['reservaNumero']),
+      reservaData: _text(map['reservaData']),
+      reservaValor: _text(map['reservaValor']),
+      reservaObservacoes: _text(map['reservaObservacoes']),
+      empenhoModalidade: _text(map['empenhoModalidade']),
+      empenhoNumero: _text(map['empenhoNumero']),
+      empenhoData: _text(map['empenhoData']),
+      empenhoValor: _text(map['empenhoValor']),
+      desembolsoPeriodicidade: _text(map['desembolsoPeriodicidade']),
+      desembolsoMeses: _text(map['desembolsoMeses']),
+      desembolsoObservacoes: _text(map['desembolsoObservacoes']),
+      links: _text(map['links']),
     );
   }
 
-  /// A partir da estrutura em seções usada no Firestore
   factory DotacaoData.fromSectionsMap(
       Map<String, Map<String, dynamic>> sections,
       ) {
-    final i  = sections[DotacaoSections.identificacao]
-        ?? const <String, dynamic>{};
-    final v  = sections[DotacaoSections.vinculacaoProgramatica]
-        ?? const <String, dynamic>{};
-    final n  = sections[DotacaoSections.naturezaDespesa]
-        ?? const <String, dynamic>{};
-    final r  = sections[DotacaoSections.reserva]
-        ?? const <String, dynamic>{};
-    final e  = sections[DotacaoSections.empenho]
-        ?? const <String, dynamic>{};
-    final c  = sections[DotacaoSections.cronograma]
-        ?? const <String, dynamic>{};
-    final d  = sections[DotacaoSections.documentos]
-        ?? const <String, dynamic>{};
+    final i = sections[sectionIdentificacao] ?? const <String, dynamic>{};
+    final v =
+        sections[sectionVinculacaoProgramatica] ?? const <String, dynamic>{};
+    final n = sections[sectionNaturezaDespesa] ?? const <String, dynamic>{};
+    final r = sections[sectionReserva] ?? const <String, dynamic>{};
+    final e = sections[sectionEmpenho] ?? const <String, dynamic>{};
+    final c = sections[sectionCronograma] ?? const <String, dynamic>{};
+    final d = sections[sectionDocumentos] ?? const <String, dynamic>{};
 
     return DotacaoData(
-      // 1) Identificação
-      exercicio: (i['exercicio'] ?? '').toString(),
-      processoSei: (i['processoSei'] ?? '').toString(),
+      exercicio: _text(i['exercicio']),
+      processoSei: _text(i['processoSei']),
       responsavelOrcUserId: i['responsavelOrcUserId']?.toString(),
-      responsavelOrcNome: (i['responsavelOrcNome'] ?? '').toString(),
-
-      // 2) Vinculação Programática
-      uo: (v['uo'] ?? '').toString(),
-      ug: (v['ug'] ?? '').toString(),
-      programa: (v['programa'] ?? '').toString(),
-      acao: (v['acao'] ?? '').toString(),
-      ptres: (v['ptres'] ?? '').toString(),
-      planoOrc: (v['planoOrc'] ?? '').toString(),
-      fonteRecurso: (v['fonteRecurso'] ?? '').toString(),
-
-      // 3) Natureza da Despesa
-      modalidadeAplicacao:
-      (n['modalidadeAplicacao'] ?? '').toString(),
-      elementoDespesa:
-      (n['elementoDespesa'] ?? '').toString(),
-      subelemento: (n['subelemento'] ?? '').toString(),
-      descricaoNd: (n['descricaoNd'] ?? '').toString(),
-
-      // 4) Reserva
-      reservaNumero:
-      (r['reservaNumero'] ?? '').toString(),
-      reservaData:
-      (r['reservaData'] ?? '').toString(),
-      reservaValor:
-      (r['reservaValor'] ?? '').toString(),
-      reservaObservacoes:
-      (r['reservaObservacoes'] ?? '').toString(),
-
-      // 5) Empenho
-      empenhoModalidade:
-      (e['empenhoModalidade'] ?? '').toString(),
-      empenhoNumero:
-      (e['empenhoNumero'] ?? '').toString(),
-      empenhoData:
-      (e['empenhoData'] ?? '').toString(),
-      empenhoValor:
-      (e['empenhoValor'] ?? '').toString(),
-
-      // 6) Cronograma
-      desembolsoPeriodicidade:
-      (c['desembolsoPeriodicidade'] ?? '').toString(),
-      desembolsoMeses:
-      (c['desembolsoMeses'] ?? '').toString(),
-      desembolsoObservacoes:
-      (c['desembolsoObservacoes'] ?? '').toString(),
-
-      // 7) Documentos
-      links: (d['links'] ?? '').toString(),
+      responsavelOrcNome: _text(i['responsavelOrcNome']),
+      uo: _text(v['uo']),
+      ug: _text(v['ug']),
+      programa: _text(v['programa']),
+      acao: _text(v['acao']),
+      ptres: _text(v['ptres']),
+      planoOrc: _text(v['planoOrc']),
+      fonteRecurso: _text(v['fonteRecurso']),
+      modalidadeAplicacao: _text(n['modalidadeAplicacao']),
+      elementoDespesa: _text(n['elementoDespesa']),
+      subelemento: _text(n['subelemento']),
+      descricaoNd: _text(n['descricaoNd']),
+      reservaNumero: _text(r['reservaNumero']),
+      reservaData: _text(r['reservaData']),
+      reservaValor: _text(r['reservaValor']),
+      reservaObservacoes: _text(r['reservaObservacoes']),
+      empenhoModalidade: _text(e['empenhoModalidade']),
+      empenhoNumero: _text(e['empenhoNumero']),
+      empenhoData: _text(e['empenhoData']),
+      empenhoValor: _text(e['empenhoValor']),
+      desembolsoPeriodicidade: _text(c['desembolsoPeriodicidade']),
+      desembolsoMeses: _text(c['desembolsoMeses']),
+      desembolsoObservacoes: _text(c['desembolsoObservacoes']),
+      links: _text(d['links']),
     );
   }
 
@@ -283,8 +270,7 @@ class DotacaoData extends Equatable {
       processoSei: processoSei ?? this.processoSei,
       responsavelOrcUserId:
       responsavelOrcUserId ?? this.responsavelOrcUserId,
-      responsavelOrcNome:
-      responsavelOrcNome ?? this.responsavelOrcNome,
+      responsavelOrcNome: responsavelOrcNome ?? this.responsavelOrcNome,
       uo: uo ?? this.uo,
       ug: ug ?? this.ug,
       programa: programa ?? this.programa,
@@ -294,8 +280,7 @@ class DotacaoData extends Equatable {
       fonteRecurso: fonteRecurso ?? this.fonteRecurso,
       modalidadeAplicacao:
       modalidadeAplicacao ?? this.modalidadeAplicacao,
-      elementoDespesa:
-      elementoDespesa ?? this.elementoDespesa,
+      elementoDespesa: elementoDespesa ?? this.elementoDespesa,
       subelemento: subelemento ?? this.subelemento,
       descricaoNd: descricaoNd ?? this.descricaoNd,
       reservaNumero: reservaNumero ?? this.reservaNumero,
@@ -303,24 +288,67 @@ class DotacaoData extends Equatable {
       reservaValor: reservaValor ?? this.reservaValor,
       reservaObservacoes:
       reservaObservacoes ?? this.reservaObservacoes,
-      empenhoModalidade:
-      empenhoModalidade ?? this.empenhoModalidade,
-      empenhoNumero:
-      empenhoNumero ?? this.empenhoNumero,
+      empenhoModalidade: empenhoModalidade ?? this.empenhoModalidade,
+      empenhoNumero: empenhoNumero ?? this.empenhoNumero,
       empenhoData: empenhoData ?? this.empenhoData,
       empenhoValor: empenhoValor ?? this.empenhoValor,
       desembolsoPeriodicidade:
       desembolsoPeriodicidade ?? this.desembolsoPeriodicidade,
-      desembolsoMeses:
-      desembolsoMeses ?? this.desembolsoMeses,
+      desembolsoMeses: desembolsoMeses ?? this.desembolsoMeses,
       desembolsoObservacoes:
       desembolsoObservacoes ?? this.desembolsoObservacoes,
       links: links ?? this.links,
     );
   }
 
+  Map<String, Map<String, dynamic>> toSectionsMap() {
+    return <String, Map<String, dynamic>>{
+      sectionIdentificacao: <String, dynamic>{
+        'exercicio': exercicio,
+        'processoSei': processoSei,
+        'responsavelOrcUserId': responsavelOrcUserId,
+        'responsavelOrcNome': responsavelOrcNome,
+      },
+      sectionVinculacaoProgramatica: <String, dynamic>{
+        'uo': uo,
+        'ug': ug,
+        'programa': programa,
+        'acao': acao,
+        'ptres': ptres,
+        'planoOrc': planoOrc,
+        'fonteRecurso': fonteRecurso,
+      },
+      sectionNaturezaDespesa: <String, dynamic>{
+        'modalidadeAplicacao': modalidadeAplicacao,
+        'elementoDespesa': elementoDespesa,
+        'subelemento': subelemento,
+        'descricaoNd': descricaoNd,
+      },
+      sectionReserva: <String, dynamic>{
+        'reservaNumero': reservaNumero,
+        'reservaData': reservaData,
+        'reservaValor': reservaValor,
+        'reservaObservacoes': reservaObservacoes,
+      },
+      sectionEmpenho: <String, dynamic>{
+        'empenhoModalidade': empenhoModalidade,
+        'empenhoNumero': empenhoNumero,
+        'empenhoData': empenhoData,
+        'empenhoValor': empenhoValor,
+      },
+      sectionCronograma: <String, dynamic>{
+        'desembolsoPeriodicidade': desembolsoPeriodicidade,
+        'desembolsoMeses': desembolsoMeses,
+        'desembolsoObservacoes': desembolsoObservacoes,
+      },
+      sectionDocumentos: <String, dynamic>{
+        'links': links,
+      },
+    };
+  }
+
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     exercicio,
     processoSei,
     responsavelOrcUserId,
@@ -349,55 +377,4 @@ class DotacaoData extends Equatable {
     desembolsoObservacoes,
     links,
   ];
-}
-
-// -----------------------------------------------------------------------------
-// Mapeamento para estrutura em seções (Firestore)
-// -----------------------------------------------------------------------------
-extension DotacaoDataSections on DotacaoData {
-  Map<String, Map<String, dynamic>> toSectionsMap() {
-    return {
-      DotacaoSections.identificacao: {
-        'exercicio': exercicio,
-        'processoSei': processoSei,
-        'responsavelOrcUserId': responsavelOrcUserId,
-        'responsavelOrcNome': responsavelOrcNome,
-      },
-      DotacaoSections.vinculacaoProgramatica: {
-        'uo': uo,
-        'ug': ug,
-        'programa': programa,
-        'acao': acao,
-        'ptres': ptres,
-        'planoOrc': planoOrc,
-        'fonteRecurso': fonteRecurso,
-      },
-      DotacaoSections.naturezaDespesa: {
-        'modalidadeAplicacao': modalidadeAplicacao,
-        'elementoDespesa': elementoDespesa,
-        'subelemento': subelemento,
-        'descricaoNd': descricaoNd,
-      },
-      DotacaoSections.reserva: {
-        'reservaNumero': reservaNumero,
-        'reservaData': reservaData,
-        'reservaValor': reservaValor,
-        'reservaObservacoes': reservaObservacoes,
-      },
-      DotacaoSections.empenho: {
-        'empenhoModalidade': empenhoModalidade,
-        'empenhoNumero': empenhoNumero,
-        'empenhoData': empenhoData,
-        'empenhoValor': empenhoValor,
-      },
-      DotacaoSections.cronograma: {
-        'desembolsoPeriodicidade': desembolsoPeriodicidade,
-        'desembolsoMeses': desembolsoMeses,
-        'desembolsoObservacoes': desembolsoObservacoes,
-      },
-      DotacaoSections.documentos: {
-        'links': links,
-      },
-    };
-  }
 }

@@ -1,8 +1,30 @@
+// lib/_blocs/modules/contracts/hiring/2Etp/etp_data.dart
+
 import 'package:equatable/equatable.dart';
 
-import 'etp_sections.dart';
-
 class EtpData extends Equatable {
+  /// Chaves estáveis das seções do ETP.
+  /// Substitui o antigo arquivo etp_sections.dart.
+  static const sectionIdentificacao = 'identificacao';
+  static const sectionMotivacao = 'motivacao';
+  static const sectionAlternativas = 'alternativas';
+  static const sectionMercado = 'mercado';
+  static const sectionCronograma = 'cronograma';
+  static const sectionPremissas = 'premissas';
+  static const sectionDocumentos = 'documentos';
+  static const sectionConclusao = 'conclusao';
+
+  static const sectionKeys = <String>[
+    sectionIdentificacao,
+    sectionMotivacao,
+    sectionAlternativas,
+    sectionMercado,
+    sectionCronograma,
+    sectionPremissas,
+    sectionDocumentos,
+    sectionConclusao,
+  ];
+
   // 1) Identificação
   final String? numero;
   final String? dataElaboracao;
@@ -55,48 +77,33 @@ class EtpData extends Equatable {
     this.responsavelElaboracaoUserId,
     this.responsavelElaboracaoNome,
     this.artNumero,
-
-    // 2) Motivação / Objetivos / Requisitos
     this.motivacao,
     this.objetivos,
     this.requisitosMinimos,
-
-    // 3) Alternativas e solução
     this.alternativasAvaliadas,
     this.solucaoRecomendada,
     this.complexidade,
     this.nivelRisco,
     this.justificativaSolucao,
-
-    // 4) Mercado / Estimativa
     this.analiseMercado,
     this.estimativaValor,
     this.metodoEstimativa,
     this.beneficiosEsperados,
-
-    // 5) Cronograma / Indicadores / Aceite
     this.prazoExecucaoDias,
     this.tempoVigenciaMeses,
     this.criteriosAceite,
     this.indicadoresDesempenho,
-
-    // 6) Premissas / Restrições / Licenciamento
     this.premissas,
     this.restricoes,
     this.licenciamentoAmbiental,
     this.observacoesAmbientais,
-
-    // 7) Documentos / Equipe
     this.levantamentosCampo,
     this.projetoExistente,
     this.linksEvidencias,
     this.equipeEnvolvida,
-
-    // 8) Conclusão
     this.conclusao,
   });
 
-  /// Construtor "vazio" no mesmo padrão do DfdData.empty
   const EtpData.empty()
       : numero = '',
         dataElaboracao = '',
@@ -129,211 +136,189 @@ class EtpData extends Equatable {
         equipeEnvolvida = '',
         conclusao = '';
 
-  // ---------------------------------------------------------------------------
-  // Map "flat" (sem seções) — compat direto com Firestore
-  // ---------------------------------------------------------------------------
-  Map<String, dynamic> toMap() => {
-    // 1) Identificação
-    'numero': numero,
-    'dataElaboracao': dataElaboracao,
-    'responsavelElaboracaoUserId': responsavelElaboracaoUserId,
-    'responsavelElaboracaoNome': responsavelElaboracaoNome,
-    'artNumero': artNumero,
-
-    // 2) Motivação / Objetivos / Requisitos
-    'motivacao': motivacao,
-    'objetivos': objetivos,
-    'requisitosMinimos': requisitosMinimos,
-
-    // 3) Alternativas e solução
-    'alternativasAvaliadas': alternativasAvaliadas,
-    'solucaoRecomendada': solucaoRecomendada,
-    'complexidade': complexidade,
-    'nivelRisco': nivelRisco,
-    'justificativaSolucao': justificativaSolucao,
-
-    // 4) Mercado / Estimativa
-    'analiseMercado': analiseMercado,
-    'estimativaValor': estimativaValor,
-    'metodoEstimativa': metodoEstimativa,
-    'beneficiosEsperados': beneficiosEsperados,
-
-    // 5) Cronograma / Indicadores / Aceite
-    'prazoExecucaoDias': prazoExecucaoDias,
-    'tempoVigenciaMeses': tempoVigenciaMeses,
-    'criteriosAceite': criteriosAceite,
-    'indicadoresDesempenho': indicadoresDesempenho,
-
-    // 6) Premissas / Restrições / Licenciamento
-    'premissas': premissas,
-    'restricoes': restricoes,
-    'licenciamentoAmbiental': licenciamentoAmbiental,
-    'observacoesAmbientais': observacoesAmbientais,
-
-    // 7) Documentos / Equipe
-    'levantamentosCampo': levantamentosCampo,
-    'projetoExistente': projetoExistente,
-    'linksEvidencias': linksEvidencias,
-    'equipeEnvolvida': equipeEnvolvida,
-
-    // 8) Conclusão
-    'conclusao': conclusao,
-  };
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'numero': numero,
+      'dataElaboracao': dataElaboracao,
+      'responsavelElaboracaoUserId': responsavelElaboracaoUserId,
+      'responsavelElaboracaoNome': responsavelElaboracaoNome,
+      'artNumero': artNumero,
+      'motivacao': motivacao,
+      'objetivos': objetivos,
+      'requisitosMinimos': requisitosMinimos,
+      'alternativasAvaliadas': alternativasAvaliadas,
+      'solucaoRecomendada': solucaoRecomendada,
+      'complexidade': complexidade,
+      'nivelRisco': nivelRisco,
+      'justificativaSolucao': justificativaSolucao,
+      'analiseMercado': analiseMercado,
+      'estimativaValor': estimativaValor,
+      'metodoEstimativa': metodoEstimativa,
+      'beneficiosEsperados': beneficiosEsperados,
+      'prazoExecucaoDias': prazoExecucaoDias,
+      'tempoVigenciaMeses': tempoVigenciaMeses,
+      'criteriosAceite': criteriosAceite,
+      'indicadoresDesempenho': indicadoresDesempenho,
+      'premissas': premissas,
+      'restricoes': restricoes,
+      'licenciamentoAmbiental': licenciamentoAmbiental,
+      'observacoesAmbientais': observacoesAmbientais,
+      'levantamentosCampo': levantamentosCampo,
+      'projetoExistente': projetoExistente,
+      'linksEvidencias': linksEvidencias,
+      'equipeEnvolvida': equipeEnvolvida,
+      'conclusao': conclusao,
+    };
+  }
 
   factory EtpData.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const EtpData.empty();
 
+    String read(dynamic value) => (value ?? '').toString();
+
     return EtpData(
-      // 1) Identificação
-      numero: (map['numero'] ?? '').toString(),
-      dataElaboracao: (map['dataElaboracao'] ?? '').toString(),
+      numero: read(map['numero']),
+      dataElaboracao: read(map['dataElaboracao']),
       responsavelElaboracaoUserId:
       map['responsavelElaboracaoUserId']?.toString(),
-      responsavelElaboracaoNome:
-      (map['responsavelElaboracaoNome'] ?? '').toString(),
-      artNumero: (map['artNumero'] ?? '').toString(),
-
-      // 2) Motivação / Objetivos / Requisitos
-      motivacao: (map['motivacao'] ?? '').toString(),
-      objetivos: (map['objetivos'] ?? '').toString(),
-      requisitosMinimos: (map['requisitosMinimos'] ?? '').toString(),
-
-      // 3) Alternativas e solução
-      alternativasAvaliadas:
-      (map['alternativasAvaliadas'] ?? '').toString(),
-      solucaoRecomendada:
-      (map['solucaoRecomendada'] ?? '').toString(),
-      complexidade: (map['complexidade'] ?? '').toString(),
-      nivelRisco: (map['nivelRisco'] ?? '').toString(),
-      justificativaSolucao:
-      (map['justificativaSolucao'] ?? '').toString(),
-
-      // 4) Mercado / Estimativa
-      analiseMercado: (map['analiseMercado'] ?? '').toString(),
-      estimativaValor: (map['estimativaValor'] ?? '').toString(),
-      metodoEstimativa: (map['metodoEstimativa'] ?? '').toString(),
-      beneficiosEsperados:
-      (map['beneficiosEsperados'] ?? '').toString(),
-
-      // 5) Cronograma / Indicadores / Aceite
-      prazoExecucaoDias:
-      (map['prazoExecucaoDias'] ?? '').toString(),
-      tempoVigenciaMeses:
-      (map['tempoVigenciaMeses'] ?? '').toString(),
-      criteriosAceite: (map['criteriosAceite'] ?? '').toString(),
-      indicadoresDesempenho:
-      (map['indicadoresDesempenho'] ?? '').toString(),
-
-      // 6) Premissas / Restrições / Licenciamento
-      premissas: (map['premissas'] ?? '').toString(),
-      restricoes: (map['restricoes'] ?? '').toString(),
-      licenciamentoAmbiental:
-      (map['licenciamentoAmbiental'] ?? '').toString(),
-      observacoesAmbientais:
-      (map['observacoesAmbientais'] ?? '').toString(),
-
-      // 7) Documentos / Equipe
-      levantamentosCampo:
-      (map['levantamentosCampo'] ?? '').toString(),
-      projetoExistente:
-      (map['projetoExistente'] ?? '').toString(),
-      linksEvidencias: (map['linksEvidencias'] ?? '').toString(),
-      equipeEnvolvida:
-      (map['equipeEnvolvida'] ?? '').toString(),
-
-      // 8) Conclusão
-      conclusao: (map['conclusao'] ?? '').toString(),
+      responsavelElaboracaoNome: read(map['responsavelElaboracaoNome']),
+      artNumero: read(map['artNumero']),
+      motivacao: read(map['motivacao']),
+      objetivos: read(map['objetivos']),
+      requisitosMinimos: read(map['requisitosMinimos']),
+      alternativasAvaliadas: read(map['alternativasAvaliadas']),
+      solucaoRecomendada: read(map['solucaoRecomendada']),
+      complexidade: read(map['complexidade']),
+      nivelRisco: read(map['nivelRisco']),
+      justificativaSolucao: read(map['justificativaSolucao']),
+      analiseMercado: read(map['analiseMercado']),
+      estimativaValor: read(map['estimativaValor']),
+      metodoEstimativa: read(map['metodoEstimativa']),
+      beneficiosEsperados: read(map['beneficiosEsperados']),
+      prazoExecucaoDias: read(map['prazoExecucaoDias']),
+      tempoVigenciaMeses: read(map['tempoVigenciaMeses']),
+      criteriosAceite: read(map['criteriosAceite']),
+      indicadoresDesempenho: read(map['indicadoresDesempenho']),
+      premissas: read(map['premissas']),
+      restricoes: read(map['restricoes']),
+      licenciamentoAmbiental: read(map['licenciamentoAmbiental']),
+      observacoesAmbientais: read(map['observacoesAmbientais']),
+      levantamentosCampo: read(map['levantamentosCampo']),
+      projetoExistente: read(map['projetoExistente']),
+      linksEvidencias: read(map['linksEvidencias']),
+      equipeEnvolvida: read(map['equipeEnvolvida']),
+      conclusao: read(map['conclusao']),
     );
   }
 
-  /// Mesmo padrão do DfdData.fromSectionsMap
   factory EtpData.fromSectionsMap(
       Map<String, Map<String, dynamic>> sections,
       ) {
-    final i = sections[EtpSections.identificacao] ??
-        const <String, dynamic>{};
-    final m = sections[EtpSections.motivacao] ??
-        const <String, dynamic>{};
-    final alt = sections[EtpSections.alternativas] ??
-        const <String, dynamic>{};
-    final mer = sections[EtpSections.mercado] ??
-        const <String, dynamic>{};
-    final c = sections[EtpSections.cronograma] ??
-        const <String, dynamic>{};
-    final p = sections[EtpSections.premissas] ??
-        const <String, dynamic>{};
-    final d = sections[EtpSections.documentos] ??
-        const <String, dynamic>{};
-    final con = sections[EtpSections.conclusao] ??
-        const <String, dynamic>{};
+    final identificacao = sections[sectionIdentificacao] ?? const {};
+    final motivacaoMap = sections[sectionMotivacao] ?? const {};
+    final alternativas = sections[sectionAlternativas] ?? const {};
+    final mercado = sections[sectionMercado] ?? const {};
+    final cronograma = sections[sectionCronograma] ?? const {};
+    final premissasMap = sections[sectionPremissas] ?? const {};
+    final documentos = sections[sectionDocumentos] ?? const {};
+    final conclusaoMap = sections[sectionConclusao] ?? const {};
+
+    String read(Map<String, dynamic> map, String key) {
+      return (map[key] ?? '').toString();
+    }
 
     return EtpData(
-      // 1) Identificação
-      numero: (i['numero'] ?? '').toString(),
-      dataElaboracao: (i['dataElaboracao'] ?? '').toString(),
+      numero: read(identificacao, 'numero'),
+      dataElaboracao: read(identificacao, 'dataElaboracao'),
       responsavelElaboracaoUserId:
-      i['responsavelElaboracaoUserId']?.toString(),
+      identificacao['responsavelElaboracaoUserId']?.toString(),
       responsavelElaboracaoNome:
-      (i['responsavelElaboracaoNome'] ?? '').toString(),
-      artNumero: (i['artNumero'] ?? '').toString(),
-
-      // 2) Motivação / Objetivos / Requisitos
-      motivacao: (m['motivacao'] ?? '').toString(),
-      objetivos: (m['objetivos'] ?? '').toString(),
-      requisitosMinimos:
-      (m['requisitosMinimos'] ?? '').toString(),
-
-      // 3) Alternativas e solução
+      read(identificacao, 'responsavelElaboracaoNome'),
+      artNumero: read(identificacao, 'artNumero'),
+      motivacao: read(motivacaoMap, 'motivacao'),
+      objetivos: read(motivacaoMap, 'objetivos'),
+      requisitosMinimos: read(motivacaoMap, 'requisitosMinimos'),
       alternativasAvaliadas:
-      (alt['alternativasAvaliadas'] ?? '').toString(),
+      read(alternativas, 'alternativasAvaliadas'),
       solucaoRecomendada:
-      (alt['solucaoRecomendada'] ?? '').toString(),
-      complexidade: (alt['complexidade'] ?? '').toString(),
-      nivelRisco: (alt['nivelRisco'] ?? '').toString(),
+      read(alternativas, 'solucaoRecomendada'),
+      complexidade: read(alternativas, 'complexidade'),
+      nivelRisco: read(alternativas, 'nivelRisco'),
       justificativaSolucao:
-      (alt['justificativaSolucao'] ?? '').toString(),
-
-      // 4) Mercado / Estimativa
-      analiseMercado:
-      (mer['analiseMercado'] ?? '').toString(),
-      estimativaValor:
-      (mer['estimativaValor'] ?? '').toString(),
-      metodoEstimativa:
-      (mer['metodoEstimativa'] ?? '').toString(),
-      beneficiosEsperados:
-      (mer['beneficiosEsperados'] ?? '').toString(),
-
-      // 5) Cronograma / Indicadores / Aceite
-      prazoExecucaoDias:
-      (c['prazoExecucaoDias'] ?? '').toString(),
-      tempoVigenciaMeses:
-      (c['tempoVigenciaMeses'] ?? '').toString(),
-      criteriosAceite:
-      (c['criteriosAceite'] ?? '').toString(),
+      read(alternativas, 'justificativaSolucao'),
+      analiseMercado: read(mercado, 'analiseMercado'),
+      estimativaValor: read(mercado, 'estimativaValor'),
+      metodoEstimativa: read(mercado, 'metodoEstimativa'),
+      beneficiosEsperados: read(mercado, 'beneficiosEsperados'),
+      prazoExecucaoDias: read(cronograma, 'prazoExecucaoDias'),
+      tempoVigenciaMeses: read(cronograma, 'tempoVigenciaMeses'),
+      criteriosAceite: read(cronograma, 'criteriosAceite'),
       indicadoresDesempenho:
-      (c['indicadoresDesempenho'] ?? '').toString(),
-
-      // 6) Premissas / Restrições / Licenciamento
-      premissas: (p['premissas'] ?? '').toString(),
-      restricoes: (p['restricoes'] ?? '').toString(),
+      read(cronograma, 'indicadoresDesempenho'),
+      premissas: read(premissasMap, 'premissas'),
+      restricoes: read(premissasMap, 'restricoes'),
       licenciamentoAmbiental:
-      (p['licenciamentoAmbiental'] ?? '').toString(),
+      read(premissasMap, 'licenciamentoAmbiental'),
       observacoesAmbientais:
-      (p['observacoesAmbientais'] ?? '').toString(),
-
-      // 7) Documentos / Equipe
+      read(premissasMap, 'observacoesAmbientais'),
       levantamentosCampo:
-      (d['levantamentosCampo'] ?? '').toString(),
-      projetoExistente:
-      (d['projetoExistente'] ?? '').toString(),
-      linksEvidencias:
-      (d['linksEvidencias'] ?? '').toString(),
-      equipeEnvolvida:
-      (d['equipeEnvolvida'] ?? '').toString(),
-
-      // 8) Conclusão
-      conclusao: (con['conclusao'] ?? '').toString(),
+      read(documentos, 'levantamentosCampo'),
+      projetoExistente: read(documentos, 'projetoExistente'),
+      linksEvidencias: read(documentos, 'linksEvidencias'),
+      equipeEnvolvida: read(documentos, 'equipeEnvolvida'),
+      conclusao: read(conclusaoMap, 'conclusao'),
     );
+  }
+
+  Map<String, Map<String, dynamic>> toSectionsMap() {
+    return <String, Map<String, dynamic>>{
+      sectionIdentificacao: <String, dynamic>{
+        'numero': numero,
+        'dataElaboracao': dataElaboracao,
+        'responsavelElaboracaoUserId': responsavelElaboracaoUserId,
+        'responsavelElaboracaoNome': responsavelElaboracaoNome,
+        'artNumero': artNumero,
+      },
+      sectionMotivacao: <String, dynamic>{
+        'motivacao': motivacao,
+        'objetivos': objetivos,
+        'requisitosMinimos': requisitosMinimos,
+      },
+      sectionAlternativas: <String, dynamic>{
+        'alternativasAvaliadas': alternativasAvaliadas,
+        'solucaoRecomendada': solucaoRecomendada,
+        'complexidade': complexidade,
+        'nivelRisco': nivelRisco,
+        'justificativaSolucao': justificativaSolucao,
+      },
+      sectionMercado: <String, dynamic>{
+        'analiseMercado': analiseMercado,
+        'estimativaValor': estimativaValor,
+        'metodoEstimativa': metodoEstimativa,
+        'beneficiosEsperados': beneficiosEsperados,
+      },
+      sectionCronograma: <String, dynamic>{
+        'prazoExecucaoDias': prazoExecucaoDias,
+        'tempoVigenciaMeses': tempoVigenciaMeses,
+        'criteriosAceite': criteriosAceite,
+        'indicadoresDesempenho': indicadoresDesempenho,
+      },
+      sectionPremissas: <String, dynamic>{
+        'premissas': premissas,
+        'restricoes': restricoes,
+        'licenciamentoAmbiental': licenciamentoAmbiental,
+        'observacoesAmbientais': observacoesAmbientais,
+      },
+      sectionDocumentos: <String, dynamic>{
+        'levantamentosCampo': levantamentosCampo,
+        'projetoExistente': projetoExistente,
+        'linksEvidencias': linksEvidencias,
+        'equipeEnvolvida': equipeEnvolvida,
+      },
+      sectionConclusao: <String, dynamic>{
+        'conclusao': conclusao,
+      },
+    };
   }
 
   EtpData copyWith({
@@ -423,7 +408,7 @@ class EtpData extends Equatable {
   }
 
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     numero,
     dataElaboracao,
     responsavelElaboracaoUserId,
@@ -455,62 +440,4 @@ class EtpData extends Equatable {
     equipeEnvolvida,
     conclusao,
   ];
-}
-
-// -----------------------------------------------------------------------------
-// Mapeamento p/ estrutura em seções (mesma usada no Firestore)
-// -----------------------------------------------------------------------------
-extension EtpDataSections on EtpData {
-  Map<String, Map<String, dynamic>> toSectionsMap() {
-    return {
-      EtpSections.identificacao: {
-        'numero': numero,
-        'dataElaboracao': dataElaboracao,
-        'responsavelElaboracaoUserId':
-        responsavelElaboracaoUserId,
-        'responsavelElaboracaoNome':
-        responsavelElaboracaoNome,
-        'artNumero': artNumero,
-      },
-      EtpSections.motivacao: {
-        'motivacao': motivacao,
-        'objetivos': objetivos,
-        'requisitosMinimos': requisitosMinimos,
-      },
-      EtpSections.alternativas: {
-        'alternativasAvaliadas': alternativasAvaliadas,
-        'solucaoRecomendada': solucaoRecomendada,
-        'complexidade': complexidade,
-        'nivelRisco': nivelRisco,
-        'justificativaSolucao': justificativaSolucao,
-      },
-      EtpSections.mercado: {
-        'analiseMercado': analiseMercado,
-        'estimativaValor': estimativaValor,
-        'metodoEstimativa': metodoEstimativa,
-        'beneficiosEsperados': beneficiosEsperados,
-      },
-      EtpSections.cronograma: {
-        'prazoExecucaoDias': prazoExecucaoDias,
-        'tempoVigenciaMeses': tempoVigenciaMeses,
-        'criteriosAceite': criteriosAceite,
-        'indicadoresDesempenho': indicadoresDesempenho,
-      },
-      EtpSections.premissas: {
-        'premissas': premissas,
-        'restricoes': restricoes,
-        'licenciamentoAmbiental': licenciamentoAmbiental,
-        'observacoesAmbientais': observacoesAmbientais,
-      },
-      EtpSections.documentos: {
-        'levantamentosCampo': levantamentosCampo,
-        'projetoExistente': projetoExistente,
-        'linksEvidencias': linksEvidencias,
-        'equipeEnvolvida': equipeEnvolvida,
-      },
-      EtpSections.conclusao: {
-        'conclusao': conclusao,
-      },
-    };
-  }
 }

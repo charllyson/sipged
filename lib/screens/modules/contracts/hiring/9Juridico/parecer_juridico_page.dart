@@ -1,5 +1,3 @@
-// lib/screens/modules/contracts/hiring/9Juridico/parecer_juridico_page.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -14,9 +12,9 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/screens/modules/contracts/hiring/progress_stage.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
-import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
@@ -25,8 +23,7 @@ import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.da
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -43,14 +40,14 @@ import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_5_pend
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_6_assinaturas.dart';
 
 class ParecerJuridicoPage extends StatefulWidget {
-  final String contractId;
-  final bool readOnly;
-
   const ParecerJuridicoPage({
     super.key,
     required this.contractId,
     this.readOnly = false,
   });
+
+  final String contractId;
+  final bool readOnly;
 
   @override
   State<ParecerJuridicoPage> createState() => _ParecerJuridicoPageState();
@@ -58,15 +55,14 @@ class ParecerJuridicoPage extends StatefulWidget {
 
 class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     with SipGedValidation, AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
   static const String _route = 'contracts_hiring_parecer';
   static const String _notificationSource = 'contracts_hiring_parecer';
 
   final DfdRepository _dfdRepository = DfdRepository();
 
   late final ProgressCubit _progressBloc;
+
+  ProgressCubit? _pipelineProgressCubit;
 
   ParecerJuridicoData _formData = const ParecerJuridicoData.empty();
   ContractData _contract = ContractData.empty();
@@ -78,6 +74,9 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
   String? _currentParecerId;
 
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   bool get _isEditable => !widget.readOnly;
 
@@ -130,7 +129,26 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       context.read<ParecerJuridicoCubit>().load(_contractId);
       unawaited(_loadContract(_contractId));
       unawaited(_loadDfdData(_contractId));
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.parecer,
+        ),
+      );
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_pipelineProgressCubit != null) return;
+
+    try {
+      _pipelineProgressCubit = context.read<ProgressCubit>();
+    } catch (_) {
+      _pipelineProgressCubit = null;
+    }
   }
 
   @override
@@ -149,10 +167,8 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(cid)
-          .get();
+      final snapshot =
+      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
 
       if (!mounted) return;
 
@@ -231,17 +247,11 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
-
-    /// Vazio = helper resolve todos os usuários com permissão ao contrato.
     Iterable<String> targetUserIds = const <String>[],
-
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
     if (!mounted) return;
@@ -346,9 +356,11 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
       if (!mounted) return false;
 
-      _progressBloc.bindToStage(
-        contractId: _contractId,
-        collectionName: 'parecer',
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.parecer,
+        ),
       );
 
       if (notifySuccess) {
@@ -388,13 +400,10 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
   Future<void> _saveApproveAndNext() async {
     final parecerCubit = context.read<ParecerJuridicoCubit>();
-    final pipeline = context.read<PipelineCubit>();
     final tab = DefaultTabController.of(context);
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly(
-      notifySuccess: false,
-    );
+    final saved = await _saveOnly(notifySuccess: false);
 
     if (!mounted || !saved) return;
 
@@ -415,21 +424,28 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     try {
       await repo.approveStage(
         contractId: _contractId,
-        collectionName: 'parecer',
+        collectionName: ProgressData.parecer,
         approverUid: user?.uid ?? '',
         approverName: actorName,
       );
 
       await repo.setCompleted(
         contractId: _contractId,
-        collectionName: 'parecer',
+        collectionName: ProgressData.parecer,
         completed: true,
       );
 
       if (!mounted) return;
 
-      pipeline.setStageEnabled(HiringStageKey.publicacao, true);
-      unawaited(pipeline.refresh());
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.parecer,
+        ),
+      );
+
+      _pipelineProgressCubit?.setStageEnabled(ProgressData.publicacao, true);
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       tab.animateTo((tab.index + 1).clamp(0, tab.length - 1));
 
@@ -447,7 +463,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
-          'nextStage': 'publicacao',
+          'nextStage': ProgressData.publicacao,
         },
       );
     } catch (e) {
@@ -467,9 +483,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     final parecerCubit = context.read<ParecerJuridicoCubit>();
     final repo = _progressBloc.repo;
 
-    final saved = await _saveOnly(
-      notifySuccess: false,
-    );
+    final saved = await _saveOnly(notifySuccess: false);
 
     if (!mounted || !saved) return;
 
@@ -490,12 +504,21 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     try {
       await repo.touchApproval(
         contractId: _contractId,
-        collectionName: 'parecer',
+        collectionName: ProgressData.parecer,
         updatedByUid: user?.uid ?? '',
         updatedByName: actorName,
       );
 
       if (!mounted) return;
+
+      unawaited(
+        _progressBloc.bindToStage(
+          contractId: _contractId,
+          collectionName: ProgressData.parecer,
+        ),
+      );
+
+      unawaited(_pipelineProgressCubit?.refreshPipeline());
 
       await _notify(
         title: 'Aprovação do Parecer Jurídico atualizada',
@@ -526,15 +549,8 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-
-    final users = context.select<UserCubit, List<UserData>>(
-          (cubit) => cubit.state.all,
-    );
-
-    return BlocProvider.value(
+  Widget _buildContent(List<UserData> users) {
+    return BlocProvider<ProgressCubit>.value(
       value: _progressBloc,
       child: BlocListener<ParecerJuridicoCubit, ParecerState>(
         listenWhen: (prev, curr) {
@@ -560,9 +576,11 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
           }
 
           if ((incomingId ?? '').isNotEmpty && _contractId.isNotEmpty) {
-            _progressBloc.bindToStage(
-              contractId: _contractId,
-              collectionName: 'parecer',
+            unawaited(
+              _progressBloc.bindToStage(
+                contractId: _contractId,
+                collectionName: ProgressData.parecer,
+              ),
             );
 
             if ((_contract.id ?? '') != _contractId) {
@@ -595,86 +613,109 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
               message: msg,
               details: locked ? 'Por favor, aguarde.' : null,
               keepAppBarUndimmed: true,
-              child: StageGate(
-                stageKey: HiringStageKey.parecer,
-                child: Scaffold(
-                  body: Stack(
-                    children: [
-                      const BackgroundChange(),
-                      SingleChildScrollView(
-                        key: const PageStorageKey('parecer-juridico-scroll'),
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SectionMetadados(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              users: users,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionDocumentos(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionChecklist(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionConclusao(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionPendencias(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                            SectionAssinaturas(
-                              data: _formData,
-                              isEditable: _isEditable,
-                              users: users,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                            ),
-                          ],
-                        ),
+              child: Scaffold(
+                body: Stack(
+                  children: <Widget>[
+                    const BackgroundChange(),
+                    SingleChildScrollView(
+                      key: const PageStorageKey<String>(
+                        'parecer-juridico-scroll',
                       ),
-                    ],
-                  ),
-                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
-                    builder: (context, progressState) {
-                      return StageProgress(
-                        title: 'Parecer Jurídico',
-                        icon: Icons.gavel_outlined,
-                        busy: state.saving || progressState.loading,
-                        approved: progressState.approved,
-                        onSave: _saveOnly,
-                        onSaveAndNext: _saveApproveAndNext,
-                        onUpdateApproved: _updateApproved,
-                      );
-                    },
-                  ),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SectionMetadados(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            users: users,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionDocumentos(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionChecklist(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionConclusao(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionPendencias(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                          SectionAssinaturas(
+                            data: _formData,
+                            isEditable: _isEditable,
+                            users: users,
+                            onChanged: (updated) {
+                              setState(() => _formData = updated);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
+                  builder: (context, progressState) {
+                    return StageProgress(
+                      title: 'Parecer Jurídico',
+                      icon: Icons.gavel_outlined,
+                      busy: state.saving || progressState.loading,
+                      approved: progressState.approved,
+                      onSave: _saveOnly,
+                      onSaveAndNext: _saveApproveAndNext,
+                      onUpdateApproved: _updateApproved,
+                    );
+                  },
                 ),
               ),
             );
           },
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    final users = context.select<UserCubit, List<UserData>>(
+          (cubit) => cubit.state.all,
+    );
+
+    final content = _buildContent(users);
+    final pipelineCubit = _pipelineProgressCubit;
+
+    if (pipelineCubit == null) {
+      return content;
+    }
+
+    return BlocProvider<ProgressCubit>.value(
+      value: pipelineCubit,
+      child: ProgressStage(
+        stageKey: ProgressData.parecer,
+        child: content,
       ),
     );
   }

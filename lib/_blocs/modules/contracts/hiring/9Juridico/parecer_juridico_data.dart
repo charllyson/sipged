@@ -1,7 +1,26 @@
+// lib/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart
+
 import 'package:equatable/equatable.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_sections.dart';
 
 class ParecerJuridicoData extends Equatable {
+  /// Chaves estáveis das seções do Parecer Jurídico.
+  /// Substitui o antigo arquivo parecer_juridico_sections.dart.
+  static const sectionMetadados = 'metadados';
+  static const sectionDocumentos = 'documentos';
+  static const sectionChecklist = 'checklist';
+  static const sectionConclusao = 'conclusao';
+  static const sectionPendencias = 'pendencias';
+  static const sectionAssinaturas = 'assinaturas';
+
+  static const sectionKeys = <String>[
+    sectionMetadados,
+    sectionDocumentos,
+    sectionChecklist,
+    sectionConclusao,
+    sectionPendencias,
+    sectionAssinaturas,
+  ];
+
   // 1) Metadados
   final String? numero;
   final String? data;
@@ -32,37 +51,27 @@ class ParecerJuridicoData extends Equatable {
   final String? observacoesFinais;
 
   const ParecerJuridicoData({
-    // Metadados
     this.numero,
     this.data,
     this.orgao,
     this.pareceristaUserId,
     this.pareceristaNome,
     this.refProcesso,
-
-    // Documentos / Checklist
     this.documentosExaminados,
     this.linksAnexos,
-
-    // Conclusão / Recomendações
     this.conclusao,
     this.dataAssinatura,
     this.recomendacoes,
     this.ajustesObrigatorios,
-
-    // Pendências
     this.pendDescricao,
     this.pendPrazo,
     this.pendResponsavel,
-
-    // Assinaturas / Autoridade
     this.autoridadeUserId,
     this.autoridadeNome,
     this.local,
     this.observacoesFinais,
   });
 
-  /// Construtor vazio, útil para inicializar formulários
   const ParecerJuridicoData.empty()
       : numero = '',
         data = '',
@@ -84,96 +93,92 @@ class ParecerJuridicoData extends Equatable {
         local = '',
         observacoesFinais = '';
 
-  // ---------------------------------------------------------------------------
-  // Map flat (doc único)
-  // ---------------------------------------------------------------------------
-  Map<String, dynamic> toMap() => {
-    'numero': numero,
-    'data': data,
-    'orgao': orgao,
-    'pareceristaUserId': pareceristaUserId,
-    'pareceristaNome': pareceristaNome,
-    'refProcesso': refProcesso,
-    'documentosExaminados': documentosExaminados,
-    'linksAnexos': linksAnexos,
-    'conclusao': conclusao,
-    'dataAssinatura': dataAssinatura,
-    'recomendacoes': recomendacoes,
-    'ajustesObrigatorios': ajustesObrigatorios,
-    'pendDescricao': pendDescricao,
-    'pendPrazo': pendPrazo,
-    'pendResponsavel': pendResponsavel,
-    'autoridadeUserId': autoridadeUserId,
-    'autoridadeNome': autoridadeNome,
-    'local': local,
-    'observacoesFinais': observacoesFinais,
-  };
+  static String _text(dynamic value) {
+    return (value ?? '').toString();
+  }
 
-  factory ParecerJuridicoData.fromMap(Map<String, dynamic>? m) {
-    if (m == null) return const ParecerJuridicoData.empty();
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'numero': numero,
+      'data': data,
+      'orgao': orgao,
+      'pareceristaUserId': pareceristaUserId,
+      'pareceristaNome': pareceristaNome,
+      'refProcesso': refProcesso,
+      'documentosExaminados': documentosExaminados,
+      'linksAnexos': linksAnexos,
+      'conclusao': conclusao,
+      'dataAssinatura': dataAssinatura,
+      'recomendacoes': recomendacoes,
+      'ajustesObrigatorios': ajustesObrigatorios,
+      'pendDescricao': pendDescricao,
+      'pendPrazo': pendPrazo,
+      'pendResponsavel': pendResponsavel,
+      'autoridadeUserId': autoridadeUserId,
+      'autoridadeNome': autoridadeNome,
+      'local': local,
+      'observacoesFinais': observacoesFinais,
+    };
+  }
+
+  factory ParecerJuridicoData.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return const ParecerJuridicoData.empty();
+
     return ParecerJuridicoData(
-      numero: (m['numero'] ?? '').toString(),
-      data: (m['data'] ?? '').toString(),
-      orgao: (m['orgao'] ?? '').toString(),
-      pareceristaUserId: m['pareceristaUserId']?.toString(),
-      pareceristaNome: (m['pareceristaNome'] ?? '').toString(),
-      refProcesso: (m['refProcesso'] ?? '').toString(),
-      documentosExaminados: (m['documentosExaminados'] ?? '').toString(),
-      linksAnexos: (m['linksAnexos'] ?? '').toString(),
-      conclusao: (m['conclusao'] ?? '').toString(),
-      dataAssinatura: (m['dataAssinatura'] ?? '').toString(),
-      recomendacoes: (m['recomendacoes'] ?? '').toString(),
-      ajustesObrigatorios: (m['ajustesObrigatorios'] ?? '').toString(),
-      pendDescricao: (m['pendDescricao'] ?? '').toString(),
-      pendPrazo: (m['pendPrazo'] ?? '').toString(),
-      pendResponsavel: (m['pendResponsavel'] ?? '').toString(),
-      autoridadeUserId: m['autoridadeUserId']?.toString(),
-      autoridadeNome: (m['autoridadeNome'] ?? '').toString(),
-      local: (m['local'] ?? '').toString(),
-      observacoesFinais: (m['observacoesFinais'] ?? '').toString(),
+      numero: _text(map['numero']),
+      data: _text(map['data']),
+      orgao: _text(map['orgao']),
+      pareceristaUserId: map['pareceristaUserId']?.toString(),
+      pareceristaNome: _text(map['pareceristaNome']),
+      refProcesso: _text(map['refProcesso']),
+      documentosExaminados: _text(map['documentosExaminados']),
+      linksAnexos: _text(map['linksAnexos']),
+      conclusao: _text(map['conclusao']),
+      dataAssinatura: _text(map['dataAssinatura']),
+      recomendacoes: _text(map['recomendacoes']),
+      ajustesObrigatorios: _text(map['ajustesObrigatorios']),
+      pendDescricao: _text(map['pendDescricao']),
+      pendPrazo: _text(map['pendPrazo']),
+      pendResponsavel: _text(map['pendResponsavel']),
+      autoridadeUserId: map['autoridadeUserId']?.toString(),
+      autoridadeNome: _text(map['autoridadeNome']),
+      local: _text(map['local']),
+      observacoesFinais: _text(map['observacoesFinais']),
     );
   }
 
-  /// A partir da estrutura em seções usada no Firestore
   factory ParecerJuridicoData.fromSectionsMap(
       Map<String, Map<String, dynamic>> sections,
       ) {
-    final m  = sections[ParecerSections.metadados]   ?? const <String, dynamic>{};
-    final d  = sections[ParecerSections.documentos]  ?? const <String, dynamic>{};
-    final ch = sections[ParecerSections.checklist]   ?? const <String, dynamic>{};
-    final c  = sections[ParecerSections.conclusao]   ?? const <String, dynamic>{};
-    final p  = sections[ParecerSections.pendencias]  ?? const <String, dynamic>{};
-    final a  = sections[ParecerSections.assinaturas] ?? const <String, dynamic>{};
+    final m = sections[sectionMetadados] ?? const <String, dynamic>{};
+    final d = sections[sectionDocumentos] ?? const <String, dynamic>{};
+    final ch = sections[sectionChecklist] ?? const <String, dynamic>{};
+    final c = sections[sectionConclusao] ?? const <String, dynamic>{};
+    final p = sections[sectionPendencias] ?? const <String, dynamic>{};
+    final a = sections[sectionAssinaturas] ?? const <String, dynamic>{};
 
     return ParecerJuridicoData(
-      // Metadados
-      numero: (m['numero'] ?? '').toString(),
-      data: (m['data'] ?? '').toString(),
-      orgao: (m['orgao'] ?? '').toString(),
+      numero: _text(m['numero']),
+      data: _text(m['data']),
+      orgao: _text(m['orgao']),
       pareceristaUserId: m['pareceristaUserId']?.toString(),
-      pareceristaNome: (m['pareceristaNome'] ?? '').toString(),
-      refProcesso: (m['refProcesso'] ?? '').toString(),
-
-      // Documentos / Checklist
-      documentosExaminados: (ch['documentosExaminados'] ?? d['documentosExaminados'] ?? '').toString(),
-      linksAnexos: (d['linksAnexos'] ?? '').toString(),
-
-      // Conclusão
-      conclusao: (c['conclusao'] ?? '').toString(),
-      dataAssinatura: (c['dataAssinatura'] ?? a['dataAssinatura'] ?? '').toString(),
-      recomendacoes: (c['recomendacoes'] ?? '').toString(),
-      ajustesObrigatorios: (c['ajustesObrigatorios'] ?? '').toString(),
-
-      // Pendências
-      pendDescricao: (p['pendDescricao'] ?? '').toString(),
-      pendPrazo: (p['pendPrazo'] ?? '').toString(),
-      pendResponsavel: (p['pendResponsavel'] ?? '').toString(),
-
-      // Assinaturas / Autoridade
+      pareceristaNome: _text(m['pareceristaNome']),
+      refProcesso: _text(m['refProcesso']),
+      documentosExaminados: _text(
+        ch['documentosExaminados'] ?? d['documentosExaminados'],
+      ),
+      linksAnexos: _text(d['linksAnexos']),
+      conclusao: _text(c['conclusao']),
+      dataAssinatura: _text(c['dataAssinatura'] ?? a['dataAssinatura']),
+      recomendacoes: _text(c['recomendacoes']),
+      ajustesObrigatorios: _text(c['ajustesObrigatorios']),
+      pendDescricao: _text(p['pendDescricao']),
+      pendPrazo: _text(p['pendPrazo']),
+      pendResponsavel: _text(p['pendResponsavel']),
       autoridadeUserId: a['autoridadeUserId']?.toString(),
-      autoridadeNome: (a['autoridadeNome'] ?? '').toString(),
-      local: (a['local'] ?? '').toString(),
-      observacoesFinais: (a['observacoesFinais'] ?? '').toString(),
+      autoridadeNome: _text(a['autoridadeNome']),
+      local: _text(a['local']),
+      observacoesFinais: _text(a['observacoesFinais']),
     );
   }
 
@@ -221,8 +226,44 @@ class ParecerJuridicoData extends Equatable {
     );
   }
 
+  Map<String, Map<String, dynamic>> toSectionsMap() {
+    return <String, Map<String, dynamic>>{
+      sectionMetadados: <String, dynamic>{
+        'numero': numero,
+        'data': data,
+        'orgao': orgao,
+        'pareceristaUserId': pareceristaUserId,
+        'pareceristaNome': pareceristaNome,
+        'refProcesso': refProcesso,
+      },
+      sectionDocumentos: <String, dynamic>{
+        'linksAnexos': linksAnexos,
+      },
+      sectionChecklist: <String, dynamic>{
+        'documentosExaminados': documentosExaminados,
+      },
+      sectionConclusao: <String, dynamic>{
+        'conclusao': conclusao,
+        'dataAssinatura': dataAssinatura,
+        'recomendacoes': recomendacoes,
+        'ajustesObrigatorios': ajustesObrigatorios,
+      },
+      sectionPendencias: <String, dynamic>{
+        'pendDescricao': pendDescricao,
+        'pendPrazo': pendPrazo,
+        'pendResponsavel': pendResponsavel,
+      },
+      sectionAssinaturas: <String, dynamic>{
+        'autoridadeUserId': autoridadeUserId,
+        'autoridadeNome': autoridadeNome,
+        'local': local,
+        'observacoesFinais': observacoesFinais,
+      },
+    };
+  }
+
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     numero,
     data,
     orgao,
@@ -243,45 +284,4 @@ class ParecerJuridicoData extends Equatable {
     local,
     observacoesFinais,
   ];
-}
-
-// -----------------------------------------------------------------------------
-// Mapeamento p/ estrutura em seções (mesma usada no Firestore)
-// -----------------------------------------------------------------------------
-extension ParecerJuridicoDataSections on ParecerJuridicoData {
-  Map<String, Map<String, dynamic>> toSectionsMap() {
-    return {
-      ParecerSections.metadados: {
-        'numero': numero,
-        'data': data,
-        'orgao': orgao,
-        'pareceristaUserId': pareceristaUserId,
-        'pareceristaNome': pareceristaNome,
-        'refProcesso': refProcesso,
-      },
-      ParecerSections.documentos: {
-        'linksAnexos': linksAnexos,
-      },
-      ParecerSections.checklist: {
-        'documentosExaminados': documentosExaminados,
-      },
-      ParecerSections.conclusao: {
-        'conclusao': conclusao,
-        'dataAssinatura': dataAssinatura,
-        'recomendacoes': recomendacoes,
-        'ajustesObrigatorios': ajustesObrigatorios,
-      },
-      ParecerSections.pendencias: {
-        'pendDescricao': pendDescricao,
-        'pendPrazo': pendPrazo,
-        'pendResponsavel': pendResponsavel,
-      },
-      ParecerSections.assinaturas: {
-        'autoridadeUserId': autoridadeUserId,
-        'autoridadeNome': autoridadeNome,
-        'local': local,
-        'observacoesFinais': observacoesFinais,
-      },
-    };
-  }
 }

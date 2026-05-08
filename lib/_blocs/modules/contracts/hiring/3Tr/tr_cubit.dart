@@ -2,15 +2,16 @@
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'tr_data.dart';
 import 'tr_repository.dart';
 import 'tr_state.dart';
 
 class TrCubit extends Cubit<TrState> {
-  TrCubit(this.repo)
-      : super(TrState.initial());
+  TrCubit([TrRepository? repository])
+      : repo = repository ?? TrRepository(),
+        super(TrState.initial());
 
   final TrRepository repo;
 
@@ -82,7 +83,7 @@ class TrCubit extends Cubit<TrState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _loadSeq) return;
 
       emit(
@@ -90,7 +91,7 @@ class TrCubit extends Cubit<TrState> {
           loading: false,
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -98,7 +99,7 @@ class TrCubit extends Cubit<TrState> {
 
   Future<void> saveAll({
     required String contractId,
-    required SectionsMap sectionsData,
+    required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
     final cleanContractId = contractId.trim();
 
@@ -161,14 +162,14 @@ class TrCubit extends Cubit<TrState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
@@ -220,7 +221,7 @@ class TrCubit extends Cubit<TrState> {
       final ids = await repo.ensureStructure(cleanContractId);
       final sectionId = ids.sectionIds[cleanSectionKey];
 
-      if (sectionId == null) {
+      if (sectionId == null || sectionId.trim().isEmpty) {
         if (!_alive || reqId != _saveSeq) return;
 
         emit(
@@ -267,17 +268,104 @@ class TrCubit extends Cubit<TrState> {
           clearError: true,
         ),
       );
-    } catch (err) {
+    } catch (error) {
       if (!_alive || reqId != _saveSeq) return;
 
       emit(
         state.copyWith(
           saving: false,
           saveSuccess: false,
-          error: err.toString(),
+          error: error.toString(),
         ),
       );
     }
+  }
+
+  Future<List<Attachment>> listAttachments({
+    required String contractId,
+    String? trId,
+    String? documentosId,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanTrId = (trId ?? state.trId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ?? state.currentDocsId ?? '').trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanTrId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      return const <Attachment>[];
+    }
+
+    return repo.listAttachments(
+      contractId: cleanContractId,
+      trId: cleanTrId,
+      documentosId: cleanDocumentosId,
+    );
+  }
+
+  Future<Attachment> uploadAttachment({
+    required String contractId,
+    String? trId,
+    String? documentosId,
+    required void Function(double progress) onProgress,
+    List<String> allowedExtensions = const <String>[
+      'pdf',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ],
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanTrId = (trId ?? state.trId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ?? state.currentDocsId ?? '').trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanTrId.isEmpty ||
+        cleanDocumentosId.isEmpty) {
+      throw Exception('Caminho inválido para upload do TR.');
+    }
+
+    return repo.uploadAttachment(
+      contractId: cleanContractId,
+      trId: cleanTrId,
+      documentosId: cleanDocumentosId,
+      onProgress: onProgress,
+      allowedExtensions: allowedExtensions,
+    );
+  }
+
+  Future<bool> deleteAttachment({
+    required String contractId,
+    String? trId,
+    String? documentosId,
+    required String fileName,
+  }) async {
+    final cleanContractId = contractId.trim();
+    final cleanTrId = (trId ?? state.trId ?? '').trim();
+    final cleanDocumentosId =
+    (documentosId ?? state.currentDocsId ?? '').trim();
+    final cleanFileName = fileName.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanTrId.isEmpty ||
+        cleanDocumentosId.isEmpty ||
+        cleanFileName.isEmpty) {
+      return false;
+    }
+
+    return repo.deleteAttachment(
+      contractId: cleanContractId,
+      trId: cleanTrId,
+      documentosId: cleanDocumentosId,
+      fileName: cleanFileName,
+    );
+  }
+
+  Future<bool> deleteAttachmentByPath(String path) {
+    return repo.deleteAttachmentByPath(path);
   }
 
   void clearSuccessFlag() {

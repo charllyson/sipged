@@ -2,7 +2,7 @@
 
 import 'package:equatable/equatable.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
+import 'etp_data.dart';
 
 class EtpState extends Equatable {
   final bool loading;
@@ -13,8 +13,8 @@ class EtpState extends Equatable {
   final String? contractId;
   final String? etpId;
 
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final Map<String, String> sectionIds;
+  final Map<String, Map<String, dynamic>> sectionsData;
 
   const EtpState({
     this.loading = false,
@@ -38,7 +38,10 @@ class EtpState extends Equatable {
   }
 
   String? get currentEtpId => etpId;
-  String? get currentDocsId => sectionIds['documentos'];
+
+  String? get currentDocsId {
+    return sectionIds[EtpData.sectionDocumentos];
+  }
 
   EtpState copyWith({
     bool? loading,
@@ -47,8 +50,8 @@ class EtpState extends Equatable {
     String? error,
     String? contractId,
     String? etpId,
-    SectionIds? sectionIds,
-    SectionsMap? sectionsData,
+    Map<String, String>? sectionIds,
+    Map<String, Map<String, dynamic>>? sectionsData,
     bool clearError = false,
     bool clearContractId = false,
     bool clearEtpId = false,

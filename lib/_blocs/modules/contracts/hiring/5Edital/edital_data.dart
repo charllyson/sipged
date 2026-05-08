@@ -1,51 +1,55 @@
 // lib/_blocs/modules/contracts/hiring/5Edital/edital_data.dart
+
 import 'package:equatable/equatable.dart';
 
-import 'edital_sections.dart';
-
-/// Data model do Edital (SEM controller / ChangeNotifier)
-///
-/// - Mantém os MESMOS nomes de campos do EditalJulgamentoController antigo.
-///   (licitante, cnpj, valor, status, motivoDesclass, link, dataHora).
 class EditalData extends Equatable {
+  /// Chaves estáveis para as seções do Edital.
+  /// Substitui o antigo arquivo edital_sections.dart.
+  static const sectionDivulgacao = 'divulgacao';
+  static const sectionSessao = 'sessao';
+  static const sectionPropostas = 'propostas';
+  static const sectionLances = 'lances';
+  static const sectionJulgamento = 'julgamento';
+  static const sectionResultado = 'resultado';
+  static const sectionRecursos = 'recursos';
+  static const sectionObservacoes = 'observacoes';
+  static const sectionDocumentos = 'documentos';
+
+  static const sectionKeys = <String>[
+    sectionDivulgacao,
+    sectionSessao,
+    sectionPropostas,
+    sectionLances,
+    sectionJulgamento,
+    sectionResultado,
+    sectionRecursos,
+    sectionObservacoes,
+    sectionDocumentos,
+  ];
+
   // ===== 1) DIVULGAÇÃO / PNCP / PRAZOS =====
-  final String numero;              // edNumeroCtrl
-  final String modalidade;          // edModalidadeCtrl
-  final String criterio;            // edCriterioCtrl
-  final String idPncp;              // edIdPncpCtrl
-  final String linkPncp;            // edLinkPncpCtrl
-  final String linkSei;             // edLinkSeiCtrl
-  final String linksPublicacoes;    // edLinksPublicacoesCtrl
-  final String dataPublicacao;      // edDataPublicacaoCtrl
-  final String prazoImpugnacao;     // edPrazoImpugnacaoCtrl
-  final String prazoPropostas;      // edPrazoPropostasCtrl
-  final String observacoes;         // edObservacoesCtrl (também espelhado na seção observacoes)
+  final String numero;
+  final String modalidade;
+  final String criterio;
+  final String idPncp;
+  final String linkPncp;
+  final String linkSei;
+  final String linksPublicacoes;
+  final String dataPublicacao;
+  final String prazoImpugnacao;
+  final String prazoPropostas;
+  final String observacoes;
 
   // ===== 2) SESSÃO =====
-  final String dataSessao;          // sjDataSessaoCtrl
-  final String horaSessao;          // sjHoraSessaoCtrl
-  final String responsavel;         // sjResponsavelCtrl
-  final String localPlataforma;     // sjLocalPlataformaCtrl
+  final String dataSessao;
+  final String horaSessao;
+  final String responsavel;
+  final String localPlataforma;
 
   // ===== 3) PROPOSTAS =====
-  /// Lista de propostas:
-  /// cada item: {
-  ///   'licitante': String,
-  ///   'cnpj': String,
-  ///   'valor': String,
-  ///   'status': String,
-  ///   'motivoDesclass': String,
-  ///   'link': String,
-  /// }
   final List<Map<String, dynamic>> propostasItems;
 
   // ===== 4) LANCES =====
-  /// Lista de lances:
-  /// cada item: {
-  ///   'licitante': String,
-  ///   'valor': String,
-  ///   'dataHora': String,
-  /// }
   final List<Map<String, dynamic>> lancesItems;
 
   // ===== 5) JULGAMENTO / ATAS / RECURSOS =====
@@ -68,8 +72,10 @@ class EditalData extends Equatable {
   final bool highlightWinner;
   final bool habilitarSomenteVencedor;
 
+  // ===== 7) DOCUMENTOS =====
+  final String linksDocumentos;
+
   const EditalData({
-    // 1) DIVULGAÇÃO
     this.numero = '',
     this.modalidade = '',
     this.criterio = '',
@@ -81,28 +87,18 @@ class EditalData extends Equatable {
     this.prazoImpugnacao = '',
     this.prazoPropostas = '',
     this.observacoes = '',
-
-    // 2) SESSÃO
     this.dataSessao = '',
     this.horaSessao = '',
     this.responsavel = '',
     this.localPlataforma = '',
-
-    // 3) PROPOSTAS
-    this.propostasItems = const [],
-
-    // 4) LANCES
-    this.lancesItems = const [],
-
-    // 5) JULGAMENTO
+    this.propostasItems = const <Map<String, dynamic>>[],
+    this.lancesItems = const <Map<String, dynamic>>[],
     this.parecer = '',
     this.criterioAplicado = '',
     this.linkAta = '',
     this.recursosHouve = '',
     this.decisaoRecursos = '',
     this.linksRecursos = '',
-
-    // 6) RESULTADO
     this.vencedor = '',
     this.vencedorCnpj = '',
     this.valorVencedor = '',
@@ -113,236 +109,195 @@ class EditalData extends Equatable {
     this.homologacaoLink = '',
     this.highlightWinner = false,
     this.habilitarSomenteVencedor = false,
+    this.linksDocumentos = '',
   });
 
   const EditalData.empty() : this();
 
-  // ---------------------------------------------------------------------------
-  // Map "flat" (sem seções) — se precisar salvar tudo em um único doc
-  // ---------------------------------------------------------------------------
-  Map<String, dynamic> toMap() => {
-    // 1) DIVULGAÇÃO
-    'numero': numero,
-    'modalidade': modalidade,
-    'criterio': criterio,
-    'idPncp': idPncp,
-    'linkPncp': linkPncp,
-    'linkSei': linkSei,
-    'linksPublicacoes': linksPublicacoes,
-    'dataPublicacao': dataPublicacao,
-    'prazoImpugnacao': prazoImpugnacao,
-    'prazoPropostas': prazoPropostas,
-    'observacoes': observacoes,
+  static String _text(dynamic value) {
+    return (value ?? '').toString();
+  }
 
-    // 2) SESSÃO
-    'dataSessao': dataSessao,
-    'horaSessao': horaSessao,
-    'responsavel': responsavel,
-    'localPlataforma': localPlataforma,
+  static bool _bool(dynamic value) {
+    if (value is bool) return value;
 
-    // 3) PROPOSTAS / 4) LANCES
-    'propostasItems': propostasItems,
-    'lancesItems': lancesItems,
+    final text = value?.toString().trim().toLowerCase();
 
-    // 5) JULGAMENTO
-    'parecer': parecer,
-    'criterioAplicado': criterioAplicado,
-    'linkAta': linkAta,
-    'recursosHouve': recursosHouve,
-    'decisaoRecursos': decisaoRecursos,
-    'linksRecursos': linksRecursos,
+    if (text == 'true' || text == '1' || text == 'sim') return true;
+    if (text == 'false' || text == '0' || text == 'nao' || text == 'não') {
+      return false;
+    }
 
-    // 6) RESULTADO
-    'vencedor': vencedor,
-    'vencedorCnpj': vencedorCnpj,
-    'valorVencedor': valorVencedor,
-    'dataResultado': dataResultado,
-    'adjudicacaoData': adjudicacaoData,
-    'adjudicacaoLink': adjudicacaoLink,
-    'homologacaoData': homologacaoData,
-    'homologacaoLink': homologacaoLink,
-    'highlightWinner': highlightWinner,
-    'habilitarSomenteVencedor': habilitarSomenteVencedor,
-  };
+    return false;
+  }
+
+  static List<Map<String, dynamic>> _items(dynamic value) {
+    if (value is! List) return const <Map<String, dynamic>>[];
+
+    return value.whereType<Map>().map((item) {
+      return Map<String, dynamic>.from(item);
+    }).toList();
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'numero': numero,
+      'modalidade': modalidade,
+      'criterio': criterio,
+      'idPncp': idPncp,
+      'linkPncp': linkPncp,
+      'linkSei': linkSei,
+      'linksPublicacoes': linksPublicacoes,
+      'dataPublicacao': dataPublicacao,
+      'prazoImpugnacao': prazoImpugnacao,
+      'prazoPropostas': prazoPropostas,
+      'observacoes': observacoes,
+      'dataSessao': dataSessao,
+      'horaSessao': horaSessao,
+      'responsavel': responsavel,
+      'localPlataforma': localPlataforma,
+      'propostasItems': propostasItems,
+      'lancesItems': lancesItems,
+      'parecer': parecer,
+      'criterioAplicado': criterioAplicado,
+      'linkAta': linkAta,
+      'recursosHouve': recursosHouve,
+      'decisaoRecursos': decisaoRecursos,
+      'linksRecursos': linksRecursos,
+      'vencedor': vencedor,
+      'vencedorCnpj': vencedorCnpj,
+      'valorVencedor': valorVencedor,
+      'dataResultado': dataResultado,
+      'adjudicacaoData': adjudicacaoData,
+      'adjudicacaoLink': adjudicacaoLink,
+      'homologacaoData': homologacaoData,
+      'homologacaoLink': homologacaoLink,
+      'highlightWinner': highlightWinner,
+      'habilitarSomenteVencedor': habilitarSomenteVencedor,
+      'linksDocumentos': linksDocumentos,
+    };
+  }
 
   factory EditalData.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const EditalData.empty();
 
-    final propostasItems =
-        (map['propostasItems'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ??
-            const <Map<String, dynamic>>[];
-
-    final lancesItems =
-        (map['lancesItems'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ??
-            const <Map<String, dynamic>>[];
-
     return EditalData(
-      numero: (map['numero'] ?? '').toString(),
-      modalidade: (map['modalidade'] ?? '').toString(),
-      criterio: (map['criterio'] ?? '').toString(),
-      idPncp: (map['idPncp'] ?? '').toString(),
-      linkPncp: (map['linkPncp'] ?? '').toString(),
-      linkSei: (map['linkSei'] ?? '').toString(),
-      linksPublicacoes: (map['linksPublicacoes'] ?? '').toString(),
-      dataPublicacao: (map['dataPublicacao'] ?? '').toString(),
-      prazoImpugnacao: (map['prazoImpugnacao'] ?? '').toString(),
-      prazoPropostas: (map['prazoPropostas'] ?? '').toString(),
-      observacoes: (map['observacoes'] ?? '').toString(),
-      dataSessao: (map['dataSessao'] ?? '').toString(),
-      horaSessao: (map['horaSessao'] ?? '').toString(),
-      responsavel: (map['responsavel'] ?? '').toString(),
-      localPlataforma: (map['localPlataforma'] ?? '').toString(),
-      propostasItems: propostasItems,
-      lancesItems: lancesItems,
-      parecer: (map['parecer'] ?? '').toString(),
-      criterioAplicado: (map['criterioAplicado'] ?? '').toString(),
-      linkAta: (map['linkAta'] ?? '').toString(),
-      recursosHouve: (map['recursosHouve'] ?? '').toString(),
-      decisaoRecursos: (map['decisaoRecursos'] ?? '').toString(),
-      linksRecursos: (map['linksRecursos'] ?? '').toString(),
-      vencedor: (map['vencedor'] ?? '').toString(),
-      vencedorCnpj: (map['vencedorCnpj'] ?? '').toString(),
-      valorVencedor: (map['valorVencedor'] ?? '').toString(),
-      dataResultado: (map['dataResultado'] ?? '').toString(),
-      adjudicacaoData: (map['adjudicacaoData'] ?? '').toString(),
-      adjudicacaoLink: (map['adjudicacaoLink'] ?? '').toString(),
-      homologacaoData: (map['homologacaoData'] ?? '').toString(),
-      homologacaoLink: (map['homologacaoLink'] ?? '').toString(),
-      highlightWinner: (map['highlightWinner'] as bool?) ?? false,
-      habilitarSomenteVencedor:
-      (map['habilitarSomenteVencedor'] as bool?) ?? false,
+      numero: _text(map['numero']),
+      modalidade: _text(map['modalidade']),
+      criterio: _text(map['criterio']),
+      idPncp: _text(map['idPncp']),
+      linkPncp: _text(map['linkPncp']),
+      linkSei: _text(map['linkSei']),
+      linksPublicacoes: _text(map['linksPublicacoes']),
+      dataPublicacao: _text(map['dataPublicacao']),
+      prazoImpugnacao: _text(map['prazoImpugnacao']),
+      prazoPropostas: _text(map['prazoPropostas']),
+      observacoes: _text(map['observacoes']),
+      dataSessao: _text(map['dataSessao']),
+      horaSessao: _text(map['horaSessao']),
+      responsavel: _text(map['responsavel']),
+      localPlataforma: _text(map['localPlataforma']),
+      propostasItems: _items(map['propostasItems']),
+      lancesItems: _items(map['lancesItems']),
+      parecer: _text(map['parecer']),
+      criterioAplicado: _text(map['criterioAplicado']),
+      linkAta: _text(map['linkAta']),
+      recursosHouve: _text(map['recursosHouve']),
+      decisaoRecursos: _text(map['decisaoRecursos']),
+      linksRecursos: _text(map['linksRecursos']),
+      vencedor: _text(map['vencedor']),
+      vencedorCnpj: _text(map['vencedorCnpj']),
+      valorVencedor: _text(map['valorVencedor']),
+      dataResultado: _text(map['dataResultado']),
+      adjudicacaoData: _text(map['adjudicacaoData']),
+      adjudicacaoLink: _text(map['adjudicacaoLink']),
+      homologacaoData: _text(map['homologacaoData']),
+      homologacaoLink: _text(map['homologacaoLink']),
+      highlightWinner: _bool(map['highlightWinner']),
+      habilitarSomenteVencedor: _bool(map['habilitarSomenteVencedor']),
+      linksDocumentos: _text(map['linksDocumentos']),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // fromSectionsMap — mesma lógica do antigo EditalJulgamentoController
-  // ---------------------------------------------------------------------------
   factory EditalData.fromSectionsMap(
-      Map<String, Map<String, dynamic>> s,
+      Map<String, Map<String, dynamic>> sections,
       ) {
-    // 1) DIVULGAÇÃO
-    final div = s[EditalSections.divulgacao] ?? const {};
-    final numero = (div['numero'] ?? '').toString();
-    final modalidade = (div['modalidade'] ?? '').toString();
-    final criterio = (div['criterio'] ?? '').toString();
-    final idPncp = (div['idPncp'] ?? '').toString();
-    final linkPncp = (div['linkPncp'] ?? '').toString();
-    final linkSei = (div['linkSei'] ?? '').toString();
-    final linksPublicacoes = (div['linksPublicacoes'] ?? '').toString();
-    final dataPublicacao = (div['dataPublicacao'] ?? '').toString();
-    final prazoImpugnacao = (div['prazoImpugnacao'] ?? '').toString();
-    final prazoPropostas = (div['prazoPropostas'] ?? '').toString();
-    final observacoesDiv = (div['observacoes'] ?? '').toString();
+    final div = sections[sectionDivulgacao] ?? const <String, dynamic>{};
+    final sess = sections[sectionSessao] ?? const <String, dynamic>{};
+    final pro = sections[sectionPropostas] ?? const <String, dynamic>{};
+    final lan = sections[sectionLances] ?? const <String, dynamic>{};
+    final jul = sections[sectionJulgamento] ?? const <String, dynamic>{};
+    final res = sections[sectionResultado] ?? const <String, dynamic>{};
+    final rec = sections[sectionRecursos] ?? const <String, dynamic>{};
+    final obs = sections[sectionObservacoes] ?? const <String, dynamic>{};
+    final doc = sections[sectionDocumentos] ?? const <String, dynamic>{};
 
-    // 2) SESSÃO
-    final sess = s[EditalSections.sessao] ?? const {};
-    final dataSessao = (sess['dataSessao'] ?? '').toString();
-    final horaSessao = (sess['horaSessao'] ?? '').toString();
-    final responsavel = (sess['responsavel'] ?? '').toString();
-    final localPlataforma = (sess['localPlataforma'] ?? '').toString();
+    String recursosHouve = _text(jul['recursosHouve']);
+    String decisaoRecursos = _text(jul['decisaoRecursos']);
+    String linksRecursos = _text(jul['linksRecursos']);
 
-    // 3) PROPOSTAS
-    final pro = s[EditalSections.propostas] ?? const {};
-    final itemsP = (pro['items'] as List?) ?? const [];
-    final propostasItems = itemsP
-        .map((m) => Map<String, dynamic>.from(m as Map))
-        .toList();
+    final recHouve = _text(rec['houve']);
+    final recDecisao = _text(rec['decisao']);
+    final recLinks = _text(rec['links']);
 
-    // 4) LANCES
-    final la = s[EditalSections.lances] ?? const {};
-    final itemsL = (la['items'] as List?) ?? const [];
-    final lancesItems = itemsL
-        .map((m) => Map<String, dynamic>.from(m as Map))
-        .toList();
-
-    // 5) JULGAMENTO
-    final jul = s[EditalSections.julgamento] ?? const {};
-    String parecer = (jul['parecer'] ?? '').toString();
-    String criterioAplicado = (jul['criterioAplicado'] ?? '').toString();
-    String linkAta = (jul['linkAta'] ?? '').toString();
-    String recursosHouve = (jul['recursosHouve'] ?? '').toString();
-    String decisaoRecursos = (jul['decisaoRecursos'] ?? '').toString();
-    String linksRecursos = (jul['linksRecursos'] ?? '').toString();
-
-    // 6) RESULTADO
-    final res = s[EditalSections.resultado] ?? const {};
-    final vencedor = (res['vencedor'] ?? '').toString();
-    final vencedorCnpj = (res['vencedorCnpj'] ?? '').toString();
-    final valorVencedor = (res['valorVencedor'] ?? '').toString();
-    final dataResultado = (res['dataResultado'] ?? '').toString();
-    final adjudicacaoData = (res['adjudicacaoData'] ?? '').toString();
-    final adjudicacaoLink = (res['adjudicacaoLink'] ?? '').toString();
-    final homologacaoData = (res['homologacaoData'] ?? '').toString();
-    final homologacaoLink = (res['homologacaoLink'] ?? '').toString();
-    final highlightWinner = (res['highlightWinner'] as bool?) ?? false;
-    final habilitarSomenteVencedor =
-        (res['habilitarSomenteVencedor'] as bool?) ?? false;
-
-    // 7) RECURSOS (espelho opcional)
-    final rec = s[EditalSections.recursos] ?? const {};
-    final recHouve = (rec['houve'] ?? '').toString();
-    final recDecisao = (rec['decisao'] ?? '').toString();
-    final recLinks = (rec['links'] ?? '').toString();
-
-    // Mesma lógica do controller: se veio algo em recursos, sobrescreve
-    if (recHouve.isNotEmpty) {
+    if (recHouve.trim().isNotEmpty) {
       recursosHouve = recHouve;
     }
-    if (recDecisao.isNotEmpty) {
+
+    if (recDecisao.trim().isNotEmpty) {
       decisaoRecursos = recDecisao;
     }
-    if (recLinks.isNotEmpty) {
+
+    if (recLinks.trim().isNotEmpty) {
       linksRecursos = recLinks;
     }
 
-    // 8) OBSERVAÇÕES (seção própria, espelha edObservacoesCtrl)
-    final obsSec = s[EditalSections.observacoes] ?? const {};
-    final observacoesSec = (obsSec['observacoes'] ?? '').toString();
-    final observacoes = observacoesSec.isNotEmpty ? observacoesSec : observacoesDiv;
+    final observacoesDiv = _text(div['observacoes']);
+    final observacoesSec = _text(obs['observacoes']);
+    final observacoes =
+    observacoesSec.trim().isNotEmpty ? observacoesSec : observacoesDiv;
 
     return EditalData(
-      numero: numero,
-      modalidade: modalidade,
-      criterio: criterio,
-      idPncp: idPncp,
-      linkPncp: linkPncp,
-      linkSei: linkSei,
-      linksPublicacoes: linksPublicacoes,
-      dataPublicacao: dataPublicacao,
-      prazoImpugnacao: prazoImpugnacao,
-      prazoPropostas: prazoPropostas,
+      numero: _text(div['numero']),
+      modalidade: _text(div['modalidade']),
+      criterio: _text(div['criterio']),
+      idPncp: _text(div['idPncp']),
+      linkPncp: _text(div['linkPncp']),
+      linkSei: _text(div['linkSei']),
+      linksPublicacoes: _text(div['linksPublicacoes']),
+      dataPublicacao: _text(div['dataPublicacao']),
+      prazoImpugnacao: _text(div['prazoImpugnacao']),
+      prazoPropostas: _text(div['prazoPropostas']),
       observacoes: observacoes,
-      dataSessao: dataSessao,
-      horaSessao: horaSessao,
-      responsavel: responsavel,
-      localPlataforma: localPlataforma,
-      propostasItems: propostasItems,
-      lancesItems: lancesItems,
-      parecer: parecer,
-      criterioAplicado: criterioAplicado,
-      linkAta: linkAta,
+      dataSessao: _text(sess['dataSessao']),
+      horaSessao: _text(sess['horaSessao']),
+      responsavel: _text(sess['responsavel']),
+      localPlataforma: _text(sess['localPlataforma']),
+      propostasItems: _items(pro['items']),
+      lancesItems: _items(lan['items']),
+      parecer: _text(jul['parecer']),
+      criterioAplicado: _text(jul['criterioAplicado']),
+      linkAta: _text(jul['linkAta']),
       recursosHouve: recursosHouve,
       decisaoRecursos: decisaoRecursos,
       linksRecursos: linksRecursos,
-      vencedor: vencedor,
-      vencedorCnpj: vencedorCnpj,
-      valorVencedor: valorVencedor,
-      dataResultado: dataResultado,
-      adjudicacaoData: adjudicacaoData,
-      adjudicacaoLink: adjudicacaoLink,
-      homologacaoData: homologacaoData,
-      homologacaoLink: homologacaoLink,
-      highlightWinner: highlightWinner,
-      habilitarSomenteVencedor: habilitarSomenteVencedor,
+      vencedor: _text(res['vencedor']),
+      vencedorCnpj: _text(res['vencedorCnpj']),
+      valorVencedor: _text(res['valorVencedor']),
+      dataResultado: _text(res['dataResultado']),
+      adjudicacaoData: _text(res['adjudicacaoData']),
+      adjudicacaoLink: _text(res['adjudicacaoLink']),
+      homologacaoData: _text(res['homologacaoData']),
+      homologacaoLink: _text(res['homologacaoLink']),
+      highlightWinner: _bool(res['highlightWinner']),
+      habilitarSomenteVencedor: _bool(res['habilitarSomenteVencedor']),
+      linksDocumentos: _text(doc['linksDocumentos']),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // toSectionsMap — mesma estrutura do toSectionMaps() antigo
-  // ---------------------------------------------------------------------------
   Map<String, Map<String, dynamic>> toSectionsMap() {
-    return {
-      EditalSections.divulgacao: {
+    return <String, Map<String, dynamic>>{
+      sectionDivulgacao: <String, dynamic>{
         'numero': numero,
         'modalidade': modalidade,
         'criterio': criterio,
@@ -355,19 +310,19 @@ class EditalData extends Equatable {
         'prazoPropostas': prazoPropostas,
         'observacoes': observacoes,
       },
-      EditalSections.sessao: {
+      sectionSessao: <String, dynamic>{
         'dataSessao': dataSessao,
         'horaSessao': horaSessao,
         'responsavel': responsavel,
         'localPlataforma': localPlataforma,
       },
-      EditalSections.propostas: {
+      sectionPropostas: <String, dynamic>{
         'items': propostasItems,
       },
-      EditalSections.lances: {
+      sectionLances: <String, dynamic>{
         'items': lancesItems,
       },
-      EditalSections.julgamento: {
+      sectionJulgamento: <String, dynamic>{
         'parecer': parecer,
         'criterioAplicado': criterioAplicado,
         'linkAta': linkAta,
@@ -375,7 +330,7 @@ class EditalData extends Equatable {
         'decisaoRecursos': decisaoRecursos,
         'linksRecursos': linksRecursos,
       },
-      EditalSections.resultado: {
+      sectionResultado: <String, dynamic>{
         'vencedor': vencedor,
         'vencedorCnpj': vencedorCnpj,
         'valorVencedor': valorVencedor,
@@ -387,13 +342,16 @@ class EditalData extends Equatable {
         'highlightWinner': highlightWinner,
         'habilitarSomenteVencedor': habilitarSomenteVencedor,
       },
-      EditalSections.recursos: {
+      sectionRecursos: <String, dynamic>{
         'houve': recursosHouve,
         'decisao': decisaoRecursos,
         'links': linksRecursos,
       },
-      EditalSections.observacoes: {
+      sectionObservacoes: <String, dynamic>{
         'observacoes': observacoes,
+      },
+      sectionDocumentos: <String, dynamic>{
+        'linksDocumentos': linksDocumentos,
       },
     };
   }
@@ -432,6 +390,7 @@ class EditalData extends Equatable {
     String? homologacaoLink,
     bool? highlightWinner,
     bool? habilitarSomenteVencedor,
+    String? linksDocumentos,
   }) {
     return EditalData(
       numero: numero ?? this.numero,
@@ -468,11 +427,12 @@ class EditalData extends Equatable {
       highlightWinner: highlightWinner ?? this.highlightWinner,
       habilitarSomenteVencedor:
       habilitarSomenteVencedor ?? this.habilitarSomenteVencedor,
+      linksDocumentos: linksDocumentos ?? this.linksDocumentos,
     );
   }
 
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     numero,
     modalidade,
     criterio,
@@ -506,5 +466,6 @@ class EditalData extends Equatable {
     homologacaoLink,
     highlightWinner,
     habilitarSomenteVencedor,
+    linksDocumentos,
   ];
 }
