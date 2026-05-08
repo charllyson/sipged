@@ -3,11 +3,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
-class PipelineProgressService {
+class PipelineProgress {
   final FirebaseFirestore db;
   final Map<String, String> stageCollectionMap;
 
-  PipelineProgressService({
+  PipelineProgress({
     FirebaseFirestore? db,
     Map<String, String>? stageCollectionMap,
   })  : db = db ?? FirebaseFirestore.instance,

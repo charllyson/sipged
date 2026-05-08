@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 
 import 'package:sipged/_widgets/cards/expandable/expandable_card.dart';
 import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
@@ -17,14 +17,14 @@ class GeneralDashboardSummary extends StatelessWidget {
     final cubit = context.watch<GeneralDashboardCubit>();
     final GeneralDashboardState state = cubit.state;
 
-    final cards = HiringData.statusTypes.map((status) {
+    final cards = ProgressData.statusTypes.map((status) {
       final inicial = state.totaisStatusIniciais[status] ?? 0.0;
       final aditivo = state.totaisStatusAditivos[status] ?? 0.0;
       final apostila = state.totaisStatusApostilas[status] ?? 0.0;
 
       return ExpandableCard(
         subTitles: const ['Inicial', 'Aditivo', 'Apostila'],
-        title: HiringData.getTitleByStatus(status),
+        title: ProgressData.getTitleByStatus(status),
         icon: GeneralDashboardStyle.iconStatus(status),
         colorIcon: GeneralDashboardStyle.getColorByStatus(status),
         valoresIndividuais: [inicial, aditivo, apostila],

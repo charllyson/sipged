@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
 
@@ -83,14 +83,14 @@ class _ScheduleCivilWorkspacePageState
     setState(() => _panelOpen = !_panelOpen);
   }
 
-  ProcessData get _notificationContract {
+  ContractData get _notificationContract {
     final id = _cleanContractId;
 
     if (id.isEmpty) {
-      return ProcessData.empty();
+      return ContractData.empty();
     }
 
-    return ProcessData.empty().copyWith(id: id);
+    return ContractData.empty().copyWith(id: id);
   }
 
   Future<void> _notify({

@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
@@ -21,7 +21,7 @@ class NotificationContractBase {
 
   static Future<void> show({
     required BuildContext context,
-    required ProcessData contract,
+    required ContractData contract,
     required String title,
     required String source,
     required String sourceKey,
@@ -168,7 +168,7 @@ class NotificationContractBase {
   /// - número: PublicacaoExtratoData.numeroContrato
   /// - resumo: DfdData.descricaoObjeto
   static Future<({String? number, String? summary})> resolveContractDisplay({
-    required ProcessData contract,
+    required ContractData contract,
   }) async {
     final contractId = clean(contract.id);
 
@@ -344,7 +344,7 @@ class NotificationContractBase {
 
   /// Retorna todos os usuários que devem receber a notificação do contrato.
   static List<String> resolveRecipients({
-    required ProcessData contract,
+    required ContractData contract,
     required Iterable<String> targetUserIds,
     required String? currentUserId,
     required bool includeCurrentUser,
@@ -591,7 +591,7 @@ class NotificationContractBase {
   }
 
   static String? resolveActorNameFromContract({
-    required ProcessData contract,
+    required ContractData contract,
     required String? uid,
   }) {
     final cleanUid = clean(uid);
@@ -638,7 +638,7 @@ class NotificationContractBase {
     return null;
   }
 
-  static String fallbackContractSummary(ProcessData contract) {
+  static String fallbackContractSummary(ContractData contract) {
     final id = clean(contract.id);
 
     if (id != null) {

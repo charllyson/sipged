@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
@@ -569,7 +569,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     width: w4,
                     labelText: 'Status do contrato',
                     controller: _statusContratoCtrl,
-                    items: HiringData.statusTypes,
+                    items: ProgressData.statusTypes,
                     enabled: widget.isEditable,
                     validator: null,
                     onChanged: (v) {
@@ -632,7 +632,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     enabled: widget.isEditable,
                     labelText: 'Natureza da intervenção',
                     controller: _naturezaIntervencaoCtrl,
-                    items: HiringData.typeOfService,
+                    items: ProgressData.typeOfService,
                     validator: (v) => widget.isEditable
                         ? validateDropdown(
                       v,

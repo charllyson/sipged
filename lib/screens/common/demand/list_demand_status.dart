@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'list_demand_table.dart';
 
 // DFD / Edital / Publicação (apenas os DATA)
@@ -9,7 +9,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 
 typedef DemandNavigationCallback = void Function(
     BuildContext context,
-    ProcessData contract,
+    ContractData contract,
     );
 
 class ListDemandStatus extends StatelessWidget {
@@ -33,13 +33,13 @@ class ListDemandStatus extends StatelessWidget {
 
   final String title;
   final String statusKey;
-  final List<ProcessData> items;
+  final List<ContractData> items;
 
   final BoxConstraints constraints;
   final int? sortColumnIndex;
   final bool isAscending;
-  final void Function(int, String Function(ProcessData)) onSort;
-  final Future<void> Function(ProcessData) onDelete;
+  final void Function(int, String Function(ContractData)) onSort;
+  final Future<void> Function(ContractData) onDelete;
   final DemandNavigationCallback onTapItem;
 
   final bool initiallyExpanded;

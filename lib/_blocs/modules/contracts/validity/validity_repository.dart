@@ -5,8 +5,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
@@ -26,56 +26,138 @@ class ValidityRepository {
   final FirebaseAuth _auth;
   final FirebaseStorage _storage;
 
+  static const String fixedTenantId = 'SZQmefRUqdtLB14ahcuh';
+
+  static const String tenantContractsCollectionPath =
+      'tenants/$fixedTenantId/contracts';
+
+  CollectionReference<Map<String, dynamic>> _contractsCol() {
+    return _db.collection(tenantContractsCollectionPath);
+  }
+
+  DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
+    return _contractsCol().doc(contractId.trim());
+  }
+
   CollectionReference<Map<String, dynamic>> _ordersCol(String contractId) {
-    return _db.collection('contracts').doc(contractId).collection('orders');
+    return _contractDoc(contractId).collection('orders');
   }
 
   DocumentReference<Map<String, dynamic>> _orderDoc({
     required String contractId,
     required String validityId,
   }) {
-    return _ordersCol(contractId).doc(validityId);
+    return _ordersCol(contractId).doc(validityId.trim());
   }
 
-  // ---------------------------------------------------------------------------
-  // Contratos
-  // ---------------------------------------------------------------------------
-
-  Future<List<ProcessData>> getAllContracts() async {
-    final snapshot = await _db.collection('contracts').get();
-
-    return snapshot.docs
-        .map((doc) => ProcessData.fromDocument(snapshot: doc))
-        .toList();
+  CollectionReference<Map<String, dynamic>> _additivesCol(String contractId) {
+    return _contractDoc(contractId).collection('additives');
   }
 
-  Future<ProcessData?> getSpecificContract({required String uid}) async {
+  String _uid() {
+    return _auth.currentUser?.uid ?? '';
+  }
+
+  ContractData _fallbackContract(String contractId) {
+    return ContractData(
+      id: contractId.trim(),
+      permissionContractId: const <String, Map<String, bool>>{},
+      participantsInfo: const <String, Map<String, dynamic>>{},
+    );
+  }
+
+  DateTime? _toDateSafe(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+
+    if (value is String) {
+      final text = value.trim();
+      if (text.isEmpty) return null;
+
+      final iso = DateTime.tryParse(text);
+      if (iso != null) return iso;
+
+      final parts = text.split('/');
+      if (parts.length == 3) {
+        final day = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        final year = int.tryParse(parts[2]);
+
+        if (day != null && month != null && year != null) {
+          final parsed = DateTime(year, month, day);
+
+          if (parsed.day == day &&
+              parsed.month == month &&
+              parsed.year == year) {
+            return parsed;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  String? _stringOrNull(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    return text.isEmpty ? null : text;
+  }
+
+  Future<List<ContractData>> getAllContracts() async {
+    final snapshot = await _contractsCol().get();
+
+    return snapshot.docs.map((doc) {
+      if (!doc.exists) {
+        return _fallbackContract(doc.id);
+      }
+
+      return ContractData.fromDocument(snapshot: doc);
+    }).toList();
+  }
+
+  Future<ContractData?> getSpecificContract({required String uid}) async {
     final cleanUid = uid.trim();
 
     if (cleanUid.isEmpty) return null;
 
-    final snapshot = await _db.collection('contracts').doc(cleanUid).get();
+    final snapshot = await _contractDoc(cleanUid).get();
 
-    if (!snapshot.exists) return null;
+    if (snapshot.exists) {
+      return ContractData.fromDocument(snapshot: snapshot);
+    }
 
-    return ProcessData.fromDocument(snapshot: snapshot);
+    final ordersSnap = await _ordersCol(cleanUid).limit(1).get();
+
+    if (ordersSnap.docs.isNotEmpty) {
+      return _fallbackContract(cleanUid);
+    }
+
+    return _fallbackContract(cleanUid);
   }
 
-  Future<ProcessData?> buscarContrato(String contractId) async {
+  Future<ContractData?> buscarContrato(String contractId) async {
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) return null;
 
-    final snapshot = await _db.collection('contracts').doc(cleanContractId).get();
+    final snapshot = await _contractDoc(cleanContractId).get();
 
-    if (!snapshot.exists) return null;
+    if (snapshot.exists) {
+      return ContractData.fromDocument(snapshot: snapshot);
+    }
 
-    return ProcessData.fromDocument(snapshot: snapshot);
+    final ordersSnap = await _ordersCol(cleanContractId).limit(1).get();
+
+    if (ordersSnap.docs.isNotEmpty) {
+      return _fallbackContract(cleanContractId);
+    }
+
+    return _fallbackContract(cleanContractId);
   }
-
-  // ---------------------------------------------------------------------------
-  // CRUD de vigências
-  // ---------------------------------------------------------------------------
 
   Future<ValidityData> salvarOuAtualizarValidade(ValidityData data) async {
     final firebaseUser = _auth.currentUser;
@@ -84,6 +166,18 @@ class ValidityRepository {
     if (uidContract == null || uidContract.isEmpty) {
       throw Exception('Contrato não informado');
     }
+
+    final contractRef = _contractDoc(uidContract);
+
+    await contractRef.set(
+      <String, dynamic>{
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': firebaseUser?.uid ?? '',
+      },
+      SetOptions(merge: true),
+    );
 
     final collectionRef = _ordersCol(uidContract);
 
@@ -101,9 +195,13 @@ class ValidityRepository {
     final json = data.toJson()
       ..addAll({
         'id': validityId,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
         'contractId': uidContract,
         'uidcontract': uidContract,
         'uidContract': uidContract,
+        'recordPath': docRef.path,
+        'sourceCollectionModel': 'tenant_contract_orders',
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': firebaseUser?.uid ?? '',
       });
@@ -159,7 +257,10 @@ class ValidityRepository {
     }
 
     try {
-      final folder = _storage.ref('contracts/$contractId/orders/$validityId/');
+      final folder = _storage.ref(
+        'tenants/$fixedTenantId/contracts/$contractId/orders/$validityId/',
+      );
+
       final result = await folder.listAll();
 
       for (final item in result.items) {
@@ -170,6 +271,16 @@ class ValidityRepository {
     } catch (_) {}
 
     await docRef.delete();
+
+    await _contractDoc(contractId).set(
+      <String, dynamic>{
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   Future<List<ValidityData>> getAllValidityOfContract({
@@ -202,10 +313,6 @@ class ValidityRepository {
     return list;
   }
 
-  // ---------------------------------------------------------------------------
-  // Notificações
-  // ---------------------------------------------------------------------------
-
   Future<void> notificarUsuariosSobreValidade(
       ValidityData validade,
       String contractId,
@@ -223,6 +330,8 @@ class ValidityRepository {
     await ref.set({
       'tipo': 'validade',
       'titulo': validade.ordertype ?? 'Vigência atualizada',
+      'tenantId': fixedTenantId,
+      'companyId': fixedTenantId,
       'contractId': contractId,
       'validityId': validade.id,
       'createdAt': FieldValue.serverTimestamp(),
@@ -262,7 +371,7 @@ class ValidityRepository {
           Registro(
             id: doc.id,
             tipo: tipo.toString(),
-            data: data['createdAt']?.toDate() ?? DateTime.now(),
+            data: _toDateSafe(data['createdAt']) ?? DateTime.now(),
             original: ValidityData.fromDocument(snapshot: originalSnap),
             contractData: await buscarContrato(contractId),
           ),
@@ -273,20 +382,22 @@ class ValidityRepository {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Aditivos
-  // ---------------------------------------------------------------------------
-
   Future<List<AdditivesData>> buscarAditivos(String contractId) async {
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) return const <AdditivesData>[];
 
-    final snap = await _db
-        .collection('contracts')
-        .doc(cleanContractId)
-        .collection('additives')
-        .get();
+    QuerySnapshot<Map<String, dynamic>> snap;
+
+    try {
+      snap = await _additivesCol(cleanContractId).orderBy('additiveorder').get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'failed-precondition' || e.code == 'not-found') {
+        snap = await _additivesCol(cleanContractId).get();
+      } else {
+        rethrow;
+      }
+    }
 
     final list = snap.docs
         .map((doc) => AdditivesData.fromDocument(snapshot: doc))
@@ -298,10 +409,6 @@ class ValidityRepository {
 
     return list;
   }
-
-  // ---------------------------------------------------------------------------
-  // Storage helpers
-  // ---------------------------------------------------------------------------
 
   String _sanitize(String value) {
     return value.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
@@ -344,7 +451,7 @@ class ValidityRepository {
     return '$base-$random${ext.isEmpty ? ".bin" : ext}';
   }
 
-  String _folderFor(ProcessData contract, ValidityData validity) {
+  String _folderFor(ContractData contract, ValidityData validity) {
     final contractId = contract.id?.trim();
     final validityId = validity.id?.trim();
 
@@ -356,11 +463,11 @@ class ValidityRepository {
       throw Exception('Validade sem ID para operação de Storage.');
     }
 
-    return 'contracts/$contractId/orders/$validityId/';
+    return 'tenants/$fixedTenantId/contracts/$contractId/orders/$validityId/';
   }
 
   String _legacyFileName(
-      ProcessData contract,
+      ContractData contract,
       ValidityData validity, {
         PublicacaoExtratoData? extrato,
       }) {
@@ -382,7 +489,7 @@ class ValidityRepository {
   }
 
   String _legacyPathFor(
-      ProcessData contract,
+      ContractData contract,
       ValidityData validity, {
         PublicacaoExtratoData? extrato,
       }) {
@@ -392,10 +499,6 @@ class ValidityRepository {
       extrato: extrato,
     )}';
   }
-
-  // ---------------------------------------------------------------------------
-  // Multi-anexos
-  // ---------------------------------------------------------------------------
 
   Future<(Uint8List, String)> pickFileBytes() async {
     final result = await FilePicker.platform.pickFiles(withData: true);
@@ -414,7 +517,7 @@ class ValidityRepository {
   }
 
   Future<Attachment> uploadAttachmentBytes({
-    required ProcessData contract,
+    required ContractData contract,
     required ValidityData validity,
     required Uint8List bytes,
     required String originalName,
@@ -433,6 +536,8 @@ class ValidityRepository {
             ? 'application/pdf'
             : 'application/octet-stream',
         customMetadata: {
+          'tenantId': fixedTenantId,
+          'companyId': fixedTenantId,
           'originalName': originalName,
           'label': label,
           'contractId': contract.id ?? '',
@@ -476,29 +581,39 @@ class ValidityRepository {
     }
 
     final folderRef = _storage.ref(
-      'contracts/$cleanContractId/orders/$cleanValidityId/',
+      'tenants/$fixedTenantId/contracts/$cleanContractId/orders/$cleanValidityId/',
     );
-
-    final result = await folderRef.listAll();
 
     final output = <({String name, String url})>[];
 
-    for (final item in result.items) {
-      try {
-        final url = await item.getDownloadURL();
+    try {
+      final result = await folderRef.listAll();
 
-        output.add(
-          (
-          name: item.name,
-          url: url,
-          ),
-        );
-      } catch (_) {}
+      for (final item in result.items) {
+        try {
+          final url = await item.getDownloadURL();
+
+          output.add(
+            (
+            name: item.name,
+            url: url,
+            ),
+          );
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    final unique = <String, ({String name, String url})>{};
+
+    for (final item in output) {
+      unique[item.url] = item;
     }
 
-    output.sort((a, b) => a.name.compareTo(b.name));
+    final list = unique.values.toList();
 
-    return output;
+    list.sort((a, b) => a.name.compareTo(b.name));
+
+    return list;
   }
 
   Future<void> deleteStorageByPath(String path) async {
@@ -523,23 +638,41 @@ class ValidityRepository {
       throw Exception('contractId e validityId são obrigatórios.');
     }
 
-    await _orderDoc(
+    final docRef = _orderDoc(
       contractId: cleanContractId,
       validityId: cleanValidityId,
-    ).set(
+    );
+
+    await _contractDoc(cleanContractId).set(
+      <String, dynamic>{
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await docRef.set(
       {
         'attachments': attachments.isEmpty
             ? FieldValue.delete()
             : attachments.map((item) => item.toMap()).toList(),
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'uidcontract': cleanContractId,
+        'uidContract': cleanContractId,
+        'recordPath': docRef.path,
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': _auth.currentUser?.uid ?? '',
+        'updatedBy': _uid(),
       },
       SetOptions(merge: true),
     );
   }
 
   Future<List<Attachment>> loadAndEnsureAttachments({
-    required ProcessData contract,
+    required ContractData contract,
     required ValidityData validity,
   }) async {
     final contractId = contract.id?.trim();
@@ -572,15 +705,23 @@ class ValidityRepository {
         createdBy: _auth.currentUser?.uid,
       );
 
-      await _orderDoc(
+      final orderRef = _orderDoc(
         contractId: contractId,
         validityId: validityId,
-      ).set(
+      );
+
+      await orderRef.set(
         {
           'attachments': <Map<String, dynamic>>[attachment.toMap()],
           'pdfUrl': FieldValue.delete(),
+          'tenantId': fixedTenantId,
+          'companyId': fixedTenantId,
+          'contractId': contractId,
+          'uidcontract': contractId,
+          'uidContract': contractId,
+          'recordPath': orderRef.path,
           'updatedAt': FieldValue.serverTimestamp(),
-          'updatedBy': _auth.currentUser?.uid ?? '',
+          'updatedBy': _uid(),
         },
         SetOptions(merge: true),
       );
@@ -611,7 +752,8 @@ class ValidityRepository {
         id: file.name,
         label: file.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
         url: file.url,
-        path: 'contracts/$contractId/orders/$validityId/${file.name}',
+        path:
+        'tenants/$fixedTenantId/contracts/$contractId/orders/$validityId/${file.name}',
         ext: ext,
         createdAt: DateTime.now(),
         createdBy: _auth.currentUser?.uid,
@@ -629,12 +771,8 @@ class ValidityRepository {
     return list;
   }
 
-  // ---------------------------------------------------------------------------
-  // PDF legado
-  // ---------------------------------------------------------------------------
-
   Future<String> uploadPdfBytes({
-    required ProcessData contract,
+    required ContractData contract,
     required ValidityData validity,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
@@ -650,7 +788,15 @@ class ValidityRepository {
 
     final task = ref.putData(
       bytes,
-      SettableMetadata(contentType: 'application/pdf'),
+      SettableMetadata(
+        contentType: 'application/pdf',
+        customMetadata: {
+          'tenantId': fixedTenantId,
+          'companyId': fixedTenantId,
+          'contractId': contract.id ?? '',
+          'validityId': validity.id ?? '',
+        },
+      ),
     );
 
     task.snapshotEvents.listen((event) {
@@ -665,7 +811,7 @@ class ValidityRepository {
   }
 
   Future<String> uploadPdfWithPickerAndReturnUrl({
-    required ProcessData contract,
+    required ContractData contract,
     required ValidityData validity,
     required void Function(double progress) onProgress,
     PublicacaoExtratoData? extrato,
@@ -696,7 +842,7 @@ class ValidityRepository {
   }
 
   Future<bool> uploadPdfWithProgress({
-    required ProcessData contract,
+    required ContractData contract,
     required ValidityData validity,
     required void Function(double) onProgress,
     required void Function(bool) onComplete,
@@ -751,21 +897,39 @@ class ValidityRepository {
       throw Exception('contractId e validadeId são obrigatórios.');
     }
 
-    await _orderDoc(
+    final docRef = _orderDoc(
       contractId: cleanContractId,
       validityId: cleanValidadeId,
-    ).set(
+    );
+
+    await _contractDoc(cleanContractId).set(
+      <String, dynamic>{
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await docRef.set(
       {
         'pdfUrl': cleanUrl.isEmpty ? FieldValue.delete() : cleanUrl,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'uidcontract': cleanContractId,
+        'uidContract': cleanContractId,
+        'recordPath': docRef.path,
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': _auth.currentUser?.uid ?? '',
+        'updatedBy': _uid(),
       },
       SetOptions(merge: true),
     );
   }
 
   Future<bool> deletePdf({
-    required ProcessData contract,
+    required ContractData contract,
     required ValidityData validity,
     PublicacaoExtratoData? extrato,
   }) async {
@@ -788,14 +952,22 @@ class ValidityRepository {
             .delete();
       } catch (_) {}
 
-      await _orderDoc(
+      final docRef = _orderDoc(
         contractId: contractId,
         validityId: validityId,
-      ).set(
+      );
+
+      await docRef.set(
         {
           'pdfUrl': FieldValue.delete(),
+          'tenantId': fixedTenantId,
+          'companyId': fixedTenantId,
+          'contractId': contractId,
+          'uidcontract': contractId,
+          'uidContract': contractId,
+          'recordPath': docRef.path,
           'updatedAt': FieldValue.serverTimestamp(),
-          'updatedBy': _auth.currentUser?.uid ?? '',
+          'updatedBy': _uid(),
         },
         SetOptions(merge: true),
       );
@@ -807,7 +979,7 @@ class ValidityRepository {
   }
 
   Future<bool> pdfExists({
-    required ProcessData contract,
+    required ContractData contract,
     required ValidityData validity,
     PublicacaoExtratoData? extrato,
   }) async {
@@ -829,7 +1001,7 @@ class ValidityRepository {
   }
 
   Future<String?> getPdfUrl({
-    required ProcessData contract,
+    required ContractData contract,
     required ValidityData validity,
     PublicacaoExtratoData? extrato,
   }) async {
@@ -843,14 +1015,23 @@ class ValidityRepository {
         ),
       )
           .getDownloadURL();
-    } catch (_) {
-      return null;
-    }
-  }
+    } catch (_) {}
 
-  // ---------------------------------------------------------------------------
-  // Cálculos de prazo
-  // ---------------------------------------------------------------------------
+    final contractId = contract.id?.trim();
+    final validityId = validity.id?.trim();
+
+    if (contractId == null || contractId.isEmpty) return null;
+    if (validityId == null || validityId.isEmpty) return null;
+
+    final snap = await _orderDoc(
+      contractId: contractId,
+      validityId: validityId,
+    ).get();
+
+    final data = snap.data();
+
+    return _stringOrNull(data?['pdfUrl']);
+  }
 
   int calcularDiasParalisados(List<ValidityData> validities) {
     final sorted = List<ValidityData>.from(validities)
@@ -903,8 +1084,8 @@ class ValidityRepository {
 
     final diasAditivos = additives.fold<int>(
       0,
-          (soma, additive) {
-        return soma + (additive.additiveValidityContractDays ?? 0);
+          (total, additive) {
+        return total + (additive.additiveValidityContractDays ?? 0);
       },
     );
 
@@ -928,7 +1109,9 @@ class ValidityRepository {
     final ordemInicio = sorted
         .firstWhere(
           (validity) {
-        return (validity.ordertype ?? '').toUpperCase().contains('INÍCIO');
+        return (validity.ordertype ?? '')
+            .toUpperCase()
+            .contains('INÍCIO');
       },
       orElse: () => ValidityData(orderdate: null),
     )
@@ -941,8 +1124,8 @@ class ValidityRepository {
 
     final diasExecucaoAditivos = additives.fold<int>(
       0,
-          (soma, additive) {
-        return soma + (additive.additiveValidityExecutionDays ?? 0);
+          (total, additive) {
+        return total + (additive.additiveValidityExecutionDays ?? 0);
       },
     );
 

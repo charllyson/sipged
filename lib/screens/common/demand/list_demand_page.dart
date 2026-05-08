@@ -7,9 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_state.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_state.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
@@ -38,7 +38,7 @@ import 'list_demand_status.dart';
 
 typedef DemandNavigationCallback = void Function(
     BuildContext context,
-    ProcessData contract,
+    ContractData contract,
     );
 
 class ListDemandPage extends StatefulWidget {
@@ -61,8 +61,8 @@ class _ListDemandPageState extends State<ListDemandPage> {
   final TextEditingController _statusCtrl = TextEditingController();
   final TextEditingController _searchCtrl = TextEditingController();
 
-  final Map<String, List<ProcessData>> _cachedByStatus =
-  <String, List<ProcessData>>{};
+  final Map<String, List<ContractData>> _cachedByStatus =
+  <String, List<ContractData>>{};
 
   final Map<String, DfdData?> _dfdByContractId = <String, DfdData?>{};
   final Map<String, EditalData?> _editalByContractId =
@@ -176,7 +176,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
     });
   }
 
-  void _onSearchChanged(ProcessCubit cubit, String value) {
+  void _onSearchChanged(ContractCubit cubit, String value) {
     _debounce?.cancel();
 
     _debounce = Timer(const Duration(milliseconds: 400), () async {
@@ -191,7 +191,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
   }
 
   Future<void> _refresh({
-    required ProcessCubit cubit,
+    required ContractCubit cubit,
     required UserData currentUser,
   }) async {
     if (!mounted) return;
@@ -315,7 +315,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
   void _applyLocalSortIfAny() {
     if (_sortColumnIndex == null) return;
 
-    int compare(ProcessData a, ProcessData b) {
+    int compare(ContractData a, ContractData b) {
       final idA = _idToString(a.id);
       final idB = _idToString(b.id);
 
@@ -376,7 +376,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
     }
   }
 
-  Future<void> _applyFilters(ProcessCubit cubit) async {
+  Future<void> _applyFilters(ContractCubit cubit) async {
     if (!mounted) return;
 
     final userCubit = context.read<UserCubit>();
@@ -449,7 +449,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
       final search =
       _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim();
 
-      Iterable<ProcessData> filtered = base;
+      Iterable<ContractData> filtered = base;
 
       if (statusFiltro != null && statusFiltro.isNotEmpty) {
         final target = statusFiltro.toUpperCase();
@@ -504,7 +504,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
         final normalizedStatus = _norm(statusKey);
 
         _cachedByStatus
-            .putIfAbsent(normalizedStatus, () => <ProcessData>[])
+            .putIfAbsent(normalizedStatus, () => <ContractData>[])
             .add(contract);
       }
 
@@ -573,8 +573,8 @@ class _ListDemandPageState extends State<ListDemandPage> {
   }
 
   Future<void> _runInitialLoad({
-    required ProcessCubit cubit,
-    required ProcessState processState,
+    required ContractCubit cubit,
+    required ContractState processState,
     required PermissionCubit permissionCubit,
     required UserData currentUser,
   }) async {
@@ -631,14 +631,14 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
   Future<void> _openCreateDemand({
     required NavigatorState navigator,
-    required ProcessCubit cubit,
+    required ContractCubit cubit,
     required UserData currentUser,
   }) async {
     final result = await navigator.push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => TabBarHingPage(
           key: UniqueKey(),
-          contractData: ProcessData.empty(),
+          contractData: ContractData.empty(),
         ),
       ),
     );
@@ -679,7 +679,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
   bool _canDeleteDemand({
     required PermissionCubit permissionCubit,
     required UserData currentUser,
-    required ProcessData item,
+    required ContractData item,
   }) {
     final permissionState = permissionCubit.state;
 
@@ -705,7 +705,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
   @override
   Widget build(BuildContext context) {
-    final processCubit = context.read<ProcessCubit>();
+    final processCubit = context.read<ContractCubit>();
 
     final fb_auth.User? firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
 
@@ -739,7 +739,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
       currentUser: currentUser,
     );
 
-    return BlocBuilder<ProcessCubit, ProcessState>(
+    return BlocBuilder<ContractCubit, ContractState>(
       buildWhen: (previous, current) {
         return previous.loading != current.loading ||
             previous.allProcesses != current.allProcesses ||
@@ -838,7 +838,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
   Widget _buildStatusList({
     required BuildContext context,
-    required ProcessCubit processCubit,
+    required ContractCubit processCubit,
     required PermissionCubit permissionCubit,
     required UserData currentUser,
   }) {
@@ -852,7 +852,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
               final normalizedKey = _norm(rawKey);
 
               final items =
-                  _cachedByStatus[normalizedKey] ?? const <ProcessData>[];
+                  _cachedByStatus[normalizedKey] ?? const <ContractData>[];
 
               return ListDemandStatus(
                 title: label,

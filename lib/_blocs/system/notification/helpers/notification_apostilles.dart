@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_contract_base.dart';
 import 'package:sipged/_blocs/system/notification/notification_channel.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
@@ -18,7 +18,7 @@ class NotificationApostilles {
 
   static Future<void> show({
     required BuildContext context,
-    required ProcessData contract,
+    required ContractData contract,
     required String title,
     String? subtitle,
     String? details,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
@@ -53,7 +53,7 @@ class ReportExecutedForm extends StatelessWidget {
   final ReportExecutedData? selectedReportMeasurement;
   final String? currentReportMeasurementId;
 
-  final ProcessData contractData;
+  final ContractData contractData;
 
   final TextEditingController orderController;
   final TextEditingController processNumberController;

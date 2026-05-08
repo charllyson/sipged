@@ -7,7 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_cubit.dart';
@@ -67,7 +67,7 @@ class _DfdPageState extends State<DfdPage>
   late final ProgressCubit _progressBloc;
 
   DfdData _formData = const DfdData.empty();
-  ProcessData _contract = ProcessData.empty();
+  ContractData _contract = ContractData.empty();
 
   bool _hydrated = false;
   bool _loadingContract = false;
@@ -88,7 +88,7 @@ class _DfdPageState extends State<DfdPage>
     return widget.contractId.trim();
   }
 
-  ProcessData get _effectiveContract {
+  ContractData get _effectiveContract {
     final effectiveId = _stateOrWidgetContractId;
 
     if ((_contract.id ?? '').trim().isNotEmpty) {
@@ -178,12 +178,12 @@ class _DfdPageState extends State<DfdPage>
 
       if (snapshot.exists) {
         setState(() {
-          _contract = ProcessData.fromDocument(snapshot: snapshot);
+          _contract = ContractData.fromDocument(snapshot: snapshot);
           _loadingContract = false;
         });
       } else {
         setState(() {
-          _contract = ProcessData.empty().copyWith(id: cid);
+          _contract = ContractData.empty().copyWith(id: cid);
           _loadingContract = false;
         });
       }
@@ -193,7 +193,7 @@ class _DfdPageState extends State<DfdPage>
       if (!mounted) return;
 
       setState(() {
-        _contract = ProcessData.empty().copyWith(id: cid);
+        _contract = ContractData.empty().copyWith(id: cid);
         _loadingContract = false;
       });
     }

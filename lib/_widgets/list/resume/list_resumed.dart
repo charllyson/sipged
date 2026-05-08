@@ -1,11 +1,11 @@
 // lib/screens/commons/listContracts/list_resumed.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
@@ -22,7 +22,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 class ListResumed extends StatefulWidget {
-  final List<ProcessData> contract;
+  final List<ContractData> contract;
 
   const ListResumed({
     super.key,
@@ -118,7 +118,7 @@ class _ListResumedState extends State<ListResumed> {
   // --------- Helpers de leitura dos dados “fonte” ----------
 
   /// Status vem de DfdData.statusDemanda
-  String _statusFor(ProcessData contrato) {
+  String _statusFor(ContractData contrato) {
     final id = contrato.id;
     if (id == null) return '';
     final dfd = _dfdByContractId[id];
@@ -127,7 +127,7 @@ class _ListResumedState extends State<ListResumed> {
   }
 
   /// Número do contrato vem EXCLUSIVAMENTE de PublicacaoExtratoData.numeroContrato
-  String _numeroContratoFor(ProcessData contrato) {
+  String _numeroContratoFor(ContractData contrato) {
     final id = contrato.id;
     if (id == null) return '—';
 
@@ -137,7 +137,7 @@ class _ListResumedState extends State<ListResumed> {
   }
 
   /// Resumo/objeto vem EXCLUSIVAMENTE de DfdData.descricaoObjeto
-  String _summaryFor(ProcessData contrato) {
+  String _summaryFor(ContractData contrato) {
     final id = contrato.id;
     if (id == null) return '—';
 
@@ -147,7 +147,7 @@ class _ListResumedState extends State<ListResumed> {
   }
 
   /// Vencedor vem de EditalData.vencedor
-  String _winnerFor(ProcessData contrato) {
+  String _winnerFor(ContractData contrato) {
     final id = contrato.id;
     if (id == null) {
       return '—';
@@ -165,7 +165,7 @@ class _ListResumedState extends State<ListResumed> {
 
   /// Valor da demanda vem EXCLUSIVAMENTE de DfdData.valorDemanda
   /// Sem fallback para ProcessData.
-  String _valorDemandaLabelFor(ProcessData contrato) {
+  String _valorDemandaLabelFor(ContractData contrato) {
     final id = contrato.id;
     if (id == null) return '—';
 
@@ -180,17 +180,17 @@ class _ListResumedState extends State<ListResumed> {
   Widget build(BuildContext context) {
     if (widget.contract.isEmpty) return const SizedBox();
 
-    final List<ProcessData> contratosOrdenados;
+    final List<ContractData> contratosOrdenados;
 
     if (_loading) {
-      contratosOrdenados = List<ProcessData>.from(widget.contract);
+      contratosOrdenados = List<ContractData>.from(widget.contract);
     } else {
-      contratosOrdenados = List<ProcessData>.from(widget.contract)
+      contratosOrdenados = List<ContractData>.from(widget.contract)
         ..sort((a, b) {
           final sa = _statusFor(a).toUpperCase();
           final sb = _statusFor(b).toUpperCase();
-          final pa = HiringData.priorityStatus[sa] ?? 99;
-          final pb = HiringData.priorityStatus[sb] ?? 99;
+          final pa = ProgressData.priorityStatus[sa] ?? 99;
+          final pb = ProgressData.priorityStatus[sb] ?? 99;
 
           if (pa != pb) return pa.compareTo(pb);
 

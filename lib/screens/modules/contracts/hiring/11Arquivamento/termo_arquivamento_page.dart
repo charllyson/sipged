@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
@@ -69,7 +69,7 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
   late final ProgressCubit _progressBloc;
 
   TermoArquivamentoData _formData = const TermoArquivamentoData.empty();
-  ProcessData _contract = ProcessData.empty();
+  ContractData _contract = ContractData.empty();
   DfdData? _dfdData;
 
   bool _hydrated = false;
@@ -83,7 +83,7 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
   String get _contractId => widget.contractId.trim();
 
-  ProcessData get _effectiveContract {
+  ContractData get _effectiveContract {
     final currentId = (_contract.id ?? '').trim();
 
     if (currentId.isNotEmpty) return _contract;
@@ -163,8 +163,8 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
       setState(() {
         _contract = snapshot.exists
-            ? ProcessData.fromDocument(snapshot: snapshot)
-            : ProcessData.empty().copyWith(id: cid);
+            ? ContractData.fromDocument(snapshot: snapshot)
+            : ContractData.empty().copyWith(id: cid);
 
         _loadingContract = false;
       });
@@ -175,7 +175,7 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
       if (!mounted) return;
 
       setState(() {
-        _contract = ProcessData.empty().copyWith(id: cid);
+        _contract = ContractData.empty().copyWith(id: cid);
         _loadingContract = false;
       });
     }

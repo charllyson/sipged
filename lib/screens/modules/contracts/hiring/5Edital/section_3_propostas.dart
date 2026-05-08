@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
@@ -557,7 +557,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
                             enabled: isEditable,
                             labelText: 'Status',
                             controller: row.statusCtrl,
-                            items: HiringData.statusProposta,
+                            items: ProgressData.statusProposta,
                             onChanged: (value) {
                               row.statusCtrl.text = value ?? '';
                               _emitChange();

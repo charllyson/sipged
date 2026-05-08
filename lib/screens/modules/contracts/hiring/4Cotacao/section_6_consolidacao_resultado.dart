@@ -1,6 +1,6 @@
 // lib/screens/modules/contracts/hiring/4Cotacao/section_6_consolidacao_resultado.dart
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -101,7 +101,7 @@ class _SectionConsolidacaoResultadoState
                     enabled: widget.isEditable,
                     labelText: 'Critério de consolidação',
                     controller: _criterioCtrl,
-                    items: HiringData.criterioConsolidacao,
+                    items: ProgressData.criterioConsolidacao,
                     onChanged: (v) {
                       _criterioCtrl.text = v ?? '';
                       _emitChange();

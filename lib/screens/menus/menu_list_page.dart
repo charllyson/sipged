@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
@@ -77,7 +77,7 @@ import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_page
 
 typedef DemandNavigationCallback = void Function(
     BuildContext context,
-    ProcessData contract,
+    ContractData contract,
     );
 
 class MenuListPage extends StatefulWidget {
@@ -214,7 +214,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
   Future<void> _navigateByWorkType(
       BuildContext context,
-      ProcessData contract,
+      ContractData contract,
       ) async {
     final navigator = Navigator.of(context);
     final dfdCubit = context.read<DfdCubit>();
@@ -346,12 +346,12 @@ class _MenuListPageState extends State<MenuListPage> {
 
   Future<void> _openScheduleRoadContextPage({
     required BuildContext context,
-    required ProcessData contract,
-    required Widget Function(ProcessData contract) pageBuilder,
+    required ContractData contract,
+    required Widget Function(ContractData contract) pageBuilder,
     String emptyIdMessage = 'Não foi possível abrir o módulo.',
   }) async {
     final navigator = Navigator.of(context);
-    final processCubit = context.read<ProcessCubit>();
+    final processCubit = context.read<ContractCubit>();
     final dfdCubit = context.read<DfdCubit>();
 
     processCubit.select(contract);
@@ -457,7 +457,7 @@ class _MenuListPageState extends State<MenuListPage> {
                 .then((_) async {
               if (!storesCtx.mounted) return;
 
-              await storesCtx.read<ProcessCubit>().refresh(
+              await storesCtx.read<ContractCubit>().refresh(
                 currentUser: currentUser,
                 currentPermissions: permissions,
                 tenantId: tenantId,
@@ -470,7 +470,7 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleEnum.processValidityRecords:
         return _buildContractsListPage(
               (context, contract) {
-            context.read<ProcessCubit>().select(contract);
+            context.read<ContractCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -486,7 +486,7 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleEnum.processAdditiveRecords:
         return _buildContractsListPage(
               (context, contract) {
-            context.read<ProcessCubit>().select(contract);
+            context.read<ContractCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -502,7 +502,7 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleEnum.processApostillesRecords:
         return _buildContractsListPage(
               (context, contract) {
-            context.read<ProcessCubit>().select(contract);
+            context.read<ContractCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -518,7 +518,7 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleEnum.processHiringBudget:
         return _buildContractsListPage(
               (context, contract) {
-            context.read<ProcessCubit>().select(contract);
+            context.read<ContractCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -534,7 +534,7 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleEnum.processMeasurementsRecords:
         return _buildContractsListPage(
               (context, contract) {
-            context.read<ProcessCubit>().select(contract);
+            context.read<ContractCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -550,7 +550,7 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleEnum.operationMonitoringWork:
         return _buildContractsListPage(
               (context, contract) async {
-            context.read<ProcessCubit>().select(contract);
+            context.read<ContractCubit>().select(contract);
 
             await _navigateByWorkType(
               context,
@@ -566,7 +566,7 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleEnum.planningRightOfWayRecords:
         return _buildContractsListPage(
               (context, contract) {
-            context.read<ProcessCubit>().select(contract);
+            context.read<ContractCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -598,7 +598,7 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleEnum.financialCommitmentRecords:
         return _buildContractsListPage(
               (context, contract) {
-            context.read<ProcessCubit>().select(contract);
+            context.read<ContractCubit>().select(contract);
 
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -683,7 +683,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
     _didWarmupProcessCubit = true;
 
-    final processCubit = context.read<ProcessCubit>();
+    final processCubit = context.read<ContractCubit>();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

@@ -7,7 +7,7 @@ import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
@@ -19,7 +19,7 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
   final bool formValidated;
   final AdjustmentMeasurementData? selectedAdjustmentMeasurement;
   final String? currentAdjustmentMeasurementId;
-  final ProcessData contractData;
+  final ContractData contractData;
 
   final TextEditingController orderAdjustmentController;
   final TextEditingController processNumberAdjustmentController;

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -26,8 +26,8 @@ class TabBarMeasurementPage extends StatefulWidget {
     this.initialTabIndex = 0,
   });
 
-  final ProcessData? contractData;
-  final ProcessCubit? contractsCubit;
+  final ContractData? contractData;
+  final ContractCubit? contractsCubit;
   final int initialTabIndex;
 
   @override
@@ -93,7 +93,7 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
     }
   }
 
-  String _buildContractNumber(ProcessData contract) {
+  String _buildContractNumber(ContractData contract) {
     final processoAdministrativo = _dfdData?.processoAdministrativo?.trim();
 
     if (processoAdministrativo != null && processoAdministrativo.isNotEmpty) {
@@ -109,7 +109,7 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
     return '';
   }
 
-  Widget _buildChronogramTab(ProcessData contract) {
+  Widget _buildChronogramTab(ContractData contract) {
     final contractId = contract.id?.trim();
 
     if (contractId == null || contractId.isEmpty) {

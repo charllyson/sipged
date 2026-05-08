@@ -26,15 +26,88 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
     );
   }
 
-  Future<FirebaseLegacyCompanyMigrationResultData>
-  migrateLegacyCompanyToTenant({
-    required String tenantId,
-    bool merge = true,
-    bool skipExisting = false,
-    bool addMigrationMetadata = true,
-    bool rewriteDocumentPathFields = true,
-    bool copySubcollectionsWhenTargetExists = true,
+  // ---------------------------------------------------------------------------
+  // Migrações oficiais para:
+  //
+  // tenants/{tenantId}/contracts/{contractId}/{collectionId}/{docId}
+  // ---------------------------------------------------------------------------
+
+  Future<FirebaseCopyCollectionGroupResultData>
+  migrateLegacyOrdersToFixedTenant() async {
+    return copyCollectionGroupToFixedTenantContracts(
+      collectionId: 'orders',
+      successLabel: 'vigências / ordens',
+      successTitle: 'Migração collectionGroup(orders)',
+    );
+  }
+
+  Future<FirebaseCopyCollectionGroupResultData>
+  migrateLegacyValiditiesToFixedTenant() async {
+    return migrateLegacyOrdersToFixedTenant();
+  }
+
+  Future<FirebaseCopyCollectionGroupResultData>
+  migrateLegacyReportsMeasurementToFixedTenant() async {
+    return copyCollectionGroupToFixedTenantContracts(
+      collectionId: 'reportsMeasurement',
+      successLabel: 'medições executadas',
+      successTitle: 'Migração collectionGroup(reportsMeasurement)',
+    );
+  }
+
+  Future<FirebaseCopyCollectionGroupResultData>
+  migrateLegacyAdjustmentsMeasurementToFixedTenant() async {
+    return copyCollectionGroupToFixedTenantContracts(
+      collectionId: 'adjustmentsMeasurement',
+      successLabel: 'reajustes de medições',
+      successTitle: 'Migração collectionGroup(adjustmentsMeasurement)',
+    );
+  }
+
+  Future<FirebaseCopyCollectionGroupResultData>
+  migrateLegacyRevisionsMeasurementToFixedTenant() async {
+    return copyCollectionGroupToFixedTenantContracts(
+      collectionId: 'revisionsMeasurement',
+      successLabel: 'revisões de medições',
+      successTitle: 'Migração collectionGroup(revisionsMeasurement)',
+    );
+  }
+
+  Future<List<FirebaseCopyCollectionGroupResultData>>
+  migrateAllMeasurementCollectionsToFixedTenant() async {
+    final results = <FirebaseCopyCollectionGroupResultData>[];
+
+    results.add(await migrateLegacyReportsMeasurementToFixedTenant());
+    results.add(await migrateLegacyAdjustmentsMeasurementToFixedTenant());
+    results.add(await migrateLegacyRevisionsMeasurementToFixedTenant());
+
+    return results;
+  }
+
+  Future<List<FirebaseCopyCollectionGroupResultData>>
+  migrateAllContractOperationalCollectionsToFixedTenant() async {
+    final results = <FirebaseCopyCollectionGroupResultData>[];
+
+    results.add(await migrateLegacyOrdersToFixedTenant());
+    results.add(await migrateLegacyReportsMeasurementToFixedTenant());
+    results.add(await migrateLegacyAdjustmentsMeasurementToFixedTenant());
+    results.add(await migrateLegacyRevisionsMeasurementToFixedTenant());
+
+    return results;
+  }
+
+  Future<FirebaseCopyCollectionGroupResultData>
+  copyCollectionGroupToFixedTenantContracts({
+    required String collectionId,
+    String? successTitle,
+    String? successLabel,
   }) async {
+    final cleanCollectionId = collectionId.trim();
+
+    if (cleanCollectionId.isEmpty) {
+      throw ArgumentError('Informe o nome da collectionGroup.');
+    }
+
     emit(
       state.copyWith(
         status: FirebaseAdminStatus.loading,
@@ -45,14 +118,28 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
     );
 
     try {
-      final result = await _repository.migrateLegacyCompanyToTenant(
-        tenantId: tenantId,
-        merge: merge,
-        skipExisting: skipExisting,
-        addMigrationMetadata: addMigrationMetadata,
-        rewriteDocumentPathFields: rewriteDocumentPathFields,
-        copySubcollectionsWhenTargetExists:
-        copySubcollectionsWhenTargetExists,
+      final tenantId = FirebaseAdminTenantPaths.fixedMigrationTenantId;
+      final targetPath = FirebaseAdminTenantPaths.contractsRootPath(tenantId);
+
+      final result = await _repository.copyCollectionGroupToCollection(
+        params: FirebaseCopyCollectionGroupParams(
+          collectionId: cleanCollectionId,
+          targetPath: targetPath,
+          tenantId: tenantId,
+          merge: true,
+          skipExisting: true,
+          addMigrationMetadata: true,
+          rewriteDocumentPathFields: true,
+          pageSize: 100,
+          batchSize: 50,
+          targetPlacementMode:
+          FirebaseCollectionGroupTargetPlacementMode
+              .tenantContractSubcollection,
+          targetDocIdMode: FirebaseCollectionGroupTargetDocIdMode.originalId,
+          excludePathPrefixes: const <String>[
+            'tenants/',
+          ],
+        ),
         onProgress: (current, total, label, detail) {
           emit(
             state.copyWith(
@@ -66,16 +153,21 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
         },
       );
 
+      final label = successLabel ?? cleanCollectionId;
+
       emit(
         state.copyWith(
           status: FirebaseAdminStatus.success,
-          message: 'Migração concluída: '
-              '${result.documentCopied ? 1 : 0} documento principal copiado, '
-              '${result.totalSubcollectionDocsCopied} subdocumento(s) copiado(s), '
-              '${result.totalSubcollectionDocsSkipped} ignorado(s).',
+          message: 'Migração de $label concluída: '
+              '${result.totalCopied} copiado(s), '
+              '${result.totalAlreadyExists} já existente(s), '
+              '${result.totalExcludedByPath} ignorado(s) por já estarem em tenants/, '
+              '${result.totalMissingContractId} sem contractId, '
+              '${result.totalSkipped} ignorado(s) no total.',
           result: FirebaseOperationResultData(
-            title: 'Migração legacy company para tenant',
-            total: result.totalEverythingCopied,
+            title: successTitle ??
+                'Migração collectionGroup($cleanCollectionId) para contratos do tenant',
+            total: result.totalCopied,
             details: result.toMap(),
           ),
           clearProgress: true,
@@ -87,7 +179,8 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
       emit(
         state.copyWith(
           status: FirebaseAdminStatus.failure,
-          message: 'Erro ao migrar company para tenant: $e',
+          message:
+          'Erro ao migrar collectionGroup($cleanCollectionId) para contratos do tenant: $e',
           clearResult: true,
           clearProgress: true,
         ),
@@ -97,64 +190,9 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
     }
   }
 
-  Future<FirebaseCopyDocumentResultData> copyDocumentToDocument(
-      FirebaseCopyDocumentParams params,
-      ) async {
-    emit(
-      state.copyWith(
-        status: FirebaseAdminStatus.loading,
-        clearMessage: true,
-        clearResult: true,
-        clearProgress: true,
-      ),
-    );
-
-    try {
-      final result = await _repository.copyDocumentToDocument(
-        params: params,
-        onProgress: (current, total, label, detail) {
-          emit(
-            state.copyWith(
-              status: FirebaseAdminStatus.loading,
-              progressCurrent: current,
-              progressTotal: total,
-              progressLabel: label,
-              progressDetail: detail,
-            ),
-          );
-        },
-      );
-
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.success,
-          message: 'Migração concluída: '
-              '${result.documentCopied ? 1 : 0} documento principal copiado, '
-              '${result.totalSubcollectionDocsCopied} subdocumento(s) copiado(s), '
-              '${result.totalSubcollectionDocsSkipped} ignorado(s).',
-          result: FirebaseOperationResultData(
-            title: 'Cópia de documento para tenant',
-            total: result.totalEverythingCopied,
-            details: result.toMap(),
-          ),
-          clearProgress: true,
-        ),
-      );
-
-      return result;
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.failure,
-          message: 'Erro ao copiar documento: $e',
-          clearResult: true,
-          clearProgress: true,
-        ),
-      );
-
-      rethrow;
-    }
-  }
+  // ---------------------------------------------------------------------------
+  // Prévia / contagem
+  // ---------------------------------------------------------------------------
 
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> previewCollection({
     required String path,
@@ -248,431 +286,5 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
 
       rethrow;
     }
-  }
-
-  Future<FirebaseCopyCollectionResultData> copyCollectionDocuments(
-      FirebaseCopyCollectionParams params,
-      ) async {
-    emit(
-      state.copyWith(
-        status: FirebaseAdminStatus.loading,
-        clearMessage: true,
-        clearResult: true,
-        clearProgress: true,
-      ),
-    );
-
-    try {
-      final result = await _repository.copyCollectionDocuments(
-        params: params,
-        onProgress: (current, total, label, detail) {
-          emit(
-            state.copyWith(
-              status: FirebaseAdminStatus.loading,
-              progressCurrent: current,
-              progressTotal: total,
-              progressLabel: label,
-              progressDetail: detail,
-            ),
-          );
-        },
-      );
-
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.success,
-          message: 'Cópia concluída: '
-              '${result.totalCopied} documento(s) principal(is) copiado(s), '
-              '${result.totalSubcollectionDocsCopied} subdocumento(s) copiado(s), '
-              '${result.totalAlreadyExists} já existente(s), '
-              '${result.totalSkipped + result.totalSubcollectionDocsSkipped} ignorado(s).',
-          result: FirebaseOperationResultData(
-            title: 'Cópia de coleção',
-            total: result.totalEverythingCopied,
-            details: result.toMap(),
-          ),
-          clearProgress: true,
-        ),
-      );
-
-      return result;
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.failure,
-          message: 'Erro ao copiar documentos: $e',
-          clearResult: true,
-          clearProgress: true,
-        ),
-      );
-
-      rethrow;
-    }
-  }
-
-  Future<void> deleteCollectionCompletely(String path) async {
-    emit(
-      state.copyWith(
-        status: FirebaseAdminStatus.loading,
-        clearMessage: true,
-        clearResult: true,
-        clearProgress: true,
-      ),
-    );
-
-    try {
-      final deleted = await _repository.deleteCollectionCompletely(path: path);
-
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.success,
-          message: 'Coleção apagada: $deleted documento(s).',
-          result: FirebaseOperationResultData(
-            title: 'Coleção apagada',
-            total: deleted,
-            details: {
-              'path': path,
-              'deleted': deleted,
-            },
-          ),
-          clearProgress: true,
-        ),
-      );
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.failure,
-          message: 'Erro ao apagar coleção: $e',
-          clearResult: true,
-          clearProgress: true,
-        ),
-      );
-    }
-  }
-
-  Future<Map<String, Map<String, int>>> previewCleanupSubcollections(
-      FirebaseCleanupSubcollectionsParams params,
-      ) async {
-    emit(
-      state.copyWith(
-        status: FirebaseAdminStatus.loading,
-        clearMessage: true,
-        clearResult: true,
-        clearProgress: true,
-      ),
-    );
-
-    try {
-      final result = await _repository.cleanupSubcollections(
-        collectionPath: params.collectionPath,
-        subcollections: params.subcollections,
-        dryRun: true,
-      );
-
-      final total = _sumNested(result);
-
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.success,
-          message: 'Prévia concluída: $total subdocumento(s) encontrado(s).',
-          result: FirebaseOperationResultData(
-            title: 'Prévia de limpeza',
-            total: total,
-            details: {
-              'collectionPath': params.collectionPath,
-              'subcollections': params.subcollections,
-              'items': result,
-            },
-          ),
-          clearProgress: true,
-        ),
-      );
-
-      return result;
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.failure,
-          message: 'Erro na prévia da limpeza: $e',
-          clearResult: true,
-          clearProgress: true,
-        ),
-      );
-
-      rethrow;
-    }
-  }
-
-  Future<void> cleanupSubcollections(
-      FirebaseCleanupSubcollectionsParams params,
-      ) async {
-    emit(
-      state.copyWith(
-        status: FirebaseAdminStatus.loading,
-        clearMessage: true,
-        clearResult: true,
-        clearProgress: true,
-      ),
-    );
-
-    try {
-      final result = await _repository.cleanupSubcollections(
-        collectionPath: params.collectionPath,
-        subcollections: params.subcollections,
-        dryRun: false,
-      );
-
-      final total = _sumNested(result);
-
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.success,
-          message: 'Limpeza concluída: $total subdocumento(s) apagado(s).',
-          result: FirebaseOperationResultData(
-            title: 'Limpeza concluída',
-            total: total,
-            details: {
-              'collectionPath': params.collectionPath,
-              'subcollections': params.subcollections,
-              'items': result,
-            },
-          ),
-          clearProgress: true,
-        ),
-      );
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.failure,
-          message: 'Erro ao limpar subcoleções: $e',
-          clearResult: true,
-          clearProgress: true,
-        ),
-      );
-    }
-  }
-
-  Future<int> previewSelectiveDeleteByIds(
-      FirebaseSelectiveDeleteByIdsParams params,
-      ) async {
-    emit(
-      state.copyWith(
-        status: FirebaseAdminStatus.loading,
-        clearMessage: true,
-        clearResult: true,
-        clearProgress: true,
-      ),
-    );
-
-    try {
-      final total = await _repository.deleteIdsUnderEachParent(
-        parentCollectionPath: params.parentCollectionPath,
-        subcollection: params.subcollection,
-        docIds: params.docIds,
-        dryRun: true,
-      );
-
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.success,
-          message: 'Prévia concluída: $total documento(s) encontrado(s).',
-          result: FirebaseOperationResultData(
-            title: 'Prévia de deleção seletiva',
-            total: total,
-            details: {
-              'parentCollectionPath': params.parentCollectionPath,
-              'subcollection': params.subcollection,
-              'docIds': params.docIds,
-            },
-          ),
-          clearProgress: true,
-        ),
-      );
-
-      return total;
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.failure,
-          message: 'Erro na prévia por IDs: $e',
-          clearResult: true,
-          clearProgress: true,
-        ),
-      );
-
-      rethrow;
-    }
-  }
-
-  Future<void> selectiveDeleteByIds(
-      FirebaseSelectiveDeleteByIdsParams params,
-      ) async {
-    emit(
-      state.copyWith(
-        status: FirebaseAdminStatus.loading,
-        clearMessage: true,
-        clearResult: true,
-        clearProgress: true,
-      ),
-    );
-
-    try {
-      final total = await _repository.deleteIdsUnderEachParent(
-        parentCollectionPath: params.parentCollectionPath,
-        subcollection: params.subcollection,
-        docIds: params.docIds,
-        dryRun: false,
-      );
-
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.success,
-          message: 'Deleção concluída: $total documento(s) apagado(s).',
-          result: FirebaseOperationResultData(
-            title: 'Deleção seletiva por IDs',
-            total: total,
-            details: {
-              'parentCollectionPath': params.parentCollectionPath,
-              'subcollection': params.subcollection,
-              'docIds': params.docIds,
-            },
-          ),
-          clearProgress: true,
-        ),
-      );
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.failure,
-          message: 'Erro ao apagar por IDs: $e',
-          clearResult: true,
-          clearProgress: true,
-        ),
-      );
-    }
-  }
-
-  Future<int> previewSelectiveDeleteByFilter(
-      FirebaseSelectiveDeleteByFilterParams params,
-      ) async {
-    emit(
-      state.copyWith(
-        status: FirebaseAdminStatus.loading,
-        clearMessage: true,
-        clearResult: true,
-        clearProgress: true,
-      ),
-    );
-
-    try {
-      final total = params.useParents
-          ? await _repository.deleteWhereUnderEachParent(
-        parentCollectionPath: params.parentCollectionPath,
-        subcollection: params.subcollection,
-        filters: params.filters,
-        dryRun: true,
-      )
-          : await _repository.deleteWhereInCollectionGroup(
-        subcollection: params.subcollection,
-        filters: params.filters,
-        dryRun: true,
-      );
-
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.success,
-          message: 'Prévia concluída: $total documento(s) encontrado(s).',
-          result: FirebaseOperationResultData(
-            title: 'Prévia de deleção por filtro',
-            total: total,
-            details: {
-              'parentCollectionPath': params.parentCollectionPath,
-              'subcollection': params.subcollection,
-              'useParents': params.useParents,
-            },
-          ),
-          clearProgress: true,
-        ),
-      );
-
-      return total;
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.failure,
-          message: 'Erro na prévia por filtro: $e',
-          clearResult: true,
-          clearProgress: true,
-        ),
-      );
-
-      rethrow;
-    }
-  }
-
-  Future<void> selectiveDeleteByFilter(
-      FirebaseSelectiveDeleteByFilterParams params,
-      ) async {
-    emit(
-      state.copyWith(
-        status: FirebaseAdminStatus.loading,
-        clearMessage: true,
-        clearResult: true,
-        clearProgress: true,
-      ),
-    );
-
-    try {
-      final total = params.useParents
-          ? await _repository.deleteWhereUnderEachParent(
-        parentCollectionPath: params.parentCollectionPath,
-        subcollection: params.subcollection,
-        filters: params.filters,
-        dryRun: false,
-      )
-          : await _repository.deleteWhereInCollectionGroup(
-        subcollection: params.subcollection,
-        filters: params.filters,
-        dryRun: false,
-      );
-
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.success,
-          message: 'Deleção concluída: $total documento(s) apagado(s).',
-          result: FirebaseOperationResultData(
-            title: 'Deleção seletiva por filtro',
-            total: total,
-            details: {
-              'parentCollectionPath': params.parentCollectionPath,
-              'subcollection': params.subcollection,
-              'useParents': params.useParents,
-            },
-          ),
-          clearProgress: true,
-        ),
-      );
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: FirebaseAdminStatus.failure,
-          message: 'Erro ao apagar por filtro: $e',
-          clearResult: true,
-          clearProgress: true,
-        ),
-      );
-    }
-  }
-
-  int _sumNested(Map<String, Map<String, int>> data) {
-    int total = 0;
-
-    for (final docEntry in data.values) {
-      for (final value in docEntry.values) {
-        total += value;
-      }
-    }
-
-    return total;
   }
 }

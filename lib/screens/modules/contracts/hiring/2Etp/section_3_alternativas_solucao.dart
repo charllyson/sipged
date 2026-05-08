@@ -1,6 +1,6 @@
 // lib/screens/modules/contracts/hiring/2Etp/section_3_alternativas_solucao.dart
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart'
     show DropDownChange;
@@ -104,7 +104,7 @@ class _SectionAlternativeSolutionState
                     enabled: widget.isEditable,
                     labelText: 'Solução recomendada',
                     controller: _solucaoCtrl,
-                    items: HiringData.tiposDeContratacao,
+                    items: ProgressData.tiposDeContratacao,
                     validator: widget.validateRequired,
                     onChanged: (_) => _emitChange(),
                   ),
@@ -115,7 +115,7 @@ class _SectionAlternativeSolutionState
                     enabled: widget.isEditable,
                     labelText: 'Complexidade',
                     controller: _complexidadeCtrl,
-                    items: HiringData.complexibilidade,
+                    items: ProgressData.complexibilidade,
                     validator: widget.validateRequired,
                     onChanged: (_) => _emitChange(),
                   ),
@@ -126,7 +126,7 @@ class _SectionAlternativeSolutionState
                     enabled: widget.isEditable,
                     labelText: 'Risco preliminar',
                     controller: _nivelRiscoCtrl,
-                    items: HiringData.complexibilidade,
+                    items: ProgressData.complexibilidade,
                     validator: widget.validateRequired,
                     onChanged: (_) => _emitChange(),
                   ),

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/financial/budget/budget_cubit.dart';
 
 import 'budget_page.dart';
 
 class BudgetNetworkPage extends StatelessWidget {
-  final ProcessData? contractData;
+  final ContractData? contractData;
 
   const BudgetNetworkPage({
     super.key,

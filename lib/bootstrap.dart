@@ -44,8 +44,8 @@ import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
@@ -345,18 +345,18 @@ Future<void> bootstrapAndRunApp() async {
               ),
             ),
 
-            RepositoryProvider<ProcessRepository>(
-              create: (_) => ProcessRepository(),
+            RepositoryProvider<ContractRepository>(
+              create: (_) => ContractRepository(),
             ),
-            BlocProvider<ProcessCubit>(
-              create: (ctx) => ProcessCubit(
-                repository: ctx.read<ProcessRepository>(),
+            BlocProvider<ContractCubit>(
+              create: (ctx) => ContractCubit(
+                repository: ctx.read<ContractRepository>(),
               ),
             ),
 
             BlocProvider<GeneralDashboardCubit>(
               create: (ctx) => GeneralDashboardCubit(
-                processCubit: ctx.read<ProcessCubit>(),
+                processCubit: ctx.read<ContractCubit>(),
                 additivesRepository: ctx.read<AdditivesRepository>(),
                 apostillesRepository: ctx.read<ApostillesRepository>(),
                 reportMeasurementCubit: ctx.read<ReportExecutedCubit>(),

@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 import 'package:sipged/_blocs/modules/financial/payments/report/report_paid_data.dart';
 
@@ -37,7 +37,7 @@ class ReportExecutedTable extends StatelessWidget {
   final List<ReportPaidData> payments;
 
   final ReportExecutedData? selectedMeasurement;
-  final ProcessData? contractData;
+  final ContractData? contractData;
 
   final double valorInicial;
   final double valorAditivos;

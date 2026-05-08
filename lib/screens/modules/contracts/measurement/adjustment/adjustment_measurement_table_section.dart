@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
@@ -11,7 +11,7 @@ class AdjustmentMeasurementTableSection extends StatelessWidget {
   final void Function(String additiveId) onDelete;
   final List<AdjustmentMeasurementData> adjustmentMeasurementsData;
   final AdjustmentMeasurementData? selectedAdjustmentMeasurement;
-  final ProcessData? contractData;
+  final ContractData? contractData;
 
   final double valueApostilles;
   final double valueRevisions;

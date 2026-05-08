@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/planning/land/property/land_property_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/land/property/land_property_repository.dart';
@@ -30,8 +30,8 @@ import 'package:sipged/screens/modules/planning/land/payment/land_payment.dart';
 import 'package:sipged/screens/modules/planning/land/land_table.dart';
 
 class LandTabs extends StatefulWidget {
-  final ProcessData? contractData;
-  final ProcessCubit? contractsCubit;
+  final ContractData? contractData;
+  final ContractCubit? contractsCubit;
   final int initialTabIndex;
 
   const LandTabs({
@@ -46,7 +46,7 @@ class LandTabs extends StatefulWidget {
 }
 
 class _LandTabsState extends State<LandTabs> {
-  late ProcessData? _contractData;
+  late ContractData? _contractData;
   String? _selectedPropertyId;
 
   String get _contractId => _contractData?.id ?? '';

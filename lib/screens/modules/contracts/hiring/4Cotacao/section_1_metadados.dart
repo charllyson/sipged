@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
@@ -183,7 +183,7 @@ class _SectionMetadadosState extends State<SectionMetadados>
                     enabled: widget.isEditable,
                     labelText: 'Metodologia',
                     controller: _metodologiaCtrl,
-                    items: HiringData.metodologia,
+                    items: ProgressData.metodologia,
                     onChanged: (v) {
                       _metodologiaCtrl.text = v ?? '';
                       _emitChange();

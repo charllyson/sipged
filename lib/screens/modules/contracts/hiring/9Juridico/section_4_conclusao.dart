@@ -1,8 +1,8 @@
 // lib/screens/modules/contracts/hiring/9Juridico/section_4_conclusao.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
@@ -83,7 +83,7 @@ class _SectionConclusaoState extends State<SectionConclusao>
 
   @override
   Widget build(BuildContext context) {
-    final conclusoes = HiringData.parecerConclusao;
+    final conclusoes = ProgressData.parecerConclusao;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

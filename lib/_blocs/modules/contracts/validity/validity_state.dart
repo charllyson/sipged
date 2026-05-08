@@ -2,7 +2,7 @@
 
 import 'package:equatable/equatable.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
@@ -12,7 +12,7 @@ class ValidityState extends Equatable {
   final bool isSaving;
   final String? errorMessage;
 
-  final ProcessData? contract;
+  final ContractData? contract;
   final List<ValidityData> validities;
   final List<AdditivesData> additives;
 
@@ -61,7 +61,7 @@ class ValidityState extends Equatable {
     bool? isLoading,
     bool? isSaving,
     String? errorMessage,
-    ProcessData? contract,
+    ContractData? contract,
     List<ValidityData>? validities,
     List<AdditivesData>? additives,
     ValidityData? selectedValidity,

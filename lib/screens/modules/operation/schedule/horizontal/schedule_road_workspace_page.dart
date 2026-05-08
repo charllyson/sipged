@@ -10,7 +10,7 @@ import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/screens/modules/operation/schedule/horizontal/schedule_header.dart';
 import 'package:sipged/screens/modules/operation/schedule/horizontal/schedule_menu_buttons.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_state.dart';
 
@@ -24,7 +24,7 @@ import 'package:sipged/screens/modules/operation/schedule/horizontal/schedule_st
 import 'schedule_road_debug.dart';
 
 class ScheduleRoadWorkspacePage extends StatefulWidget {
-  final ProcessData contractData;
+  final ContractData contractData;
 
   const ScheduleRoadWorkspacePage({
     super.key,

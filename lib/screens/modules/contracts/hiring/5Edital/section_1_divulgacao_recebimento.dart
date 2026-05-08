@@ -1,8 +1,8 @@
 // lib/screens/modules/contracts/hiring/5Edital/section_1_divulgacao_recebimento.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
@@ -172,7 +172,7 @@ class _SectionDivulgacaoRecebimentoState
                     enabled: isEditable,
                     labelText: 'Modalidade',
                     controller: _modalidadeCtrl,
-                    items: HiringData.modalidadeDeContratacao,
+                    items: ProgressData.modalidadeDeContratacao,
                     onChanged: (v) {
                       final text = v ?? '';
                       if (_modalidadeCtrl.text != text) {
@@ -189,7 +189,7 @@ class _SectionDivulgacaoRecebimentoState
                     enabled: isEditable,
                     labelText: 'Critério de julgamento',
                     controller: _criterioCtrl,
-                    items: HiringData.criterioJulgamento,
+                    items: ProgressData.criterioJulgamento,
                     onChanged: (v) {
                       final text = v ?? '';
                       if (_criterioCtrl.text != text) {

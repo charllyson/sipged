@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
 
 class SectionJuridicaTecnica extends StatefulWidget {
@@ -121,7 +121,7 @@ class _SectionJuridicaTecnicaState extends State<SectionJuridicaTecnica> {
                     enabled: widget.isEditable,
                     labelText: 'Atestados de capacidade técnica',
                     controller: _atestadosStatusCtrl,
-                    items: HiringData.docAtestados,
+                    items: ProgressData.docAtestados,
                     onChanged: (v) {
                       _atestadosStatusCtrl.text = v ?? '';
                       _emitChange();

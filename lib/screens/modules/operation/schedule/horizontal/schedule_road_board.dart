@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_state.dart';
@@ -24,7 +24,7 @@ import 'package:sipged/screens/modules/operation/schedule/horizontal/schedule_ro
 import 'package:sipged/screens/modules/operation/schedule/horizontal/type.dart';
 
 class ScheduleRoadBoard extends StatefulWidget {
-  final ProcessData? contractData;
+  final ContractData? contractData;
   final double extensao;
 
   const ScheduleRoadBoard({
@@ -139,7 +139,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     final actorId = currentUser?.uid.trim();
     final actorName = _actorName();
 
-    final contract = widget.contractData ?? ProcessData.empty();
+    final contract = widget.contractData ?? ContractData.empty();
 
     await NotificationSchedule.show(
       context: context,

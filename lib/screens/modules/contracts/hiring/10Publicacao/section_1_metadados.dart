@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart'
@@ -116,7 +116,7 @@ class _SectionMetadadosExtratoState extends State<SectionMetadadosExtrato>
                           enabled: widget.isEditable,
                           labelText: 'Tipo de extrato',
                           controller: _tipoExtratoCtrl,
-                          items: HiringData.tipoExtrato,
+                          items: ProgressData.tipoExtrato,
                           onChanged: (v) {
                             final text = v ?? '';
                             if (_tipoExtratoCtrl.text != text) {

@@ -1,8 +1,8 @@
-// lib/_blocs/modules/contracts/_process/process_data.dart
+// lib/_blocs/modules/contracts/_process/contract_data.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class ProcessData {
+class ContractData {
   final String? id;
 
   /// ACL por contrato
@@ -11,14 +11,14 @@ class ProcessData {
   /// Metadados por participante
   final Map<String, Map<String, dynamic>> participantsInfo;
 
-  const ProcessData({
+  const ContractData({
     this.id,
     this.permissionContractId = const {},
     this.participantsInfo = const {},
   });
 
-  factory ProcessData.empty() {
-    return const ProcessData(
+  factory ContractData.empty() {
+    return const ContractData(
       id: null,
       permissionContractId: {},
       participantsInfo: {},
@@ -36,12 +36,12 @@ class ProcessData {
     return id ?? '';
   }
 
-  ProcessData copyWith({
+  ContractData copyWith({
     String? id,
     Map<String, Map<String, bool>>? permissionContractId,
     Map<String, Map<String, dynamic>>? participantsInfo,
   }) {
-    return ProcessData(
+    return ContractData(
       id: id ?? this.id,
       permissionContractId: permissionContractId ?? this.permissionContractId,
       participantsInfo: participantsInfo ?? this.participantsInfo,
@@ -97,7 +97,7 @@ class ProcessData {
     return result;
   }
 
-  factory ProcessData.fromDocument({
+  factory ContractData.fromDocument({
     required DocumentSnapshot snapshot,
   }) {
     if (!snapshot.exists) {
@@ -110,17 +110,17 @@ class ProcessData {
       throw Exception('Os dados do contrato estão vazios');
     }
 
-    return ProcessData.fromJson(
+    return ContractData.fromJson(
       data,
       id: snapshot.id,
     );
   }
 
-  factory ProcessData.fromJson(
+  factory ContractData.fromJson(
       Map<String, dynamic> json, {
         String? id,
       }) {
-    return ProcessData(
+    return ContractData(
       id: id ?? json['id']?.toString(),
       permissionContractId: _readPermissionContractId(
         json['permissionContractId'],
@@ -139,7 +139,7 @@ class ProcessData {
     };
   }
 
-  ProcessData copyWithUpdatedPermission({
+  ContractData copyWithUpdatedPermission({
     required String userId,
     required String permissionType,
     required bool value,
@@ -160,7 +160,7 @@ class ProcessData {
     );
   }
 
-  ProcessData copyWithParticipantPerms({
+  ContractData copyWithParticipantPerms({
     required String userId,
     required Map<String, bool> perms,
   }) {
@@ -175,7 +175,7 @@ class ProcessData {
     );
   }
 
-  ProcessData copyWithParticipantMeta({
+  ContractData copyWithParticipantMeta({
     required String userId,
     required Map<String, dynamic> meta,
   }) {
@@ -190,7 +190,7 @@ class ProcessData {
     );
   }
 
-  ProcessData copyWithParticipantRole({
+  ContractData copyWithParticipantRole({
     required String userId,
     required String role,
   }) {
@@ -210,7 +210,7 @@ class ProcessData {
     );
   }
 
-  ProcessData copyWithAddedParticipant({
+  ContractData copyWithAddedParticipant({
     required String userId,
     required Map<String, bool> perms,
     Map<String, dynamic> meta = const {},
@@ -235,7 +235,7 @@ class ProcessData {
     );
   }
 
-  ProcessData copyWithRemovedParticipant(String userId) {
+  ContractData copyWithRemovedParticipant(String userId) {
     final updatedPerms = Map<String, Map<String, bool>>.from(
       permissionContractId,
     );

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
@@ -19,7 +19,7 @@ import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tip.dart';
 
 class AlertValidity extends StatefulWidget {
-  final ProcessData contract;
+  final ContractData contract;
 
   const AlertValidity({
     super.key,
@@ -105,7 +105,7 @@ class _AlertValidityState extends State<AlertValidity>
         0;
   }
 
-  Future<_ValidityAlertInfo?> _loadInfo(ProcessData contract) async {
+  Future<_ValidityAlertInfo?> _loadInfo(ContractData contract) async {
     final contractId = contract.id?.trim();
 
     if (contractId == null || contractId.isEmpty) {

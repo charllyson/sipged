@@ -11,7 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/line_segmentation.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
@@ -35,7 +35,7 @@ const double kLaneStrokeWidth = 6.0;
 const double kLaneStrokeWidthSelected = 9.0;
 
 class ScheduleRoadMap extends StatefulWidget {
-  final ProcessData contractData;
+  final ContractData contractData;
   final ValueNotifier<bool>? externalPanelController;
 
   const ScheduleRoadMap({

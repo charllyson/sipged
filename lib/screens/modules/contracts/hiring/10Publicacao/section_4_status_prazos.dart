@@ -1,7 +1,7 @@
 // lib/screens/modules/contracts/hiring/10Publicacao/section_4_status_prazos.dart
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart'
     show DropDownChange;
@@ -94,7 +94,7 @@ class _SectionStatusPrazosState extends State<SectionStatusPrazos> {
                           enabled: widget.isEditable,
                           labelText: 'Status',
                           controller: _statusCtrl,
-                          items: HiringData.statusPublicacao,
+                          items: ProgressData.statusPublicacao,
                           onChanged: (v) {
                             _statusCtrl.text = v ?? '';
                             _emitChange();

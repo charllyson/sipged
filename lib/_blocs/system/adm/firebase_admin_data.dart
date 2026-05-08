@@ -19,58 +19,30 @@ enum FirebaseWhereOp {
   whereIn,
 }
 
-enum FirebaseLegacyCompanyTargetKind {
-  tenant,
-  partner,
-  unit,
-  road,
-  region,
-  fundingSource,
-  program,
-  expenseNature,
+enum FirebaseCollectionGroupTargetDocIdMode {
+  originalId,
+  parentIdAndOriginalId,
+}
+
+enum FirebaseCollectionGroupTargetPlacementMode {
+  singleTargetCollection,
+
+  /// Destino:
+  ///
+  /// tenants/{tenantId}/contracts/{contractId}/{collectionId}/{docId}
+  tenantContractSubcollection,
 }
 
 class FirebaseAdminTenantPaths {
   const FirebaseAdminTenantPaths._();
 
-  static const String financialEmpenhosRelativePath =
-      'financial/empenhos/items';
+  static const String fixedMigrationTenantId = 'SZQmefRUqdtLB14ahcuh';
 
-  static String financialEmpenhosPath(String tenantId) {
-    final clean = tenantId.trim();
+  static const String contractsRootRelativePath = 'contracts';
 
-    if (clean.isEmpty) {
-      return 'tenants/{tenantId}/$financialEmpenhosRelativePath';
-    }
-
-    return 'tenants/$clean/$financialEmpenhosRelativePath';
-  }
-}
-
-class FirebaseAdminSetupTenantPaths {
-  const FirebaseAdminSetupTenantPaths._();
-
-  static const String legacyCompanyDocPath = 'system/company';
-
-  static const String legacyCompaniesBodies = 'companiesBodies';
-  static const String legacyUnits = 'units';
-  static const String legacyRoads = 'roads';
-  static const String legacyRegions = 'regions';
-  static const String legacyFundingSources = 'funding_sources';
-  static const String legacyPrograms = 'programs';
-  static const String legacyExpenseNatures = 'expense_natures';
-
-  static const List<String> legacyCompanySubcollections = <String>[
-    legacyCompaniesBodies,
-    legacyUnits,
-    legacyRoads,
-    legacyRegions,
-    legacyFundingSources,
-    legacyPrograms,
-    legacyExpenseNatures,
-  ];
-
-  static String tenantDocPath(String tenantId) {
+  static String tenantRootPath([
+    String tenantId = fixedMigrationTenantId,
+  ]) {
     final clean = tenantId.trim();
 
     if (clean.isEmpty) {
@@ -80,185 +52,78 @@ class FirebaseAdminSetupTenantPaths {
     return 'tenants/$clean';
   }
 
-  static String partnersPath(String tenantId) {
+  static String contractsRootPath([
+    String tenantId = fixedMigrationTenantId,
+  ]) {
     final clean = tenantId.trim();
 
     if (clean.isEmpty) {
-      return 'tenants/{tenantId}/partners';
+      return 'tenants/{tenantId}/$contractsRootRelativePath';
     }
 
-    return 'tenants/$clean/partners';
+    return 'tenants/$clean/$contractsRootRelativePath';
   }
 
-  static String unitsPath(String tenantId) {
-    final clean = tenantId.trim();
+  static String contractSubcollectionPath({
+    String tenantId = fixedMigrationTenantId,
+    required String contractId,
+    required String collectionId,
+  }) {
+    final cleanTenantId = tenantId.trim();
+    final cleanContractId = contractId.trim();
+    final cleanCollectionId = collectionId.trim();
 
-    if (clean.isEmpty) {
-      return 'tenants/{tenantId}/administrative/catalog/units';
+    if (cleanTenantId.isEmpty ||
+        cleanContractId.isEmpty ||
+        cleanCollectionId.isEmpty) {
+      return 'tenants/{tenantId}/contracts/{contractId}/{collectionId}';
     }
 
-    return 'tenants/$clean/administrative/catalog/units';
+    return 'tenants/$cleanTenantId/contracts/$cleanContractId/$cleanCollectionId';
   }
 
-  static String regionsPath(String tenantId) {
-    final clean = tenantId.trim();
-
-    if (clean.isEmpty) {
-      return 'tenants/{tenantId}/administrative/catalog/regions';
-    }
-
-    return 'tenants/$clean/administrative/catalog/regions';
+  static String contractOrdersPath({
+    String tenantId = fixedMigrationTenantId,
+    required String contractId,
+  }) {
+    return contractSubcollectionPath(
+      tenantId: tenantId,
+      contractId: contractId,
+      collectionId: 'orders',
+    );
   }
 
-  static String roadsAcronymPath(String tenantId) {
-    final clean = tenantId.trim();
-
-    if (clean.isEmpty) {
-      return 'tenants/{tenantId}/assets/roads/acronym';
-    }
-
-    return 'tenants/$clean/assets/roads/acronym';
+  static String contractReportsMeasurementPath({
+    String tenantId = fixedMigrationTenantId,
+    required String contractId,
+  }) {
+    return contractSubcollectionPath(
+      tenantId: tenantId,
+      contractId: contractId,
+      collectionId: 'reportsMeasurement',
+    );
   }
 
-  static String fundingSourcesPath(String tenantId) {
-    final clean = tenantId.trim();
-
-    if (clean.isEmpty) {
-      return 'tenants/{tenantId}/financial/catalog/funding_sources';
-    }
-
-    return 'tenants/$clean/financial/catalog/funding_sources';
+  static String contractAdjustmentsMeasurementPath({
+    String tenantId = fixedMigrationTenantId,
+    required String contractId,
+  }) {
+    return contractSubcollectionPath(
+      tenantId: tenantId,
+      contractId: contractId,
+      collectionId: 'adjustmentsMeasurement',
+    );
   }
 
-  static String programsPath(String tenantId) {
-    final clean = tenantId.trim();
-
-    if (clean.isEmpty) {
-      return 'tenants/{tenantId}/financial/catalog/programs';
-    }
-
-    return 'tenants/$clean/financial/catalog/programs';
-  }
-
-  static String expenseNaturesPath(String tenantId) {
-    final clean = tenantId.trim();
-
-    if (clean.isEmpty) {
-      return 'tenants/{tenantId}/financial/catalog/expense_natures';
-    }
-
-    return 'tenants/$clean/financial/catalog/expense_natures';
-  }
-
-  static List<FirebaseLegacyCompanySubcollectionRule> migrationRules(
-      String tenantId,
-      ) {
-    return <FirebaseLegacyCompanySubcollectionRule>[
-      FirebaseLegacyCompanySubcollectionRule(
-        sourceSubcollection: legacyCompaniesBodies,
-        targetCollectionPath: partnersPath(tenantId),
-        targetKind: FirebaseLegacyCompanyTargetKind.partner,
-      ),
-      FirebaseLegacyCompanySubcollectionRule(
-        sourceSubcollection: legacyUnits,
-        targetCollectionPath: unitsPath(tenantId),
-        targetKind: FirebaseLegacyCompanyTargetKind.unit,
-      ),
-      FirebaseLegacyCompanySubcollectionRule(
-        sourceSubcollection: legacyRoads,
-        targetCollectionPath: roadsAcronymPath(tenantId),
-        targetKind: FirebaseLegacyCompanyTargetKind.road,
-      ),
-      FirebaseLegacyCompanySubcollectionRule(
-        sourceSubcollection: legacyRegions,
-        targetCollectionPath: regionsPath(tenantId),
-        targetKind: FirebaseLegacyCompanyTargetKind.region,
-      ),
-      FirebaseLegacyCompanySubcollectionRule(
-        sourceSubcollection: legacyFundingSources,
-        targetCollectionPath: fundingSourcesPath(tenantId),
-        targetKind: FirebaseLegacyCompanyTargetKind.fundingSource,
-      ),
-      FirebaseLegacyCompanySubcollectionRule(
-        sourceSubcollection: legacyPrograms,
-        targetCollectionPath: programsPath(tenantId),
-        targetKind: FirebaseLegacyCompanyTargetKind.program,
-      ),
-      FirebaseLegacyCompanySubcollectionRule(
-        sourceSubcollection: legacyExpenseNatures,
-        targetCollectionPath: expenseNaturesPath(tenantId),
-        targetKind: FirebaseLegacyCompanyTargetKind.expenseNature,
-      ),
-    ];
-  }
-}
-
-class FirebaseLegacyCompanySubcollectionRule {
-  const FirebaseLegacyCompanySubcollectionRule({
-    required this.sourceSubcollection,
-    required this.targetCollectionPath,
-    required this.targetKind,
-  });
-
-  final String sourceSubcollection;
-  final String targetCollectionPath;
-  final FirebaseLegacyCompanyTargetKind targetKind;
-
-  Map<String, dynamic> toMap() {
-    return {
-      'sourceSubcollection': sourceSubcollection,
-      'targetCollectionPath': targetCollectionPath,
-      'targetKind': targetKind.name,
-    };
-  }
-}
-
-class FirebaseLegacyCompanyMigrationResultData {
-  const FirebaseLegacyCompanyMigrationResultData({
-    required this.tenantId,
-    required this.sourceDocPath,
-    required this.targetDocPath,
-    required this.documentCopied,
-    required this.documentSkipped,
-    required this.targetAlreadyExists,
-    required this.totalSubcollectionsProcessed,
-    required this.totalSubcollectionDocsCopied,
-    required this.totalSubcollectionDocsSkipped,
-    required this.rules,
-  });
-
-  final String tenantId;
-  final String sourceDocPath;
-  final String targetDocPath;
-
-  final bool documentCopied;
-  final bool documentSkipped;
-  final bool targetAlreadyExists;
-
-  final int totalSubcollectionsProcessed;
-  final int totalSubcollectionDocsCopied;
-  final int totalSubcollectionDocsSkipped;
-
-  final List<FirebaseLegacyCompanySubcollectionRule> rules;
-
-  int get totalEverythingCopied {
-    return (documentCopied ? 1 : 0) + totalSubcollectionDocsCopied;
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'tenantId': tenantId,
-      'sourceDocPath': sourceDocPath,
-      'targetDocPath': targetDocPath,
-      'documentCopied': documentCopied,
-      'documentSkipped': documentSkipped,
-      'targetAlreadyExists': targetAlreadyExists,
-      'totalSubcollectionsProcessed': totalSubcollectionsProcessed,
-      'totalSubcollectionDocsCopied': totalSubcollectionDocsCopied,
-      'totalSubcollectionDocsSkipped': totalSubcollectionDocsSkipped,
-      'totalEverythingCopied': totalEverythingCopied,
-      'rules': rules.map((rule) => rule.toMap()).toList(),
-    };
+  static String contractRevisionsMeasurementPath({
+    String tenantId = fixedMigrationTenantId,
+    required String contractId,
+  }) {
+    return contractSubcollectionPath(
+      tenantId: tenantId,
+      contractId: contractId,
+      collectionId: 'revisionsMeasurement',
+    );
   }
 }
 
@@ -295,270 +160,99 @@ class FirebaseWhereFilterData {
 
       case FirebaseWhereOp.whereIn:
         final list = value is List ? value : <dynamic>[value];
+
         return query.where(field, whereIn: list);
     }
   }
 }
 
-class FirebaseDeleteCollectionParams {
-  const FirebaseDeleteCollectionParams({
-    required this.path,
-  });
-
-  final String path;
-}
-
-class FirebaseCleanupSubcollectionsParams {
-  const FirebaseCleanupSubcollectionsParams({
-    required this.collectionPath,
-    required this.subcollections,
-  });
-
-  final String collectionPath;
-  final List<String> subcollections;
-}
-
-class FirebaseSelectiveDeleteByIdsParams {
-  const FirebaseSelectiveDeleteByIdsParams({
-    required this.parentCollectionPath,
-    required this.subcollection,
-    required this.docIds,
-  });
-
-  final String parentCollectionPath;
-  final String subcollection;
-  final List<String> docIds;
-}
-
-class FirebaseSelectiveDeleteByFilterParams {
-  const FirebaseSelectiveDeleteByFilterParams({
-    required this.parentCollectionPath,
-    required this.subcollection,
-    required this.filters,
-    required this.useParents,
-  });
-
-  final String parentCollectionPath;
-  final String subcollection;
-  final List<FirebaseWhereFilterData> filters;
-  final bool useParents;
-}
-
-class FirebaseCopyDocumentParams {
-  const FirebaseCopyDocumentParams({
-    required this.sourceDocPath,
-    required this.targetDocPath,
-    this.merge = true,
-    this.addMigrationMetadata = true,
-    this.skipExisting = false,
-    this.subcollectionsToCopy = const <String>[],
-    this.copySubcollectionsWhenTargetExists = true,
-    this.rewriteDocumentPathFields = true,
-  });
-
-  final String sourceDocPath;
-  final String targetDocPath;
-
-  final bool merge;
-  final bool addMigrationMetadata;
-  final bool skipExisting;
-
-  final List<String> subcollectionsToCopy;
-  final bool copySubcollectionsWhenTargetExists;
-  final bool rewriteDocumentPathFields;
-}
-
-class FirebaseCopyDocumentResultData {
-  const FirebaseCopyDocumentResultData({
-    required this.sourceDocPath,
-    required this.targetDocPath,
-    required this.documentCopied,
-    required this.documentSkipped,
-    required this.targetAlreadyExists,
-    required this.totalSubcollectionsCopied,
-    required this.totalSubcollectionDocsCopied,
-    required this.totalSubcollectionDocsSkipped,
-    this.subcollectionsToCopy = const <String>[],
-  });
-
-  final String sourceDocPath;
-  final String targetDocPath;
-
-  final bool documentCopied;
-  final bool documentSkipped;
-  final bool targetAlreadyExists;
-
-  final int totalSubcollectionsCopied;
-  final int totalSubcollectionDocsCopied;
-  final int totalSubcollectionDocsSkipped;
-
-  final List<String> subcollectionsToCopy;
-
-  int get totalEverythingCopied {
-    return (documentCopied ? 1 : 0) + totalSubcollectionDocsCopied;
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'sourceDocPath': sourceDocPath,
-      'targetDocPath': targetDocPath,
-      'documentCopied': documentCopied,
-      'documentSkipped': documentSkipped,
-      'targetAlreadyExists': targetAlreadyExists,
-      'subcollectionsToCopy': subcollectionsToCopy,
-      'totalSubcollectionsCopied': totalSubcollectionsCopied,
-      'totalSubcollectionDocsCopied': totalSubcollectionDocsCopied,
-      'totalSubcollectionDocsSkipped': totalSubcollectionDocsSkipped,
-      'totalEverythingCopied': totalEverythingCopied,
-    };
-  }
-}
-
-class FirebaseCopyCollectionParams {
-  const FirebaseCopyCollectionParams({
-    required this.sourcePath,
+class FirebaseCopyCollectionGroupParams {
+  const FirebaseCopyCollectionGroupParams({
+    required this.collectionId,
     required this.targetPath,
-    this.docIds = const <String>[],
-    this.selectedFieldsByDocId = const <String, Set<String>>{},
-    this.copyAllDocuments = false,
+    this.tenantId = FirebaseAdminTenantPaths.fixedMigrationTenantId,
     this.merge = true,
-    this.addMigrationMetadata = true,
     this.skipExisting = true,
-    this.pageSize = 50,
-    this.batchSize = 25,
-    this.subcollectionsToCopy = const <String>[],
-    this.copySubcollectionsWhenParentExists = true,
+    this.addMigrationMetadata = true,
     this.rewriteDocumentPathFields = true,
+    this.pageSize = 100,
+    this.batchSize = 50,
+    this.targetDocIdMode =
+        FirebaseCollectionGroupTargetDocIdMode.parentIdAndOriginalId,
+    this.targetPlacementMode =
+        FirebaseCollectionGroupTargetPlacementMode.singleTargetCollection,
+    this.excludePathPrefixes = const <String>[
+      'tenants/',
+    ],
   });
 
-  final String sourcePath;
+  final String collectionId;
+
+  /// Quando targetPlacementMode = tenantContractSubcollection:
+  ///
+  /// targetPath deve ser:
+  ///
+  /// tenants/{tenantId}/contracts
+  ///
+  /// O destino final será:
+  ///
+  /// tenants/{tenantId}/contracts/{contractId}/{collectionId}/{docId}
   final String targetPath;
 
-  final List<String> docIds;
-  final Map<String, Set<String>> selectedFieldsByDocId;
+  final String tenantId;
 
-  final bool copyAllDocuments;
   final bool merge;
-  final bool addMigrationMetadata;
   final bool skipExisting;
+  final bool addMigrationMetadata;
+  final bool rewriteDocumentPathFields;
 
   final int pageSize;
   final int batchSize;
 
-  final List<String> subcollectionsToCopy;
-  final bool copySubcollectionsWhenParentExists;
-  final bool rewriteDocumentPathFields;
+  final FirebaseCollectionGroupTargetDocIdMode targetDocIdMode;
+  final FirebaseCollectionGroupTargetPlacementMode targetPlacementMode;
 
-  bool get hasSpecificDocIds => docIds.isNotEmpty;
-
-  bool get shouldCopySubcollections {
-    return subcollectionsToCopy.where((e) => e.trim().isNotEmpty).isNotEmpty;
-  }
-
-  FirebaseCopyCollectionParams copyWith({
-    String? sourcePath,
-    String? targetPath,
-    List<String>? docIds,
-    Map<String, Set<String>>? selectedFieldsByDocId,
-    bool? copyAllDocuments,
-    bool? merge,
-    bool? addMigrationMetadata,
-    bool? skipExisting,
-    int? pageSize,
-    int? batchSize,
-    List<String>? subcollectionsToCopy,
-    bool? copySubcollectionsWhenParentExists,
-    bool? rewriteDocumentPathFields,
-  }) {
-    return FirebaseCopyCollectionParams(
-      sourcePath: sourcePath ?? this.sourcePath,
-      targetPath: targetPath ?? this.targetPath,
-      docIds: docIds ?? this.docIds,
-      selectedFieldsByDocId:
-      selectedFieldsByDocId ?? this.selectedFieldsByDocId,
-      copyAllDocuments: copyAllDocuments ?? this.copyAllDocuments,
-      merge: merge ?? this.merge,
-      addMigrationMetadata:
-      addMigrationMetadata ?? this.addMigrationMetadata,
-      skipExisting: skipExisting ?? this.skipExisting,
-      pageSize: pageSize ?? this.pageSize,
-      batchSize: batchSize ?? this.batchSize,
-      subcollectionsToCopy:
-      subcollectionsToCopy ?? this.subcollectionsToCopy,
-      copySubcollectionsWhenParentExists:
-      copySubcollectionsWhenParentExists ??
-          this.copySubcollectionsWhenParentExists,
-      rewriteDocumentPathFields:
-      rewriteDocumentPathFields ?? this.rewriteDocumentPathFields,
-    );
-  }
+  final List<String> excludePathPrefixes;
 }
 
-class FirebaseCopyCollectionResultData {
-  const FirebaseCopyCollectionResultData({
-    required this.sourcePath,
+class FirebaseCopyCollectionGroupResultData {
+  const FirebaseCopyCollectionGroupResultData({
+    required this.collectionId,
     required this.targetPath,
-    this.totalSelected = 0,
-    this.totalScanned = 0,
+    required this.totalScanned,
     required this.totalCopied,
     required this.totalSkipped,
-    this.totalAlreadyExists = 0,
-    this.totalEmpty = 0,
-    this.copyAllDocuments = false,
-    this.totalSubcollectionsCopied = 0,
-    this.totalSubcollectionDocsCopied = 0,
-    this.totalSubcollectionDocsSkipped = 0,
-    this.subcollectionsToCopy = const <String>[],
+    required this.totalAlreadyExists,
+    required this.totalEmpty,
+    required this.totalExcludedByPath,
+    required this.totalMissingContractId,
   });
 
-  final String sourcePath;
+  final String collectionId;
   final String targetPath;
 
-  final int totalSelected;
   final int totalScanned;
-
   final int totalCopied;
   final int totalSkipped;
-
   final int totalAlreadyExists;
   final int totalEmpty;
+  final int totalExcludedByPath;
+  final int totalMissingContractId;
 
-  final bool copyAllDocuments;
-
-  final int totalSubcollectionsCopied;
-  final int totalSubcollectionDocsCopied;
-  final int totalSubcollectionDocsSkipped;
-
-  final List<String> subcollectionsToCopy;
-
-  int get totalProcessed {
-    if (totalScanned > 0) return totalScanned;
-    if (totalSelected > 0) return totalSelected;
-
-    return totalCopied + totalSkipped;
-  }
-
-  int get totalEverythingCopied {
-    return totalCopied + totalSubcollectionDocsCopied;
-  }
+  int get totalProcessed => totalScanned;
 
   Map<String, dynamic> toMap() {
     return {
-      'sourcePath': sourcePath,
+      'collectionId': collectionId,
       'targetPath': targetPath,
-      'totalSelected': totalSelected,
       'totalScanned': totalScanned,
-      'totalProcessed': totalProcessed,
       'totalCopied': totalCopied,
       'totalSkipped': totalSkipped,
       'totalAlreadyExists': totalAlreadyExists,
       'totalEmpty': totalEmpty,
-      'copyAllDocuments': copyAllDocuments,
-      'subcollectionsToCopy': subcollectionsToCopy,
-      'totalSubcollectionsCopied': totalSubcollectionsCopied,
-      'totalSubcollectionDocsCopied': totalSubcollectionDocsCopied,
-      'totalSubcollectionDocsSkipped': totalSubcollectionDocsSkipped,
-      'totalEverythingCopied': totalEverythingCopied,
+      'totalExcludedByPath': totalExcludedByPath,
+      'totalMissingContractId': totalMissingContractId,
+      'totalProcessed': totalProcessed,
     };
   }
 }
@@ -600,9 +294,11 @@ class FirebaseValueParser {
     }
 
     final numeric = num.tryParse(value);
+
     if (numeric != null) return numeric;
 
     final date = DateTime.tryParse(value);
+
     if (date != null) return Timestamp.fromDate(date);
 
     return value;

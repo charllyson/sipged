@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
@@ -17,7 +17,7 @@ class RevisionMeasurementFormSection extends StatelessWidget {
   final bool formValidated;
   final RevisionMeasurementData? selectedRevisionMeasurement;
   final String? currentRevisionMeasurementId;
-  final ProcessData contractData;
+  final ContractData contractData;
 
   final TextEditingController orderRevisionController;
   final TextEditingController processNumberRevisionController;

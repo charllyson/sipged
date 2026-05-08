@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
@@ -6,7 +7,6 @@ import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
 
 class SectionLicitation extends StatefulWidget with SipGedValidation {
@@ -114,7 +114,7 @@ class _SectionLicitationState extends State<SectionLicitation> {
                     enabled: widget.isEditable,
                     labelText: 'Modalidade do processo',
                     controller: _modalidadeCtrl,
-                    items: HiringData.modalidadeDeContratacao,
+                    items: ProgressData.modalidadeDeContratacao,
                     onChanged: (v) {
                       _modalidadeCtrl.text = v ?? '';
                       _emitChange();

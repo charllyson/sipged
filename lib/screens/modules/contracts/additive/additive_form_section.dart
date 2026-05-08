@@ -10,7 +10,7 @@ import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_widgets/list/files/box_list_files.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
@@ -20,7 +20,7 @@ class AdditiveFormSection extends StatefulWidget {
   final bool formValidated;
   final AdditivesData? selectedAdditive;
   final String? currentAdditiveId;
-  final ProcessData contractData;
+  final ContractData contractData;
 
   final TextEditingController orderController;
   final TextEditingController processController;

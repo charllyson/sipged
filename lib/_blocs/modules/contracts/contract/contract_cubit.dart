@@ -1,8 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'process_data.dart';
-import 'process_repository.dart';
-import 'process_state.dart';
+import 'contract_data.dart';
+import 'contract_repository.dart';
+import 'contract_state.dart';
 
 import 'package:sipged/_blocs/system/module/module_catalog.dart';
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
@@ -10,16 +10,16 @@ import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_resolver.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-class ProcessCubit extends Cubit<ProcessState> {
-  ProcessCubit({
-    required ProcessRepository repository,
+class ContractCubit extends Cubit<ContractState> {
+  ContractCubit({
+    required ContractRepository repository,
   })  : _repository = repository,
-        super(ProcessState.initial());
+        super(ContractState.initial());
 
-  final ProcessRepository _repository;
+  final ContractRepository _repository;
 
-  List<ProcessData> get allProcesses => state.allProcesses;
-  ProcessData? get selectedProcess => state.selectedProcess;
+  List<ContractData> get allProcesses => state.allProcesses;
+  ContractData? get selectedProcess => state.selectedProcess;
   bool get isLoading => state.loading;
   bool get isInitialized => state.initialized;
 
@@ -66,7 +66,7 @@ class ProcessCubit extends Cubit<ProcessState> {
         emit(
           state.copyWith(
             loading: false,
-            allProcesses: const <ProcessData>[],
+            allProcesses: const <ContractData>[],
             clearSelectedProcess: true,
             errorMessage: 'Permissões do usuário não carregadas.',
           ),
@@ -82,7 +82,7 @@ class ProcessCubit extends Cubit<ProcessState> {
         tenantId: tenantId,
       );
 
-      ProcessData? selected = state.selectedProcess;
+      ContractData? selected = state.selectedProcess;
 
       if (selected != null) {
         selected = _findByIdOrNull(
@@ -110,8 +110,8 @@ class ProcessCubit extends Cubit<ProcessState> {
     }
   }
 
-  List<ProcessData> _applyAclFilter({
-    required List<ProcessData> source,
+  List<ContractData> _applyAclFilter({
+    required List<ContractData> source,
     required UserPermissionData permissions,
     required String? tenantId,
   }) {
@@ -144,8 +144,8 @@ class ProcessCubit extends Cubit<ProcessState> {
     );
   }
 
-  ProcessData? _findByIdOrNull(
-      Iterable<ProcessData> items,
+  ContractData? _findByIdOrNull(
+      Iterable<ContractData> items,
       String? id,
       ) {
     final cleanId = id?.trim();
@@ -163,7 +163,7 @@ class ProcessCubit extends Cubit<ProcessState> {
     return null;
   }
 
-  void select(ProcessData process) {
+  void select(ContractData process) {
     if (isClosed) return;
 
     emit(
@@ -183,7 +183,7 @@ class ProcessCubit extends Cubit<ProcessState> {
     );
   }
 
-  Future<ProcessData?> getById(String id) async {
+  Future<ContractData?> getById(String id) async {
     final cleanId = id.trim();
 
     if (cleanId.isEmpty) return null;
@@ -212,7 +212,7 @@ class ProcessCubit extends Cubit<ProcessState> {
         return null;
       }
 
-      final updatedList = List<ProcessData>.from(state.allProcesses)
+      final updatedList = List<ContractData>.from(state.allProcesses)
         ..removeWhere((p) => p.id == process.id)
         ..add(process);
 
@@ -237,7 +237,7 @@ class ProcessCubit extends Cubit<ProcessState> {
     }
   }
 
-  Future<ProcessData?> getSpecificContract({
+  Future<ContractData?> getSpecificContract({
     required String uidContract,
   }) async {
     final cleanId = uidContract.trim();
@@ -266,7 +266,7 @@ class ProcessCubit extends Cubit<ProcessState> {
         return null;
       }
 
-      final updatedList = List<ProcessData>.from(state.allProcesses)
+      final updatedList = List<ContractData>.from(state.allProcesses)
         ..removeWhere((p) => p.id == process.id)
         ..add(process);
 
@@ -311,7 +311,7 @@ class ProcessCubit extends Cubit<ProcessState> {
     try {
       await _repository.delete(cleanId);
 
-      final updatedList = List<ProcessData>.from(state.allProcesses)
+      final updatedList = List<ContractData>.from(state.allProcesses)
         ..removeWhere((p) => p.id == cleanId);
 
       final shouldClearSelected = state.selectedProcess?.id == cleanId;
@@ -491,7 +491,7 @@ class ProcessCubit extends Cubit<ProcessState> {
     }
   }
 
-  Future<void> saveContractPermissions(ProcessData contractData) async {
+  Future<void> saveContractPermissions(ContractData contractData) async {
     final contractId = contractData.id?.trim();
 
     if (contractId == null || contractId.isEmpty) {
@@ -705,7 +705,7 @@ class ProcessCubit extends Cubit<ProcessState> {
     );
   }
 
-  ProcessData? _findInCache(String id) {
+  ContractData? _findInCache(String id) {
     return _findByIdOrNull(
       state.allProcesses,
       id,
@@ -714,7 +714,7 @@ class ProcessCubit extends Cubit<ProcessState> {
 
   void _updateItemInState(
       String contractId,
-      ProcessData Function(ProcessData current) transform,
+      ContractData Function(ContractData current) transform,
       ) {
     final cleanId = contractId.trim();
 
@@ -728,7 +728,7 @@ class ProcessCubit extends Cubit<ProcessState> {
       return item;
     }).toList(growable: false);
 
-    ProcessData? updatedSelected = state.selectedProcess;
+    ContractData? updatedSelected = state.selectedProcess;
 
     if ((updatedSelected?.id ?? '').trim() == cleanId) {
       updatedSelected = transform(updatedSelected!);

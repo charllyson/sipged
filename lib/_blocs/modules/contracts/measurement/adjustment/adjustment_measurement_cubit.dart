@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_state.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
 
@@ -329,7 +329,7 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
   }
 
   Future<Attachment> pickAndUploadAttachment({
-    required ProcessData contract,
+    required ContractData contract,
     required String contractId,
     required String adjustmentId,
   }) async {

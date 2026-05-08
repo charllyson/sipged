@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
@@ -10,7 +10,7 @@ import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/screens/modules/planning/land/land_tabs.dart';
 
 class LandPanel extends StatelessWidget {
-  final ProcessData contractData;
+  final ContractData contractData;
   final VoidCallback? onRequestMapRefresh;
 
   const LandPanel({

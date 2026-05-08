@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
@@ -44,7 +44,7 @@ class ReportExecutedPage extends StatelessWidget {
     required this.contractData,
   });
 
-  final ProcessData contractData;
+  final ContractData contractData;
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +91,7 @@ class _ReportMeasurementView extends StatefulWidget {
     required this.contractData,
   });
 
-  final ProcessData contractData;
+  final ContractData contractData;
 
   @override
   State<_ReportMeasurementView> createState() => _ReportMeasurementViewState();

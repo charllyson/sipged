@@ -9,8 +9,8 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
@@ -20,7 +20,7 @@ import 'package:sipged/_widgets/menu/tab/tab_blocked.dart';
 
 class ContractTabDescriptor {
   final String label;
-  final Widget Function(ProcessData? contract) builder;
+  final Widget Function(ContractData? contract) builder;
   final bool requireSavedContract;
 
   /// Mantido por compatibilidade.
@@ -66,13 +66,13 @@ class StampConfig {
 
 typedef ResolveStampForTab = StampConfig Function({
 required int tabIndex,
-required ProcessData contract,
+required ContractData contract,
 });
 
 class TabChanged extends StatefulWidget {
   final UserData? userData;
-  final ProcessData? contractData;
-  final ProcessCubit? contractsCubit;
+  final ContractData? contractData;
+  final ContractCubit? contractsCubit;
 
   /// Cubit oficial da publicação.
   ///
@@ -97,8 +97,8 @@ class TabChanged extends StatefulWidget {
 
   /// Mantidos por compatibilidade.
   /// Não são usados no banner.
-  final String Function(ProcessData c)? bannerTitleBuilder;
-  final String Function(ProcessData c)? contractNumberBuilder;
+  final String Function(ContractData c)? bannerTitleBuilder;
+  final String Function(ContractData c)? contractNumberBuilder;
   final String? textBanner;
 
   final String blockedMessage;
@@ -156,7 +156,7 @@ class TabChanged extends StatefulWidget {
 }
 
 class _TabChangedState extends State<TabChanged> {
-  late ProcessData? _contractData;
+  late ContractData? _contractData;
 
   PublicacaoExtratoData? _resolvedPublicacaoExtrato;
   DfdData? _resolvedDfdData;

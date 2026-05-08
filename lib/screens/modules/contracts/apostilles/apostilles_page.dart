@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_cubit.dart';
@@ -36,7 +36,7 @@ class ApostillesPage extends StatefulWidget {
     required this.contractData,
   });
 
-  final ProcessData contractData;
+  final ContractData contractData;
 
   @override
   State<ApostillesPage> createState() => _ApostillesPageState();

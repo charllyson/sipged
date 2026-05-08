@@ -1,3 +1,5 @@
+// lib/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_repository.dart
+
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,10 +8,10 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
+import 'adjustment_measurement_data.dart';
 
 class AdjustmentMeasurementRepository {
   AdjustmentMeasurementRepository({
@@ -24,27 +26,104 @@ class AdjustmentMeasurementRepository {
   final FirebaseAuth _auth;
   final FirebaseStorage _storage;
 
+  static const String fixedTenantId = 'SZQmefRUqdtLB14ahcuh';
+
+  static const String tenantContractsCollectionPath =
+      'tenants/$fixedTenantId/contracts';
+
+  CollectionReference<Map<String, dynamic>> _contractsCol() {
+    return _db.collection(tenantContractsCollectionPath);
+  }
+
+  DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
+    return _contractsCol().doc(contractId.trim());
+  }
+
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
-    return _db
-        .collection('contracts')
-        .doc(contractId)
-        .collection(AdjustmentMeasurementData.collectionName);
+    return _contractDoc(contractId).collection(
+      AdjustmentMeasurementData.collectionName,
+    );
+  }
+
+  DocumentReference<Map<String, dynamic>> _doc({
+    required String contractId,
+    required String adjustmentId,
+  }) {
+    return _col(contractId).doc(adjustmentId.trim());
+  }
+
+  String _uid() {
+    return _auth.currentUser?.uid ?? '';
+  }
+
+  bool _isTenantAdjustmentPath(String path) {
+    final parts = path
+        .split('/')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    if (parts.length < 6) return false;
+
+    return parts[0] == 'tenants' &&
+        parts[1] == fixedTenantId &&
+        parts[2] == 'contracts' &&
+        parts[4] == AdjustmentMeasurementData.collectionName;
   }
 
   Future<List<AdjustmentMeasurementData>> getAllAdjustmentsOfContract({
     required String uidContract,
   }) async {
-    final qs = await _col(uidContract).orderBy('order').get();
+    final contractId = uidContract.trim();
 
-    return qs.docs.map(AdjustmentMeasurementData.fromDocument).toList();
+    if (contractId.isEmpty) return const <AdjustmentMeasurementData>[];
+
+    QuerySnapshot<Map<String, dynamic>> qs;
+
+    try {
+      qs = await _col(contractId).orderBy('order').get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'failed-precondition' || e.code == 'not-found') {
+        qs = await _col(contractId).get();
+      } else {
+        rethrow;
+      }
+    }
+
+    final list = qs.docs.map(AdjustmentMeasurementData.fromDocument).toList();
+
+    list.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
+
+    return list;
   }
 
-  Future<List<AdjustmentMeasurementData>> getAllAdjustmentsCollectionGroup() async {
-    final qs = await _db
-        .collectionGroup(AdjustmentMeasurementData.collectionName)
-        .get();
+  Future<List<AdjustmentMeasurementData>>
+  getAllAdjustmentsCollectionGroup() async {
+    QuerySnapshot<Map<String, dynamic>> qs;
 
-    return qs.docs.map(AdjustmentMeasurementData.fromDocument).toList();
+    try {
+      qs = await _db
+          .collectionGroup(AdjustmentMeasurementData.collectionName)
+          .where('tenantId', isEqualTo: fixedTenantId)
+          .get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'failed-precondition' || e.code == 'not-found') {
+        qs = await _db
+            .collectionGroup(AdjustmentMeasurementData.collectionName)
+            .get();
+      } else {
+        rethrow;
+      }
+    }
+
+    final list = qs.docs
+        .where((doc) => _isTenantAdjustmentPath(doc.reference.path))
+        .map(AdjustmentMeasurementData.fromDocument)
+        .toList();
+
+    list.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
+
+    return list;
   }
 
   Future<void> saveOrUpdateAdjustment({
@@ -57,27 +136,33 @@ class AdjustmentMeasurementRepository {
       throw Exception('contractId é obrigatório para salvar reajuste.');
     }
 
-    final user = _auth.currentUser;
+    final docRef = adj.id?.trim().isNotEmpty == true
+        ? _doc(
+      contractId: cleanContractId,
+      adjustmentId: adj.id!.trim(),
+    )
+        : _col(cleanContractId).doc();
 
-    final docId = adj.id?.trim().isNotEmpty == true
-        ? adj.id!.trim()
-        : _col(cleanContractId).doc().id;
-
-    final docRef = _col(cleanContractId).doc(docId);
-
+    final adjustmentId = docRef.id;
     final existing = await docRef.get();
 
     final data = adj
         .copyWith(
-      id: docId,
+      id: adjustmentId,
       contractId: cleanContractId,
     )
         .toFirestore()
       ..addAll({
-        'id': docId,
+        'id': adjustmentId,
         'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'recordPath': docRef.path,
+        'sourceCollectionModel': 'tenant_contract_adjustments_measurement',
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': user?.uid ?? '',
+        'updatedBy': _uid(),
       });
 
     final hasCreatedAt =
@@ -85,7 +170,7 @@ class AdjustmentMeasurementRepository {
 
     if (!hasCreatedAt) {
       data['createdAt'] = FieldValue.serverTimestamp();
-      data['createdBy'] = user?.uid ?? '';
+      data['createdBy'] = _uid();
     } else {
       data.remove('createdAt');
       data.remove('createdBy');
@@ -105,7 +190,11 @@ class AdjustmentMeasurementRepository {
 
     if (cleanContractId.isEmpty || cleanAdjustmentId.isEmpty) return;
 
-    final docRef = _col(cleanContractId).doc(cleanAdjustmentId);
+    final docRef = _doc(
+      contractId: cleanContractId,
+      adjustmentId: cleanAdjustmentId,
+    );
+
     final snap = await docRef.get();
     final data = snap.data();
 
@@ -116,6 +205,7 @@ class AdjustmentMeasurementRepository {
         for (final item in raw) {
           if (item is Map) {
             final att = Attachment.fromMap(Map<String, dynamic>.from(item));
+
             if (att.path.trim().isNotEmpty) {
               await deleteStorageByPath(att.path);
             }
@@ -126,7 +216,8 @@ class AdjustmentMeasurementRepository {
 
     try {
       final folder = _storage.ref(
-        'contracts/$cleanContractId/${AdjustmentMeasurementData.collectionName}/$cleanAdjustmentId/attachments',
+        'tenants/$fixedTenantId/contracts/$cleanContractId/'
+            '${AdjustmentMeasurementData.collectionName}/$cleanAdjustmentId/attachments',
       );
 
       final list = await folder.listAll();
@@ -143,94 +234,33 @@ class AdjustmentMeasurementRepository {
     await _recalcularFinancialPercentage(cleanContractId);
   }
 
-  Future<void> _recalcularFinancialPercentage(String contractId) async {
-    double total = 0.0;
-
-    final reps = await _db
-        .collection('contracts')
-        .doc(contractId)
-        .collection('reportsMeasurement')
-        .get();
-
-    for (final doc in reps.docs) {
-      final value = doc.data()['value'];
-      total += value is num ? value.toDouble() : 0.0;
-    }
-
-    final adjs = await _db
-        .collection('contracts')
-        .doc(contractId)
-        .collection('adjustmentsMeasurement')
-        .get();
-
-    for (final doc in adjs.docs) {
-      final value = doc.data()['value'];
-      total += value is num ? value.toDouble() : 0.0;
-    }
-
-    final revs = await _db
-        .collection('contracts')
-        .doc(contractId)
-        .collection('revisionsMeasurement')
-        .get();
-
-    for (final doc in revs.docs) {
-      final value = doc.data()['value'];
-      total += value is num ? value.toDouble() : 0.0;
-    }
-
-    final contractSnap = await _db.collection('contracts').doc(contractId).get();
-    final initialValue = contractSnap.data()?['initialContractValue'];
-    final baseInicial = initialValue is num ? initialValue.toDouble() : 0.0;
-
-    final adds = await _db
-        .collection('contracts')
-        .doc(contractId)
-        .collection('additives')
-        .get();
-
-    double totalAditivos = 0.0;
-
-    for (final doc in adds.docs) {
-      final value = doc.data()['additiveValue'];
-      totalAditivos += value is num ? value.toDouble() : 0.0;
-    }
-
-    final apos = await _db
-        .collection('contracts')
-        .doc(contractId)
-        .collection('apostilles')
-        .get();
-
-    double totalApostilas = 0.0;
-
-    for (final doc in apos.docs) {
-      final value = doc.data()['apostilleValue'];
-      totalApostilas += value is num ? value.toDouble() : 0.0;
-    }
-
-    final totalBase = baseInicial + totalAditivos + totalApostilas;
-
-    final percent = totalBase > 0 ? (total / totalBase) * 100.0 : 0.0;
-
-    await _db.collection('contracts').doc(contractId).set({
-      'financialPercentage': percent,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
   Future<void> salvarUrlPdfDaAdjustmentMeasurement({
     required String contractId,
     required String adjustmentId,
     required String url,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanAdjustmentId = adjustmentId.trim();
     final cleanUrl = url.trim();
 
-    await _col(contractId).doc(adjustmentId).set(
+    if (cleanContractId.isEmpty || cleanAdjustmentId.isEmpty) return;
+
+    final docRef = _doc(
+      contractId: cleanContractId,
+      adjustmentId: cleanAdjustmentId,
+    );
+
+    await docRef.set(
       {
         'pdfUrl': cleanUrl.isEmpty ? FieldValue.delete() : cleanUrl,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'recordPath': docRef.path,
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': _auth.currentUser?.uid ?? '',
+        'updatedBy': _uid(),
       },
       SetOptions(merge: true),
     );
@@ -241,28 +271,42 @@ class AdjustmentMeasurementRepository {
     required String adjustmentId,
     required List<Attachment> attachments,
   }) async {
-    await _col(contractId).doc(adjustmentId).set(
+    final cleanContractId = contractId.trim();
+    final cleanAdjustmentId = adjustmentId.trim();
+
+    if (cleanContractId.isEmpty || cleanAdjustmentId.isEmpty) {
+      throw Exception('contractId e adjustmentId são obrigatórios.');
+    }
+
+    final docRef = _doc(
+      contractId: cleanContractId,
+      adjustmentId: cleanAdjustmentId,
+    );
+
+    await docRef.set(
       {
         'attachments': attachments.isEmpty
             ? FieldValue.delete()
             : attachments.map((e) => e.toMap()).toList(),
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'recordPath': docRef.path,
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': _auth.currentUser?.uid ?? '',
+        'updatedBy': _uid(),
       },
       SetOptions(merge: true),
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // Storage - anexos
-  // ---------------------------------------------------------------------------
 
   String _sanitize(String value) {
     return value.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
   }
 
   String fileName(
-      ProcessData contract,
+      ContractData contract,
       AdjustmentMeasurementData adjustment, {
         PublicacaoExtratoData? extrato,
       }) {
@@ -279,24 +323,39 @@ class AdjustmentMeasurementRepository {
   }
 
   String pathFor({
-    required ProcessData contract,
+    required ContractData contract,
     required String measurementId,
     required AdjustmentMeasurementData adj,
     PublicacaoExtratoData? extrato,
   }) {
-    return 'contracts/${contract.id}/measurements/$measurementId/${fileName(contract, adj, extrato: extrato)}';
+    final contractId = contract.id?.trim();
+
+    if (contractId == null || contractId.isEmpty) {
+      throw Exception('contract.id é obrigatório para PDF de reajuste.');
+    }
+
+    return 'tenants/$fixedTenantId/contracts/$contractId/'
+        '${AdjustmentMeasurementData.collectionName}/$measurementId/'
+        '${fileName(contract, adj, extrato: extrato)}';
   }
 
-  String attachmentsDir(ProcessData contract, AdjustmentMeasurementData adjustment) {
-    if (contract.id == null || contract.id!.trim().isEmpty) {
+  String attachmentsDir(
+      ContractData contract,
+      AdjustmentMeasurementData adjustment,
+      ) {
+    final contractId = contract.id?.trim();
+    final adjustmentId = adjustment.id?.trim();
+
+    if (contractId == null || contractId.isEmpty) {
       throw Exception('contract.id é obrigatório para anexos de reajuste.');
     }
 
-    if (adjustment.id == null || adjustment.id!.trim().isEmpty) {
+    if (adjustmentId == null || adjustmentId.isEmpty) {
       throw Exception('adjustment.id é obrigatório para anexos de reajuste.');
     }
 
-    return 'contracts/${contract.id}/${AdjustmentMeasurementData.collectionName}/${adjustment.id}/attachments';
+    return 'tenants/$fixedTenantId/contracts/$contractId/'
+        '${AdjustmentMeasurementData.collectionName}/$adjustmentId/attachments';
   }
 
   String _extFromName(String name) {
@@ -347,7 +406,7 @@ class AdjustmentMeasurementRepository {
   }
 
   Future<Attachment> uploadAttachmentBytes({
-    required ProcessData contract,
+    required ContractData contract,
     required AdjustmentMeasurementData adjustment,
     required Uint8List bytes,
     required String originalName,
@@ -363,10 +422,10 @@ class AdjustmentMeasurementRepository {
     final task = ref.putData(
       bytes,
       SettableMetadata(
-        contentType: ext == '.pdf'
-            ? 'application/pdf'
-            : 'application/octet-stream',
+        contentType:
+        ext == '.pdf' ? 'application/pdf' : 'application/octet-stream',
         customMetadata: {
+          'tenantId': fixedTenantId,
           'originalName': originalName,
           'contractId': contract.id ?? '',
           'adjustmentId': adjustment.id ?? '',
@@ -393,15 +452,17 @@ class AdjustmentMeasurementRepository {
       ext: ext,
       size: meta.size?.toInt(),
       createdAt: DateTime.now(),
-      createdBy: _auth.currentUser?.uid,
+      createdBy: _uid(),
     );
   }
 
   Future<void> deleteStorageByPath(String storagePath) async {
-    if (storagePath.trim().isEmpty) return;
+    final cleanPath = storagePath.trim();
+
+    if (cleanPath.isEmpty) return;
 
     try {
-      await _storage.ref(storagePath).delete();
+      await _storage.ref(cleanPath).delete();
     } catch (_) {}
   }
 
@@ -444,12 +505,8 @@ class AdjustmentMeasurementRepository {
     return total;
   }
 
-  // ---------------------------------------------------------------------------
-  // API legado - PDF único
-  // ---------------------------------------------------------------------------
-
   Future<bool> exists({
-    required ProcessData contract,
+    required ContractData contract,
     required String measurementId,
     required AdjustmentMeasurementData adj,
     PublicacaoExtratoData? extrato,
@@ -473,7 +530,7 @@ class AdjustmentMeasurementRepository {
   }
 
   Future<String?> getUrl({
-    required ProcessData contract,
+    required ContractData contract,
     required String measurementId,
     required AdjustmentMeasurementData adj,
     PublicacaoExtratoData? extrato,
@@ -495,7 +552,7 @@ class AdjustmentMeasurementRepository {
   }
 
   Future<String> uploadWithPicker({
-    required ProcessData contract,
+    required ContractData contract,
     required String adjustmentId,
     required AdjustmentMeasurementData adj,
     required void Function(double progress) onProgress,
@@ -522,7 +579,14 @@ class AdjustmentMeasurementRepository {
 
     final task = ref.putData(
       result.files.single.bytes!,
-      SettableMetadata(contentType: 'application/pdf'),
+      SettableMetadata(
+        contentType: 'application/pdf',
+        customMetadata: {
+          'tenantId': fixedTenantId,
+          'contractId': contract.id ?? '',
+          'adjustmentId': adjustmentId,
+        },
+      ),
     );
 
     task.snapshotEvents.listen((event) {
@@ -537,7 +601,7 @@ class AdjustmentMeasurementRepository {
   }
 
   Future<bool> delete({
-    required ProcessData contract,
+    required ContractData contract,
     required String measurementId,
     required AdjustmentMeasurementData adj,
     PublicacaoExtratoData? extrato,
@@ -566,14 +630,83 @@ class AdjustmentMeasurementRepository {
     required String url,
   }) async {
     try {
-      await _col(contractId).doc(adjustmentId).set(
-        {
-          'pdfUrlAdjustment': url.trim().isEmpty ? FieldValue.delete() : url,
-          'updatedAt': FieldValue.serverTimestamp(),
-          'updatedBy': _auth.currentUser?.uid ?? '',
-        },
-        SetOptions(merge: true),
+      await salvarUrlPdfDaAdjustmentMeasurement(
+        contractId: contractId,
+        adjustmentId: adjustmentId,
+        url: url,
       );
     } catch (_) {}
+  }
+
+  Future<void> _recalcularFinancialPercentage(String contractId) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return;
+
+    double total = 0.0;
+
+    final reps = await _contractDoc(cleanContractId)
+        .collection('reportsMeasurement')
+        .get();
+
+    for (final doc in reps.docs) {
+      final value = doc.data()['value'];
+      total += value is num ? value.toDouble() : 0.0;
+    }
+
+    final adjs = await _contractDoc(cleanContractId)
+        .collection('adjustmentsMeasurement')
+        .get();
+
+    for (final doc in adjs.docs) {
+      final value = doc.data()['value'];
+      total += value is num ? value.toDouble() : 0.0;
+    }
+
+    final revs = await _contractDoc(cleanContractId)
+        .collection('revisionsMeasurement')
+        .get();
+
+    for (final doc in revs.docs) {
+      final value = doc.data()['value'];
+      total += value is num ? value.toDouble() : 0.0;
+    }
+
+    final contractSnap = await _contractDoc(cleanContractId).get();
+    final initialValue = contractSnap.data()?['initialContractValue'];
+    final baseInicial = initialValue is num ? initialValue.toDouble() : 0.0;
+
+    final adds = await _contractDoc(cleanContractId).collection('additives').get();
+
+    double totalAditivos = 0.0;
+
+    for (final doc in adds.docs) {
+      final value = doc.data()['additiveValue'] ?? doc.data()['additivevalue'];
+      totalAditivos += value is num ? value.toDouble() : 0.0;
+    }
+
+    final apos =
+    await _contractDoc(cleanContractId).collection('apostilles').get();
+
+    double totalApostilas = 0.0;
+
+    for (final doc in apos.docs) {
+      final value = doc.data()['apostilleValue'] ?? doc.data()['apostillevalue'];
+      totalApostilas += value is num ? value.toDouble() : 0.0;
+    }
+
+    final totalBase = baseInicial + totalAditivos + totalApostilas;
+
+    final percent = totalBase > 0 ? (total / totalBase) * 100.0 : 0.0;
+
+    await _contractDoc(cleanContractId).set(
+      {
+        'financialPercentage': percent,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
   }
 }

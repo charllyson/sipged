@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -100,7 +100,7 @@ class _SectionConsolidationState extends State<SectionConsolidation> {
                     enabled: widget.isEditable,
                     labelText: 'Situação da habilitação',
                     controller: _situacaoCtrl,
-                    items: HiringData.situacaoHabilitacao,
+                    items: ProgressData.situacaoHabilitacao,
                     onChanged: (v) {
                       _situacaoCtrl.text = v ?? '';
                       _emitChange();

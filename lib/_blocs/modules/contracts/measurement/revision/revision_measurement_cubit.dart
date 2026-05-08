@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
@@ -324,7 +324,7 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
   }
 
   Future<void> addAttachmentWithPicker({
-    required ProcessData contract,
+    required ContractData contract,
     String label = '',
     void Function(double progress)? onProgress,
   }) async {

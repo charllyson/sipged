@@ -11,8 +11,8 @@ import 'package:sipged/_blocs/system/permission/permission_data.dart';
 
 import 'package:sipged/_widgets/images/mini_avatars/mini_avatars.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
@@ -48,7 +48,7 @@ class TabBanner extends StatefulWidget {
     this.contractNumberText,
   });
 
-  final ProcessData contract;
+  final ContractData contract;
 
   /// Usado apenas para:
   /// 1. numeroContrato
@@ -69,7 +69,7 @@ class TabBanner extends StatefulWidget {
   final VoidCallback? onTap;
   final bool interactive;
   final UserData? userData;
-  final ProcessCubit? contractsCubit;
+  final ContractCubit? contractsCubit;
 
   final bool showStamp;
   final bool stampApproved;
@@ -86,7 +86,7 @@ class TabBanner extends StatefulWidget {
 }
 
 class _TabBannerState extends State<TabBanner> {
-  late ProcessData _contractData;
+  late ContractData _contractData;
 
   @override
   void initState() {
@@ -128,7 +128,7 @@ class _TabBannerState extends State<TabBanner> {
     );
   }
 
-  bool _can(String action, {ProcessData? c}) {
+  bool _can(String action, {ContractData? c}) {
     final user = _currentUser();
     final permissionData = _permissionDataForUser(user);
 
@@ -313,10 +313,10 @@ class _TabBannerState extends State<TabBanner> {
 
   Future<void> _openParticipantsDialogFromBanner(
       BuildContext context,
-      ProcessData contrato,
+      ContractData contrato,
       ) async {
-    final ProcessCubit contractCubit =
-        widget.contractsCubit ?? context.read<ProcessCubit>();
+    final ContractCubit contractCubit =
+        widget.contractsCubit ?? context.read<ContractCubit>();
 
     final userState = context.read<UserCubit>().state;
     final mediaQuery = MediaQuery.of(context);
@@ -391,8 +391,8 @@ class _TabBannerState extends State<TabBanner> {
     );
   }
 
-  Future<void> _refreshLocalContract(ProcessData contrato) async {
-    final cubit = widget.contractsCubit ?? context.read<ProcessCubit>();
+  Future<void> _refreshLocalContract(ContractData contrato) async {
+    final cubit = widget.contractsCubit ?? context.read<ContractCubit>();
 
     if (contrato.id == null) return;
 

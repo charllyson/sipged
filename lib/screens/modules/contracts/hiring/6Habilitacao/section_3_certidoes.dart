@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
@@ -43,7 +43,7 @@ class _SectionCertidoesState extends State<SectionCertidoes> {
   @override
   Widget build(BuildContext context) {
     final d = _localData;
-    final items = HiringData.tiposCertidoes;
+    final items = ProgressData.tiposCertidoes;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

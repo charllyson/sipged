@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/financial/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/financial/budget/budget_state.dart';
 
@@ -19,7 +19,7 @@ class BudgetPage extends StatefulWidget {
     this.contractData,
   });
 
-  final ProcessData? contractData;
+  final ContractData? contractData;
 
   @override
   State<BudgetPage> createState() => _BudgetPageState();

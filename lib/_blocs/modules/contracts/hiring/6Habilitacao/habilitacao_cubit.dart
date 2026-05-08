@@ -2,7 +2,7 @@
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
 
 import 'habilitacao_data.dart';
 import 'habilitacao_repository.dart';

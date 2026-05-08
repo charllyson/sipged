@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -39,7 +39,7 @@ class ValidityPage extends StatefulWidget {
     required this.contractData,
   });
 
-  final ProcessData contractData;
+  final ContractData contractData;
 
   @override
   State<ValidityPage> createState() => _ValidityPageState();
@@ -111,6 +111,12 @@ class _ValidityPageState extends State<ValidityPage> {
     } catch (e, stack) {
       debugPrint('Falha ao carregar DFD do contrato em validade: $e');
       debugPrintStack(stackTrace: stack);
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = null;
+      });
     }
   }
 

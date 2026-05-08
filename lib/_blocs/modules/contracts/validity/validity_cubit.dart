@@ -1,8 +1,9 @@
-// lib/_blocs/modules/contracts/validity/validity_cubit.dart
-
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
@@ -142,9 +143,8 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   List<String> _orderNumberOptionsFromSet(Set<int> set) {
-    final maxPlusOne = set.isEmpty
-        ? 1
-        : set.reduce((a, b) => a > b ? a : b) + 1;
+    final maxPlusOne =
+    set.isEmpty ? 1 : set.reduce((a, b) => a > b ? a : b) + 1;
 
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
@@ -241,40 +241,50 @@ class ValidityCubit extends Cubit<ValidityState> {
         uid: cleanContractId,
       );
 
-      if (contract == null) {
-        _publicacaoExtrato = null;
-        _trData = null;
+      final effectiveContract = contract ??
+          ContractData(
+            id: cleanContractId,
+            permissionContractId: const <String, Map<String, bool>>{},
+            participantsInfo: const <String, Map<String, dynamic>>{},
+          );
 
+      List<ValidityData> validities = const <ValidityData>[];
+      List<AdditivesData> additives = const <AdditivesData>[];
+
+      try {
+        validities = await _repository.getAllValidityOfContract(
+          uidContract: cleanContractId,
+        );
+      } catch (e) {
         emit(
           state.copyWith(
             isLoading: false,
-            errorMessage: 'Contrato não encontrado',
-            clearContract: true,
-            clearSelectedValidity: true,
-            clearAttachments: true,
-            validities: const <ValidityData>[],
-            additives: const [],
-            orderNumberOptions: const <String>['1'],
-            greyOrderItems: const <String>{},
-            availableOrderTypes: const <String>[],
-            nextOrderNumber: 1,
+            contract: effectiveContract,
+            errorMessage: 'Erro ao carregar ordens/vigências: $e',
           ),
         );
         return;
       }
 
-      final results = await Future.wait<dynamic>([
-        _repository.getAllValidityOfContract(uidContract: cleanContractId),
-        _repository.buscarAditivos(cleanContractId),
-        _publicacaoRepository.readDataForContract(cleanContractId),
-        _trRepository.readDataForContract(cleanContractId),
-      ]);
+      try {
+        additives = await _repository.buscarAditivos(cleanContractId);
+      } catch (_) {
+        additives = const <AdditivesData>[];
+      }
 
-      final validities = results[0] as List<ValidityData>;
-      final additives = results[1] as List;
+      try {
+        _publicacaoExtrato = await _publicacaoRepository.readDataForContract(
+          cleanContractId,
+        );
+      } catch (_) {
+        _publicacaoExtrato = null;
+      }
 
-      _publicacaoExtrato = results[2] as PublicacaoExtratoData?;
-      _trData = results[3] as TrData?;
+      try {
+        _trData = await _trRepository.readDataForContract(cleanContractId);
+      } catch (_) {
+        _trData = null;
+      }
 
       final sortedValidities = _sorted(validities);
       final existingSet = _existingOrders(sortedValidities);
@@ -283,9 +293,9 @@ class ValidityCubit extends Cubit<ValidityState> {
       emit(
         state.copyWith(
           isLoading: false,
-          contract: contract,
+          contract: effectiveContract,
           validities: sortedValidities,
-          additives: additives.cast(),
+          additives: additives,
           nextOrderNumber: nextOrder,
           orderNumberOptions: _orderNumberOptionsFromSet(existingSet),
           greyOrderItems: existingSet.map((e) => e.toString()).toSet(),

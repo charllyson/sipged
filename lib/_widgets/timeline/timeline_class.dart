@@ -6,7 +6,7 @@ import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
 
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_repository.dart';
@@ -79,7 +79,7 @@ class TimelineClass extends StatelessWidget {
   }
 
   List<TimelineItem> _gerarTimelineItems({
-    required ProcessData contract,
+    required ContractData contract,
     required List<AdditivesData> additives,
     required List<ValidityData> validities,
     required PublicacaoExtratoData? publicacao,

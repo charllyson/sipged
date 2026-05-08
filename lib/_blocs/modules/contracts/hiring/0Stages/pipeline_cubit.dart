@@ -42,7 +42,7 @@ class PipelineState {
 }
 
 class PipelineCubit extends Cubit<PipelineState> {
-  final PipelineProgressService service;
+  final PipelineProgress service;
   final ProgressRepository progressRepo;
   String contractId;
 

@@ -7,7 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
@@ -70,7 +70,7 @@ class _DotacaoPageState extends State<DotacaoPage>
   late final ProgressCubit _progressBloc;
 
   DotacaoData _formData = const DotacaoData.empty();
-  ProcessData _contract = ProcessData.empty();
+  ContractData _contract = ContractData.empty();
   DfdData? _dfdData;
 
   bool _hydrated = false;
@@ -84,7 +84,7 @@ class _DotacaoPageState extends State<DotacaoPage>
 
   String get _contractId => widget.contractId.trim();
 
-  ProcessData get _effectiveContract {
+  ContractData get _effectiveContract {
     if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
     if (_contractId.isNotEmpty) return _contract.copyWith(id: _contractId);
     return _contract;
@@ -160,8 +160,8 @@ class _DotacaoPageState extends State<DotacaoPage>
 
       setState(() {
         _contract = snapshot.exists
-            ? ProcessData.fromDocument(snapshot: snapshot)
-            : ProcessData.empty().copyWith(id: cid);
+            ? ContractData.fromDocument(snapshot: snapshot)
+            : ContractData.empty().copyWith(id: cid);
 
         _loadingContract = false;
       });
@@ -172,7 +172,7 @@ class _DotacaoPageState extends State<DotacaoPage>
       if (!mounted) return;
 
       setState(() {
-        _contract = ProcessData.empty().copyWith(id: cid);
+        _contract = ContractData.empty().copyWith(id: cid);
         _loadingContract = false;
       });
     }

@@ -12,8 +12,8 @@ import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/1Dfd/dfd_page.dart';
 import 'package:sipged/screens/modules/contracts/hiring/2Etp/etp_page.dart';
@@ -35,8 +35,8 @@ class TabBarHiringPage extends StatefulWidget {
     this.initialTabIndex = 0,
   });
 
-  final ProcessData? contractData;
-  final ProcessCubit? contractsCubit;
+  final ContractData? contractData;
+  final ContractCubit? contractsCubit;
   final int initialTabIndex;
 
   @override
@@ -67,7 +67,7 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
     }
 
     _pipelineCubit = PipelineCubit(
-      service: PipelineProgressService(),
+      service: PipelineProgress(),
       contractId: _contractId,
       progressRepo: _progressRepo,
     );
@@ -135,7 +135,7 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
     }
   }
 
-  String _buildContractNumber(ProcessData contract) {
+  String _buildContractNumber(ContractData contract) {
     final processo = _dfdProcessoAdministrativo?.trim();
 
     if (processo != null && processo.isNotEmpty) {
@@ -236,7 +236,7 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
             contractNumberBuilder: _buildContractNumber,
             resolveStampForTab: ({
               required int tabIndex,
-              required ProcessData contract,
+              required ContractData contract,
             }) {
               final ok = isApprovedForTab(tabIndex);
               return makeConfig(idx: tabIndex, approved: ok);

@@ -1,7 +1,7 @@
 // lib/screens/modules/contracts/hiring/5Edital/section_5_parecer_recursos.dart
 import 'package:flutter/material.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_yes_no.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -138,7 +138,7 @@ class _SectionParecerRecursosState extends State<SectionParecerRecursos> {
                           enabled: isEditable,
                           labelText: 'Critério aplicado (confirmação)',
                           controller: _criterioAplicadoCtrl,
-                          items: HiringData.criterioJulgamento,
+                          items: ProgressData.criterioJulgamento,
                           onChanged: (v) {
                             final text = v ?? '';
                             if (_criterioAplicadoCtrl.text != text) {

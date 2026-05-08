@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
@@ -442,7 +442,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     enabled: widget.isEditable,
                     labelText: 'Tipo de contratação',
                     controller: _tipoContratacaoCtrl,
-                    items: HiringData.tiposDeContratacao,
+                    items: ProgressData.tiposDeContratacao,
                     validator: null,
                     onChanged: (value) {
                       _syncControllerText(
@@ -461,7 +461,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     enabled: widget.isEditable,
                     labelText: 'Tipo de obra',
                     controller: _tipoObraCtrl,
-                    items: HiringData.workTypes,
+                    items: ProgressData.workTypes,
                     validator: null,
                     onChanged: (value) {
                       _syncControllerText(

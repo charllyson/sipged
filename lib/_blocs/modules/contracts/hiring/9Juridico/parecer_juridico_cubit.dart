@@ -2,7 +2,7 @@
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
 
 import 'parecer_juridico_data.dart';
 import 'parecer_juridico_repository.dart';

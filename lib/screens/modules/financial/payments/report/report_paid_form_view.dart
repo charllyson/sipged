@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 import 'package:sipged/_blocs/modules/financial/payments/report/report_paid_cubit.dart';
 import 'package:sipged/_blocs/modules/financial/payments/report/report_paid_data.dart';
@@ -37,7 +37,7 @@ class ReportMeasurementPaymentFormView extends StatefulWidget {
     this.onPaymentsChanged,
   });
 
-  final ProcessData contractData;
+  final ContractData contractData;
   final ReportExecutedData selectedReportMeasurement;
   final TextEditingController orderController;
   final bool isEditable;

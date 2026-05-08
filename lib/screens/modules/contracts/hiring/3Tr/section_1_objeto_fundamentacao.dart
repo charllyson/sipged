@@ -1,8 +1,8 @@
 // lib/screens/modules/contracts/hiring/3Tr/section_1_objeto_fundamentacao.dart
 
 import 'package:flutter/material.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
 
 import 'package:sipged/_widgets/input/text_field_change.dart';
@@ -118,7 +118,7 @@ class _SectionObjetoFundamentacaoState
                           enabled: widget.isEditable,
                           labelText: 'Tipo de contratação',
                           controller: _tipoContratacaoCtrl,
-                          items: HiringData.tiposDeContratacao,
+                          items: ProgressData.tiposDeContratacao,
                           validator: validateRequired,
                           onChanged: (v) {
                             _tipoContratacaoCtrl.text = v ?? '';
@@ -134,7 +134,7 @@ class _SectionObjetoFundamentacaoState
                           enabled: widget.isEditable,
                           labelText: 'Regime de execução',
                           controller: _regimeExecucaoCtrl,
-                          items: HiringData.regimeDeExecucao,
+                          items: ProgressData.regimeDeExecucao,
                           validator: validateRequired,
                           onChanged: (v) {
                             _regimeExecucaoCtrl.text = v ?? '';

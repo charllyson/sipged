@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 
@@ -113,7 +113,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     }
   }
 
-  final ProcessData contract;
+  final ContractData contract;
   final AdditivesRepository repository;
   final String moduleId;
 

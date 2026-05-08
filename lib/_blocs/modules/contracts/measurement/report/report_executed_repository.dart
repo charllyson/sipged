@@ -7,7 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_data.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
@@ -29,9 +29,21 @@ class ReportExecutedRepository {
 
   static const int _kMaxBatchOps = 500;
 
+  static const String fixedTenantId = 'SZQmefRUqdtLB14ahcuh';
+
+  /// Novo caminho oficial multi-tenant:
+  ///
+  /// tenants/{tenantId}/contracts/{contractId}/reportsMeasurement/{measurementId}
+  static const String tenantContractsCollectionPath =
+      'tenants/$fixedTenantId/contracts';
+
   // ---------------------------------------------------------------------------
   // Helpers internos
   // ---------------------------------------------------------------------------
+
+  String _uid() {
+    return _auth.currentUser?.uid ?? '';
+  }
 
   List<List<T>> _chunk<T>(List<T> list, int size) {
     final chunks = <List<T>>[];
@@ -55,10 +67,18 @@ class ReportExecutedRepository {
 
   double _asDouble(dynamic value) {
     if (value == null) return 0.0;
+
     if (value is num) return value.toDouble();
 
     if (value is String) {
-      return double.tryParse(value.replaceAll(',', '.')) ?? 0.0;
+      final normalized = value
+          .replaceAll('R\$', '')
+          .replaceAll(' ', '')
+          .replaceAll('.', '')
+          .replaceAll(',', '.')
+          .trim();
+
+      return double.tryParse(normalized) ?? 0.0;
     }
 
     return 0.0;
@@ -90,22 +110,44 @@ class ReportExecutedRepository {
     return cleanName.substring(0, index);
   }
 
+  bool _isTenantMeasurementPath(String path) {
+    final parts = path
+        .split('/')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    if (parts.length < 6) return false;
+
+    return parts[0] == 'tenants' &&
+        parts[1] == fixedTenantId &&
+        parts[2] == 'contracts' &&
+        parts[4] == ReportExecutedData.collectionName;
+  }
+
   // ---------------------------------------------------------------------------
   // Referências
   // ---------------------------------------------------------------------------
 
+  CollectionReference<Map<String, dynamic>> _contractsCol() {
+    return _db.collection(tenantContractsCollectionPath);
+  }
+
+  DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
+    return _contractsCol().doc(contractId.trim());
+  }
+
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
-    return _db
-        .collection('contracts')
-        .doc(contractId)
-        .collection(ReportExecutedData.collectionName);
+    return _contractDoc(contractId).collection(
+      ReportExecutedData.collectionName,
+    );
   }
 
   DocumentReference<Map<String, dynamic>> _measurementDoc({
     required String contractId,
     required String measurementId,
   }) {
-    return _col(contractId).doc(measurementId);
+    return _col(contractId).doc(measurementId.trim());
   }
 
   CollectionReference<Map<String, dynamic>> _itemsCol({
@@ -126,7 +168,9 @@ class ReportExecutedRepository {
   }) {
     final cleanExt = ext.startsWith('.') ? ext : '.$ext';
 
-    return 'contracts/$contractId/${ReportExecutedData.collectionName}/$measurementId/files/$attachmentId$cleanExt';
+    return 'tenants/$fixedTenantId/contracts/$contractId/'
+        '${ReportExecutedData.collectionName}/$measurementId/files/'
+        '$attachmentId$cleanExt';
   }
 
   Reference _storageRef(String path) {
@@ -140,25 +184,67 @@ class ReportExecutedRepository {
   Future<List<ReportExecutedData>> getAllMeasurementsOfContract({
     required String uidContract,
   }) async {
-    final snapshot = await _col(uidContract).orderBy('order').get();
+    final contractId = uidContract.trim();
 
-    return snapshot.docs.map(ReportExecutedData.fromDocument).toList();
+    if (contractId.isEmpty) return const <ReportExecutedData>[];
+
+    QuerySnapshot<Map<String, dynamic>> snapshot;
+
+    try {
+      snapshot = await _col(contractId).orderBy('order').get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'failed-precondition' || e.code == 'not-found') {
+        snapshot = await _col(contractId).get();
+      } else {
+        rethrow;
+      }
+    }
+
+    final list = snapshot.docs.map(ReportExecutedData.fromDocument).toList();
+
+    list.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
+
+    return list;
   }
 
   Future<List<ReportExecutedData>> getAllMeasurementsCollectionGroup() async {
-    final query = await _db
-        .collectionGroup(ReportExecutedData.collectionName)
-        .get();
+    QuerySnapshot<Map<String, dynamic>> query;
 
-    return query.docs.map(ReportExecutedData.fromDocument).toList();
+    try {
+      query = await _db
+          .collectionGroup(ReportExecutedData.collectionName)
+          .where('tenantId', isEqualTo: fixedTenantId)
+          .get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'failed-precondition' || e.code == 'not-found') {
+        query = await _db
+            .collectionGroup(ReportExecutedData.collectionName)
+            .get();
+      } else {
+        rethrow;
+      }
+    }
+
+    final list = query.docs
+        .where((doc) => _isTenantMeasurementPath(doc.reference.path))
+        .map(ReportExecutedData.fromDocument)
+        .toList();
+
+    list.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
+
+    return list;
   }
 
-  Future<ProcessData?> buscarContrato(String contractId) async {
-    final snap = await _db.collection('contracts').doc(contractId).get();
+  Future<ContractData?> buscarContrato(String contractId) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return null;
+
+    final snap = await _contractDoc(cleanContractId).get();
 
     if (!snap.exists) return null;
 
-    return ProcessData.fromDocument(snapshot: snap);
+    return ContractData.fromDocument(snapshot: snap);
   }
 
   // ---------------------------------------------------------------------------
@@ -166,30 +252,35 @@ class ReportExecutedRepository {
   // ---------------------------------------------------------------------------
 
   Future<void> saveOrUpdateReport(ReportExecutedData report) async {
-    final user = _auth.currentUser;
     final contractId = report.contractId?.trim();
 
     if (contractId == null || contractId.isEmpty) {
       throw Exception('contractId é obrigatório');
     }
 
-    final ref = _col(contractId);
-
     final docRef = report.id != null && report.id!.trim().isNotEmpty
-        ? ref.doc(report.id!.trim())
-        : ref.doc();
+        ? _col(contractId).doc(report.id!.trim())
+        : _col(contractId).doc();
 
-    report.id = docRef.id;
+    final measurementId = docRef.id;
+
+    report.id = measurementId;
     report.contractId = contractId;
 
     final existing = await docRef.get();
 
     final data = report.toFirestore()
       ..addAll({
-        'id': docRef.id,
+        'id': measurementId,
         'contractId': contractId,
+        'uidContract': contractId,
+        'uidcontract': contractId,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'recordPath': docRef.path,
+        'sourceCollectionModel': 'tenant_contract_reports_measurement',
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': user?.uid ?? '',
+        'updatedBy': _uid(),
       });
 
     final hasCreatedAt =
@@ -197,7 +288,7 @@ class ReportExecutedRepository {
 
     if (!hasCreatedAt) {
       data['createdAt'] = FieldValue.serverTimestamp();
-      data['createdBy'] = user?.uid ?? '';
+      data['createdBy'] = _uid();
     } else {
       data.remove('createdAt');
       data.remove('createdBy');
@@ -206,20 +297,6 @@ class ReportExecutedRepository {
     await docRef.set(data, SetOptions(merge: true));
 
     await _recalcularFinancialPercentage(contractId);
-
-    /*
-      IMPORTANTE:
-      Não criar notificação aqui.
-
-      A notificação correta já é criada na tela ReportMeasurement,
-      usando NotificationMeasurements.show(...).
-
-      O método legado _notificar() foi removido porque criava um segundo
-      documento em users/{uid}/notifications com campos antigos:
-      tipo, titulo, contractId, measurementId, seen.
-
-      Esse documento antigo era o que aparecia no sino como "Notificação".
-    */
   }
 
   Future<void> deleteMeasurement({
@@ -233,7 +310,8 @@ class ReportExecutedRepository {
 
     try {
       final folder = _storage.ref(
-        'contracts/$cleanContractId/${ReportExecutedData.collectionName}/$cleanMeasurementId/files',
+        'tenants/$fixedTenantId/contracts/$cleanContractId/'
+            '${ReportExecutedData.collectionName}/$cleanMeasurementId/files',
       );
 
       final list = await folder.listAll();
@@ -245,7 +323,10 @@ class ReportExecutedRepository {
       }
     } catch (_) {}
 
-    await _col(cleanContractId).doc(cleanMeasurementId).delete();
+    await _measurementDoc(
+      contractId: cleanContractId,
+      measurementId: cleanMeasurementId,
+    ).delete();
 
     await _recalcularFinancialPercentage(cleanContractId);
   }
@@ -310,6 +391,7 @@ class ReportExecutedRepository {
       SettableMetadata(
         contentType: 'application/pdf',
         customMetadata: {
+          'tenantId': fixedTenantId,
           'contractId': cleanContractId,
           'measurementId': cleanMeasurementId,
           'attachmentId': attachmentId,
@@ -337,6 +419,8 @@ class ReportExecutedRepository {
       url: url,
       path: path,
       ext: ext,
+      createdAt: DateTime.now(),
+      createdBy: _uid(),
     );
 
     await _addAttachmentToMeasurementDoc(
@@ -358,11 +442,19 @@ class ReportExecutedRepository {
       measurementId: measurementId,
     );
 
-    await docRef.set({
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _auth.currentUser?.uid ?? '',
-      'contractId': contractId,
-    }, SetOptions(merge: true));
+    await docRef.set(
+      {
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': contractId,
+        'uidContract': contractId,
+        'uidcontract': contractId,
+        'recordPath': docRef.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
 
     final snap = await docRef.get();
     final data = snap.data() ?? <String, dynamic>{};
@@ -384,11 +476,14 @@ class ReportExecutedRepository {
 
     list.add(attachment.toMap());
 
-    await docRef.set({
-      'attachments': list,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _auth.currentUser?.uid ?? '',
-    }, SetOptions(merge: true));
+    await docRef.set(
+      {
+        'attachments': list,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   Future<void> deleteAttachment({
@@ -396,9 +491,14 @@ class ReportExecutedRepository {
     required String measurementId,
     required Attachment attachment,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanMeasurementId = measurementId.trim();
+
+    if (cleanContractId.isEmpty || cleanMeasurementId.isEmpty) return;
+
     final docRef = _measurementDoc(
-      contractId: contractId,
-      measurementId: measurementId,
+      contractId: cleanContractId,
+      measurementId: cleanMeasurementId,
     );
 
     final snap = await docRef.get();
@@ -419,11 +519,18 @@ class ReportExecutedRepository {
       return item['id']?.toString() == attachment.id;
     });
 
-    await docRef.set({
-      'attachments': list.isEmpty ? FieldValue.delete() : list,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _auth.currentUser?.uid ?? '',
-    }, SetOptions(merge: true));
+    await docRef.set(
+      {
+        'attachments': list.isEmpty ? FieldValue.delete() : list,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'recordPath': docRef.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
 
     final path = attachment.path.trim();
 
@@ -440,9 +547,14 @@ class ReportExecutedRepository {
     required Attachment oldItem,
     required Attachment newItem,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanMeasurementId = measurementId.trim();
+
+    if (cleanContractId.isEmpty || cleanMeasurementId.isEmpty) return;
+
     final docRef = _measurementDoc(
-      contractId: contractId,
-      measurementId: measurementId,
+      contractId: cleanContractId,
+      measurementId: cleanMeasurementId,
     );
 
     final snap = await docRef.get();
@@ -468,11 +580,18 @@ class ReportExecutedRepository {
       }
     }
 
-    await docRef.set({
-      'attachments': list,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _auth.currentUser?.uid ?? '',
-    }, SetOptions(merge: true));
+    await docRef.set(
+      {
+        'attachments': list,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'recordPath': docRef.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -484,11 +603,31 @@ class ReportExecutedRepository {
     required String measurementId,
     required String url,
   }) async {
-    await _col(contractId).doc(measurementId).update({
-      'pdfUrl': url,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _auth.currentUser?.uid ?? '',
-    });
+    final cleanContractId = contractId.trim();
+    final cleanMeasurementId = measurementId.trim();
+    final cleanUrl = url.trim();
+
+    if (cleanContractId.isEmpty || cleanMeasurementId.isEmpty) return;
+
+    final docRef = _measurementDoc(
+      contractId: cleanContractId,
+      measurementId: cleanMeasurementId,
+    );
+
+    await docRef.set(
+      {
+        'pdfUrl': cleanUrl.isEmpty ? FieldValue.delete() : cleanUrl,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'recordPath': docRef.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -507,9 +646,15 @@ class ReportExecutedRepository {
   // ---------------------------------------------------------------------------
 
   Future<void> _recalcularFinancialPercentage(String contractId) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return;
+
     double totalMedicoes = 0.0;
 
-    final reportsSnapshot = await _col(contractId).get();
+    final reportsSnapshot = await _contractDoc(cleanContractId)
+        .collection('reportsMeasurement')
+        .get();
 
     for (final doc in reportsSnapshot.docs) {
       final value = doc.data()['value'];
@@ -519,38 +664,58 @@ class ReportExecutedRepository {
       }
     }
 
-    final contractSnap = await _db.collection('contracts').doc(contractId).get();
+    final adjustmentsSnapshot = await _contractDoc(cleanContractId)
+        .collection('adjustmentsMeasurement')
+        .get();
+
+    for (final doc in adjustmentsSnapshot.docs) {
+      final value = doc.data()['value'];
+
+      if (value is num) {
+        totalMedicoes += value.toDouble();
+      }
+    }
+
+    final revisionsSnapshot = await _contractDoc(cleanContractId)
+        .collection('revisionsMeasurement')
+        .get();
+
+    for (final doc in revisionsSnapshot.docs) {
+      final value = doc.data()['value'];
+
+      if (value is num) {
+        totalMedicoes += value.toDouble();
+      }
+    }
+
+    final contractSnap = await _contractDoc(cleanContractId).get();
 
     final initialValue = contractSnap.data()?['initialContractValue'];
 
     final baseInicial = initialValue is num ? initialValue.toDouble() : 0.0;
 
-    final additivesSnapshot = await _db
-        .collection('contracts')
-        .doc(contractId)
-        .collection('additives')
-        .get();
+    final additivesSnapshot =
+    await _contractDoc(cleanContractId).collection('additives').get();
 
     double totalAditivos = 0.0;
 
     for (final doc in additivesSnapshot.docs) {
-      final value = doc.data()['additiveValue'];
+      final data = doc.data();
+      final value = data['additiveValue'] ?? data['additivevalue'];
 
       if (value is num) {
         totalAditivos += value.toDouble();
       }
     }
 
-    final apostillesSnapshot = await _db
-        .collection('contracts')
-        .doc(contractId)
-        .collection('apostilles')
-        .get();
+    final apostillesSnapshot =
+    await _contractDoc(cleanContractId).collection('apostilles').get();
 
     double totalApostilas = 0.0;
 
     for (final doc in apostillesSnapshot.docs) {
-      final value = doc.data()['apostilleValue'];
+      final data = doc.data();
+      final value = data['apostilleValue'] ?? data['apostillevalue'];
 
       if (value is num) {
         totalApostilas += value.toDouble();
@@ -559,12 +724,18 @@ class ReportExecutedRepository {
 
     final totalBase = baseInicial + totalAditivos + totalApostilas;
 
-    final percent = totalBase > 0 ? (totalMedicoes / totalBase) * 100.0 : 0.0;
+    final percent =
+    totalBase > 0 ? (totalMedicoes / totalBase) * 100.0 : 0.0;
 
-    await _db.collection('contracts').doc(contractId).set({
-      'financialPercentage': percent,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await _contractDoc(cleanContractId).set(
+      {
+        'financialPercentage': percent,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -575,9 +746,16 @@ class ReportExecutedRepository {
     required String contractId,
     required String measurementId,
   }) async {
+    final cleanContractId = contractId.trim();
+    final cleanMeasurementId = measurementId.trim();
+
+    if (cleanContractId.isEmpty || cleanMeasurementId.isEmpty) {
+      return <String, Map<String, dynamic>>{};
+    }
+
     final snapshot = await _itemsCol(
-      contractId: contractId,
-      measurementId: measurementId,
+      contractId: cleanContractId,
+      measurementId: cleanMeasurementId,
     ).get();
 
     final output = <String, Map<String, dynamic>>{};
@@ -609,21 +787,35 @@ class ReportExecutedRepository {
     required String budgetItemId,
     required Map<String, dynamic> payload,
   }) async {
-    final uid = _auth.currentUser?.uid ?? '';
+    final cleanContractId = contractId.trim();
+    final cleanMeasurementId = measurementId.trim();
+    final cleanBudgetItemId = budgetItemId.trim();
+
+    if (cleanContractId.isEmpty ||
+        cleanMeasurementId.isEmpty ||
+        cleanBudgetItemId.isEmpty) {
+      throw Exception(
+        'contractId, measurementId e budgetItemId são obrigatórios.',
+      );
+    }
 
     final data = <String, dynamic>{
-      'budgetItemId': budgetItemId,
+      'budgetItemId': cleanBudgetItemId,
       ...payload,
+      'tenantId': fixedTenantId,
+      'companyId': fixedTenantId,
+      'contractId': cleanContractId,
+      'uidContract': cleanContractId,
+      'uidcontract': cleanContractId,
+      'measurementId': cleanMeasurementId,
       'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': uid,
-      'contractId': contractId,
-      'measurementId': measurementId,
+      'updatedBy': _uid(),
     };
 
     await _itemsCol(
-      contractId: contractId,
-      measurementId: measurementId,
-    ).doc(budgetItemId).set(data, SetOptions(merge: true));
+      contractId: cleanContractId,
+      measurementId: cleanMeasurementId,
+    ).doc(cleanBudgetItemId).set(data, SetOptions(merge: true));
   }
 
   Future<void> updateMeasurementValue({
@@ -631,13 +823,34 @@ class ReportExecutedRepository {
     required String measurementId,
     required double value,
   }) async {
-    await _col(contractId).doc(measurementId).set({
-      'value': value,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _auth.currentUser?.uid ?? '',
-    }, SetOptions(merge: true));
+    final cleanContractId = contractId.trim();
+    final cleanMeasurementId = measurementId.trim();
 
-    await _recalcularFinancialPercentage(contractId);
+    if (cleanContractId.isEmpty || cleanMeasurementId.isEmpty) {
+      throw Exception('contractId e measurementId são obrigatórios.');
+    }
+
+    final docRef = _measurementDoc(
+      contractId: cleanContractId,
+      measurementId: cleanMeasurementId,
+    );
+
+    await docRef.set(
+      {
+        'value': value,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'recordPath': docRef.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await _recalcularFinancialPercentage(cleanContractId);
   }
 
   // ---------------------------------------------------------------------------
@@ -649,17 +862,48 @@ class ReportExecutedRepository {
     required String measurementId,
     required BudgetData data,
   }) async {
-    final metaRef = _measurementDoc(
-      contractId: contractId,
-      measurementId: measurementId,
-    ).collection('breakdownMeta').doc('meta');
+    final cleanContractId = contractId.trim();
+    final cleanMeasurementId = measurementId.trim();
 
-    await metaRef.set({
-      'headers': data.schema.headerNames,
-      'colTypes': data.schema.headerTypes,
-      'colWidths': data.schema.headerWidths,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    if (cleanContractId.isEmpty || cleanMeasurementId.isEmpty) {
+      throw Exception('contractId e measurementId são obrigatórios.');
+    }
+
+    final measurementRef = _measurementDoc(
+      contractId: cleanContractId,
+      measurementId: cleanMeasurementId,
+    );
+
+    await measurementRef.set(
+      {
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'recordPath': measurementRef.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
+
+    final metaRef = measurementRef.collection('breakdownMeta').doc('meta');
+
+    await metaRef.set(
+      {
+        'headers': data.schema.headerNames,
+        'colTypes': data.schema.headerTypes,
+        'colWidths': data.schema.headerWidths,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'measurementId': cleanMeasurementId,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
 
     final writeId = DateTime.now().millisecondsSinceEpoch.toString();
 
@@ -689,7 +933,12 @@ class ReportExecutedRepository {
             {
               'order': entry.order,
               'title': entry.title,
+              'tenantId': fixedTenantId,
+              'companyId': fixedTenantId,
+              'contractId': cleanContractId,
+              'measurementId': cleanMeasurementId,
               'updatedAt': FieldValue.serverTimestamp(),
+              'updatedBy': _uid(),
             },
           ),
         );
@@ -706,7 +955,12 @@ class ReportExecutedRepository {
               {
                 'order': currentGroupOrder,
                 'title': '',
+                'tenantId': fixedTenantId,
+                'companyId': fixedTenantId,
+                'contractId': cleanContractId,
+                'measurementId': cleanMeasurementId,
                 'updatedAt': FieldValue.serverTimestamp(),
+                'updatedBy': _uid(),
               },
             ),
           );
@@ -736,7 +990,12 @@ class ReportExecutedRepository {
               'index': runningIndex,
               'orderKey': orderKey,
               'values': fixedRow,
+              'tenantId': fixedTenantId,
+              'companyId': fixedTenantId,
+              'contractId': cleanContractId,
+              'measurementId': cleanMeasurementId,
               'updatedAt': FieldValue.serverTimestamp(),
+              'updatedBy': _uid(),
             },
           ),
         );
@@ -796,7 +1055,12 @@ class ReportExecutedRepository {
         {
           'order': item.value['order'],
           'title': item.value['title'],
+          'tenantId': fixedTenantId,
+          'companyId': fixedTenantId,
+          'contractId': cleanContractId,
+          'measurementId': cleanMeasurementId,
           'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': _uid(),
         },
         SetOptions(merge: true),
       );
@@ -805,7 +1069,8 @@ class ReportExecutedRepository {
     await batchGroups.commit();
 
     final byGroup = <String,
-        List<MapEntry<DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>>>{};
+        List<MapEntry<DocumentReference<Map<String, dynamic>>,
+            Map<String, dynamic>>>>{};
 
     for (final item in pendingItemSets) {
       final groupId = item.key.parent.parent!.id;
@@ -822,7 +1087,15 @@ class ReportExecutedRepository {
         for (final item in chunk) {
           batch.set(
             itemsCol.doc(item.key.id),
-            item.value,
+            {
+              ...item.value,
+              'tenantId': fixedTenantId,
+              'companyId': fixedTenantId,
+              'contractId': cleanContractId,
+              'measurementId': cleanMeasurementId,
+              'updatedAt': FieldValue.serverTimestamp(),
+              'updatedBy': _uid(),
+            },
             SetOptions(merge: true),
           );
         }
@@ -831,10 +1104,18 @@ class ReportExecutedRepository {
       }
     }
 
-    await metaRef.set({
-      'activeWriteId': writeId,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await metaRef.set(
+      {
+        'activeWriteId': writeId,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'measurementId': cleanMeasurementId,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
 
     await _cleanupOldBreakdownVersions(
       metaRef,

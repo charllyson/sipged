@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/system/module/module_catalog.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -242,7 +242,7 @@ class PermissionCubit extends Cubit<PermissionState> {
   }
 
   bool canContract({
-    required ProcessData contract,
+    required ContractData contract,
     required String action,
     String module = ModuleCatalog.modContractsList,
     String? tenantId,
@@ -262,15 +262,15 @@ class PermissionCubit extends Cubit<PermissionState> {
     );
   }
 
-  List<ProcessData> filterVisibleContracts({
-    required Iterable<ProcessData> contracts,
+  List<ContractData> filterVisibleContracts({
+    required Iterable<ContractData> contracts,
     String module = ModuleCatalog.modContractsList,
     String? tenantId,
   }) {
     final data = state.current;
 
     if (data == null) {
-      return const <ProcessData>[];
+      return const <ContractData>[];
     }
 
     return SystemPermission.filterVisibleContracts(
@@ -490,7 +490,7 @@ class SystemPermission {
   const SystemPermission._();
 
   static PermissionSet docPermissionsOf({
-    required ProcessData contract,
+    required ContractData contract,
     required String uid,
   }) {
     final cleanUid = uid.trim();
@@ -506,7 +506,7 @@ class SystemPermission {
 
   static bool canContractDocOnly({
     required UserPermissionData permissions,
-    required ProcessData contract,
+    required ContractData contract,
     required String action,
     String? tenantId,
   }) {
@@ -531,7 +531,7 @@ class SystemPermission {
 
   static bool canContract({
     required UserPermissionData permissions,
-    required ProcessData contract,
+    required ContractData contract,
     required String action,
     String module = ModuleCatalog.modContractsList,
     String? tenantId,
@@ -572,9 +572,9 @@ class SystemPermission {
     );
   }
 
-  static List<ProcessData> filterVisibleContracts({
+  static List<ContractData> filterVisibleContracts({
     required UserPermissionData permissions,
-    required Iterable<ProcessData> contracts,
+    required Iterable<ContractData> contracts,
     String module = ModuleCatalog.modContractsList,
     String? tenantId,
   }) {
@@ -582,7 +582,7 @@ class SystemPermission {
     final cleanModule = module.trim();
 
     if (cleanModule.isEmpty) {
-      return const <ProcessData>[];
+      return const <ContractData>[];
     }
 
     final canReadModule = permissions.canModuleString(
@@ -592,7 +592,7 @@ class SystemPermission {
     );
 
     if (!canReadModule) {
-      return const <ProcessData>[];
+      return const <ContractData>[];
     }
 
     if (permissions.isSuperUserForTenant(cleanTenantId)) {

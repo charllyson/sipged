@@ -4,8 +4,8 @@ import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository
 
 import 'general_dashboard_state.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
@@ -39,7 +39,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     required this.editalCubit,
   }) : super(const GeneralDashboardState());
 
-  final ProcessCubit processCubit;
+  final ContractCubit processCubit;
 
   final ReportExecutedCubit reportMeasurementCubit;
   final AdjustmentMeasurementCubit adjustmentMeasurementCubit;
@@ -64,7 +64,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
   final Set<String> _dfdCheckedContracts = {};
   final Set<String> _editalCheckedContracts = {};
 
-  List<ProcessData> get _allContractsFromProcessCubit =>
+  List<ContractData> get _allContractsFromProcessCubit =>
       processCubit.state.allProcesses;
 
   String? _idToString(Object? id) {
@@ -123,7 +123,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     return null;
   }
 
-  Future<void> _preloadDfdLabels(Iterable<ProcessData> base) async {
+  Future<void> _preloadDfdLabels(Iterable<ContractData> base) async {
     final futures = <Future<void>>[];
 
     for (final c in base) {
@@ -234,14 +234,14 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     return map;
   }
 
-  String _getRoadLabel(ProcessData c) {
+  String _getRoadLabel(ContractData c) {
     final id = _idToString(c.id);
     final cached = (id != null) ? _roadNameByContract[id] : null;
     if (cached != null && cached.trim().isNotEmpty) return cached.trim();
     return 'SEM RODOVIA';
   }
 
-  String _getRegionLabel(ProcessData c) {
+  String _getRegionLabel(ContractData c) {
     final id = _idToString(c.id);
     final cached = (id != null) ? _regionByContract[id] : null;
     return (cached != null && cached.trim().isNotEmpty)
@@ -249,7 +249,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
         : 'SEM REGIÃO';
   }
 
-  String _getStatusLabel(ProcessData c) {
+  String _getStatusLabel(ContractData c) {
     final id = _idToString(c.id);
     final cached = (id != null) ? _statusByContract[id] : null;
     final v = (cached ?? '').trim();
@@ -257,7 +257,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     return 'SEM STATUS';
   }
 
-  String _getNatureLabel(ProcessData c) {
+  String _getNatureLabel(ContractData c) {
     final id = _idToString(c.id);
     final cached = (id != null) ? _naturezaByContract[id] : null;
     final v = (cached ?? '').trim();
@@ -265,7 +265,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     return 'SEM NATUREZA';
   }
 
-  String _getWinnerLabel(ProcessData c) {
+  String _getWinnerLabel(ContractData c) {
     final id = _idToString(c.id);
     final cached = (id != null) ? _winnerByContract[id] : null;
     final v = (cached ?? '').trim();
@@ -273,7 +273,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     return 'EM PROJETO';
   }
 
-  String _getMunicipioLabel(ProcessData c) {
+  String _getMunicipioLabel(ContractData c) {
     final id = _idToString(c.id);
     final cached = (id != null) ? _municipioByContract[id] : null;
     final v = (cached ?? '').trim();
@@ -281,7 +281,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     return 'SEM MUNICÍPIO';
   }
 
-  double _getContractValue(ProcessData c) {
+  double _getContractValue(ContractData c) {
     final id = _idToString(c.id);
     if (id == null) return 0.0;
     final v = _valueByContract[id];
@@ -289,7 +289,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     return v;
   }
 
-  List<String> _extractCompanies(List<ProcessData> data) {
+  List<String> _extractCompanies(List<ContractData> data) {
     final set = <String>{
       for (final c in data) _getWinnerLabel(c).trim().toUpperCase(),
     };
@@ -542,7 +542,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     return ordered;
   }
 
-  double _valorRadarParaContrato(ProcessData c) {
+  double _valorRadarParaContrato(ContractData c) {
     switch (state.tipoDeValorSelecionado) {
       case 'Valor contratado':
         return _getContractValue(c);
@@ -556,7 +556,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
   }
 
   List<double> _sumRadarPorNatureza(
-      List<ProcessData> base,
+      List<ContractData> base,
       List<String> labels,
       ) {
     final mapa = {for (final t in labels) t: 0.0};
@@ -987,7 +987,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     ));
   }
 
-  List<ProcessData> _filterContracts(List<ProcessData> base) {
+  List<ContractData> _filterContracts(List<ContractData> base) {
     final selStatus = state.selectedStatus?.toUpperCase();
     final selCompany = state.selectedCompany?.toUpperCase();
     final selRoad = state.selectedRoad?.toUpperCase();
@@ -1056,7 +1056,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
         if (_idToString(c.id) != null) _idToString(c.id)!,
     };
 
-    final byIdAllContracts = <String, ProcessData>{
+    final byIdAllContracts = <String, ContractData>{
       for (final c in allContracts)
         if (_idToString(c.id) != null) _idToString(c.id)!: c,
     };

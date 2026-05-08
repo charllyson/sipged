@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
@@ -16,8 +16,8 @@ class GeneralDashboardState extends Equatable {
   /// ✅ Loading específico para manter shimmer nos gráficos durante recalculo
   final bool isRecalculatingCharts;
 
-  final List<ProcessData> allContracts;
-  final List<ProcessData> filteredContracts;
+  final List<ContractData> allContracts;
+  final List<ContractData> filteredContracts;
 
   final List<ReportExecutedData> allMeasurements;
   final List<AdjustmentMeasurementData> allAdjustments;
@@ -138,8 +138,8 @@ class GeneralDashboardState extends Equatable {
     bool? initialized,
     bool? isLoading,
     bool? isRecalculatingCharts,
-    List<ProcessData>? allContracts,
-    List<ProcessData>? filteredContracts,
+    List<ContractData>? allContracts,
+    List<ContractData>? filteredContracts,
     List<ReportExecutedData>? allMeasurements,
     List<AdjustmentMeasurementData>? allAdjustments,
     List<RevisionMeasurementData>? allRevisions,

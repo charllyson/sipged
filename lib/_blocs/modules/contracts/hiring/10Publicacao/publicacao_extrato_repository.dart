@@ -2,7 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/sections_types.dart';
 
 import 'publicacao_extrato_data.dart';
 import 'publicacao_extrato_sections.dart';

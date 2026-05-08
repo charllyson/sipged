@@ -1,15 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'process_data.dart';
+import 'contract_data.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 
-class ProcessRepository {
+class ContractRepository {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
 
-  ProcessRepository({
+  ContractRepository({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
   })  : _db = firestore ?? FirebaseFirestore.instance,
@@ -25,15 +25,15 @@ class ProcessRepository {
     return SystemPermission.normalizeDocPerms(raw);
   }
 
-  Future<List<ProcessData>> getAllContracts() async {
+  Future<List<ContractData>> getAllContracts() async {
     final snapshot = await _contracts.get();
 
     return snapshot.docs
-        .map((doc) => ProcessData.fromDocument(snapshot: doc))
+        .map((doc) => ContractData.fromDocument(snapshot: doc))
         .toList();
   }
 
-  Future<ProcessData?> getContractById(String id) async {
+  Future<ContractData?> getContractById(String id) async {
     if (id.trim().isEmpty) return null;
 
     try {
@@ -41,13 +41,13 @@ class ProcessRepository {
 
       if (!doc.exists) return null;
 
-      return ProcessData.fromDocument(snapshot: doc);
+      return ContractData.fromDocument(snapshot: doc);
     } catch (_) {
       return null;
     }
   }
 
-  Future<ProcessData?> getSpecificContract({
+  Future<ContractData?> getSpecificContract({
     required String uidContract,
   }) async {
     if (uidContract.trim().isEmpty) return null;
@@ -56,7 +56,7 @@ class ProcessRepository {
 
     if (!doc.exists) return null;
 
-    return ProcessData.fromDocument(snapshot: doc);
+    return ContractData.fromDocument(snapshot: doc);
   }
 
   Future<void> updateContractPermissions({
@@ -118,7 +118,7 @@ class ProcessRepository {
     });
   }
 
-  Future<void> saveContractPermissions(ProcessData contractData) async {
+  Future<void> saveContractPermissions(ContractData contractData) async {
     final contractId = contractData.id?.trim();
 
     if (contractId == null || contractId.isEmpty) return;

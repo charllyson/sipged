@@ -1,3 +1,5 @@
+// lib/_blocs/system/adm/firebase_admin_state.dart
+
 import 'package:sipged/_blocs/system/adm/firebase_admin_data.dart';
 
 class FirebaseAdminState {
@@ -26,9 +28,12 @@ class FirebaseAdminState {
 
   double get progressValue {
     if (progressTotal <= 0) return 0;
+
     final value = progressCurrent / progressTotal;
+
     if (value < 0) return 0;
     if (value > 1) return 1;
+
     return value;
   }
 

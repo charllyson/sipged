@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/table/paged/paged_colum.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import '../alerts/alert_validity.dart';
 
@@ -13,11 +13,11 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 
 typedef ContractNavigationCallback = void Function(
     BuildContext context,
-    ProcessData contract,
+    ContractData contract,
     );
 
 class ListDemandTable extends StatefulWidget {
-  final List<ProcessData> listContractData;
+  final List<ContractData> listContractData;
   final BoxConstraints constraints;
 
   final String statusLabel;
@@ -26,8 +26,8 @@ class ListDemandTable extends StatefulWidget {
   final int? sortColumnIndex;
   final bool isAscending;
 
-  final void Function(int, String Function(ProcessData)) onSort;
-  final Future<void> Function(ProcessData) onDelete;
+  final void Function(int, String Function(ContractData)) onSort;
+  final Future<void> Function(ContractData) onDelete;
   final ContractNavigationCallback onTapItem;
 
   final Map<String, DfdData?> dfdByContractId;
@@ -55,21 +55,21 @@ class ListDemandTable extends StatefulWidget {
 }
 
 class _ListDemandTableState extends State<ListDemandTable> {
-  ProcessData? _selected;
+  ContractData? _selected;
 
-  DfdData? _dfd(ProcessData c) {
+  DfdData? _dfd(ContractData c) {
     final id = c.id;
     if (id == null) return null;
     return widget.dfdByContractId[id];
   }
 
-  EditalData? _edital(ProcessData c) {
+  EditalData? _edital(ContractData c) {
     final id = c.id;
     if (id == null) return null;
     return widget.editalByContractId[id];
   }
 
-  PublicacaoExtratoData? _pub(ProcessData c) {
+  PublicacaoExtratoData? _pub(ContractData c) {
     final id = c.id;
     if (id == null) return null;
     return widget.pubByContractId[id];
@@ -80,7 +80,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
     return s.isEmpty ? '—' : s;
   }
 
-  String _group(ProcessData d) {
+  String _group(ContractData d) {
     final n = _txt(_dfd(d)?.naturezaIntervencao);
     return (n.isEmpty || n == '—') ? 'Sem natureza definida' : n;
   }
@@ -94,7 +94,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
     return i;
   }
 
-  Widget _safeAlertCell(ProcessData data) {
+  Widget _safeAlertCell(ContractData data) {
     try {
       return Center(
         child: AlertValidity(contract: data),
@@ -110,7 +110,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
     }
   }
 
-  String _safeNumeroContrato(ProcessData d) {
+  String _safeNumeroContrato(ContractData d) {
     try {
       return _txt(_pub(d)?.numeroContrato);
     } catch (_) {
@@ -118,7 +118,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
     }
   }
 
-  String _safeDescricaoObjeto(ProcessData d) {
+  String _safeDescricaoObjeto(ContractData d) {
     try {
       return _txt(_dfd(d)?.descricaoObjeto);
     } catch (_) {
@@ -126,7 +126,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
     }
   }
 
-  String _safeRegional(ProcessData d) {
+  String _safeRegional(ContractData d) {
     try {
       return _txt(_dfd(d)?.regional);
     } catch (_) {
@@ -134,7 +134,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
     }
   }
 
-  String _safeVencedor(ProcessData d) {
+  String _safeVencedor(ContractData d) {
     try {
       return _txt(_edital(d)?.vencedor);
     } catch (_) {
@@ -142,7 +142,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
     }
   }
 
-  String _safeProcessoAdministrativo(ProcessData d) {
+  String _safeProcessoAdministrativo(ContractData d) {
     try {
       return _txt(_dfd(d)?.processoAdministrativo);
     } catch (_) {
@@ -155,7 +155,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
     final contracts = widget.listContractData;
     final safeSortIndex = _safeSortColumnIndex();
 
-    return PagedTableChanged<ProcessData>(
+    return PagedTableChanged<ContractData>(
       listData: contracts,
       getKey: (d) => d.id ?? 'sem-id-${contracts.indexOf(d)}',
       selectedKey: _selectedKey(),
@@ -183,42 +183,42 @@ class _ListDemandTableState extends State<ListDemandTable> {
       groupLabel: 'SERVIÇO',
       groupBy: _group,
       columns: [
-        PagedColum<ProcessData>(
+        PagedColum<ContractData>(
           title: 'ALERTAS',
           width: 100,
           maxWidth: 100,
           textAlign: TextAlign.center,
           cellBuilder: (data) => _safeAlertCell(data),
         ),
-        PagedColum<ProcessData>(
+        PagedColum<ContractData>(
           title: 'CONTRATO',
           width: 110,
           maxWidth: 110,
           textAlign: TextAlign.center,
           getter: _safeNumeroContrato,
         ),
-        PagedColum<ProcessData>(
+        PagedColum<ContractData>(
           title: 'OBRA',
           width: 300,
           maxWidth: 300,
           textAlign: TextAlign.left,
           getter: _safeDescricaoObjeto,
         ),
-        PagedColum<ProcessData>(
+        PagedColum<ContractData>(
           title: 'REGIÃO',
           width: 150,
           maxWidth: 150,
           textAlign: TextAlign.center,
           getter: _safeRegional,
         ),
-        PagedColum<ProcessData>(
+        PagedColum<ContractData>(
           title: 'EMPRESA (LÍDER)',
           width: 160,
           maxWidth: 160,
           textAlign: TextAlign.center,
           getter: _safeVencedor,
         ),
-        PagedColum<ProcessData>(
+        PagedColum<ContractData>(
           title: 'Nº PROCESSO',
           width: 200,
           maxWidth: 200,

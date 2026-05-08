@@ -1,14 +1,14 @@
-import 'process_data.dart';
+import 'contract_data.dart';
 
-class ProcessState {
+class ContractState {
   final bool loading;
   final bool initialized;
   final String? errorMessage;
 
-  final List<ProcessData> allProcesses;
-  final ProcessData? selectedProcess;
+  final List<ContractData> allProcesses;
+  final ContractData? selectedProcess;
 
-  const ProcessState({
+  const ContractState({
     this.loading = false,
     this.initialized = false,
     this.errorMessage,
@@ -16,18 +16,18 @@ class ProcessState {
     this.selectedProcess,
   });
 
-  factory ProcessState.initial() => const ProcessState();
+  factory ContractState.initial() => const ContractState();
 
-  ProcessState copyWith({
+  ContractState copyWith({
     bool? loading,
     bool? initialized,
     String? errorMessage,
     bool clearErrorMessage = false,
-    List<ProcessData>? allProcesses,
-    ProcessData? selectedProcess,
+    List<ContractData>? allProcesses,
+    ContractData? selectedProcess,
     bool clearSelectedProcess = false,
   }) {
-    return ProcessState(
+    return ContractState(
       loading: loading ?? this.loading,
       initialized: initialized ?? this.initialized,
       errorMessage:

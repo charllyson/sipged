@@ -7,7 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/registers/register_class.dart';
@@ -25,6 +25,11 @@ class ApostillesRepository {
   final FirebaseStorage _storage;
   final FirebaseAuth _auth;
 
+  static const String fixedTenantId = 'SZQmefRUqdtLB14ahcuh';
+
+  static const String tenantContractsCollectionPath =
+      'tenants/$fixedTenantId/contracts';
+
   final Map<String, List<ApostillesData>> _byContract =
   <String, List<ApostillesData>>{};
 
@@ -34,15 +39,31 @@ class ApostillesRepository {
 
   final Map<String, String> _statusByContract = <String, String>{};
 
+  // ---------------------------------------------------------------------------
+  // References
+  // ---------------------------------------------------------------------------
+
+  CollectionReference<Map<String, dynamic>> _contractsCol() {
+    return _db.collection(tenantContractsCollectionPath);
+  }
+
+  DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
+    return _contractsCol().doc(contractId.trim());
+  }
+
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
-    return _db.collection('contracts').doc(contractId).collection('apostilles');
+    return _contractDoc(contractId).collection('apostilles');
   }
 
   DocumentReference<Map<String, dynamic>> _doc({
     required String contractId,
     required String apostilleId,
   }) {
-    return _col(contractId).doc(apostilleId);
+    return _col(contractId).doc(apostilleId.trim());
+  }
+
+  String _uid() {
+    return _auth.currentUser?.uid ?? '';
   }
 
   String? _idToString(String? id) {
@@ -64,18 +85,55 @@ class ApostillesRepository {
     return List<ApostillesData>.unmodifiable(sorted);
   }
 
-  Future<List<ApostillesData>> _loadAllApostillesOnce() async {
-    if (_allApostillesCache != null) return _allApostillesCache!;
-
-    final snap = await _db.collectionGroup('apostilles').get();
-
-    final list = snap.docs
-        .map((doc) => ApostillesData.fromDocument(snapshot: doc))
+  bool _isTenantApostillePath(String path) {
+    final parts = path
+        .split('/')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
         .toList();
 
-    _allApostillesCache = List<ApostillesData>.unmodifiable(list);
+    if (parts.length < 6) return false;
 
-    return _allApostillesCache!;
+    return parts[0] == 'tenants' &&
+        parts[1] == fixedTenantId &&
+        parts[2] == 'contracts' &&
+        parts[4] == 'apostilles';
+  }
+
+  DateTime? _toDateSafe(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+
+    if (value is String) {
+      final text = value.trim();
+      if (text.isEmpty) return null;
+
+      final iso = DateTime.tryParse(text);
+      if (iso != null) return iso;
+
+      final parts = text.split('/');
+
+      if (parts.length == 3) {
+        final day = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        final year = int.tryParse(parts[2]);
+
+        if (day != null && month != null && year != null) {
+          return DateTime(year, month, day);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  String? _stringOrNull(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    return text.isEmpty ? null : text;
   }
 
   // ---------------------------------------------------------------------------
@@ -84,9 +142,7 @@ class ApostillesRepository {
 
   Future<String?> _loadStatusContratoFromDfd(String contractId) async {
     try {
-      final dfdSnap = await _db
-          .collection('contracts')
-          .doc(contractId)
+      final dfdSnap = await _contractDoc(contractId)
           .collection('dfd')
           .limit(1)
           .get();
@@ -113,7 +169,7 @@ class ApostillesRepository {
   }
 
   Future<void> _ensureStatusesForContracts(
-      Iterable<ProcessData> contratos,
+      Iterable<ContractData> contratos,
       ) async {
     final futures = <Future<void>>[];
 
@@ -149,6 +205,34 @@ class ApostillesRepository {
   // ---------------------------------------------------------------------------
   // Listagens
   // ---------------------------------------------------------------------------
+
+  Future<List<ApostillesData>> _loadAllApostillesOnce() async {
+    if (_allApostillesCache != null) return _allApostillesCache!;
+
+    QuerySnapshot<Map<String, dynamic>> snap;
+
+    try {
+      snap = await _db
+          .collectionGroup('apostilles')
+          .where('tenantId', isEqualTo: fixedTenantId)
+          .get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'failed-precondition' || e.code == 'not-found') {
+        snap = await _db.collectionGroup('apostilles').get();
+      } else {
+        rethrow;
+      }
+    }
+
+    final list = snap.docs
+        .where((doc) => _isTenantApostillePath(doc.reference.path))
+        .map((doc) => ApostillesData.fromDocument(snapshot: doc))
+        .toList();
+
+    _allApostillesCache = List<ApostillesData>.unmodifiable(_sorted(list));
+
+    return _allApostillesCache!;
+  }
 
   Future<List<ApostillesData>> getAllApostilles() async {
     return _loadAllApostillesOnce();
@@ -186,9 +270,11 @@ class ApostillesRepository {
       }
     }
 
-    return snap.docs
-        .map((doc) => ApostillesData.fromDocument(snapshot: doc))
-        .toList();
+    return _sorted(
+      snap.docs
+          .map((doc) => ApostillesData.fromDocument(snapshot: doc))
+          .toList(),
+    );
   }
 
   Future<List<ApostillesData>> ensureForContract(String contractId) async {
@@ -256,11 +342,12 @@ class ApostillesRepository {
 
     final firebaseUser = _auth.currentUser;
 
-    final ref = _col(cleanContractId);
-
     final docRef = data.id != null && data.id!.trim().isNotEmpty
-        ? ref.doc(data.id!.trim())
-        : ref.doc();
+        ? _doc(
+      contractId: cleanContractId,
+      apostilleId: data.id!.trim(),
+    )
+        : _col(cleanContractId).doc();
 
     final apostilleId = docRef.id;
 
@@ -273,6 +360,10 @@ class ApostillesRepository {
       ..addAll({
         'id': apostilleId,
         'contractId': cleanContractId,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'recordPath': docRef.path,
+        'sourceCollectionModel': 'tenant_contract_apostilles',
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': firebaseUser?.uid ?? '',
       });
@@ -333,7 +424,7 @@ class ApostillesRepository {
 
     try {
       final folder = _storage.ref(
-        'contracts/$cleanContractId/apostilles/$cleanApostilleId/',
+        'tenants/$fixedTenantId/contracts/$cleanContractId/apostilles/$cleanApostilleId/',
       );
 
       final result = await folder.listAll();
@@ -373,6 +464,7 @@ class ApostillesRepository {
     await ref.set({
       'tipo': 'apostilamento',
       'titulo': 'Novo apostilamento nº ${apostila.apostilleOrder}',
+      'tenantId': fixedTenantId,
       'contractId': contractId,
       'apostilleId': apostila.id,
       'createdAt': FieldValue.serverTimestamp(),
@@ -401,7 +493,10 @@ class ApostillesRepository {
 
         if (contractId == null || apostilleId == null) continue;
 
-        final originalSnap = await _col(contractId).doc(apostilleId).get();
+        final originalSnap = await _doc(
+          contractId: contractId,
+          apostilleId: apostilleId,
+        ).get();
 
         if (!originalSnap.exists) continue;
 
@@ -411,7 +506,7 @@ class ApostillesRepository {
           Registro(
             id: doc.id,
             tipo: 'apostilamento',
-            data: data['createdAt']?.toDate() ?? DateTime.now(),
+            data: _toDateSafe(data['createdAt']) ?? DateTime.now(),
             original: original,
             contractData: await buscarContrato(contractId),
           ),
@@ -422,16 +517,16 @@ class ApostillesRepository {
     });
   }
 
-  Future<ProcessData?> buscarContrato(String contractId) async {
+  Future<ContractData?> buscarContrato(String contractId) async {
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) return null;
 
-    final snap = await _db.collection('contracts').doc(cleanContractId).get();
+    final snap = await _contractDoc(cleanContractId).get();
 
     if (!snap.exists) return null;
 
-    return ProcessData.fromDocument(snapshot: snap);
+    return ContractData.fromDocument(snapshot: snap);
   }
 
   // ---------------------------------------------------------------------------
@@ -439,7 +534,7 @@ class ApostillesRepository {
   // ---------------------------------------------------------------------------
 
   Future<double> somarValoresApostilamentosPorStatus({
-    required List<ProcessData> contratos,
+    required List<ContractData> contratos,
     required String status,
   }) async {
     if (contratos.isEmpty) return 0.0;
@@ -529,7 +624,7 @@ class ApostillesRepository {
     return '$base-$random${ext.isEmpty ? ".bin" : ext}';
   }
 
-  String folderFor(ProcessData contract, ApostillesData apostille) {
+  String folderFor(ContractData contract, ApostillesData apostille) {
     final contractId = contract.id?.trim();
     final apostilleId = apostille.id?.trim();
 
@@ -541,7 +636,7 @@ class ApostillesRepository {
       throw Exception('apostille.id é obrigatório para anexos de apostilamento.');
     }
 
-    return 'contracts/$contractId/apostilles/$apostilleId/';
+    return 'tenants/$fixedTenantId/contracts/$contractId/apostilles/$apostilleId/';
   }
 
   Future<(Uint8List bytes, String originalName)> pickFileBytes() async {
@@ -555,7 +650,7 @@ class ApostillesRepository {
   }
 
   Future<Attachment> uploadAttachmentBytes({
-    required ProcessData contract,
+    required ContractData contract,
     required ApostillesData apostille,
     required Uint8List bytes,
     required String originalName,
@@ -575,6 +670,7 @@ class ApostillesRepository {
             ? 'application/pdf'
             : 'application/octet-stream',
         customMetadata: {
+          'tenantId': fixedTenantId,
           'originalName': originalName,
           'label': label,
           'contractId': contract.id ?? '',
@@ -618,19 +714,21 @@ class ApostillesRepository {
     }
 
     final folderRef = _storage.ref(
-      'contracts/$cleanContractId/apostilles/$cleanApostilleId/',
+      'tenants/$fixedTenantId/contracts/$cleanContractId/apostilles/$cleanApostilleId/',
     );
-
-    final result = await folderRef.listAll();
 
     final out = <({String name, String url})>[];
 
-    for (final item in result.items) {
-      try {
-        final url = await item.getDownloadURL();
-        out.add((name: item.name, url: url));
-      } catch (_) {}
-    }
+    try {
+      final result = await folderRef.listAll();
+
+      for (final item in result.items) {
+        try {
+          final url = await item.getDownloadURL();
+          out.add((name: item.name, url: url));
+        } catch (_) {}
+      }
+    } catch (_) {}
 
     out.sort((a, b) => a.name.compareTo(b.name));
 
@@ -659,16 +757,22 @@ class ApostillesRepository {
       throw Exception('contractId e apostilleId são obrigatórios.');
     }
 
-    await _doc(
+    final docRef = _doc(
       contractId: cleanContractId,
       apostilleId: cleanApostilleId,
-    ).set(
+    );
+
+    await docRef.set(
       {
         'attachments': attachments.isEmpty
             ? FieldValue.delete()
             : attachments.map((item) => item.toMap()).toList(),
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'recordPath': docRef.path,
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': _auth.currentUser?.uid ?? '',
+        'updatedBy': _uid(),
       },
       SetOptions(merge: true),
     );
@@ -692,10 +796,10 @@ class ApostillesRepository {
   }
 
   // ---------------------------------------------------------------------------
-  // PDF legado
+  // PDF compatibilidade
   // ---------------------------------------------------------------------------
 
-  String legacyFileName(ProcessData contract, ApostillesData apostille) {
+  String legacyFileName(ContractData contract, ApostillesData apostille) {
     final contrato = _sanitize('contrato');
     final ordem = (apostille.apostilleOrder ?? 0).toString().padLeft(3, '0');
     final processo = _sanitize(apostille.apostilleNumberProcess ?? 'processo');
@@ -703,12 +807,12 @@ class ApostillesRepository {
     return '$contrato-$ordem-$processo.pdf';
   }
 
-  String legacyPathFor(ProcessData contract, ApostillesData apostille) {
+  String legacyPathFor(ContractData contract, ApostillesData apostille) {
     return '${folderFor(contract, apostille)}${legacyFileName(contract, apostille)}';
   }
 
   Future<String> uploadLegacyBytes({
-    required ProcessData contract,
+    required ContractData contract,
     required ApostillesData apostille,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
@@ -717,7 +821,14 @@ class ApostillesRepository {
 
     final task = ref.putData(
       bytes,
-      SettableMetadata(contentType: 'application/pdf'),
+      SettableMetadata(
+        contentType: 'application/pdf',
+        customMetadata: {
+          'tenantId': fixedTenantId,
+          'contractId': contract.id ?? '',
+          'apostilleId': apostille.id ?? '',
+        },
+      ),
     );
 
     task.snapshotEvents.listen((event) {
@@ -732,39 +843,55 @@ class ApostillesRepository {
   }
 
   Future<bool> deleteLegacyPdf({
-    required ProcessData contract,
+    required ContractData contract,
     required ApostillesData apostille,
   }) async {
+    bool deleted = false;
+
     try {
       await _storage.ref(legacyPathFor(contract, apostille)).delete();
-      _invalidateAllApostillesCache();
-      return true;
-    } catch (_) {
-      return false;
-    }
+      deleted = true;
+    } catch (_) {}
+
+    _invalidateAllApostillesCache();
+
+    return deleted;
   }
 
   Future<bool> verificarSePdfDeApostilaExiste({
-    required ProcessData contract,
+    required ContractData contract,
     required ApostillesData apostille,
   }) async {
     try {
       await _storage.ref(legacyPathFor(contract, apostille)).getMetadata();
       return true;
-    } catch (_) {
-      return false;
-    }
+    } catch (_) {}
+
+    return false;
   }
 
   Future<String?> getPdfUrlDaApostila({
-    required ProcessData contract,
+    required ContractData contract,
     required ApostillesData apostille,
   }) async {
     try {
       return await _storage.ref(legacyPathFor(contract, apostille)).getDownloadURL();
-    } catch (_) {
-      return null;
-    }
+    } catch (_) {}
+
+    final contractId = contract.id?.trim();
+    final apostilleId = apostille.id?.trim();
+
+    if (contractId == null || contractId.isEmpty) return null;
+    if (apostilleId == null || apostilleId.isEmpty) return null;
+
+    final snap = await _doc(
+      contractId: contractId,
+      apostilleId: apostilleId,
+    ).get();
+
+    final data = snap.data();
+
+    return _stringOrNull(data?['pdfUrl']);
   }
 
   Future<void> salvarUrlPdfDaApostila({
@@ -780,14 +907,20 @@ class ApostillesRepository {
       throw Exception('contractId e apostilleId são obrigatórios.');
     }
 
-    await _doc(
+    final docRef = _doc(
       contractId: cleanContractId,
       apostilleId: cleanApostilleId,
-    ).set(
+    );
+
+    await docRef.set(
       {
         'pdfUrl': cleanUrl.isEmpty ? FieldValue.delete() : cleanUrl,
+        'tenantId': fixedTenantId,
+        'companyId': fixedTenantId,
+        'contractId': cleanContractId,
+        'recordPath': docRef.path,
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': _auth.currentUser?.uid ?? '',
+        'updatedBy': _uid(),
       },
       SetOptions(merge: true),
     );

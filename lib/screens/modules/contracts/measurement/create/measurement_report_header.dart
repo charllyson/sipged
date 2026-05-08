@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
@@ -22,7 +22,7 @@ class MeasurementReportHeader extends StatelessWidget {
     this.prazoExecucaoDias,
   });
 
-  final ProcessData contract;
+  final ContractData contract;
   final ReportExecutedData? measurement;
 
   final String? descricaoObjeto;
