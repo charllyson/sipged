@@ -59,11 +59,18 @@ class InitialSetupForm extends StatelessWidget {
       onPressed: enabled ? onTap : null,
       style: TextButton.styleFrom(
         foregroundColor: resolvedColor,
+        disabledForegroundColor: Colors.grey,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         minimumSize: const Size(0, 0),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
-      child: Text(label),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 
@@ -78,8 +85,51 @@ class InitialSetupForm extends StatelessWidget {
     );
   }
 
+  Widget _buildChip(String item) {
+    final isSelected = selectedItem == item;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: !enabled
+          ? null
+          : () {
+        if (isSelected) {
+          onClearSelection();
+        } else {
+          onSelectItem(item);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 4,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected
+              ? Border.all(
+            color: Colors.blue,
+            width: 1.3,
+          )
+              : null,
+          color: isSelected
+              ? Colors.blue.withValues(alpha: 0.06)
+              : Colors.transparent,
+        ),
+        child: Text(
+          item,
+          style: TextStyle(
+            fontSize: 12,
+            color: enabled ? Colors.blue : const Color(0xFF98A2B3),
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildList() {
-    final hasSelection = selectedItem != null;
+    final hasSelection = selectedItem != null && selectedItem!.trim().isNotEmpty;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -88,48 +138,7 @@ class InitialSetupForm extends StatelessWidget {
         final list = Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: items.map((item) {
-            final isSelected = selectedItem == item;
-
-            return InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: !enabled
-                  ? null
-                  : () {
-                if (isSelected) {
-                  onClearSelection();
-                } else {
-                  onSelectItem(item);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: isSelected
-                      ? Border.all(
-                    color: Colors.blue,
-                    width: 1.3,
-                  )
-                      : null,
-                  color: isSelected
-                      ? Colors.blue.withValues(alpha: 0.06)
-                      : Colors.transparent,
-                ),
-                child: Text(
-                  item,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.blue,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
+          children: items.map(_buildChip).toList(),
         );
 
         final actions = Wrap(

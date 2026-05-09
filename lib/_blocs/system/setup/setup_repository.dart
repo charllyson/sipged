@@ -106,7 +106,7 @@ class SetupRepository {
       'order': order,
       if (description != null && description.trim().isNotEmpty)
         'description': description.trim(),
-      if (value != null) 'value': value,
+      'value': ?value,
       if (metadata.isNotEmpty) 'metadata': metadata,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': _currentUserId,
@@ -156,10 +156,10 @@ class SetupRepository {
       if (cleanLabel != null && cleanLabel.isNotEmpty) 'label': cleanLabel,
       if (description != null) 'description': cleanDescription,
       if (cleanType != null && cleanType.isNotEmpty) 'type': cleanType,
-      if (value != null) 'value': value,
-      if (enabled != null) 'enabled': enabled,
-      if (order != null) 'order': order,
-      if (metadata != null) 'metadata': metadata,
+      'value': ?value,
+      'enabled': ?enabled,
+      'order': ?order,
+      'metadata': ?metadata,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUserId,
     };

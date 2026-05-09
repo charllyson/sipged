@@ -1,3 +1,5 @@
+// lib/admPanel/system/manager_system_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -9,7 +11,7 @@ import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/admPanel/system/users/manager_users.dart';
-import 'package:sipged/screens/common/setup/initial_setup_page.dart';
+import 'package:sipged/admPanel/system/tenants/manager_tenants_page.dart';
 
 import '../../_widgets/buttons/circle_button_change.dart';
 import '../../_widgets/menu/upBar/up_bar.dart';
@@ -63,7 +65,7 @@ class ManagerSystemPage extends StatelessWidget {
       _ManagerSystemItem(
         title: 'Gerenciar empresas',
         subtitle:
-        'Cadastre empresas, revise informações administrativas e configure o ambiente inicial.',
+        'Liste empresas, crie novos tenants, edite dados cadastrais, catálogos e visualize usuários vinculados.',
         icon: Icons.business_rounded,
         color: const Color(0xFF059669),
         onTap: () {
@@ -77,9 +79,8 @@ class ManagerSystemPage extends StatelessWidget {
 
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => InitialSetupPage(
-                user: user,
-                presentationMode: InitialSetupPresentationMode.page,
+              builder: (_) => ManagerTenantsPage(
+                currentUser: user,
               ),
             ),
           );
@@ -89,12 +90,12 @@ class ManagerSystemPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FB),
-      appBar: UpBar(
-        leading: const Padding(
+      appBar: const UpBar(
+        leading: Padding(
           padding: EdgeInsets.only(left: 12),
           child: CircleButtonChange(),
         ),
-        titleWidgets: const [
+        titleWidgets: [
           Text(
             'Sistema',
             style: TextStyle(

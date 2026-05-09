@@ -28,8 +28,18 @@ class UserHeaderContent extends StatelessWidget {
 
   final Widget? topActions;
 
-  bool get _roleDropdownEnabled {
-    return !user.hasStatusRestriction;
+  bool get _roleActionEnabled {
+    return !user.hasStatusRestriction && !editing;
+  }
+
+  String get _email {
+    final value = (user.email ?? '').trim();
+    return value.isEmpty ? 'E-mail não informado' : value;
+  }
+
+  String get _resolvedName {
+    final value = nameText.trim().replaceAll(RegExp(r'\s+'), ' ');
+    return value.isEmpty ? 'Usuário sem nome' : value;
   }
 
   String _roleLabel(perm.SystemUserRole role) {
@@ -53,50 +63,91 @@ class UserHeaderContent extends StatelessWidget {
     }
   }
 
-  String get _email {
-    final value = (user.email ?? '').trim();
-    return value.isEmpty ? 'E-mail não informado' : value;
+  IconData _roleIcon(perm.SystemUserRole role) {
+    switch (role.name) {
+      case 'superAdmin':
+        return Icons.admin_panel_settings_rounded;
+      case 'admin':
+        return Icons.shield_rounded;
+      case 'manager':
+        return Icons.manage_accounts_rounded;
+      case 'editor':
+        return Icons.edit_note_rounded;
+      case 'viewer':
+        return Icons.visibility_rounded;
+      case 'blocked':
+        return Icons.block_rounded;
+      case 'none':
+        return Icons.lock_outline_rounded;
+      default:
+        return Icons.badge_rounded;
+    }
   }
 
-  Widget _buildEditButton({required bool compact}) {
+  Color _roleColor(perm.SystemUserRole role) {
+    switch (role.name) {
+      case 'superAdmin':
+        return const Color(0xFF7C2D12);
+      case 'admin':
+        return const Color(0xFF1D4ED8);
+      case 'manager':
+        return const Color(0xFF047857);
+      case 'editor':
+        return const Color(0xFF7C3AED);
+      case 'viewer':
+        return const Color(0xFF475569);
+      case 'blocked':
+        return const Color(0xFFDC2626);
+      case 'none':
+        return const Color(0xFF64748B);
+      default:
+        return const Color(0xFF374151);
+    }
+  }
+
+  Widget _buildEditIconButton({
+    required bool compact,
+  }) {
     if (onEditUser == null) return const SizedBox.shrink();
+
+    final size = compact ? 34.0 : 38.0;
 
     return Tooltip(
       message: 'Editar usuário',
-      child: GestureDetector(
+      child: InkWell(
         onTap: editing ? null : onEditUser,
-        behavior: HitTestBehavior.opaque,
+        borderRadius: BorderRadius.circular(999),
         child: Container(
-          width: compact ? 40 : 46,
-          height: compact ? 40 : 46,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: editing ? const Color(0xFFF2F4F7) : Colors.white,
             shape: BoxShape.circle,
             border: Border.all(
               color: const Color(0xFFD0D5DD),
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF101828).withValues(alpha: 0.10),
-                blurRadius: 14,
-                offset: const Offset(0, 6),
+                color: const Color(0xFF101828).withValues(alpha: 0.08),
+                blurRadius: compact ? 8 : 12,
+                offset: Offset(0, compact ? 3 : 5),
               ),
             ],
           ),
           child: Center(
             child: editing
-                ? const SizedBox(
-              width: 17,
-              height: 17,
-              child: CircularProgressIndicator(
+                ? SizedBox(
+              width: compact ? 15 : 17,
+              height: compact ? 15 : 17,
+              child: const CircularProgressIndicator(
                 strokeWidth: 2,
                 color: Color(0xFF2563EB),
               ),
             )
-                : const Icon(
+                : Icon(
               Icons.edit_rounded,
-              color: Color(0xFF2563EB),
-              size: 22,
+              color: const Color(0xFF2563EB),
+              size: compact ? 18 : 20,
             ),
           ),
         ),
@@ -104,20 +155,137 @@ class UserHeaderContent extends StatelessWidget {
     );
   }
 
-  Widget _buildIdentityBlock({required bool compact}) {
+  Widget _buildRoleIconButton({
+    required bool compact,
+  }) {
+    final color = _roleColor(baseRole);
+    final size = compact ? 34.0 : 38.0;
+
+    return PopupMenuButton<perm.SystemUserRole>(
+      tooltip: 'Alterar tipo de usuário',
+      enabled: _roleActionEnabled,
+      onSelected: (picked) {
+        onPickRole(picked);
+      },
+      itemBuilder: (context) {
+        return perm.SystemUserRole.values.map((role) {
+          final selected = role == baseRole;
+          final itemColor = _roleColor(role);
+
+          return PopupMenuItem<perm.SystemUserRole>(
+            value: role,
+            child: Row(
+              children: [
+                Icon(
+                  selected ? Icons.check_circle_rounded : _roleIcon(role),
+                  color: selected ? const Color(0xFF059669) : itemColor,
+                  size: 19,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _roleLabel(role),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                      color: const Color(0xFF101828),
+                    ),
+                  ),
+                ),
+                if (selected)
+                  Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF059669).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'Atual',
+                      style: TextStyle(
+                        color: Color(0xFF047857),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }).toList(growable: false);
+      },
+      child: Tooltip(
+        message: isSuper
+            ? 'Tipo: ${_roleLabel(baseRole)} • super'
+            : 'Tipo: ${_roleLabel(baseRole)}',
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: _roleActionEnabled
+                  ? color.withValues(alpha: 0.22)
+                  : const Color(0xFFE4E7EC),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF101828).withValues(alpha: 0.06),
+                blurRadius: compact ? 8 : 10,
+                offset: Offset(0, compact ? 3 : 4),
+              ),
+            ],
+          ),
+          child: Icon(
+            _roleIcon(baseRole),
+            color: const Color(0xFF2563EB),
+            size: compact ? 18 : 20,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderIconActions({
+    required bool compact,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildRoleIconButton(
+          compact: compact,
+        ),
+        if (onEditUser != null) ...[
+          SizedBox(width: compact ? 6 : 8),
+          _buildEditIconButton(
+            compact: compact,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildIdentityBlock({
+    required bool compact,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          nameText.trim().isEmpty ? 'Usuário sem nome' : nameText.trim(),
+          _resolvedName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: user.hasStatusRestriction
                 ? const Color(0xFF475467)
                 : const Color(0xFF111827),
-            fontSize: compact ? 16 : 19,
+            fontSize: compact ? 15.5 : 19,
             fontWeight: FontWeight.w900,
             letterSpacing: -0.35,
           ),
@@ -139,79 +307,20 @@ class UserHeaderContent extends StatelessWidget {
     );
   }
 
-  Widget _buildChipsLine({required bool compact}) {
+  Widget _buildRightActionsLine({
+    required bool compact,
+  }) {
+    final children = <Widget>[
+      if (topActions != null) topActions!,
+      _buildHeaderIconActions(compact: compact),
+    ];
+
     return Wrap(
       spacing: compact ? 7 : 8,
       runSpacing: compact ? 7 : 8,
       crossAxisAlignment: WrapCrossAlignment.center,
-      alignment: WrapAlignment.end,
-      children: [
-        _buildEditButton(compact: compact),
-        ?topActions,
-      ],
-    );
-  }
-
-  Widget _buildRoleDropdown() {
-    return DropdownButtonFormField<perm.SystemUserRole>(
-      initialValue: baseRole,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: isSuper ? 'Tipo de usuário • super' : 'Tipo de usuário',
-        filled: true,
-        fillColor: _roleDropdownEnabled
-            ? Colors.white
-            : const Color(0xFFF2F4F7),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: _roleDropdownEnabled
-                ? const Color(0xFFD0D5DD)
-                : const Color(0xFFE4E7EC),
-          ),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: Color(0xFFE4E7EC),
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: Color(0xFF2563EB),
-            width: 1.5,
-          ),
-        ),
-      ),
-      items: perm.SystemUserRole.values.map((role) {
-        return DropdownMenuItem<perm.SystemUserRole>(
-          value: role,
-          child: Text(
-            _roleLabel(role),
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: _roleDropdownEnabled
-                  ? const Color(0xFF101828)
-                  : const Color(0xFF98A2B3),
-            ),
-          ),
-        );
-      }).toList(),
-      onChanged: _roleDropdownEnabled
-          ? (picked) {
-        if (picked == null) return;
-        onPickRole(picked);
-      }
-          : null,
+      alignment: compact ? WrapAlignment.start : WrapAlignment.end,
+      children: children,
     );
   }
 
@@ -222,21 +331,20 @@ class UserHeaderContent extends StatelessWidget {
         AvatarShell(user: user),
         const SizedBox(width: 16),
         Expanded(
-          flex: 3,
-          child: _buildIdentityBlock(compact: false),
-        ),
-        const SizedBox(width: 14),
-        Flexible(
-          flex: 3,
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: _buildChipsLine(compact: false),
+          flex: 5,
+          child: _buildIdentityBlock(
+            compact: false,
           ),
         ),
         const SizedBox(width: 16),
-        SizedBox(
-          width: 270,
-          child: _buildRoleDropdown(),
+        Flexible(
+          flex: 4,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: _buildRightActionsLine(
+              compact: false,
+            ),
+          ),
         ),
       ],
     );
@@ -252,17 +360,16 @@ class UserHeaderContent extends StatelessWidget {
             AvatarShell(user: user),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildIdentityBlock(compact: true),
+              child: _buildIdentityBlock(
+                compact: true,
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerRight,
-          child: _buildChipsLine(compact: true),
+        const SizedBox(height: 10),
+        _buildRightActionsLine(
+          compact: true,
         ),
-        const SizedBox(height: 14),
-        _buildRoleDropdown(),
       ],
     );
   }

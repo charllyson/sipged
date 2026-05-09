@@ -30,6 +30,11 @@ enum InitialSetupPresentationMode {
   page,
 }
 
+enum InitialSetupMode {
+  editTenant,
+  createTenant,
+}
+
 enum _CatalogKind {
   unit,
   road,
@@ -43,16 +48,22 @@ enum _CatalogKind {
 class InitialSetupPage extends StatefulWidget {
   final UserData user;
   final InitialSetupPresentationMode presentationMode;
+  final InitialSetupMode mode;
 
   const InitialSetupPage({
     super.key,
     required this.user,
     this.presentationMode = InitialSetupPresentationMode.dialog,
+    this.mode = InitialSetupMode.editTenant,
   });
 
   bool get isDialog => presentationMode == InitialSetupPresentationMode.dialog;
 
   bool get isPage => presentationMode == InitialSetupPresentationMode.page;
+
+  bool get isCreateMode => mode == InitialSetupMode.createTenant;
+
+  bool get isEditMode => mode == InitialSetupMode.editTenant;
 
   @override
   State<InitialSetupPage> createState() => _InitialSetupPageState();
@@ -106,6 +117,27 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
       await cubit.ensureAvailableTenantsLoaded();
 
       if (!mounted) return;
+
+      if (widget.isCreateMode) {
+        setState(() {
+          _tenantFantasyCtrl.clear();
+          _tenantNameCtrl.clear();
+          _tenantCnpjCtrl.clear();
+
+          _existingLogoUrl = null;
+          _existingLogoPath = null;
+
+          _logoBytes = null;
+          _logoFileName = null;
+          _logoContentType = null;
+
+          _removeCurrentLogo = false;
+
+          _clearCatalogFormSelections();
+        });
+
+        return;
+      }
 
       await cubit.ensureTenantProfileLoaded();
 
@@ -231,14 +263,37 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     final tenantCubit = context.read<TenantCubit>();
 
-    final activeTenantId = tenantCubit.selectedTenantId?.trim();
-
-    if (activeTenantId == null || activeTenantId.isEmpty) {
-      _error('Nenhuma empresa logada/selecionada foi encontrada.');
-      return;
-    }
-
     setState(() => _saving = true);
+
+    if (widget.isCreateMode) {
+      final createdTenant = await tenantCubit.createTenantForCurrentUser(
+        label: _tenantNameCtrl.text.trim(),
+        fantasyName: _tenantFantasyCtrl.text.trim(),
+        cnpj: _tenantCnpjCtrl.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (createdTenant == null) {
+        final msg = tenantCubit.state.error ?? 'Falha ao criar empresa.';
+        _error(msg);
+        return;
+      }
+
+      await tenantCubit.selectTenant(
+        createdTenant.id,
+        persistSelection: true,
+      );
+
+      if (!mounted) return;
+    } else {
+      final activeTenantId = tenantCubit.selectedTenantId?.trim();
+
+      if (activeTenantId == null || activeTenantId.isEmpty) {
+        _error('Nenhuma empresa logada/selecionada foi encontrada.');
+        return;
+      }
+    }
 
     final currentState = tenantCubit.state;
 
@@ -251,20 +306,29 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
       logoContentType: _logoContentType,
       removeLogo: _removeCurrentLogo,
       oldLogoPath: _existingLogoPath,
-      units: currentState.units,
-      roads: currentState.roads,
-      regions: currentState.regions,
-      fundingSources: currentState.fundingSources,
-      programs: currentState.programs,
-      expenseNatures: currentState.expenseNatures,
-      companyBodies: currentState.companyBodies,
+
+      // Proteção essencial:
+      // em modo criação, nunca reaproveita catálogos carregados do tenant anterior.
+      units: widget.isCreateMode ? const <String>[] : currentState.units,
+      roads: widget.isCreateMode ? const <String>[] : currentState.roads,
+      regions: widget.isCreateMode ? const <String>[] : currentState.regions,
+      fundingSources: widget.isCreateMode
+          ? const <String>[]
+          : currentState.fundingSources,
+      programs: widget.isCreateMode ? const <String>[] : currentState.programs,
+      expenseNatures: widget.isCreateMode
+          ? const <String>[]
+          : currentState.expenseNatures,
+      companyBodies: widget.isCreateMode
+          ? const <String>[]
+          : currentState.companyBodies,
     );
 
     if (!mounted) return;
 
     if (saved == null) {
-      final msg = tenantCubit.state.error ??
-          'Falha ao salvar configurações da empresa.';
+      final msg =
+          tenantCubit.state.error ?? 'Falha ao salvar configurações da empresa.';
 
       _error(msg);
       return;
@@ -278,7 +342,15 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     setState(() => _saving = false);
 
-    _success('Configurações da empresa salvas com sucesso.');
+    _success(
+      widget.isCreateMode
+          ? 'Empresa criada com sucesso.'
+          : 'Configurações da empresa salvas com sucesso.',
+    );
+
+    if (widget.isCreateMode && mounted) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   String? _validateCnpj(String? value) {
@@ -396,6 +468,11 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
   Future<void> _saveCatalogItem(_CatalogKind kind) async {
     if (_saving) return;
 
+    if (widget.isCreateMode) {
+      _error('Salve a empresa antes de cadastrar catálogos.');
+      return;
+    }
+
     final controller = _controllerOf(kind);
     final value = controller.text.trim();
 
@@ -479,6 +556,11 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
   Future<void> _removeCatalogItem(_CatalogKind kind) async {
     if (_saving) return;
 
+    if (widget.isCreateMode) {
+      _error('Salve a empresa antes de remover catálogos.');
+      return;
+    }
+
     final selected = _selectedOf(kind);
 
     if (selected == null || selected.trim().isEmpty) return;
@@ -547,21 +629,16 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Catálogos da empresa',
-                  style: TextStyle(
-                    color: Color(0xFF101828),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF101828),
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
+            ),
           ),
+          const SizedBox(height: 2),
           Text(
             subtitle,
             style: const TextStyle(
@@ -578,7 +655,22 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
   }
 
   Widget _buildCatalogsSection(TenantState tenantState) {
-    final enabled = !_saving;
+    final enabled = !_saving && !widget.isCreateMode;
+
+    final units = widget.isCreateMode ? const <String>[] : tenantState.units;
+    final roads = widget.isCreateMode ? const <String>[] : tenantState.roads;
+    final regions = widget.isCreateMode ? const <String>[] : tenantState.regions;
+    final fundingSources = widget.isCreateMode
+        ? const <String>[]
+        : tenantState.fundingSources;
+    final programs =
+    widget.isCreateMode ? const <String>[] : tenantState.programs;
+    final expenseNatures = widget.isCreateMode
+        ? const <String>[]
+        : tenantState.expenseNatures;
+    final companyBodies = widget.isCreateMode
+        ? const <String>[]
+        : tenantState.companyBodies;
 
     Widget form({
       required _CatalogKind kind,
@@ -589,7 +681,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
       required String saveLabel,
       required String removeLabel,
     }) {
-      final selectedItem = _selectedOf(kind);
+      final selectedItem = widget.isCreateMode ? null : _selectedOf(kind);
 
       return InitialSetupForm(
         controller: controller,
@@ -599,12 +691,16 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
         selectedItem: selectedItem,
         onChanged: (_) => setState(() {}),
         onSelectItem: (item) {
+          if (widget.isCreateMode) return;
+
           setState(() {
             _setSelectedOf(kind, item);
             controller.text = item;
           });
         },
         onClearSelection: () {
+          if (widget.isCreateMode) return;
+
           setState(() {
             _setSelectedOf(kind, null);
             controller.clear();
@@ -621,14 +717,53 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     return _buildCatalogCard(
       title: 'Catálogos da empresa',
-      subtitle: 'Cadastre os itens padrão que serão usados nos módulos do SIPGED.',
+      subtitle: widget.isCreateMode
+          ? 'Após criar a empresa, abra-a novamente para cadastrar os catálogos.'
+          : 'Cadastre os itens padrão que serão usados nos módulos do SIPGED.',
       child: Column(
         children: [
+          if (widget.isCreateMode) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 18),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFFDE68A),
+                ),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: Color(0xFFD97706),
+                    size: 19,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Primeiro salve os dados principais da empresa. '
+                          'Depois, edite a empresa criada para cadastrar unidades, rodovias, regiões, fontes e demais catálogos.',
+                      style: TextStyle(
+                        color: Color(0xFF92400E),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           form(
             kind: _CatalogKind.unit,
             controller: _unitCtrl,
             labelText: 'Unidade / Setor',
-            items: tenantState.units,
+            items: units,
             addLabel: 'Adicionar unidade',
             saveLabel: 'Salvar unidade',
             removeLabel: 'Remover',
@@ -638,7 +773,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
             kind: _CatalogKind.road,
             controller: _roadCtrl,
             labelText: 'Rodovia',
-            items: tenantState.roads,
+            items: roads,
             addLabel: 'Adicionar rodovia',
             saveLabel: 'Salvar rodovia',
             removeLabel: 'Remover',
@@ -648,7 +783,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
             kind: _CatalogKind.region,
             controller: _regionCtrl,
             labelText: 'Região / Área',
-            items: tenantState.regions,
+            items: regions,
             addLabel: 'Adicionar região',
             saveLabel: 'Salvar região',
             removeLabel: 'Remover',
@@ -658,7 +793,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
             kind: _CatalogKind.fundingSource,
             controller: _fundingSourceCtrl,
             labelText: 'Fonte de recurso',
-            items: tenantState.fundingSources,
+            items: fundingSources,
             addLabel: 'Adicionar fonte',
             saveLabel: 'Salvar fonte',
             removeLabel: 'Remover',
@@ -668,7 +803,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
             kind: _CatalogKind.program,
             controller: _programCtrl,
             labelText: 'Programa de trabalho / Ação',
-            items: tenantState.programs,
+            items: programs,
             addLabel: 'Adicionar programa',
             saveLabel: 'Salvar programa',
             removeLabel: 'Remover',
@@ -678,7 +813,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
             kind: _CatalogKind.expenseNature,
             controller: _expenseNatureCtrl,
             labelText: 'Natureza da despesa',
-            items: tenantState.expenseNatures,
+            items: expenseNatures,
             addLabel: 'Adicionar ND',
             saveLabel: 'Salvar ND',
             removeLabel: 'Remover',
@@ -688,13 +823,60 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
             kind: _CatalogKind.companyBody,
             controller: _companyBodyCtrl,
             labelText: 'Órgão / Parceiro / Convenente',
-            items: tenantState.companyBodies,
+            items: companyBodies,
             addLabel: 'Adicionar órgão',
             saveLabel: 'Salvar órgão',
             removeLabel: 'Remover',
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSubmitButton({
+    required bool floating,
+  }) {
+    final label = widget.isCreateMode ? 'Criar empresa' : 'Salvar configurações';
+
+    final icon =
+    widget.isCreateMode ? Icons.add_business_rounded : Icons.check_rounded;
+
+    final child = FilledButton.icon(
+      onPressed: _saving ? null : _submit,
+      icon: _saving
+          ? const SizedBox(
+        width: 18,
+        height: 18,
+        child: LoadingTreeDots(
+          size: 18,
+          centered: false,
+        ),
+      )
+          : Icon(icon),
+      label: Text(label),
+      style: FilledButton.styleFrom(
+        backgroundColor: widget.isCreateMode
+            ? const Color(0xFF059669)
+            : const Color(0xFF2563EB),
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: const Color(0xFF94A3B8),
+        disabledForegroundColor: Colors.white,
+        elevation: floating ? 8 : 0,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 14,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+
+    if (!floating) return child;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8, bottom: 8),
+      child: child,
     );
   }
 
@@ -719,20 +901,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          FilledButton.icon(
-            onPressed: _saving ? null : _submit,
-            icon: _saving
-                ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: LoadingTreeDots(
-                size: 18,
-                centered: false,
-              ),
-            )
-                : const Icon(Icons.check_rounded),
-            label: const Text('Salvar configurações'),
-          ),
+          _buildSubmitButton(floating: false),
         ],
       ),
     );
@@ -741,6 +910,8 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
   Widget _buildSetupContent({
     required TenantState tenantState,
     required EdgeInsets padding,
+    required bool showBottomBar,
+    double scrollTopSpacing = 0,
   }) {
     final isLoadingTenant = tenantState.isLoading && !_saving;
 
@@ -758,6 +929,8 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (scrollTopSpacing > 0)
+                          SizedBox(height: scrollTopSpacing),
                         InitialSetupHeader(
                           empresaFantasiaCtrl: _tenantFantasyCtrl,
                           empresaNomeCtrl: _tenantNameCtrl,
@@ -790,7 +963,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
               ],
             ),
           ),
-          _buildBottomBar(pageMode: widget.isPage),
+          if (showBottomBar) _buildBottomBar(pageMode: widget.isPage),
         ],
       ),
     );
@@ -821,7 +994,9 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
               return WindowDialog(
                 width: width,
-                title: 'Configurações da empresa',
+                title: widget.isCreateMode
+                    ? 'Nova empresa'
+                    : 'Configurações da empresa',
                 onClose: null,
                 showMinimize: false,
                 contentPadding: EdgeInsets.zero,
@@ -831,6 +1006,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
                     builder: (context, tenantState) {
                       return _buildSetupContent(
                         tenantState: tenantState,
+                        showBottomBar: true,
                         padding: const EdgeInsets.fromLTRB(
                           12,
                           12,
@@ -851,16 +1027,17 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
   Widget _buildPageMode() {
     return Scaffold(
-      extendBodyBehindAppBar: true,
+      floatingActionButton: _buildSubmitButton(floating: true),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       appBar: UpBar(
         leading: const Padding(
           padding: EdgeInsets.only(left: 12.0),
           child: CircleButtonChange(),
         ),
-        titleWidgets: const [
+        titleWidgets: [
           Text(
-            'Configurações da empresa',
-            style: TextStyle(
+            widget.isCreateMode ? 'Nova empresa' : 'Configurações da empresa',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -870,68 +1047,41 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
       ),
       body: Stack(
         children: [
-          const Positioned.fill(
-            child: BackgroundChange(),
-          ),
-          SafeArea(
-            top: false,
-            child: BlocBuilder<TenantCubit, TenantState>(
-              builder: (context, tenantState) {
-                final media = MediaQuery.of(context);
-                final topSafe = media.padding.top;
+          BackgroundChange(),
+          BlocBuilder<TenantCubit, TenantState>(
+            builder: (context, tenantState) {
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxWidth = constraints.maxWidth >= 1500
+                      ? 1120.0
+                      : constraints.maxWidth >= 1100
+                      ? 1040.0
+                      : constraints.maxWidth >= 800
+                      ? constraints.maxWidth * 0.9
+                      : constraints.maxWidth - 24;
 
-                const appBarHeight = 56.0;
-                final topOffset = topSafe + appBarHeight + 12;
-
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final maxWidth = constraints.maxWidth >= 1500
-                        ? 1120.0
-                        : constraints.maxWidth >= 1100
-                        ? 1040.0
-                        : constraints.maxWidth >= 800
-                        ? constraints.maxWidth * 0.9
-                        : constraints.maxWidth - 24;
-
-                    return Padding(
-                      padding: EdgeInsets.fromLTRB(12, topOffset, 12, 12),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: maxWidth,
-                          ),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF6F7FB),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.black.withValues(alpha: 0.06),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.04),
-                                  blurRadius: 18,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: _buildSetupContent(
-                              tenantState: tenantState,
-                              padding: const EdgeInsets.fromLTRB(
-                                18,
-                                18,
-                                18,
-                                24,
-                              ),
-                            ),
-                          ),
+                  return Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: maxWidth,
+                      ),
+                      child: _buildSetupContent(
+                        tenantState: tenantState,
+                        showBottomBar: false,
+                        scrollTopSpacing: 12,
+                        padding: const EdgeInsets.fromLTRB(
+                          0,
+                          0,
+                          0,
+                          92,
                         ),
                       ),
-                    );
-                  },
-                );
-              },
-            ),
+                    ),
+                  );
+                },
+              );
+            },
           ),
         ],
       ),

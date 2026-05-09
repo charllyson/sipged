@@ -1,3 +1,5 @@
+// lib/screens/common/setup/initial_setup_logo.dart
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -22,23 +24,24 @@ class InitialSetupLogo extends StatelessWidget {
     return logoBytes != null || (existingLogoUrl ?? '').trim().isNotEmpty;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    Widget child;
-
+  Widget _buildImageContent() {
     if (logoBytes != null) {
-      child = ClipRRect(
+      return ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Image.memory(
           logoBytes!,
           fit: BoxFit.contain,
         ),
       );
-    } else if ((existingLogoUrl ?? '').trim().isNotEmpty) {
-      child = ClipRRect(
+    }
+
+    final url = existingLogoUrl?.trim();
+
+    if (url != null && url.isNotEmpty) {
+      return ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Image.network(
-          existingLogoUrl!,
+          url,
           fit: BoxFit.contain,
           errorBuilder: (_, _, _) {
             return const Icon(
@@ -49,13 +52,18 @@ class InitialSetupLogo extends StatelessWidget {
           },
         ),
       );
-    } else {
-      child = const Icon(
-        Icons.image_outlined,
-        size: 38,
-        color: Color(0xFF98A2B3),
-      );
     }
+
+    return const Icon(
+      Icons.image_outlined,
+      size: 38,
+      color: Color(0xFF98A2B3),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = _buildImageContent();
 
     return SizedBox(
       width: 118,
@@ -112,6 +120,31 @@ class InitialSetupLogo extends StatelessWidget {
               ),
             ),
           ),
+          if (_hasLogo && onRemove != null) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: saving ? null : onRemove,
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                size: 15,
+              ),
+              label: const Text('Remover'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+                disabledForegroundColor: Colors.grey,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                minimumSize: const Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

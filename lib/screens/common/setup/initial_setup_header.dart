@@ -1,3 +1,7 @@
+// lib/screens/common/setup/initial_setup_header.dart
+
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -29,6 +33,11 @@ class InitialSetupHeader extends StatelessWidget {
     this.onRemoveLogo,
     required this.cnpjValidator,
   });
+
+  String? _requiredValidator(String? value, String message) {
+    if ((value ?? '').trim().isEmpty) return message;
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,12 +75,11 @@ class InitialSetupHeader extends StatelessWidget {
                 controller: empresaFantasiaCtrl,
                 labelText: 'Nome fantasia',
                 enabled: !saving,
-                validator: (v) {
-                  if ((v ?? '').trim().isEmpty) {
-                    return 'Informe o nome fantasia';
-                  }
-
-                  return null;
+                validator: (value) {
+                  return _requiredValidator(
+                    value,
+                    'Informe o nome fantasia',
+                  );
                 },
               ),
               const SizedBox(height: 14),
@@ -79,34 +87,37 @@ class InitialSetupHeader extends StatelessWidget {
                 builder: (context, inner) {
                   final twoColumns = inner.maxWidth >= 620;
 
+                  final companyNameField = CustomTextField(
+                    controller: empresaNomeCtrl,
+                    labelText: 'Razão social / Órgão principal',
+                    enabled: !saving,
+                    validator: (value) {
+                      return _requiredValidator(
+                        value,
+                        'Informe a razão social',
+                      );
+                    },
+                  );
+
+                  final cnpjField = CustomTextField(
+                    controller: empresaCnpjCtrl,
+                    labelText: 'CNPJ',
+                    enabled: !saving,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(14),
+                      SipGedMasks.cnpj,
+                    ],
+                    validator: cnpjValidator,
+                  );
+
                   if (!twoColumns) {
                     return Column(
                       children: [
-                        CustomTextField(
-                          controller: empresaNomeCtrl,
-                          labelText: 'Razão social / Órgão principal',
-                          enabled: !saving,
-                          validator: (v) {
-                            if ((v ?? '').trim().isEmpty) {
-                              return 'Informe a razão social';
-                            }
-
-                            return null;
-                          },
-                        ),
+                        companyNameField,
                         const SizedBox(height: 14),
-                        CustomTextField(
-                          controller: empresaCnpjCtrl,
-                          labelText: 'CNPJ',
-                          enabled: !saving,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(14),
-                            SipGedMasks.cnpj,
-                          ],
-                          validator: cnpjValidator,
-                        ),
+                        cnpjField,
                       ],
                     );
                   }
@@ -116,33 +127,11 @@ class InitialSetupHeader extends StatelessWidget {
                     children: [
                       Expanded(
                         flex: 2,
-                        child: CustomTextField(
-                          controller: empresaNomeCtrl,
-                          labelText: 'Razão social / Órgão principal',
-                          enabled: !saving,
-                          validator: (v) {
-                            if ((v ?? '').trim().isEmpty) {
-                              return 'Informe a razão social';
-                            }
-
-                            return null;
-                          },
-                        ),
+                        child: companyNameField,
                       ),
                       const SizedBox(width: 14),
                       Expanded(
-                        child: CustomTextField(
-                          controller: empresaCnpjCtrl,
-                          labelText: 'CNPJ',
-                          enabled: !saving,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(14),
-                            SipGedMasks.cnpj,
-                          ],
-                          validator: cnpjValidator,
-                        ),
+                        child: cnpjField,
                       ),
                     ],
                   );

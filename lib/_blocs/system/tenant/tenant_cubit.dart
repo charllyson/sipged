@@ -291,6 +291,10 @@ class TenantCubit extends Cubit<TenantState> {
         ),
       );
 
+      if (clearPersistedSelection) {
+        await _repo.clearPersistedTenantForCurrentUser();
+      }
+
       _repo.clearActiveTenantId();
 
       emit(
@@ -468,6 +472,81 @@ class TenantCubit extends Cubit<TenantState> {
           error: e.toString(),
         ),
       );
+    }
+  }
+
+  Future<TenantData?> createTenantForCurrentUser({
+    required String label,
+    String? fantasyName,
+    String? cnpj,
+  }) async {
+    try {
+      emit(
+        state.copyWith(
+          isLoading: true,
+          clearError: true,
+        ),
+      );
+
+      final created = await _repo.createTenantForCurrentUser(
+        label: label,
+        fantasyName: fantasyName,
+        cnpj: cnpj,
+      );
+
+      final availableTenants = _replaceOrAppendTenant(
+        state.availableTenants,
+        created,
+      );
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          hasLoadedAvailableTenants: true,
+          hasLoadedTenant: true,
+          hasLoadedTenantItems: true,
+          selectedTenantId: created.id,
+          tenantProfile: created,
+          availableTenants: availableTenants,
+          units: created.units,
+          roads: created.roads,
+          regions: created.regions,
+          fundingSources: created.fundingSources,
+          programs: created.programs,
+          expenseNatures: created.expenseNatures,
+          companyBodies: created.companyBodies,
+          clearError: true,
+        ),
+      );
+
+      return created;
+    } on FirebaseException catch (e, s) {
+      debugPrint(
+        'TenantCubit.createTenantForCurrentUser FirebaseException: '
+            '${e.code} - ${e.message}',
+      );
+      debugPrintStack(stackTrace: s);
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          error: 'Firebase (${e.code}): ${e.message}',
+        ),
+      );
+
+      return null;
+    } catch (e, s) {
+      debugPrint('TenantCubit.createTenantForCurrentUser error: $e');
+      debugPrintStack(stackTrace: s);
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        ),
+      );
+
+      return null;
     }
   }
 
@@ -1476,6 +1555,27 @@ class TenantCubit extends Cubit<TenantState> {
     emit(
       state.copyWith(
         error: e.toString(),
+      ),
+    );
+  }
+
+  void prepareCreateTenantDraft() {
+    _repo.clearActiveTenantId();
+
+    emit(
+      state.copyWith(
+        clearSelectedTenantId: true,
+        clearTenantProfile: true,
+        hasLoadedTenant: false,
+        hasLoadedTenantItems: false,
+        units: const <String>[],
+        roads: const <String>[],
+        regions: const <String>[],
+        fundingSources: const <String>[],
+        programs: const <String>[],
+        expenseNatures: const <String>[],
+        companyBodies: const <String>[],
+        clearError: true,
       ),
     );
   }

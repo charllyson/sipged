@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/module/module_catalog.dart';
-import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart' as perm;
 import 'package:sipged/_blocs/system/permission/permission_repository.dart';
@@ -528,10 +527,10 @@ class _ManagerUsersState extends State<ManagerUsers> {
           CustomScrollView(
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 90),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
                 sliver: SliverList.separated(
                   itemCount: users.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 18),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final user = users[index];
                     final userPermissions = _permissionsOf(user);

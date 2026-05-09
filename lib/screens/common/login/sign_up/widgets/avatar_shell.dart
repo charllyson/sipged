@@ -7,9 +7,18 @@ class AvatarShell extends StatelessWidget {
   const AvatarShell({
     super.key,
     required this.user,
+    this.size = 62,
   });
 
   final UserData user;
+  final double size;
+
+  bool get _isActive {
+    return !user.isDeletedStatus &&
+        !user.isBlockedStatus &&
+        !user.isInactiveStatus &&
+        !user.hasStatusRestriction;
+  }
 
   List<Color> get _gradientColors {
     if (user.isDeletedStatus) {
@@ -33,40 +42,75 @@ class AvatarShell extends StatelessWidget {
       ];
     }
 
+    if (_isActive) {
+      return const [
+        Color(0xFF16A34A),
+        Color(0xFF22C55E),
+      ];
+    }
+
     return const [
       Color(0xFF2563EB),
       Color(0xFF7C3AED),
     ];
   }
 
+  Color get _shadowColor {
+    if (_isActive) {
+      return const Color(0xFF16A34A);
+    }
+
+    return user.statusColor;
+  }
+
+  String get _tooltip {
+    if (_isActive) return 'Usuário ativo';
+
+    final label = user.statusLabel.trim();
+
+    if (label.isNotEmpty) return label;
+
+    return 'Usuário com restrição';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final color = user.statusColor;
+    final outerPadding = size <= 50 ? 1.5 : 2.0;
+    final innerPadding = size <= 50 ? 0.8 : 1.0;
 
-    return Container(
-      width: 62,
-      height: 62,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: _gradientColors,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.24),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return Tooltip(
+      message: _tooltip,
       child: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        width: size,
+        height: size,
+        padding: EdgeInsets.all(outerPadding),
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: _gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _shadowColor.withValues(alpha: _isActive ? 0.24 : 0.22),
+              blurRadius: size <= 50 ? 12 : 18,
+              offset: Offset(0, size <= 50 ? 5 : 8),
+            ),
+          ],
         ),
-        child: PhotoCircle(userData: user),
+        child: Container(
+          padding: EdgeInsets.all(innerPadding),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+          child: ClipOval(
+            child: PhotoCircle(
+              userData: user,
+            ),
+          ),
+        ),
       ),
     );
   }

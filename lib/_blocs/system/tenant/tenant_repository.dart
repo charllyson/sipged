@@ -642,6 +642,93 @@ class TenantRepository {
     return tenants;
   }
 
+  Future<TenantData> createTenantForCurrentUser({
+    required String label,
+    String? fantasyName,
+    String? cnpj,
+  }) async {
+    final uid = _currentUserId?.trim();
+
+    if (uid == null || uid.isEmpty) {
+      throw StateError('Usuário não autenticado.');
+    }
+
+    final cleanLabel = label.trim();
+    final cleanFantasyName = fantasyName?.trim() ?? '';
+    final cleanCnpj = cnpj?.trim() ?? '';
+
+    if (cleanLabel.isEmpty) {
+      throw ArgumentError('O nome da empresa não pode ser vazio.');
+    }
+
+    final docRef = _tenantsRef.doc();
+    final newTenantId = docRef.id;
+
+    final batch = _firestore.batch();
+
+    final tenantData = <String, dynamic>{
+      'id': newTenantId,
+      'tenantId': newTenantId,
+      'companyId': newTenantId,
+      'label': cleanLabel,
+      'companyName': cleanLabel,
+      'fantasyName': cleanFantasyName,
+      if (cleanCnpj.isNotEmpty) 'cnpj': cleanCnpj,
+      'units': const <String>[],
+      'roads': const <String>[],
+      'regions': const <String>[],
+      'fundingSources': const <String>[],
+      'programs': const <String>[],
+      'expenseNatures': const <String>[],
+      'companyBodies': const <String>[],
+      'createdAt': FieldValue.serverTimestamp(),
+      'createdBy': uid,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': uid,
+    };
+
+    batch.set(
+      docRef,
+      tenantData,
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      _userRef(uid),
+      {
+        'tenantIds': FieldValue.arrayUnion([newTenantId]),
+        'allowedTenantIds': FieldValue.arrayUnion([newTenantId]),
+        'accessibleTenantIds': FieldValue.arrayUnion([newTenantId]),
+        'tenantAccess.$newTenantId': {
+          'enabled': true,
+          'allowed': true,
+          'active': true,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        'tenantRoles.$newTenantId': 'admin',
+        'currentTenantId': newTenantId,
+        'selectedTenantId': newTenantId,
+        'activeTenantId': newTenantId,
+        'lastTenantId': newTenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
+
+    setActiveTenantId(newTenantId);
+
+    final snap = await docRef.get();
+
+    if (!snap.exists || snap.data() == null) {
+      throw StateError('A empresa foi criada, mas não pôde ser carregada.');
+    }
+
+    return TenantData.fromDoc(snap);
+  }
+
   Future<TenantData?> loadCompanyProfile() async {
     final canAccess = await currentUserCanAccessTenant(tenantId);
 

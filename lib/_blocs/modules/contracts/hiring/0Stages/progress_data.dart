@@ -1,7 +1,6 @@
 // lib/_blocs/modules/contracts/hiring/0Stages/progress_data.dart
 
 import 'package:flutter/material.dart';
-import 'package:meta/meta.dart';
 
 @immutable
 class ProgressData {

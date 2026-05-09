@@ -23,7 +23,6 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
-import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_resolver.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';

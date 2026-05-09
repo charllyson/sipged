@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 
-import 'package:sipged/_blocs/system/permission/permission_data.dart';
-
 class ContractData {
   final String? id;
 
