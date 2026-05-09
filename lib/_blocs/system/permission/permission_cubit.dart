@@ -23,6 +23,7 @@ class PermissionCubit extends Cubit<PermissionState> {
   @override
   Future<void> close() async {
     await _sub?.cancel();
+
     return super.close();
   }
 
@@ -57,6 +58,7 @@ class PermissionCubit extends Cubit<PermissionState> {
           isLoading: false,
           hasLoaded: true,
           current: data,
+          activeTenantId: data?.activeTenantId ?? state.activeTenantId,
           clearError: true,
         ),
       );
@@ -124,6 +126,7 @@ class PermissionCubit extends Cubit<PermissionState> {
             hasLoaded: true,
             realtimeEnabled: true,
             current: data,
+            activeTenantId: state.activeTenantId ?? data?.activeTenantId,
             clearError: true,
           ),
         );
@@ -145,6 +148,7 @@ class PermissionCubit extends Cubit<PermissionState> {
 
   Future<void> stopWatch() async {
     await _sub?.cancel();
+
     _sub = null;
 
     emit(
@@ -154,10 +158,23 @@ class PermissionCubit extends Cubit<PermissionState> {
     );
   }
 
-  void setActiveTenant(String? tenantId) {
-    final cleanTenantId = tenantId?.trim();
+  Future<void> persistActiveTenantForCurrentUser(String? tenantId) async {
+    final uid = state.current?.uid.trim();
 
-    if (cleanTenantId == null || cleanTenantId.isEmpty) {
+    if (uid == null || uid.isEmpty) return;
+
+    final cleanTenantId = _cleanTenantId(tenantId);
+
+    await _repo.setCurrentTenantId(
+      uid: uid,
+      tenantId: cleanTenantId,
+    );
+  }
+
+  void setActiveTenant(String? tenantId) {
+    final cleanTenantId = _cleanTenantId(tenantId);
+
+    if (cleanTenantId == null) {
       emit(
         state.copyWith(
           clearActiveTenantId: true,
@@ -174,12 +191,55 @@ class PermissionCubit extends Cubit<PermissionState> {
     );
   }
 
-  bool canAccessTenant(String tenantId) {
-    final cleanTenantId = tenantId.trim();
+  void changeActiveTenant(String? tenantId) {
+    setActiveTenant(tenantId);
+  }
 
-    if (cleanTenantId.isEmpty) return false;
+  Future<bool> setActiveTenantIfAllowed(
+      String? tenantId, {
+        bool persist = true,
+      }) async {
+    final cleanTenantId = _cleanTenantId(tenantId);
+
+    if (cleanTenantId == null) {
+      setActiveTenant(null);
+
+      if (persist) {
+        await persistActiveTenantForCurrentUser(null);
+      }
+
+      return true;
+    }
+
+    if (!canAccessTenant(cleanTenantId)) {
+      emit(
+        state.copyWith(
+          error: 'Usuário sem acesso à empresa selecionada.',
+        ),
+      );
+
+      return false;
+    }
+
+    setActiveTenant(cleanTenantId);
+
+    if (persist) {
+      await persistActiveTenantForCurrentUser(cleanTenantId);
+    }
+
+    return true;
+  }
+
+  bool canAccessTenant(String? tenantId) {
+    final cleanTenantId = _cleanTenantId(tenantId);
+
+    if (cleanTenantId == null) return false;
 
     return state.current?.canAccessTenant(cleanTenantId) == true;
+  }
+
+  List<String> enabledTenantIds() {
+    return state.current?.enabledTenantIds ?? const <String>[];
   }
 
   SystemUserRole roleForActiveTenant() {
@@ -341,6 +401,48 @@ class PermissionCubit extends Cubit<PermissionState> {
         role: role,
         label: label,
       );
+
+      await loadByUid(cleanUid);
+    } catch (e) {
+      if (isClosed) return;
+
+      emit(
+        state.copyWith(
+          error: e.toString(),
+        ),
+      );
+    }
+  }
+
+  Future<void> removeTenantAccess({
+    required String uid,
+    required String tenantId,
+  }) async {
+    final cleanUid = uid.trim();
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanUid.isEmpty || cleanTenantId.isEmpty) {
+      emit(
+        state.copyWith(
+          error: 'UID ou empresa não informados.',
+        ),
+      );
+      return;
+    }
+
+    try {
+      await _repo.removeTenantAccess(
+        uid: cleanUid,
+        tenantId: cleanTenantId,
+      );
+
+      if (state.activeTenantId == cleanTenantId) {
+        emit(
+          state.copyWith(
+            clearActiveTenantId: true,
+          ),
+        );
+      }
 
       await loadByUid(cleanUid);
     } catch (e) {
@@ -583,6 +685,12 @@ class SystemPermission {
 
     if (cleanModule.isEmpty) {
       return const <ContractData>[];
+    }
+
+    if (cleanTenantId != null && cleanTenantId.isNotEmpty) {
+      if (!permissions.canAccessTenant(cleanTenantId)) {
+        return const <ContractData>[];
+      }
     }
 
     final canReadModule = permissions.canModuleString(

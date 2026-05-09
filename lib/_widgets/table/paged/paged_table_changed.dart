@@ -579,94 +579,79 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
           hasActions: hasActions,
         );
 
-        return Container(
-          margin: widget.cardMargin,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (allData.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: Text(
+                  'Nenhum registro encontrado.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey.shade600,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (allData.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                  child: Text(
-                    'Nenhum registro encontrado.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey.shade600,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              if (allData.isNotEmpty)
-                Scrollbar(
+            if (allData.isNotEmpty)
+              Scrollbar(
+                controller: _horizontalCtrl,
+                thumbVisibility: needsHorizontalScroll,
+                child: SingleChildScrollView(
                   controller: _horizontalCtrl,
-                  thumbVisibility: needsHorizontalScroll,
-                  child: SingleChildScrollView(
-                    controller: _horizontalCtrl,
-                    scrollDirection: Axis.horizontal,
-                    physics: needsHorizontalScroll
-                        ? const ClampingScrollPhysics()
-                        : const NeverScrollableScrollPhysics(),
-                    child: SizedBox(
-                      width: renderWidth,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildHeaderRow(
-                            context: context,
-                            hasActions: hasActions,
-                            tableWidth: renderWidth,
-                            resolvedWidths: resolvedWidths,
-                          ),
-                          ..._buildBodyRows(
-                            context: context,
-                            chunks: chunks,
-                            hasActions: hasActions,
-                            tableWidth: renderWidth,
-                            resolvedWidths: resolvedWidths,
-                          ),
-                        ],
-                      ),
+                  scrollDirection: Axis.horizontal,
+                  physics: needsHorizontalScroll
+                      ? const ClampingScrollPhysics()
+                      : const NeverScrollableScrollPhysics(),
+                  child: SizedBox(
+                    width: renderWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildHeaderRow(
+                          context: context,
+                          hasActions: hasActions,
+                          tableWidth: renderWidth,
+                          resolvedWidths: resolvedWidths,
+                        ),
+                        ..._buildBodyRows(
+                          context: context,
+                          chunks: chunks,
+                          hasActions: hasActions,
+                          tableWidth: renderWidth,
+                          resolvedWidths: resolvedWidths,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              if (widget.enablePagination)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: PagedPaginationBar(
-                    rowsPerPage: _rowsPerPage,
-                    rowsPerPageOptions: widget.rowsPerPageOptions,
-                    currentPage: _currentPage,
-                    totalPages: totalPages,
-                    visibleRows: visibleData.length,
-                    totalRows: allData.length,
-                    paging: _paging,
-                    onRowsPerPageChanged: (value) {
-                      if (value == null) return;
+              ),
+            if (widget.enablePagination)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: PagedPaginationBar(
+                  rowsPerPage: _rowsPerPage,
+                  rowsPerPageOptions: widget.rowsPerPageOptions,
+                  currentPage: _currentPage,
+                  totalPages: totalPages,
+                  visibleRows: visibleData.length,
+                  totalRows: allData.length,
+                  paging: _paging,
+                  onRowsPerPageChanged: (value) {
+                    if (value == null) return;
 
-                      setState(() {
-                        _rowsPerPage = value;
-                        _currentPage = 1;
-                      });
-                    },
-                    onFirstPage: () => _goTo(1),
-                    onPreviousPage: () => _goTo(_currentPage - 1),
-                    onNextPage: () => _goTo(_currentPage + 1),
-                    onLastPage: () => _goTo(totalPages),
-                  ),
+                    setState(() {
+                      _rowsPerPage = value;
+                      _currentPage = 1;
+                    });
+                  },
+                  onFirstPage: () => _goTo(1),
+                  onPreviousPage: () => _goTo(_currentPage - 1),
+                  onNextPage: () => _goTo(_currentPage + 1),
+                  onLastPage: () => _goTo(totalPages),
                 ),
-            ],
-          ),
+              ),
+          ],
         );
       },
     );

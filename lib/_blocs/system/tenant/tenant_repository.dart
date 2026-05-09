@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
 
 import 'tenant_data.dart';
 
@@ -43,10 +44,6 @@ class TenantItemsResult {
 class TenantRepository {
   static String? _activeTenantId;
 
-  final FirebaseFirestore _firestore;
-  final FirebaseAuth _auth;
-  final FirebaseStorage _storage;
-
   TenantRepository({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
@@ -64,24 +61,55 @@ class TenantRepository {
 
   static const String collectionName = 'tenants';
 
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
+  final FirebaseStorage _storage;
+
   String get tenantId {
     final id = _activeTenantId?.trim();
 
     if (id == null || id.isEmpty) {
       throw StateError(
-        'Nenhum tenant selecionado. Selecione uma empresa antes de carregar os dados.',
+        'Nenhuma empresa selecionada. Selecione uma empresa antes de carregar os dados.',
       );
     }
 
     return id;
   }
 
+  String? get activeTenantId {
+    final id = _activeTenantId?.trim();
+    if (id == null || id.isEmpty) return null;
+    return id;
+  }
+
+  bool get hasActiveTenant {
+    final id = _activeTenantId?.trim();
+    return id != null && id.isNotEmpty;
+  }
+
   String get companyDocId => tenantId;
 
   String? get _currentUserId => _auth.currentUser?.uid;
 
+  CollectionReference<Map<String, dynamic>> get _tenantsRef {
+    return _firestore.collection(collectionName);
+  }
+
+  CollectionReference<Map<String, dynamic>> get _usersRef {
+    return _firestore.collection('users');
+  }
+
   DocumentReference<Map<String, dynamic>> get _tenantRef {
-    return _firestore.collection(collectionName).doc(tenantId);
+    return _tenantsRef.doc(tenantId);
+  }
+
+  DocumentReference<Map<String, dynamic>> _tenantRefById(String tenantId) {
+    return _tenantsRef.doc(tenantId.trim());
+  }
+
+  DocumentReference<Map<String, dynamic>> _userRef(String uid) {
+    return _usersRef.doc(uid.trim());
   }
 
   String get _tenantPath => '$collectionName/$tenantId';
@@ -138,6 +166,37 @@ class TenantRepository {
     return _collectionByPath(_expenseNaturesPath);
   }
 
+  void setActiveTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId não pode ser vazio.');
+    }
+
+    _activeTenantId = cleanTenantId;
+  }
+
+  void clearActiveTenantId() {
+    _activeTenantId = null;
+  }
+
+  Future<void> clearPersistedTenantForCurrentUser() async {
+    final uid = _currentUserId?.trim();
+
+    if (uid == null || uid.isEmpty) return;
+
+    await _userRef(uid).set(
+      {
+        'currentTenantId': FieldValue.delete(),
+        'selectedTenantId': FieldValue.delete(),
+        'activeTenantId': FieldValue.delete(),
+        'lastTenantId': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
   CollectionReference<Map<String, dynamic>> _itemsRef(String key) {
     switch (key) {
       case 'units':
@@ -169,14 +228,209 @@ class TenantRepository {
     }
   }
 
-  void setActiveTenantId(String tenantId) {
-    final cleanTenantId = tenantId.trim();
+  Future<Map<String, dynamic>?> _loadCurrentUserRaw() async {
+    final uid = _currentUserId?.trim();
 
-    if (cleanTenantId.isEmpty) {
-      throw ArgumentError('tenantId não pode ser vazio.');
+    if (uid == null || uid.isEmpty) return null;
+
+    final snap = await _userRef(uid).get();
+
+    return snap.data();
+  }
+
+  bool _isSuperUserMap(Map<String, dynamic>? data) {
+    if (data == null) return false;
+
+    bool isSuper(dynamic value) {
+      final raw = value?.toString().trim();
+
+      if (raw == null || raw.isEmpty) return false;
+
+      final normalized = raw
+          .toUpperCase()
+          .replaceAll('-', '_')
+          .replaceAll(' ', '_')
+          .replaceAll('__', '_')
+          .trim();
+
+      const superValues = <String>{
+        'ADMINISTRADOR',
+        'ADMINISTRATOR',
+        'ADMIN',
+        'ADM',
+        'DESENVOLVEDOR',
+        'DEVELOPER',
+        'DEV',
+        'SUPERADMIN',
+        'SUPER_ADMIN',
+        'SUPERUSER',
+        'SUPER_USER',
+        'ROOT',
+        'OWNER',
+        'ADMINISTRADOR_GERAL',
+        'ADMIN_GERAL',
+      };
+
+      return superValues.contains(normalized);
     }
 
-    _activeTenantId = cleanTenantId;
+    return isSuper(data['baseRole']) ||
+        isSuper(data['baseProfile']) ||
+        isSuper(data['globalRole']) ||
+        isSuper(data['role']);
+  }
+
+  String? _cleanNullableString(dynamic value) {
+    final text = value?.toString().trim();
+
+    if (text == null || text.isEmpty) return null;
+
+    return text;
+  }
+
+  List<String> _listFromDynamic(dynamic value) {
+    if (value == null) return const <String>[];
+
+    if (value is List) {
+      return _cleanStringList(
+        value
+            .map((item) => item?.toString() ?? '')
+            .where((item) => item.trim().isNotEmpty),
+      );
+    }
+
+    if (value is String) {
+      return _cleanStringList(
+        value
+            .split(RegExp(r'[\n,;]'))
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty),
+      );
+    }
+
+    return const <String>[];
+  }
+
+  List<String> _mapKeysFromDynamic(dynamic value) {
+    if (value is! Map) return const <String>[];
+
+    final keys = <String>[];
+
+    for (final entry in value.entries) {
+      final key = entry.key?.toString().trim() ?? '';
+
+      if (key.isEmpty) continue;
+
+      final rawValue = entry.value;
+
+      if (rawValue is Map) {
+        final enabled = rawValue['enabled'];
+        final active = rawValue['active'];
+        final allowed = rawValue['allowed'];
+        final disabled = rawValue['disabled'];
+
+        if (enabled == false ||
+            active == false ||
+            allowed == false ||
+            disabled == true) {
+          continue;
+        }
+      }
+
+      keys.add(key);
+    }
+
+    return _cleanStringList(keys);
+  }
+
+  List<String> _tenantIdsFromCurrentUserMap(Map<String, dynamic>? data) {
+    if (data == null) return const <String>[];
+
+    final ids = <String>[
+      ..._listFromDynamic(data['tenantIds']),
+      ..._listFromDynamic(data['allowedTenantIds']),
+      ..._listFromDynamic(data['accessibleTenantIds']),
+      ..._listFromDynamic(data['companyIds']),
+      ..._listFromDynamic(data['allowedCompanyIds']),
+      ..._listFromDynamic(data['accessibleCompanyIds']),
+      ..._mapKeysFromDynamic(data['tenantAccess']),
+      ..._mapKeysFromDynamic(data['tenantsAccess']),
+      ..._mapKeysFromDynamic(data['companyAccess']),
+      ..._mapKeysFromDynamic(data['companiesAccess']),
+      ..._mapKeysFromDynamic(data['tenantRoles']),
+      ..._mapKeysFromDynamic(data['tenantModuleOverrides']),
+    ];
+
+    return _cleanStringList(ids);
+  }
+
+  Future<List<String>> loadAllowedTenantIdsForCurrentUser() async {
+    final data = await _loadCurrentUserRaw();
+
+    if (_isSuperUserMap(data)) {
+      final snap = await _tenantsRef.get();
+
+      return _cleanStringList(snap.docs.map((doc) => doc.id));
+    }
+
+    return _tenantIdsFromCurrentUserMap(data);
+  }
+
+  Future<bool> currentUserCanAccessTenant(String tenantId) async {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) return false;
+
+    final data = await _loadCurrentUserRaw();
+
+    if (_isSuperUserMap(data)) return true;
+
+    final allowed = _tenantIdsFromCurrentUserMap(data);
+
+    return allowed.contains(cleanTenantId);
+  }
+
+  Future<String?> loadPreferredTenantIdForCurrentUser() async {
+    final data = await _loadCurrentUserRaw();
+
+    final currentTenantId = _cleanNullableString(
+      data?['currentTenantId'] ??
+          data?['selectedTenantId'] ??
+          data?['activeTenantId'] ??
+          data?['lastTenantId'],
+    );
+
+    if (currentTenantId == null) return null;
+
+    if (await currentUserCanAccessTenant(currentTenantId)) {
+      return currentTenantId;
+    }
+
+    return null;
+  }
+
+  Future<void> persistActiveTenantForCurrentUser(String tenantId) async {
+    final uid = _currentUserId?.trim();
+    final cleanTenantId = tenantId.trim();
+
+    if (uid == null || uid.isEmpty || cleanTenantId.isEmpty) return;
+
+    final canAccess = await currentUserCanAccessTenant(cleanTenantId);
+
+    if (!canAccess) {
+      throw StateError('Usuário sem permissão para acessar esta empresa.');
+    }
+
+    await _userRef(uid).set(
+      {
+        'currentTenantId': cleanTenantId,
+        'selectedTenantId': cleanTenantId,
+        'activeTenantId': cleanTenantId,
+        'lastTenantId': cleanTenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   List<String> _cleanStringList(Iterable<String> values) {
@@ -319,18 +573,82 @@ class TenantRepository {
   }
 
   Future<List<TenantData>> loadAvailableTenants() async {
-    final snap = await _firestore.collection(collectionName).get();
+    final userData = await _loadCurrentUserRaw();
+    final isSuper = _isSuperUserMap(userData);
+    final allowedTenantIds = _tenantIdsFromCurrentUserMap(userData);
 
-    final tenants = snap.docs.map(TenantData.fromDoc).toList();
+    debugPrint(
+      '[TenantRepository] loadAvailableTenants | '
+          'isSuper=$isSuper | '
+          'allowedTenantIds=$allowedTenantIds | '
+          'collection=$collectionName',
+    );
+
+    if (isSuper) {
+      final snap = await _tenantsRef.get();
+
+      debugPrint(
+        '[TenantRepository] tenants encontrados=${snap.docs.length}',
+      );
+
+      final tenants = snap.docs
+          .where((doc) => doc.id.trim().isNotEmpty)
+          .map(TenantData.fromDoc)
+          .where((tenant) => tenant.id.trim().isNotEmpty)
+          .toList();
+
+      tenants.sort(
+            (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
+      );
+
+      return tenants;
+    }
+
+    if (allowedTenantIds.isEmpty) {
+      debugPrint(
+        '[TenantRepository] Usuário comum sem vínculos com tenants.',
+      );
+
+      return const <TenantData>[];
+    }
+
+    final tenants = <TenantData>[];
+
+    for (final tenantId in allowedTenantIds) {
+      final cleanTenantId = tenantId.trim();
+
+      if (cleanTenantId.isEmpty) continue;
+
+      final snap = await _tenantRefById(cleanTenantId).get();
+
+      if (!snap.exists || snap.data() == null) {
+        debugPrint(
+          '[TenantRepository] Tenant vinculado não encontrado: $cleanTenantId',
+        );
+        continue;
+      }
+
+      tenants.add(TenantData.fromDoc(snap));
+    }
 
     tenants.sort(
           (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
+    );
+
+    debugPrint(
+      '[TenantRepository] tenants liberados para usuário comum=${tenants.length}',
     );
 
     return tenants;
   }
 
   Future<TenantData?> loadCompanyProfile() async {
+    final canAccess = await currentUserCanAccessTenant(tenantId);
+
+    if (!canAccess) {
+      throw StateError('Usuário sem permissão para acessar esta empresa.');
+    }
+
     final snap = await _tenantRef.get();
 
     if (!snap.exists || snap.data() == null) {
@@ -345,6 +663,12 @@ class TenantRepository {
   }
 
   Future<TenantItemsResult> loadTenantItems() async {
+    final canAccess = await currentUserCanAccessTenant(tenantId);
+
+    if (!canAccess) {
+      throw StateError('Usuário sem permissão para acessar esta empresa.');
+    }
+
     final profile = await loadTenantProfile();
 
     final arrays = profile == null
@@ -448,6 +772,12 @@ class TenantRepository {
       throw ArgumentError('O nome da empresa não pode ser vazio.');
     }
 
+    final canAccess = await currentUserCanAccessTenant(tenantId);
+
+    if (!canAccess) {
+      throw StateError('Usuário sem permissão para editar esta empresa.');
+    }
+
     final currentSnap = await _tenantRef.get();
     final exists = currentSnap.exists;
 
@@ -487,9 +817,7 @@ class TenantRepository {
       'cnpj': (trimmedCnpj == null || trimmedCnpj.isEmpty) ? null : trimmedCnpj,
       'units': _cleanStringList(units ?? currentProfile?.units ?? const []),
       'roads': _cleanStringList(roads ?? currentProfile?.roads ?? const []),
-      'regions': _cleanStringList(
-        regions ?? currentProfile?.regions ?? const [],
-      ),
+      'regions': _cleanStringList(regions ?? currentProfile?.regions ?? const []),
       'fundingSources': _cleanStringList(
         fundingSources ?? currentProfile?.fundingSources ?? const [],
       ),
@@ -573,6 +901,12 @@ class TenantRepository {
       throw ArgumentError('O nome da empresa não pode ser vazio.');
     }
 
+    final canAccess = await currentUserCanAccessTenant(tenantId);
+
+    if (!canAccess) {
+      throw StateError('Usuário sem permissão para editar esta empresa.');
+    }
+
     final data = <String, dynamic>{
       'tenantId': tenantId,
       'companyId': tenantId,
@@ -609,6 +943,12 @@ class TenantRepository {
     String? contentType,
     String? oldLogoPath,
   }) async {
+    final canAccess = await currentUserCanAccessTenant(tenantId);
+
+    if (!canAccess) {
+      throw StateError('Usuário sem permissão para editar esta empresa.');
+    }
+
     if (oldLogoPath != null && oldLogoPath.trim().isNotEmpty) {
       await deleteFileByPath(oldLogoPath);
     }
@@ -652,6 +992,12 @@ class TenantRepository {
   }
 
   Future<void> deleteCompanyProfile() async {
+    final canAccess = await currentUserCanAccessTenant(tenantId);
+
+    if (!canAccess) {
+      throw StateError('Usuário sem permissão para editar esta empresa.');
+    }
+
     final snap = await _tenantRef.get();
     final data = snap.data();
     final oldLogoPath = data?['logoPath']?.toString();

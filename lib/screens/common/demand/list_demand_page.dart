@@ -1,3 +1,5 @@
+// lib/screens/common/demand/list_demand_page.dart
+
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
@@ -20,8 +22,8 @@ import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart'
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
-import 'package:sipged/_blocs/system/module/module_catalog.dart';
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_resolver.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -45,10 +47,12 @@ class ListDemandPage extends StatefulWidget {
   const ListDemandPage({
     super.key,
     required this.onTapItem,
+    required this.permissionModule,
     this.pageTitle = '',
   });
 
   final DemandNavigationCallback onTapItem;
+  final String permissionModule;
   final String pageTitle;
 
   @override
@@ -56,8 +60,6 @@ class ListDemandPage extends StatefulWidget {
 }
 
 class _ListDemandPageState extends State<ListDemandPage> {
-  static const String _prefsExpandedKey = 'contracts_expanded_keys';
-
   final TextEditingController _statusCtrl = TextEditingController();
   final TextEditingController _searchCtrl = TextEditingController();
 
@@ -82,6 +84,20 @@ class _ListDemandPageState extends State<ListDemandPage> {
   int? _sortColumnIndex;
   bool _isAscending = true;
 
+  String get _permissionModule {
+    return widget.permissionModule.trim();
+  }
+
+  String get _prefsExpandedKey {
+    final module = _permissionModule
+        .replaceAll('/', '_')
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_')
+        .toLowerCase();
+
+    return 'contracts_expanded_keys_$module';
+  }
+
   String _norm(String value) {
     return value.trim().toUpperCase();
   }
@@ -90,6 +106,21 @@ class _ListDemandPageState extends State<ListDemandPage> {
   void initState() {
     super.initState();
     _loadExpandedFromPrefs();
+  }
+
+  @override
+  void didUpdateWidget(covariant ListDemandPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.permissionModule != widget.permissionModule) {
+      _cachedByStatus.clear();
+      _clearDemandCaches();
+      _expandedKeys.clear();
+      _preSearchExpandedSnapshot.clear();
+      _didScheduleInitialLoad = false;
+
+      unawaited(_loadExpandedFromPrefs());
+    }
   }
 
   @override
@@ -217,6 +248,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
         currentUser: currentUser,
         currentPermissions: permissions,
         tenantId: tenantId,
+        permissionModule: _permissionModule,
       );
 
       _clearDemandCaches();
@@ -420,12 +452,23 @@ class _ListDemandPageState extends State<ListDemandPage> {
         return;
       }
 
+      final canReadModule = permissions.canModuleString(
+        module: _permissionModule,
+        action: 'read',
+        tenantId: tenantId,
+      );
+
+      if (!canReadModule && !permissions.isSuperUserForTenant(tenantId)) {
+        _cachedByStatus.clear();
+        return;
+      }
+
       final baseAll = cubit.state.allProcesses;
 
       final base = SystemPermission.filterVisibleContracts(
         permissions: permissions,
         contracts: baseAll,
-        module: ModuleCatalog.modContractsList,
+        module: _permissionModule,
         tenantId: tenantId,
       );
 
@@ -603,13 +646,13 @@ class _ListDemandPageState extends State<ListDemandPage> {
       return;
     }
 
-    final canReadContracts = permissions.canModuleString(
-      module: ModuleCatalog.modContractsList,
+    final canReadModule = permissions.canModuleString(
+      module: _permissionModule,
       action: 'read',
       tenantId: tenantId,
     );
 
-    if (!canReadContracts) {
+    if (!canReadModule && !permissions.isSuperUserForTenant(tenantId)) {
       setState(() {
         _cachedByStatus.clear();
       });
@@ -621,6 +664,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
         currentUser: currentUser,
         currentPermissions: permissions,
         tenantId: tenantId,
+        permissionModule: _permissionModule,
       );
     }
 
@@ -668,12 +712,17 @@ class _ListDemandPageState extends State<ListDemandPage> {
       permissionState.activeTenantId,
     );
 
-    return permissions?.canModuleString(
-      module: ModuleCatalog.modContractsList,
+    if (permissions == null) return false;
+
+    if (permissions.isSuperUserForTenant(tenantId)) {
+      return true;
+    }
+
+    return permissions.canModuleString(
+      module: _permissionModule,
       action: 'create',
       tenantId: tenantId,
-    ) ==
-        true;
+    );
   }
 
   bool _canDeleteDemand({
@@ -698,7 +747,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
       permissions: permissions,
       contract: item,
       action: 'delete',
-      module: ModuleCatalog.modContractsList,
+      module: _permissionModule,
       tenantId: tenantId,
     );
   }
@@ -844,68 +893,117 @@ class _ListDemandPageState extends State<ListDemandPage> {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return ListView(
-          children: GeneralDashboardStyle.statusMenu.map(
-                (status) {
-              final label = status.$1;
-              final rawKey = status.$2;
-              final normalizedKey = _norm(rawKey);
+        final visibleSections = GeneralDashboardStyle.statusMenu
+            .map((status) {
+          final label = status.$1;
+          final rawKey = status.$2;
+          final normalizedKey = _norm(rawKey);
 
-              final items =
-                  _cachedByStatus[normalizedKey] ?? const <ContractData>[];
+          final items =
+              _cachedByStatus[normalizedKey] ?? const <ContractData>[];
 
-              return ListDemandStatus(
-                title: label,
-                statusKey: normalizedKey,
-                items: items,
-                constraints: constraints,
-                sortColumnIndex: _sortColumnIndex,
-                isAscending: _isAscending,
-                onSort: (index, _) {
-                  _handleSort(index);
-                },
-                onDelete: (item) async {
-                  final id = item.id?.trim();
+          return (
+          label: label,
+          normalizedKey: normalizedKey,
+          items: items,
+          );
+        })
+            .where((section) => section.items.isNotEmpty)
+            .toList(growable: false);
 
-                  if (id == null || id.isEmpty) {
-                    return;
-                  }
-
-                  final canDelete = _canDeleteDemand(
-                    permissionCubit: permissionCubit,
-                    currentUser: currentUser,
-                    item: item,
-                  );
-
-                  if (!canDelete) {
-                    return;
-                  }
-
-                  await processCubit.delete(id);
-
-                  if (!mounted) return;
-
-                  await _refresh(
-                    cubit: processCubit,
-                    currentUser: currentUser,
-                  );
-                },
-                onTapItem: widget.onTapItem,
-                initiallyExpanded: _isExpanded(normalizedKey),
-                onExpansionChanged: (open) {
-                  unawaited(
-                    _setExpanded(
-                      normalizedKey,
-                      open,
+        if (visibleSections.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.folder_off_outlined,
+                    size: 42,
+                    color: Colors.grey.shade500,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Nenhum contrato disponível',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade800,
                     ),
-                  );
-                },
-                dfdByContractId: _dfdByContractId,
-                editalByContractId: _editalByContractId,
-                pubByContractId: _pubByContractId,
-              );
-            },
-          ).toList(growable: false),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Não há contratos vinculados a este módulo ou às suas permissões atuais.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: visibleSections.length,
+          itemBuilder: (context, index) {
+            final section = visibleSections[index];
+
+            return ListDemandStatus(
+              title: section.label,
+              statusKey: section.normalizedKey,
+              items: section.items,
+              constraints: constraints,
+              sortColumnIndex: _sortColumnIndex,
+              isAscending: _isAscending,
+              onSort: (index, _) {
+                _handleSort(index);
+              },
+              onDelete: (item) async {
+                final id = item.id?.trim();
+
+                if (id == null || id.isEmpty) {
+                  return;
+                }
+
+                final canDelete = _canDeleteDemand(
+                  permissionCubit: permissionCubit,
+                  currentUser: currentUser,
+                  item: item,
+                );
+
+                if (!canDelete) {
+                  return;
+                }
+
+                await processCubit.delete(id);
+
+                if (!mounted) return;
+
+                await _refresh(
+                  cubit: processCubit,
+                  currentUser: currentUser,
+                );
+              },
+              onTapItem: widget.onTapItem,
+              initiallyExpanded: _isExpanded(section.normalizedKey),
+              onExpansionChanged: (open) {
+                unawaited(
+                  _setExpanded(
+                    section.normalizedKey,
+                    open,
+                  ),
+                );
+              },
+              dfdByContractId: _dfdByContractId,
+              editalByContractId: _editalByContractId,
+              pubByContractId: _pubByContractId,
+            );
+          },
         );
       },
     );

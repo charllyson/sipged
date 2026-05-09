@@ -1,11 +1,11 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 
 import 'contract_data.dart';
 import 'contract_repository.dart';
 import 'contract_state.dart';
 
 import 'package:sipged/_blocs/system/module/module_catalog.dart';
-import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_resolver.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -23,17 +23,38 @@ class ContractCubit extends Cubit<ContractState> {
   bool get isLoading => state.loading;
   bool get isInitialized => state.initialized;
 
+  String get activePermissionModule {
+    final current = state.activePermissionModule?.trim();
+
+    if (current != null && current.isNotEmpty) {
+      return current;
+    }
+
+    return ModuleCatalog.modContractsList;
+  }
+
   Future<void> warmup({
     UserData? currentUser,
     UserPermissionData? currentPermissions,
     String? tenantId,
+    String permissionModule = ModuleCatalog.modContractsList,
+    bool force = false,
   }) async {
-    if (state.initialized || state.loading) return;
+    final cleanModule = _cleanPermissionModule(permissionModule);
+
+    if (!force &&
+        state.initialized &&
+        !state.loading &&
+        state.activePermissionModule == cleanModule) {
+      return;
+    }
 
     await refresh(
       currentUser: currentUser,
       currentPermissions: currentPermissions,
       tenantId: tenantId,
+      permissionModule: cleanModule,
+      force: force,
     );
 
     if (isClosed) return;
@@ -41,6 +62,7 @@ class ContractCubit extends Cubit<ContractState> {
     emit(
       state.copyWith(
         initialized: true,
+        activePermissionModule: cleanModule,
       ),
     );
   }
@@ -49,12 +71,17 @@ class ContractCubit extends Cubit<ContractState> {
     UserData? currentUser,
     UserPermissionData? currentPermissions,
     String? tenantId,
+    String permissionModule = ModuleCatalog.modContractsList,
+    bool force = false,
   }) async {
-    if (state.loading) return;
+    final cleanModule = _cleanPermissionModule(permissionModule);
+
+    if (state.loading && !force) return;
 
     emit(
       state.copyWith(
         loading: true,
+        activePermissionModule: cleanModule,
         clearErrorMessage: true,
       ),
     );
@@ -63,11 +90,14 @@ class ContractCubit extends Cubit<ContractState> {
       final permissions = currentPermissions ?? _permissionsFromUser(currentUser);
 
       if (permissions == null) {
+        if (isClosed) return;
+
         emit(
           state.copyWith(
             loading: false,
             allProcesses: const <ContractData>[],
             clearSelectedProcess: true,
+            activePermissionModule: cleanModule,
             errorMessage: 'Permissões do usuário não carregadas.',
           ),
         );
@@ -80,6 +110,7 @@ class ContractCubit extends Cubit<ContractState> {
         source: loaded,
         permissions: permissions,
         tenantId: tenantId,
+        permissionModule: cleanModule,
       );
 
       ContractData? selected = state.selectedProcess;
@@ -91,19 +122,26 @@ class ContractCubit extends Cubit<ContractState> {
         );
       }
 
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
+          initialized: true,
           allProcesses: filtered,
           selectedProcess: selected,
           clearSelectedProcess: selected == null,
+          activePermissionModule: cleanModule,
           clearErrorMessage: true,
         ),
       );
     } catch (e) {
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
+          activePermissionModule: cleanModule,
           errorMessage: 'Erro ao carregar contratos: $e',
         ),
       );
@@ -114,13 +152,27 @@ class ContractCubit extends Cubit<ContractState> {
     required List<ContractData> source,
     required UserPermissionData permissions,
     required String? tenantId,
+    required String permissionModule,
   }) {
+    final cleanTenantId = PermissionResolver.cleanTenantId(tenantId);
+    final cleanModule = _cleanPermissionModule(permissionModule);
+
     return SystemPermission.filterVisibleContracts(
       permissions: permissions,
       contracts: source,
-      module: ModuleCatalog.modContractsList,
-      tenantId: PermissionResolver.cleanTenantId(tenantId),
+      module: cleanModule,
+      tenantId: cleanTenantId,
     );
+  }
+
+  String _cleanPermissionModule(String? permissionModule) {
+    final clean = permissionModule?.trim();
+
+    if (clean == null || clean.isEmpty) {
+      return ModuleCatalog.modContractsList;
+    }
+
+    return clean;
   }
 
   UserPermissionData? _permissionsFromUser(UserData? user) {
@@ -203,6 +255,8 @@ class ContractCubit extends Cubit<ContractState> {
       final process = await _repository.getContractById(cleanId);
 
       if (process == null) {
+        if (isClosed) return null;
+
         emit(
           state.copyWith(
             loading: false,
@@ -216,6 +270,8 @@ class ContractCubit extends Cubit<ContractState> {
         ..removeWhere((p) => p.id == process.id)
         ..add(process);
 
+      if (isClosed) return process;
+
       emit(
         state.copyWith(
           loading: false,
@@ -226,6 +282,8 @@ class ContractCubit extends Cubit<ContractState> {
 
       return process;
     } catch (e) {
+      if (isClosed) return null;
+
       emit(
         state.copyWith(
           loading: false,
@@ -257,6 +315,8 @@ class ContractCubit extends Cubit<ContractState> {
       );
 
       if (process == null) {
+        if (isClosed) return null;
+
         emit(
           state.copyWith(
             loading: false,
@@ -274,6 +334,8 @@ class ContractCubit extends Cubit<ContractState> {
           ? process
           : state.selectedProcess;
 
+      if (isClosed) return process;
+
       emit(
         state.copyWith(
           loading: false,
@@ -285,6 +347,8 @@ class ContractCubit extends Cubit<ContractState> {
 
       return process;
     } catch (e) {
+      if (isClosed) return null;
+
       emit(
         state.copyWith(
           loading: false,
@@ -316,6 +380,8 @@ class ContractCubit extends Cubit<ContractState> {
 
       final shouldClearSelected = state.selectedProcess?.id == cleanId;
 
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -325,6 +391,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
     } catch (e) {
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -372,6 +440,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
 
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -379,6 +449,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
     } catch (e) {
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -424,6 +496,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
 
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -431,6 +505,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
     } catch (e) {
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -475,6 +551,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
 
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -482,6 +560,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
     } catch (e) {
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -513,6 +593,8 @@ class ContractCubit extends Cubit<ContractState> {
             (_) => contractData,
       );
 
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -520,6 +602,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
     } catch (e) {
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -570,6 +654,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
 
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -577,6 +663,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
     } catch (e) {
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -615,6 +703,8 @@ class ContractCubit extends Cubit<ContractState> {
             (process) => process.copyWithRemovedParticipant(cleanUserId),
       );
 
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -622,6 +712,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
     } catch (e) {
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -665,6 +757,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
 
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -672,6 +766,8 @@ class ContractCubit extends Cubit<ContractState> {
         ),
       );
     } catch (e) {
+      if (isClosed) return;
+
       emit(
         state.copyWith(
           loading: false,
@@ -733,6 +829,8 @@ class ContractCubit extends Cubit<ContractState> {
     if ((updatedSelected?.id ?? '').trim() == cleanId) {
       updatedSelected = transform(updatedSelected!);
     }
+
+    if (isClosed) return;
 
     emit(
       state.copyWith(

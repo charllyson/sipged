@@ -1,84 +1,40 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/list/search/inline_autocomplete.dart';
 import 'package:sipged/_widgets/list/search/participant_tile.dart';
 
 /// ======================================================================
 /// SearchUserPermissionWidget
-/// - Seleciona usuários (simples ou múltiplo)
-/// - Exibe participantes com papel + permissões
-/// - Permite alternar permissões (read/create/edit/delete/approve)
-/// - Opcionalmente, altera papel inline
+/// - Seleciona usuários em modo simples ou múltiplo.
+/// - Em participantsMode, exibe participantes com papel e permissões.
+/// - Permite alternar permissões read/create/edit/delete/approve.
+/// - Permite alterar papel e remover participante.
 /// ======================================================================
 class SearchUserPermissionWidget extends StatefulWidget {
-  final String title;
-  final List<UserData> allUsers;
-
-  /// IDs inicialmente selecionados
-  final List<String> initialUserIds;
-
-  /// Dispara sempre que a lista de IDs muda (add/remove)
-  final void Function(List<String> userIds)? onChanged;
-
-  /// Geral
-  final bool enabled;
-  final double width; // também dimensiona o popup
-  final bool multiple;
-  final int? maxItems;
-  final TextEditingController? controller;
-
-  // ========= MODO PARTICIPANTES (opcional) =========
-  /// Liga a UI rica (papel/permissões). Mantém retrocompatibilidade.
-  final bool participantsMode;
-
-  /// Rótulo para mostrar no card (ex.: vindo do UserBloc.state.labelFor)
-  final String Function(String uid)? labelFor;
-
-  /// Permissões atuais do usuário no contrato:
-  /// Pode conter: {'read':bool, 'create':bool, 'edit':bool, 'delete':bool, 'approve':bool}
-  /// (Se vier só read/edit/delete, mostramos apenas essas.)
-  final Map<String, bool> Function(String uid)? getPerms;
-
-  /// Papel atual do usuário (ex.: 'COLABORADOR')
-  final String Function(String uid)? getRole;
-
-  /// Lista de papéis para o seletor
-  final List<String> roleOptions;
-
-  /// Troca de papel (deve persistir no backend)
-  final Future<void> Function(String uid, String newRole)? onChangeRole;
-
-  /// Define permissões (map completo) — opcional
-  final Future<void> Function(String uid, Map<String, bool> newPerms)? onSetPerms;
-
-  /// Alterna UMA permissão (ex.: "read", "edit", "delete")
-  final Future<void> Function(String uid, String permKey, bool value)? onTogglePerm;
-
-  /// Abre editor adicional (se quiser manter)
-  final Future<void> Function(String uid)? onEditPerms;
-
-  /// Remover participante (deve persistir no backend)
-  final Future<void> Function(String uid)? onRemove;
-
   const SearchUserPermissionWidget({
     super.key,
     required this.title,
     required this.allUsers,
-    this.initialUserIds = const [],
+    this.initialUserIds = const <String>[],
     this.onChanged,
     this.enabled = true,
     this.width = 300,
     this.multiple = true,
     this.maxItems,
     this.controller,
-
-    // participantes
     this.participantsMode = false,
     this.labelFor,
     this.getPerms,
     this.getRole,
-    this.roleOptions = const ['GESTOR_REGIONAL', 'FISCAL', 'COLABORADOR', 'LEITOR'],
+    this.roleOptions = const <String>[
+      'GESTOR_REGIONAL',
+      'FISCAL',
+      'COLABORADOR',
+      'LEITOR',
+    ],
     this.onChangeRole,
     this.onSetPerms,
     this.onTogglePerm,
@@ -86,26 +42,115 @@ class SearchUserPermissionWidget extends StatefulWidget {
     this.onRemove,
   });
 
+  final String title;
+  final List<UserData> allUsers;
+
+  /// IDs inicialmente selecionados.
+  final List<String> initialUserIds;
+
+  /// Dispara quando a lista de IDs muda.
+  final void Function(List<String> userIds)? onChanged;
+
+  final bool enabled;
+  final double width;
+  final bool multiple;
+  final int? maxItems;
+  final TextEditingController? controller;
+
+  /// Liga a UI rica de participantes.
+  final bool participantsMode;
+
+  /// Rótulo a mostrar no participante.
+  final String Function(String uid)? labelFor;
+
+  /// Permissões atuais do usuário.
+  final Map<String, bool> Function(String uid)? getPerms;
+
+  /// Papel atual do usuário.
+  final String Function(String uid)? getRole;
+
+  /// Lista de papéis possíveis.
+  final List<String> roleOptions;
+
+  /// Altera papel e persiste no backend.
+  final Future<void> Function(String uid, String newRole)? onChangeRole;
+
+  /// Define permissões completas.
+  final Future<void> Function(String uid, Map<String, bool> newPerms)?
+  onSetPerms;
+
+  /// Alterna uma permissão.
+  final Future<void> Function(String uid, String permKey, bool value)?
+  onTogglePerm;
+
+  /// Editor externo adicional.
+  final Future<void> Function(String uid)? onEditPerms;
+
+  /// Remove participante.
+  final Future<void> Function(String uid)? onRemove;
+
   @override
-  State<SearchUserPermissionWidget> createState() => _SearchUserPermissionWidgetState();
+  State<SearchUserPermissionWidget> createState() =>
+      _SearchUserPermissionWidgetState();
 }
 
-class _SearchUserPermissionWidgetState extends State<SearchUserPermissionWidget> {
+class _SearchUserPermissionWidgetState
+    extends State<SearchUserPermissionWidget> {
   late List<String> _selectedIds;
+
   bool _showInlineSearch = false;
 
   @override
   void initState() {
     super.initState();
+
     final fromController = _parseControllerIds(widget.controller?.text ?? '');
-    _selectedIds = fromController.isNotEmpty ? fromController : [...widget.initialUserIds];
+
+    _selectedIds = fromController.isNotEmpty
+        ? fromController
+        : widget.initialUserIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+
     _syncController();
   }
 
-  // ---- helpers básicos ----
+  @override
+  void didUpdateWidget(covariant SearchUserPermissionWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.initialUserIds != widget.initialUserIds &&
+        widget.controller == null) {
+      final normalized = widget.initialUserIds
+          .map((id) => id.trim())
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      setState(() {
+        _selectedIds = normalized;
+      });
+
+      _syncController();
+    }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   List<String> _parseControllerIds(String raw) {
-    if (raw.trim().isEmpty) return [];
-    return raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    if (raw.trim().isEmpty) return <String>[];
+
+    return raw
+        .split(',')
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList();
   }
 
   void _syncController() {
@@ -113,41 +158,80 @@ class _SearchUserPermissionWidgetState extends State<SearchUserPermissionWidget>
   }
 
   void _emitChanged() {
-    widget.onChanged?.call(List.unmodifiable(_selectedIds));
     _syncController();
+    widget.onChanged?.call(List<String>.unmodifiable(_selectedIds));
+  }
+
+  String _cleanUid(UserData user) {
+    return (user.uid ?? '').trim();
   }
 
   UserData? _findById(String? id) {
-    if (id == null || id.isEmpty) return null;
+    final cleanId = id?.trim();
+
+    if (cleanId == null || cleanId.isEmpty) return null;
+
     try {
-      return widget.allUsers.firstWhere((u) => u.uid == id);
+      return widget.allUsers.firstWhere(
+            (user) => (user.uid ?? '').trim() == cleanId,
+      );
     } catch (_) {
-      return UserData(uid: id); // fallback
+      return UserData(uid: cleanId);
     }
   }
 
-  String _display(UserData u) {
-    final hasName = (u.name ?? '').trim().isNotEmpty;
-    final hasEmail = (u.email ?? '').trim().isNotEmpty;
-    if (hasName && hasEmail) return '${u.name} (${u.email})';
-    if (hasName) return u.name!;
-    if (hasEmail) return u.email!;
-    return u.uid ?? 'Usuário';
+  String _display(UserData user) {
+    final name = (user.name ?? '').trim();
+    final email = (user.email ?? '').trim();
+    final uid = (user.uid ?? '').trim();
+
+    if (name.isNotEmpty && email.isNotEmpty) return '$name ($email)';
+    if (name.isNotEmpty) return name;
+    if (email.isNotEmpty) return email;
+    if (uid.isNotEmpty) return uid;
+
+    return 'Usuário';
   }
 
-  // ---- add/remove ----
-  void _addUser(UserData user) {
+  bool get _canAddMore {
+    if (!widget.enabled) return false;
+
+    final maxItems = widget.maxItems;
+
+    if (maxItems == null) return true;
+
+    return _selectedIds.length < maxItems;
+  }
+
+  void _toggleSearch() {
     if (!widget.enabled) return;
-    if (widget.maxItems != null && _selectedIds.length >= widget.maxItems!) return;
+    if (!_canAddMore) return;
+
+    setState(() {
+      _showInlineSearch = !_showInlineSearch;
+    });
+  }
+
+  void _addUser(UserData user) {
+    if (!_canAddMore) return;
+
+    final uid = _cleanUid(user);
+
+    if (uid.isEmpty) return;
 
     setState(() {
       if (widget.multiple) {
-        if (!_selectedIds.contains(user.uid)) _selectedIds.add(user.uid!);
+        if (!_selectedIds.contains(uid)) {
+          _selectedIds.add(uid);
+        }
+
+        _showInlineSearch = true;
       } else {
-        _selectedIds = [user.uid!];
+        _selectedIds = <String>[uid];
+        _showInlineSearch = false;
       }
-      _showInlineSearch = widget.multiple;
     });
+
     _emitChanged();
   }
 
@@ -156,7 +240,11 @@ class _SearchUserPermissionWidgetState extends State<SearchUserPermissionWidget>
     if (index < 0 || index >= _selectedIds.length) return;
 
     final uid = _selectedIds[index];
-    setState(() => _selectedIds.removeAt(index));
+
+    setState(() {
+      _selectedIds.removeAt(index);
+    });
+
     _emitChanged();
 
     if (widget.participantsMode && widget.onRemove != null) {
@@ -164,151 +252,334 @@ class _SearchUserPermissionWidgetState extends State<SearchUserPermissionWidget>
     }
   }
 
-  // ---- UI ----
+  String _labelForUid(String uid) {
+    final customLabel = widget.labelFor?.call(uid).trim();
+
+    if (customLabel != null && customLabel.isNotEmpty) {
+      return customLabel;
+    }
+
+    final user = _findById(uid);
+
+    if (user != null) return _display(user);
+
+    return uid;
+  }
+
+  Map<String, bool> _permsForUid(String uid) {
+    final perms = widget.getPerms?.call(uid);
+
+    if (perms == null) {
+      return const <String, bool>{
+        'read': true,
+        'create': false,
+        'edit': false,
+        'delete': false,
+        'approve': false,
+      };
+    }
+
+    return Map<String, bool>.from(perms);
+  }
+
+  String _roleForUid(String uid) {
+    final role = widget.getRole?.call(uid).trim();
+
+    if (role != null && role.isNotEmpty) {
+      return role;
+    }
+
+    return 'COLABORADOR';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return SizedBox(
       width: widget.width,
-      child: Card(
-        color: Colors.white,
-        elevation: 0,
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: Colors.black.withValues(alpha: 0.08),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Cabeçalho
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: const BoxDecoration(
-                color: Color(0xFF1B2039),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.group, color: Colors.white, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                      overflow: TextOverflow.ellipsis,
+            _Header(
+              title: widget.title,
+              enabled: _canAddMore,
+              selectedCount: _selectedIds.length,
+              maxItems: widget.maxItems,
+              onAdd: _toggleSearch,
+            ),
+            if (_showInlineSearch && widget.enabled)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(8, 8, 0, 8),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Colors.black.withValues(alpha: 0.06),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: widget.multiple ? 'Adicionar usuário' : 'Selecionar usuário',
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    onPressed: widget.enabled ? () => setState(() => _showInlineSearch = true) : null,
-                  ),
-                ],
-              ),
-            ),
-
-            // Autocomplete inline
-            if (_showInlineSearch && widget.enabled)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                ),
                 child: InlineAutocomplete(
                   allUsers: widget.allUsers,
-                  popupWidth: math.min(800, widget.width - 24),
-                  onSelected: (u) => _addUser(u),
-                  onCancel: () => setState(() => _showInlineSearch = false),
+                  popupWidth: math.max(
+                    220,
+                    math.min(
+                      800,
+                      widget.width,
+                    ),
+                  ),
+                  onSelected: _addUser,
+                  onCancel: () {
+                    setState(() {
+                      _showInlineSearch = false;
+                    });
+                  },
                   hintText: 'Busque por nome ou email',
                 ),
               ),
-
-            // ===== Lista =====
             if (_selectedIds.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(12.0),
-                child: Text('Sem usuários. Toque em + e adicione.'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 16, 14, 18),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.person_add_alt_1_rounded,
+                      color: Colors.grey.shade500,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Nenhum usuário adicionado.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               )
             else
               ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 360),
+                constraints: const BoxConstraints(
+                  maxHeight: 360,
+                ),
                 child: Scrollbar(
+                  thumbVisibility: _selectedIds.length > 4,
                   child: ListView.separated(
+                    padding: EdgeInsets.zero,
                     shrinkWrap: true,
                     itemCount: _selectedIds.length,
-                    separatorBuilder: (_, _) => Container(),
-                    itemBuilder: (context, i) {
-                      final uid = _selectedIds[i];
+                    separatorBuilder: (_, _) => Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Colors.black.withValues(alpha: 0.05),
+                    ),
+                    itemBuilder: (context, index) {
+                      final uid = _selectedIds[index];
 
-                      if (widget.participantsMode &&
-                          widget.labelFor != null &&
-                          widget.getPerms != null) {
-                        final label = widget.labelFor!(uid);
-                        final perms = widget.getPerms!(uid);
-                        final role  = widget.getRole?.call(uid) ?? 'COLABORADOR';
-                        final u     = _findById(uid) ?? UserData(uid: uid, name: label);
+                      if (widget.participantsMode) {
+                        final user = _findById(uid);
+                        final label = _labelForUid(uid);
+                        final role = _roleForUid(uid);
+                        final perms = _permsForUid(uid);
 
                         return ParticipantTile(
-                          avatarUrl: u.urlPhoto,
+                          avatarUrl: user?.urlPhoto,
                           title: label,
                           role: role,
                           perms: perms,
                           roleOptions: widget.roleOptions,
-                          onChangeRole: widget.onChangeRole == null ? null : (newRole) async => widget.onChangeRole!(uid, newRole),
-                          onTogglePerm: widget.onTogglePerm == null ? null : (key, val) async => widget.onTogglePerm!(uid, key, val),
-                          onEditPerms: widget.onEditPerms == null ? null : () async => widget.onEditPerms!(uid),
-                          onRemove: widget.enabled ? () => _removeAt(i) : null,
+                          enabled: widget.enabled,
+                          onChangeRole: widget.onChangeRole == null
+                              ? null
+                              : (newRole) async {
+                            await widget.onChangeRole!(uid, newRole);
+                          },
+                          onTogglePerm: widget.onTogglePerm == null
+                              ? null
+                              : (key, value) async {
+                            await widget.onTogglePerm!(
+                              uid,
+                              key,
+                              value,
+                            );
+                          },
+                          onEditPerms: widget.onEditPerms == null
+                              ? null
+                              : () async {
+                            await widget.onEditPerms!(uid);
+                          },
+                          onRemove: widget.enabled
+                              ? () {
+                            _removeAt(index);
+                          }
+                              : null,
                           maxWidth: widget.width,
                         );
-
                       }
 
-                      // --- MODO SIMPLES (sem perms/role) ---
-                      final u = _findById(uid) ?? UserData(uid: uid);
+                      final user = _findById(uid) ?? UserData(uid: uid);
+
                       return Material(
-                        color: Colors.transparent,
+                        color: Colors.white,
                         child: ListTile(
                           dense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                          minLeadingWidth: 0,
+                          contentPadding: const EdgeInsets.fromLTRB(
+                            12,
+                            4,
+                            6,
+                            4,
+                          ),
                           leading: CircleAvatar(
+                            radius: 17,
                             backgroundColor: Colors.grey.shade200,
-                            backgroundImage: (u.urlPhoto?.isNotEmpty ?? false)
-                                ? NetworkImage(u.urlPhoto!)
+                            backgroundImage:
+                            (user.urlPhoto?.isNotEmpty ?? false)
+                                ? NetworkImage(user.urlPhoto!)
                                 : null,
-                            child: (u.urlPhoto?.isEmpty ?? true)
-                                ? const Icon(Icons.person, color: Colors.grey)
+                            child: (user.urlPhoto?.isEmpty ?? true)
+                                ? const Icon(
+                              Icons.person_rounded,
+                              color: Colors.grey,
+                              size: 18,
+                            )
                                 : null,
                           ),
-                          title: Text(_display(u), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          title: Text(
+                            _display(user),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
                           trailing: IconButton(
-                            tooltip: 'Remover',
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: widget.enabled ? () => _removeAt(i) : null,
+                            tooltip: 'Remover usuário',
+                            visualDensity: VisualDensity.compact,
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: cs.error,
+                              size: 20,
+                            ),
+                            onPressed: widget.enabled
+                                ? () {
+                              _removeAt(index);
+                            }
+                                : null,
                           ),
-                          onTap: () {},
                         ),
                       );
                     },
                   ),
                 ),
               ),
-
-            if (widget.maxItems != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    '${_selectedIds.length}/${widget.maxItems} selecionados',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: (_selectedIds.length == (widget.maxItems ?? 0))
-                          ? cs.error
-                          : Colors.grey,
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.title,
+    required this.enabled,
+    required this.selectedCount,
+    required this.maxItems,
+    required this.onAdd,
+  });
+
+  final String title;
+  final bool enabled;
+  final int selectedCount;
+  final int? maxItems;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final counter = maxItems == null ? '$selectedCount' : '$selectedCount/$maxItems';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.black.withValues(alpha: 0.06),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.group_rounded,
+            color: Colors.grey.shade700,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF1B2033),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 4,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1B2033).withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              counter,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF1B2033),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Adicionar usuário',
+            visualDensity: VisualDensity.compact,
+            onPressed: enabled ? onAdd : null,
+            icon: const Icon(
+              Icons.add_circle_rounded,
+              size: 22,
+              color: Color(0xFF1B2033),
+            ),
+          ),
+        ],
       ),
     );
   }

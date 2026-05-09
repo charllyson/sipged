@@ -11,12 +11,12 @@ import 'tenant_repository.dart';
 import 'tenant_state.dart';
 
 class TenantCubit extends Cubit<TenantState> {
-  final TenantRepository _repo;
-
   TenantCubit({
     TenantRepository? repository,
   })  : _repo = repository ?? TenantRepository(),
         super(TenantState.initial());
+
+  final TenantRepository _repo;
 
   String get tenantId => _repo.tenantId;
 
@@ -46,7 +46,11 @@ class TenantCubit extends Cubit<TenantState> {
 
   List<String> getPartners() => state.companyBodies;
 
-  Future<void> loadAvailableTenants() async {
+  Future<void> loadAvailableTenants({
+    bool autoSelectWhenSingle = true,
+    bool keepCurrentSelection = true,
+    bool usePreferredTenant = true,
+  }) async {
     try {
       emit(
         state.copyWith(
@@ -59,14 +63,29 @@ class TenantCubit extends Cubit<TenantState> {
 
       final currentSelectedId = state.selectedTenantId?.trim();
 
-      String? selectedId = currentSelectedId;
+      final preferredTenantId = usePreferredTenant
+          ? await _repo.loadPreferredTenantIdForCurrentUser()
+          : null;
 
-      if ((selectedId == null || selectedId.isEmpty) && tenants.isNotEmpty) {
+      String? selectedId;
+
+      if (keepCurrentSelection &&
+          currentSelectedId != null &&
+          currentSelectedId.isNotEmpty &&
+          tenants.any((tenant) => tenant.id == currentSelectedId)) {
+        selectedId = currentSelectedId;
+      } else if (preferredTenantId != null &&
+          preferredTenantId.isNotEmpty &&
+          tenants.any((tenant) => tenant.id == preferredTenantId)) {
+        selectedId = preferredTenantId;
+      } else if (autoSelectWhenSingle && tenants.length == 1) {
         selectedId = tenants.first.id;
       }
 
       if (selectedId != null && selectedId.isNotEmpty) {
         _repo.setActiveTenantId(selectedId);
+      } else {
+        _repo.clearActiveTenantId();
       }
 
       emit(
@@ -75,13 +94,36 @@ class TenantCubit extends Cubit<TenantState> {
           hasLoadedAvailableTenants: true,
           selectedTenantId: selectedId,
           availableTenants: tenants,
+          clearTenantProfile: selectedId == null,
+          hasLoadedTenant: selectedId == null ? false : state.hasLoadedTenant,
+          hasLoadedTenantItems:
+          selectedId == null ? false : state.hasLoadedTenantItems,
+          units: selectedId == null ? const <String>[] : state.units,
+          roads: selectedId == null ? const <String>[] : state.roads,
+          regions: selectedId == null ? const <String>[] : state.regions,
+          fundingSources:
+          selectedId == null ? const <String>[] : state.fundingSources,
+          programs: selectedId == null ? const <String>[] : state.programs,
+          expenseNatures:
+          selectedId == null ? const <String>[] : state.expenseNatures,
+          companyBodies:
+          selectedId == null ? const <String>[] : state.companyBodies,
+          clearError: true,
         ),
       );
 
       if (selectedId != null && selectedId.isNotEmpty) {
-        await selectTenant(selectedId);
+        await selectTenant(
+          selectedId,
+          persistSelection: false,
+        );
       }
-    } on FirebaseException catch (e) {
+    } on FirebaseException catch (e, s) {
+      debugPrint(
+        'TenantCubit.loadAvailableTenants FirebaseException: '
+            '${e.code} - ${e.message}',
+      );
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -90,7 +132,9 @@ class TenantCubit extends Cubit<TenantState> {
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint('TenantCubit.loadAvailableTenants error: $e');
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -102,38 +146,102 @@ class TenantCubit extends Cubit<TenantState> {
     }
   }
 
-  Future<void> ensureAvailableTenantsLoaded() async {
+  Future<void> ensureAvailableTenantsLoaded({
+    bool autoSelectWhenSingle = true,
+    bool usePreferredTenant = true,
+  }) async {
     if (state.hasLoadedAvailableTenants) return;
 
-    await loadAvailableTenants();
+    await loadAvailableTenants(
+      autoSelectWhenSingle: autoSelectWhenSingle,
+      usePreferredTenant: usePreferredTenant,
+    );
   }
 
-  Future<void> selectTenant(String tenantId) async {
+  Future<void> selectTenant(
+      String tenantId, {
+        bool persistSelection = true,
+      }) async {
     final cleanTenantId = tenantId.trim();
 
     if (cleanTenantId.isEmpty) return;
 
-    _repo.setActiveTenantId(cleanTenantId);
+    final isTenantAvailable = state.availableTenants.isEmpty ||
+        state.availableTenants.any((tenant) => tenant.id == cleanTenantId);
 
-    emit(
-      state.copyWith(
-        selectedTenantId: cleanTenantId,
-        hasLoadedTenant: false,
-        hasLoadedTenantItems: false,
-        clearTenantProfile: true,
-        units: const <String>[],
-        roads: const <String>[],
-        regions: const <String>[],
-        fundingSources: const <String>[],
-        programs: const <String>[],
-        expenseNatures: const <String>[],
-        companyBodies: const <String>[],
-        clearError: true,
-      ),
-    );
+    if (!isTenantAvailable) {
+      emit(
+        state.copyWith(
+          error: 'Usuário sem permissão para acessar esta empresa.',
+        ),
+      );
 
-    await loadTenantProfile();
-    await loadTenantItems();
+      return;
+    }
+
+    try {
+      emit(
+        state.copyWith(
+          isLoading: true,
+          clearError: true,
+        ),
+      );
+
+      _repo.setActiveTenantId(cleanTenantId);
+
+      if (persistSelection) {
+        await _repo.persistActiveTenantForCurrentUser(cleanTenantId);
+      }
+
+      emit(
+        state.copyWith(
+          selectedTenantId: cleanTenantId,
+          hasLoadedTenant: false,
+          hasLoadedTenantItems: false,
+          clearTenantProfile: true,
+          units: const <String>[],
+          roads: const <String>[],
+          regions: const <String>[],
+          fundingSources: const <String>[],
+          programs: const <String>[],
+          expenseNatures: const <String>[],
+          companyBodies: const <String>[],
+          clearError: true,
+        ),
+      );
+
+      await loadTenantProfile();
+      await loadTenantItems();
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          clearError: true,
+        ),
+      );
+    } on FirebaseException catch (e, s) {
+      debugPrint(
+        'TenantCubit.selectTenant FirebaseException: ${e.code} - ${e.message}',
+      );
+      debugPrintStack(stackTrace: s);
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          error: 'Firebase (${e.code}): ${e.message}',
+        ),
+      );
+    } catch (e, s) {
+      debugPrint('TenantCubit.selectTenant error: $e');
+      debugPrintStack(stackTrace: s);
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        ),
+      );
+    }
   }
 
   Future<void> selectTenantByLabel(String label) async {
@@ -161,6 +269,90 @@ class TenantCubit extends Cubit<TenantState> {
     await selectTenant(selected.id);
   }
 
+  Future<void> clearSelectedTenant({
+    bool clearPersistedSelection = false,
+  }) async {
+    try {
+      emit(
+        state.copyWith(
+          isLoading: true,
+          clearSelectedTenantId: true,
+          clearTenantProfile: true,
+          hasLoadedTenant: false,
+          hasLoadedTenantItems: false,
+          units: const <String>[],
+          roads: const <String>[],
+          regions: const <String>[],
+          fundingSources: const <String>[],
+          programs: const <String>[],
+          expenseNatures: const <String>[],
+          companyBodies: const <String>[],
+          clearError: true,
+        ),
+      );
+
+      _repo.clearActiveTenantId();
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          clearSelectedTenantId: true,
+          clearTenantProfile: true,
+          hasLoadedTenant: false,
+          hasLoadedTenantItems: false,
+          units: const <String>[],
+          roads: const <String>[],
+          regions: const <String>[],
+          fundingSources: const <String>[],
+          programs: const <String>[],
+          expenseNatures: const <String>[],
+          companyBodies: const <String>[],
+          clearError: true,
+        ),
+      );
+    } on FirebaseException catch (e, s) {
+      debugPrint(
+        'TenantCubit.clearSelectedTenant FirebaseException: '
+            '${e.code} - ${e.message}',
+      );
+      debugPrintStack(stackTrace: s);
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          error: 'Firebase (${e.code}): ${e.message}',
+        ),
+      );
+    } catch (e, s) {
+      debugPrint('TenantCubit.clearSelectedTenant error: $e');
+      debugPrintStack(stackTrace: s);
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        ),
+      );
+    }
+  }
+
+  Future<void> prepareTenantSwitch({
+    bool clearPersistedSelection = true,
+    bool reloadAvailableTenants = true,
+  }) async {
+    await clearSelectedTenant(
+      clearPersistedSelection: clearPersistedSelection,
+    );
+
+    if (!reloadAvailableTenants) return;
+
+    await loadAvailableTenants(
+      autoSelectWhenSingle: false,
+      keepCurrentSelection: false,
+      usePreferredTenant: false,
+    );
+  }
+
   Future<void> loadTenantProfile() async {
     try {
       emit(
@@ -179,7 +371,12 @@ class TenantCubit extends Cubit<TenantState> {
           tenantProfile: profile,
         ),
       );
-    } on FirebaseException catch (e) {
+    } on FirebaseException catch (e, s) {
+      debugPrint(
+        'TenantCubit.loadTenantProfile FirebaseException: '
+            '${e.code} - ${e.message}',
+      );
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -188,7 +385,9 @@ class TenantCubit extends Cubit<TenantState> {
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint('TenantCubit.loadTenantProfile error: $e');
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -246,7 +445,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
     } on FirebaseException catch (e, s) {
       debugPrint(
-        'loadTenantItems FirebaseException: ${e.code} - ${e.message}',
+        'TenantCubit.loadTenantItems FirebaseException: '
+            '${e.code} - ${e.message}',
       );
       debugPrintStack(stackTrace: s);
 
@@ -257,7 +457,9 @@ class TenantCubit extends Cubit<TenantState> {
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint('TenantCubit.loadTenantItems error: $e');
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -317,6 +519,10 @@ class TenantCubit extends Cubit<TenantState> {
         saved,
       );
 
+      _repo.setActiveTenantId(saved.id);
+
+      await _repo.persistActiveTenantForCurrentUser(saved.id);
+
       emit(
         state.copyWith(
           isLoading: false,
@@ -336,7 +542,12 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return saved;
-    } on FirebaseException catch (e) {
+    } on FirebaseException catch (e, s) {
+      debugPrint(
+        'TenantCubit.saveTenantProfile FirebaseException: '
+            '${e.code} - ${e.message}',
+      );
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -346,7 +557,9 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return null;
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint('TenantCubit.saveTenantProfile error: $e');
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -427,7 +640,12 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } on FirebaseException catch (e) {
+    } on FirebaseException catch (e, s) {
+      debugPrint(
+        'TenantCubit.updateTenantName FirebaseException: '
+            '${e.code} - ${e.message}',
+      );
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -437,7 +655,9 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return null;
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint('TenantCubit.updateTenantName error: $e');
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -495,7 +715,12 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } on FirebaseException catch (e) {
+    } on FirebaseException catch (e, s) {
+      debugPrint(
+        'TenantCubit.updateTenantLogo FirebaseException: '
+            '${e.code} - ${e.message}',
+      );
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -505,7 +730,9 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return null;
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint('TenantCubit.updateTenantLogo error: $e');
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -548,7 +775,12 @@ class TenantCubit extends Cubit<TenantState> {
           clearTenantProfile: true,
         ),
       );
-    } on FirebaseException catch (e) {
+    } on FirebaseException catch (e, s) {
+      debugPrint(
+        'TenantCubit.deleteTenantProfile FirebaseException: '
+            '${e.code} - ${e.message}',
+      );
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -556,7 +788,9 @@ class TenantCubit extends Cubit<TenantState> {
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint('TenantCubit.deleteTenantProfile error: $e');
+      debugPrintStack(stackTrace: s);
 
       emit(
         state.copyWith(
@@ -1226,8 +1460,10 @@ class TenantCubit extends Cubit<TenantState> {
       Object e,
       StackTrace s,
       ) {
-    if (e is FirebaseException) {
+    debugPrint('TenantCubit.$method error: $e');
+    debugPrintStack(stackTrace: s);
 
+    if (e is FirebaseException) {
       emit(
         state.copyWith(
           error: 'Firebase (${e.code}): ${e.message}',

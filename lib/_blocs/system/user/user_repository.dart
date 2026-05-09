@@ -39,6 +39,17 @@ class UserRepository {
     };
   }
 
+  List<String> _cleanStringList(Iterable<String> values) {
+    final list = values
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+
+    list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
+  }
+
   Future<UserData?> getById(String uid) async {
     final id = uid.trim();
     if (id.isEmpty) return null;
@@ -66,6 +77,125 @@ class UserRepository {
 
     await _userDoc(id).set(
       map,
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> setUserTenantAccess({
+    required String uid,
+    required List<String> tenantIds,
+    String? primaryTenantId,
+    String? activeTenantId,
+  }) async {
+    final userId = uid.trim();
+
+    if (userId.isEmpty) return;
+
+    final cleanTenantIds = _cleanStringList(tenantIds);
+
+    final cleanPrimary = primaryTenantId?.trim();
+    final cleanActive = activeTenantId?.trim();
+
+    final data = <String, dynamic>{
+      'tenantIds': cleanTenantIds,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (cleanPrimary != null && cleanPrimary.isNotEmpty) {
+      data['primaryTenantId'] = cleanPrimary;
+    } else if (cleanTenantIds.isNotEmpty) {
+      data['primaryTenantId'] = cleanTenantIds.first;
+    } else {
+      data['primaryTenantId'] = FieldValue.delete();
+    }
+
+    if (cleanActive != null && cleanActive.isNotEmpty) {
+      data['activeTenantId'] = cleanActive;
+    } else if (cleanTenantIds.isNotEmpty) {
+      data['activeTenantId'] = cleanTenantIds.first;
+    } else {
+      data['activeTenantId'] = FieldValue.delete();
+    }
+
+    await _userDoc(userId).set(
+      data,
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> addTenantToUser({
+    required String uid,
+    required String tenantId,
+  }) async {
+    final userId = uid.trim();
+    final cleanTenantId = tenantId.trim();
+
+    if (userId.isEmpty || cleanTenantId.isEmpty) return;
+
+    final user = await getById(userId);
+    final current = user?.tenantIds ?? const <String>[];
+
+    final updated = _cleanStringList([
+      ...current,
+      cleanTenantId,
+    ]);
+
+    await setUserTenantAccess(
+      uid: userId,
+      tenantIds: updated,
+      primaryTenantId: user?.primaryTenantId ?? cleanTenantId,
+      activeTenantId: user?.activeTenantId ?? cleanTenantId,
+    );
+  }
+
+  Future<void> removeTenantFromUser({
+    required String uid,
+    required String tenantId,
+  }) async {
+    final userId = uid.trim();
+    final cleanTenantId = tenantId.trim();
+
+    if (userId.isEmpty || cleanTenantId.isEmpty) return;
+
+    final user = await getById(userId);
+    final current = user?.tenantIds ?? const <String>[];
+
+    final updated = _cleanStringList(
+      current.where(
+            (id) => id.trim().toLowerCase() != cleanTenantId.toLowerCase(),
+      ),
+    );
+
+    final oldPrimary = user?.primaryTenantId?.trim();
+    final oldActive = user?.activeTenantId?.trim();
+
+    final nextPrimary =
+    updated.contains(oldPrimary) ? oldPrimary : updated.firstOrNull;
+
+    final nextActive = updated.contains(oldActive) ? oldActive : nextPrimary;
+
+    await setUserTenantAccess(
+      uid: userId,
+      tenantIds: updated,
+      primaryTenantId: nextPrimary,
+      activeTenantId: nextActive,
+    );
+  }
+
+  Future<void> setActiveTenantForUser({
+    required String uid,
+    required String tenantId,
+  }) async {
+    final userId = uid.trim();
+    final cleanTenantId = tenantId.trim();
+
+    if (userId.isEmpty || cleanTenantId.isEmpty) return;
+
+    await _userDoc(userId).set(
+      {
+        'activeTenantId': cleanTenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
       SetOptions(merge: true),
     );
   }
@@ -146,6 +276,9 @@ class UserRepository {
         'modulePermissions': <String, dynamic>{},
         'moduleOverrides': <String, dynamic>{},
         'tenantModuleOverrides': <String, dynamic>{},
+        'tenantIds': <String>[],
+        'primaryTenantId': FieldValue.delete(),
+        'activeTenantId': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -177,12 +310,13 @@ class UserRepository {
         }
       }
     } catch (_) {
-      // Se não existir pasta/arquivo, ignora.
+      // Ignora storage inexistente.
     }
   }
 
   Stream<UserData?> currentUserStream() {
     final currentUser = _auth.currentUser;
+
     if (currentUser == null) {
       return Stream.value(null);
     }

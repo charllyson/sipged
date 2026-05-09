@@ -1,3 +1,5 @@
+// lib/screens/common/gate/gate_page.dart
+
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,10 +17,12 @@ import 'package:sipged/_blocs/system/notification/preferences/notification_prefe
 import 'package:sipged/_blocs/system/notification/remote/notification_remote_cubit.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_data.dart' as perm;
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
@@ -29,6 +33,7 @@ import 'package:sipged/_utils/theme/app_theme.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/screens/common/login/sign_in/sign_in.dart';
+import 'package:sipged/screens/common/login/sign_in/tenant_selection_page.dart';
 import 'package:sipged/screens/common/setup/initial_setup_page.dart';
 import 'package:sipged/screens/menus/menu_list_page.dart';
 
@@ -42,7 +47,7 @@ class GatePage extends StatefulWidget {
 }
 
 class _GatePageState extends State<GatePage> {
-  Future<void>? _startupLoadFuture;
+  Future<_StartupContext>? _startupLoadFuture;
   Future<UserData?>? _userLoadFuture;
 
   String? _loadedUserUid;
@@ -51,66 +56,7 @@ class _GatePageState extends State<GatePage> {
   String? _pushInitializedUserId;
   String? _notificationPreferencesInitializedUserId;
 
-  Future<void> _loadStartupDataOnce({
-    required String uid,
-    required UserData userData,
-  }) {
-    if (_loadedStartupUid != uid || _startupLoadFuture == null) {
-      _loadedStartupUid = uid;
-
-      _startupLoadFuture = _loadStartupData(
-        uid: uid,
-        userData: userData,
-      ).timeout(
-        const Duration(seconds: 25),
-        onTimeout: () {
-          debugPrint('[GatePage] Timeout ao carregar dados iniciais.');
-
-          throw TimeoutException(
-            'Tempo limite excedido ao carregar os dados iniciais.',
-            const Duration(seconds: 25),
-          );
-        },
-      );
-    }
-
-    return _startupLoadFuture!;
-  }
-
-  Future<void> _loadStartupData({
-    required String uid,
-    required UserData userData,
-  }) async {
-    final userCubit = context.read<UserCubit>();
-    final permissionCubit = context.read<PermissionCubit>();
-    final tenantCubit = context.read<TenantCubit>();
-    final setupCubit = context.read<SetupCubit>();
-
-    userCubit.setCurrentUser(userData);
-
-    await permissionCubit.loadByUid(uid);
-
-    await tenantCubit.loadAvailableTenants();
-
-    final tenantError = tenantCubit.state.error;
-
-    if (tenantError != null && tenantError.trim().isNotEmpty) {
-      throw StateError(tenantError);
-    }
-
-    final hasTenant = tenantCubit.state.selectedTenantId != null &&
-        tenantCubit.state.selectedTenantId!.trim().isNotEmpty;
-
-    if (hasTenant) {
-      await setupCubit.loadSystemSetup();
-
-      final setupError = setupCubit.state.error;
-
-      if (setupError != null && setupError.trim().isNotEmpty) {
-        throw StateError(setupError);
-      }
-    }
-  }
+  bool _isActivatingTenant = false;
 
   Future<UserData?> _loadUserOnce({
     required String uid,
@@ -131,6 +77,363 @@ class _GatePageState extends State<GatePage> {
     return _userLoadFuture!;
   }
 
+  Future<_StartupContext> _loadStartupDataOnce({
+    required String uid,
+    required UserData userData,
+  }) {
+    if (_loadedStartupUid != uid || _startupLoadFuture == null) {
+      _loadedStartupUid = uid;
+
+      _startupLoadFuture = _loadStartupData(
+        uid: uid,
+        userData: userData,
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('[GatePage] Timeout ao carregar dados iniciais.');
+
+          throw TimeoutException(
+            'Tempo limite excedido ao carregar os dados iniciais.',
+            const Duration(seconds: 30),
+          );
+        },
+      );
+    }
+
+    return _startupLoadFuture!;
+  }
+
+  Future<_StartupContext> _loadStartupData({
+    required String uid,
+    required UserData userData,
+  }) async {
+    final userCubit = context.read<UserCubit>();
+    final permissionCubit = context.read<PermissionCubit>();
+    final tenantCubit = context.read<TenantCubit>();
+
+    userCubit.setCurrentUser(userData);
+
+    await permissionCubit.loadByUid(uid);
+
+    if (!mounted) {
+      throw StateError('Tela desmontada durante carregamento inicial.');
+    }
+
+    final permissionData = permissionCubit.state.current ??
+        _fallbackPermissionFromUser(
+          uid: uid,
+          userData: userData,
+        );
+
+    await tenantCubit.loadAvailableTenants(
+      autoSelectWhenSingle: false,
+      keepCurrentSelection: true,
+    );
+
+    if (!mounted) {
+      throw StateError('Tela desmontada durante carregamento dos tenants.');
+    }
+
+    final tenantError = tenantCubit.state.error;
+
+    if (tenantError != null && tenantError.trim().isNotEmpty) {
+      throw StateError(tenantError);
+    }
+
+    final availableTenants = tenantCubit.state.availableTenants;
+
+    final allowedTenants = _filterAllowedTenants(
+      userData: userData,
+      permissionData: permissionData,
+      availableTenants: availableTenants,
+    );
+
+    if (allowedTenants.isEmpty) {
+      return _StartupContext(
+        userData: userData,
+        permissionData: permissionData,
+        availableTenants: availableTenants,
+        allowedTenants: const <TenantData>[],
+        selectedTenantId: null,
+      );
+    }
+
+    final currentStateTenantId = tenantCubit.state.selectedTenantId?.trim();
+
+    final currentTenantId =
+    currentStateTenantId != null && currentStateTenantId.isNotEmpty
+        ? currentStateTenantId
+        : _currentTenantIdFromUser(userData);
+
+    final selectedTenantId = _resolvePreviouslySelectedTenantId(
+      currentTenantId: currentTenantId,
+      permissionData: permissionData,
+      allowedTenants: allowedTenants,
+    );
+
+    if (selectedTenantId != null && selectedTenantId.trim().isNotEmpty) {
+      await _activateTenant(
+        tenantId: selectedTenantId,
+      );
+    }
+
+    return _StartupContext(
+      userData: userData,
+      permissionData: permissionData,
+      availableTenants: availableTenants,
+      allowedTenants: allowedTenants,
+      selectedTenantId: selectedTenantId,
+    );
+  }
+
+  perm.UserPermissionData _fallbackPermissionFromUser({
+    required String uid,
+    required UserData userData,
+  }) {
+    final raw = userData.userSnap?.data();
+
+    if (raw is Map<String, dynamic>) {
+      return perm.UserPermissionData.fromMap(
+        uid: uid,
+        map: raw,
+      );
+    }
+
+    return perm.UserPermissionData(
+      uid: uid,
+    );
+  }
+
+  bool _canAccessAllTenants(perm.UserPermissionData permissionData) {
+    return permissionData.hasGlobalFreeAccess ||
+        permissionData.isGlobalSuperUser ||
+        permissionData.globalRole == perm.SystemUserRole.administrador ||
+        permissionData.globalRole == perm.SystemUserRole.desenvolvedor;
+  }
+
+  List<TenantData> _filterAllowedTenants({
+    required UserData userData,
+    required perm.UserPermissionData permissionData,
+    required List<TenantData> availableTenants,
+  }) {
+    final validTenants = availableTenants
+        .where((tenant) => tenant.id.trim().isNotEmpty)
+        .toList();
+
+    validTenants.sort(
+          (a, b) => _tenantSortLabel(a).compareTo(_tenantSortLabel(b)),
+    );
+
+    if (_canAccessAllTenants(permissionData)) {
+      return validTenants;
+    }
+
+    final availableIds = validTenants
+        .map((tenant) => tenant.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    final selectableIds = permissionData
+        .selectableTenantIds(
+      availableTenantIds: availableIds,
+    )
+        .toSet();
+
+    final fallbackIds = <String>{
+      ..._tenantIdsFromUser(userData),
+      ...permissionData.enabledTenantIds,
+    }.map((id) => id.trim()).where((id) => id.isNotEmpty).toSet();
+
+    final allowedIds = <String>{
+      ...selectableIds,
+      ...fallbackIds.where(availableIds.contains),
+    };
+
+    final filtered = validTenants
+        .where((tenant) => allowedIds.contains(tenant.id.trim()))
+        .toList();
+
+    filtered.sort(
+          (a, b) => _tenantSortLabel(a).compareTo(_tenantSortLabel(b)),
+    );
+
+    return filtered;
+  }
+
+  String _tenantSortLabel(TenantData tenant) {
+    final companyName = tenant.companyName?.trim();
+    final fantasyName = tenant.fantasyName?.trim();
+    final label = tenant.label.trim();
+
+    if (companyName != null && companyName.isNotEmpty) {
+      return companyName.toLowerCase();
+    }
+
+    if (fantasyName != null && fantasyName.isNotEmpty) {
+      return fantasyName.toLowerCase();
+    }
+
+    if (label.isNotEmpty) {
+      return label.toLowerCase();
+    }
+
+    return tenant.id.toLowerCase();
+  }
+
+  String? _resolvePreviouslySelectedTenantId({
+    required String? currentTenantId,
+    required perm.UserPermissionData permissionData,
+    required List<TenantData> allowedTenants,
+  }) {
+    if (allowedTenants.isEmpty) return null;
+
+    final allowedIds = allowedTenants
+        .map((tenant) => tenant.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    final current = currentTenantId?.trim();
+
+    if (current != null && current.isNotEmpty && allowedIds.contains(current)) {
+      return current;
+    }
+
+    final activePermissionTenant = permissionData.activeTenantId?.trim();
+
+    if (activePermissionTenant != null &&
+        activePermissionTenant.isNotEmpty &&
+        allowedIds.contains(activePermissionTenant)) {
+      return activePermissionTenant;
+    }
+
+    return null;
+  }
+
+  Future<void> _activateTenant({
+    required String tenantId,
+  }) async {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw StateError('Empresa não informada.');
+    }
+
+    final tenantCubit = context.read<TenantCubit>();
+    final permissionCubit = context.read<PermissionCubit>();
+    final setupCubit = context.read<SetupCubit>();
+
+    await tenantCubit.selectTenant(cleanTenantId);
+
+    if (!mounted) {
+      throw StateError('Tela desmontada durante seleção da empresa.');
+    }
+
+    permissionCubit.setActiveTenant(cleanTenantId);
+
+    await setupCubit.loadSystemSetup();
+
+    final setupError = setupCubit.state.error;
+
+    if (setupError != null && setupError.trim().isNotEmpty) {
+      throw StateError(setupError);
+    }
+  }
+
+  List<String> _tenantIdsFromUser(UserData userData) {
+    final raw = userData.userSnap?.data();
+
+    if (raw == null) return const <String>[];
+
+    final values = <String>{};
+
+    void addValue(dynamic value) {
+      if (value == null) return;
+
+      if (value is String) {
+        final clean = value.trim();
+
+        if (clean.isNotEmpty) {
+          values.add(clean);
+        }
+
+        return;
+      }
+
+      if (value is Iterable) {
+        for (final item in value) {
+          addValue(item);
+        }
+
+        return;
+      }
+
+      if (value is Map) {
+        for (final entry in value.entries) {
+          final key = entry.key?.toString().trim() ?? '';
+          final itemValue = entry.value;
+
+          if (itemValue == true && key.isNotEmpty) {
+            values.add(key);
+            continue;
+          }
+
+          if (itemValue is Map) {
+            final enabled = itemValue['enabled'] != false &&
+                itemValue['active'] != false &&
+                itemValue['allowed'] != false &&
+                itemValue['disabled'] != true;
+
+            if (enabled && key.isNotEmpty) {
+              values.add(key);
+            }
+          }
+        }
+      }
+    }
+
+    addValue(raw['tenantIds']);
+    addValue(raw['allowedTenantIds']);
+    addValue(raw['accessibleTenantIds']);
+    addValue(raw['companyIds']);
+    addValue(raw['allowedCompanyIds']);
+    addValue(raw['accessibleCompanyIds']);
+    addValue(raw['tenants']);
+    addValue(raw['tenantAccess']);
+    addValue(raw['tenantsAccess']);
+    addValue(raw['companyAccess']);
+    addValue(raw['companiesAccess']);
+    addValue(raw['tenantRoles']);
+    addValue(raw['tenantModuleOverrides']);
+
+    final list = values.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    return list;
+  }
+
+  String? _currentTenantIdFromUser(UserData userData) {
+    final raw = userData.userSnap?.data();
+
+    if (raw == null) return null;
+
+    final candidates = [
+      raw['currentTenantId'],
+      raw['selectedTenantId'],
+      raw['activeTenantId'],
+      raw['lastTenantId'],
+    ];
+
+    for (final candidate in candidates) {
+      final value = candidate?.toString().trim();
+
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
   void _resetCachedUser() {
     _loadedUserUid = null;
     _loadedStartupUid = null;
@@ -141,7 +444,16 @@ class _GatePageState extends State<GatePage> {
     _pushInitializedUserId = null;
     _notificationPreferencesInitializedUserId = null;
 
+    _isActivatingTenant = false;
+
     unawaited(NotificationPush.instance.dispose());
+  }
+
+  void _resetStartupOnly() {
+    _loadedStartupUid = null;
+    _startupLoadFuture = null;
+
+    _isActivatingTenant = false;
   }
 
   Future<void> _initializeNotificationPreferencesForUser(String uid) async {
@@ -201,6 +513,161 @@ class _GatePageState extends State<GatePage> {
       debugPrint('[GatePage] Erro ao inicializar push: $e');
       debugPrintStack(stackTrace: s);
     }
+  }
+
+  Widget _buildTenantActivationLoading({
+    String message = 'Ativando empresa...',
+  }) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: LoadingTreeDots(
+        message: Text(message),
+      ),
+    );
+  }
+
+  Widget _buildAuthenticatedArea({
+    required UserData userData,
+    required String uid,
+  }) {
+    unawaited(_initializeNotificationPreferencesForUser(uid));
+    unawaited(_initializePushForUser(uid));
+
+    return FutureBuilder<_StartupContext>(
+      future: _loadStartupDataOnce(
+        uid: uid,
+        userData: userData,
+      ),
+      builder: (context, startupSnapshot) {
+        if (startupSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: LoadingTreeDots(
+              message: Text('Carregando a configuração...'),
+            ),
+          );
+        }
+
+        if (startupSnapshot.hasError) {
+          debugPrint(
+            '[GatePage] Erro ao carregar configuração inicial: '
+                '${startupSnapshot.error}',
+          );
+
+          return _StartupErrorView(
+            title: 'Não foi possível carregar a configuração.',
+            message: startupSnapshot.error?.toString() ??
+                'Verifique sua conexão e tente recarregar o sistema.',
+            onRetry: () {
+              setState(() {
+                _resetStartupOnly();
+              });
+            },
+          );
+        }
+
+        final startup = startupSnapshot.data;
+
+        if (startup == null) {
+          return _StartupErrorView(
+            title: 'Configuração indisponível.',
+            message: 'Não foi possível montar o contexto inicial do usuário.',
+            onRetry: () {
+              setState(() {
+                _resetStartupOnly();
+              });
+            },
+          );
+        }
+
+        if (startup.allowedTenants.isEmpty) {
+          return _StartupErrorView(
+            title: 'Nenhuma empresa disponível.',
+            message: startup.permissionData.hasGlobalFreeAccess
+                ? 'Nenhuma empresa foi cadastrada em tenants.'
+                : 'Seu usuário ainda não possui vínculo com nenhuma empresa. Solicite acesso ao administrador.',
+            onRetry: () {
+              setState(() {
+                _resetStartupOnly();
+              });
+            },
+          );
+        }
+
+        return BlocBuilder<TenantCubit, TenantState>(
+          builder: (context, tenantState) {
+            final selectedTenantId = tenantState.selectedTenantId?.trim();
+
+            final hasTenantSelected =
+                selectedTenantId != null && selectedTenantId.isNotEmpty;
+
+            if (_isActivatingTenant) {
+              return _buildTenantActivationLoading(
+                message: 'Ativando empresa...',
+              );
+            }
+
+            if (!hasTenantSelected) {
+              return TenantSelectionPage(
+                userData: startup.userData,
+                tenants: startup.allowedTenants,
+                permissionData: startup.permissionData,
+                onTenantSelected: (tenantId) async {
+                  if (!mounted) return;
+
+                  setState(() {
+                    _isActivatingTenant = true;
+                  });
+
+                  try {
+                    await _activateTenant(
+                      tenantId: tenantId,
+                    );
+                  } finally {
+                    if (!mounted) return;
+
+                    setState(() {
+                      _isActivatingTenant = false;
+                    });
+                  }
+                },
+              );
+            }
+
+            final activeTenant =
+                tenantState.tenantProfile ?? tenantState.selectedTenant;
+
+            final isTenantStillLoading =
+                activeTenant == null && tenantState.isLoading;
+
+            if (isTenantStillLoading) {
+              return _buildTenantActivationLoading(
+                message: 'Carregando dados da empresa...',
+              );
+            }
+
+            final base = const MenuListPage();
+
+            final needsSetup =
+                kForceInitialSetupOverlay || activeTenant == null;
+
+            if (!needsSetup) {
+              return base;
+            }
+
+            return Stack(
+              children: [
+                base,
+                Positioned.fill(
+                  child: InitialSetupPage(
+                    user: startup.userData,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -268,7 +735,8 @@ class _GatePageState extends State<GatePage> {
 
               if (userSnapshot.hasError) {
                 debugPrint(
-                  '[GatePage] Erro ao carregar usuário: ${userSnapshot.error}',
+                  '[GatePage] Erro ao carregar usuário: '
+                      '${userSnapshot.error}',
                 );
 
                 return _StartupErrorView(
@@ -290,63 +758,26 @@ class _GatePageState extends State<GatePage> {
                 return const SignIn();
               }
 
-              unawaited(_initializeNotificationPreferencesForUser(uid));
-              unawaited(_initializePushForUser(uid));
+              if (userData.hasStatusRestriction) {
+                _resetCachedUser();
 
-              return FutureBuilder<void>(
-                future: _loadStartupDataOnce(
-                  uid: uid,
+                return _BlockedUserView(
                   userData: userData,
-                ),
-                builder: (context, startupSnapshot) {
-                  if (startupSnapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return const Scaffold(
-                      body: LoadingTreeDots(
-                        message: Text('Carregando a configuração...'),
-                      ),
-                    );
-                  }
+                  onSignOut: () async {
+                    await context.read<LoginCubit>().signOut();
 
-                  if (startupSnapshot.hasError) {
-                    debugPrint(
-                      '[GatePage] Erro ao carregar configuração inicial: '
-                          '${startupSnapshot.error}',
-                    );
+                    if (!mounted) return;
 
-                    return _StartupErrorView(
-                      title: 'Não foi possível carregar a configuração.',
-                      message:
-                      'Verifique sua conexão e tente recarregar o sistema.',
-                      onRetry: () {
-                        setState(() {
-                          _loadedStartupUid = null;
-                          _startupLoadFuture = null;
-                        });
-                      },
-                    );
-                  }
-                  return BlocBuilder<TenantCubit, TenantState>(
-                    builder: (context, tenantState) {
-                      final base = const MenuListPage();
-                      final needsSetup = kForceInitialSetupOverlay ||
-                          tenantState.tenantProfile == null;
-                      if (!needsSetup) {
-                        return base;
-                      }
-                      return Stack(
-                        children: [
-                          base,
-                          Positioned.fill(
-                            child: InitialSetupPage(
-                              user: userData,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
+                    setState(() {
+                      _resetCachedUser();
+                    });
+                  },
+                );
+              }
+
+              return _buildAuthenticatedArea(
+                userData: userData,
+                uid: uid,
               );
             },
           );
@@ -354,6 +785,22 @@ class _GatePageState extends State<GatePage> {
       ),
     );
   }
+}
+
+class _StartupContext {
+  const _StartupContext({
+    required this.userData,
+    required this.permissionData,
+    required this.availableTenants,
+    required this.allowedTenants,
+    required this.selectedTenantId,
+  });
+
+  final UserData userData;
+  final perm.UserPermissionData permissionData;
+  final List<TenantData> availableTenants;
+  final List<TenantData> allowedTenants;
+  final String? selectedTenantId;
 }
 
 class _StartupErrorView extends StatelessWidget {
@@ -373,7 +820,7 @@ class _StartupErrorView extends StatelessWidget {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(
-            maxWidth: 420,
+            maxWidth: 460,
           ),
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -408,6 +855,78 @@ class _StartupErrorView extends StatelessWidget {
                       onPressed: onRetry,
                       icon: const Icon(Icons.refresh),
                       label: const Text('Tentar novamente'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockedUserView extends StatelessWidget {
+  const _BlockedUserView({
+    required this.userData,
+    required this.onSignOut,
+  });
+
+  final UserData userData;
+  final Future<void> Function() onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusLabel = userData.statusLabel;
+    final statusColor = userData.statusColor;
+    final statusIcon = userData.statusIcon;
+
+    final reason = userData.deletedReason ??
+        userData.blockedReason ??
+        userData.deactivatedReason ??
+        'A conta não está autorizada a acessar o sistema.';
+
+    return Scaffold(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: 460,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      statusIcon,
+                      size: 46,
+                      color: statusColor,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Usuário $statusLabel',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: statusColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      reason,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: onSignOut,
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text('Sair'),
                     ),
                   ],
                 ),

@@ -8,12 +8,22 @@ class ContractState {
   final List<ContractData> allProcesses;
   final ContractData? selectedProcess;
 
+  /// Módulo usado no último carregamento/filtragem.
+  ///
+  /// Exemplo:
+  /// - operation-hiring-records
+  /// - operation-additive-records
+  /// - operation-measurements-records
+  /// - financial-payments-records
+  final String? activePermissionModule;
+
   const ContractState({
     this.loading = false,
     this.initialized = false,
     this.errorMessage,
     this.allProcesses = const [],
     this.selectedProcess,
+    this.activePermissionModule,
   });
 
   factory ContractState.initial() => const ContractState();
@@ -26,6 +36,8 @@ class ContractState {
     List<ContractData>? allProcesses,
     ContractData? selectedProcess,
     bool clearSelectedProcess = false,
+    String? activePermissionModule,
+    bool clearActivePermissionModule = false,
   }) {
     return ContractState(
       loading: loading ?? this.loading,
@@ -36,6 +48,9 @@ class ContractState {
       selectedProcess: clearSelectedProcess
           ? null
           : (selectedProcess ?? this.selectedProcess),
+      activePermissionModule: clearActivePermissionModule
+          ? null
+          : (activePermissionModule ?? this.activePermissionModule),
     );
   }
 }

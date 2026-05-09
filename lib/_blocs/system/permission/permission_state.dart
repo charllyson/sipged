@@ -1,5 +1,3 @@
-// lib/_blocs/system/permission/permission_state.dart
-
 import 'package:equatable/equatable.dart';
 
 import 'permission_data.dart';
@@ -33,10 +31,13 @@ class PermissionState extends Equatable {
     );
   }
 
-  bool get hasPermissions => current != null && current!.uid.trim().isNotEmpty;
+  bool get hasPermissions {
+    return current != null && current!.uid.trim().isNotEmpty;
+  }
 
   bool get hasActiveTenant {
     final id = activeTenantId?.trim();
+
     return id != null && id.isNotEmpty;
   }
 
@@ -64,8 +65,14 @@ class PermissionState extends Equatable {
     return current?.enabledTenantIds ?? const <String>[];
   }
 
-  bool canAccessTenant(String tenantId) {
-    return current?.canAccessTenant(tenantId) == true;
+  bool canAccessTenant(String? tenantId) {
+    final id = tenantId?.trim();
+
+    if (id == null || id.isEmpty) {
+      return false;
+    }
+
+    return current?.canAccessTenant(id) == true;
   }
 
   PermissionState copyWith({
@@ -84,9 +91,8 @@ class PermissionState extends Equatable {
       hasLoaded: hasLoaded ?? this.hasLoaded,
       realtimeEnabled: realtimeEnabled ?? this.realtimeEnabled,
       error: clearError ? null : error ?? this.error,
-      activeTenantId: clearActiveTenantId
-          ? null
-          : activeTenantId ?? this.activeTenantId,
+      activeTenantId:
+      clearActiveTenantId ? null : activeTenantId ?? this.activeTenantId,
       current: clearCurrent ? null : current ?? this.current,
     );
   }

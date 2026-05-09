@@ -1,5 +1,3 @@
-// lib/_blocs/system/permission/permission_repository.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'permission_data.dart';
@@ -44,8 +42,43 @@ class PermissionRepository {
 
     return _userRef(cleanUid).snapshots().map((snap) {
       if (!snap.exists) return null;
+
       return UserPermissionData.fromDoc(snap);
     });
+  }
+
+  Future<void> setCurrentTenantId({
+    required String uid,
+    required String? tenantId,
+  }) async {
+    final cleanUid = uid.trim();
+    final cleanTenantId = tenantId?.trim();
+
+    if (cleanUid.isEmpty) return;
+
+    if (cleanTenantId == null || cleanTenantId.isEmpty) {
+      await _userRef(cleanUid).set(
+        {
+          'currentTenantId': FieldValue.delete(),
+          'activeTenantId': FieldValue.delete(),
+          'selectedTenantId': FieldValue.delete(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      return;
+    }
+
+    await _userRef(cleanUid).set(
+      {
+        'currentTenantId': cleanTenantId,
+        'activeTenantId': cleanTenantId,
+        'selectedTenantId': cleanTenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   Future<void> setGlobalRole({
@@ -62,6 +95,7 @@ class PermissionRepository {
     await _userRef(cleanUid).set(
       {
         'baseRole': roleId,
+        'globalRole': roleId,
         if (writeLegacyBaseProfile) 'baseProfile': roleId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
@@ -119,6 +153,7 @@ class PermissionRepository {
   }) async {
     final cleanUid = uid.trim();
     final cleanTenantId = tenantId.trim();
+    final cleanLabel = label?.trim();
 
     if (cleanUid.isEmpty || cleanTenantId.isEmpty) return;
 
@@ -128,12 +163,32 @@ class PermissionRepository {
           cleanTenantId: {
             'enabled': enabled,
             if (role != null) 'role': SystemRoleCodec.serialize(role),
-            if (label != null && label.trim().isNotEmpty) 'label': label.trim(),
+            if (cleanLabel != null && cleanLabel.isNotEmpty)
+              'label': cleanLabel,
           },
         },
+        if (enabled)
+          'tenantIds': FieldValue.arrayUnion([cleanTenantId])
+        else
+          'tenantIds': FieldValue.arrayRemove([cleanTenantId]),
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
+    );
+  }
+
+  Future<void> enableTenantAccess({
+    required String uid,
+    required String tenantId,
+    SystemUserRole? role,
+    String? label,
+  }) {
+    return setTenantAccess(
+      uid: uid,
+      tenantId: tenantId,
+      enabled: true,
+      role: role,
+      label: label,
     );
   }
 
@@ -162,6 +217,16 @@ class PermissionRepository {
         'tenantAccess': {
           cleanTenantId: FieldValue.delete(),
         },
+        'tenantRoles': {
+          cleanTenantId: FieldValue.delete(),
+        },
+        'tenantModuleOverrides': {
+          cleanTenantId: FieldValue.delete(),
+        },
+        'tenantIds': FieldValue.arrayRemove([cleanTenantId]),
+        'allowedTenantIds': FieldValue.arrayRemove([cleanTenantId]),
+        'companyIds': FieldValue.arrayRemove([cleanTenantId]),
+        'allowedCompanyIds': FieldValue.arrayRemove([cleanTenantId]),
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -178,14 +243,20 @@ class PermissionRepository {
 
     if (cleanUid.isEmpty || cleanTenantId.isEmpty) return;
 
+    final roleId = SystemRoleCodec.serialize(role);
+
     await _userRef(cleanUid).set(
       {
         'tenantAccess': {
           cleanTenantId: {
             'enabled': true,
-            'role': SystemRoleCodec.serialize(role),
+            'role': roleId,
           },
         },
+        'tenantRoles': {
+          cleanTenantId: roleId,
+        },
+        'tenantIds': FieldValue.arrayUnion([cleanTenantId]),
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -210,11 +281,18 @@ class PermissionRepository {
       {
         'tenantAccess': {
           cleanTenantId: {
+            'enabled': true,
             'moduleOverrides': {
               cleanModule: permissions.toMap(),
             },
           },
         },
+        'tenantModuleOverrides': {
+          cleanTenantId: {
+            cleanModule: permissions.toMap(),
+          },
+        },
+        'tenantIds': FieldValue.arrayUnion([cleanTenantId]),
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -241,6 +319,11 @@ class PermissionRepository {
             'moduleOverrides': {
               cleanModule: FieldValue.delete(),
             },
+          },
+        },
+        'tenantModuleOverrides': {
+          cleanTenantId: {
+            cleanModule: FieldValue.delete(),
           },
         },
         'updatedAt': FieldValue.serverTimestamp(),

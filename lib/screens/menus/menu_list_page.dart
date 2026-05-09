@@ -20,8 +20,8 @@ import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_roa
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
 
 import 'package:sipged/_blocs/system/module/module_access_guard.dart';
-import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/_blocs/system/module/module_catalog.dart';
+import 'package:sipged/_blocs/system/module/module_data.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
@@ -337,9 +337,11 @@ class _MenuListPageState extends State<MenuListPage> {
   Widget _buildContractsListPage(
       DemandNavigationCallback onTap, {
         required String pageTitle,
+        required ModuleEnum moduleItem,
       }) {
     return ListDemandPage(
       pageTitle: pageTitle,
+      permissionModule: ModuleCatalog.permissionModuleOf(moduleItem),
       onTapItem: onTap,
     );
   }
@@ -439,6 +441,7 @@ class _MenuListPageState extends State<MenuListPage> {
             );
           },
           pageTitle: 'Planejamento específico',
+          moduleItem: item,
         );
 
       case ModuleEnum.processHiringRecords:
@@ -461,10 +464,12 @@ class _MenuListPageState extends State<MenuListPage> {
                 currentUser: currentUser,
                 currentPermissions: permissions,
                 tenantId: tenantId,
+                permissionModule: ModuleCatalog.permissionModuleOf(item),
               );
             });
           },
           pageTitle: 'Contratos',
+          moduleItem: item,
         );
 
       case ModuleEnum.processValidityRecords:
@@ -481,6 +486,7 @@ class _MenuListPageState extends State<MenuListPage> {
             );
           },
           pageTitle: 'Ordens e Vigência',
+          moduleItem: item,
         );
 
       case ModuleEnum.processAdditiveRecords:
@@ -497,6 +503,7 @@ class _MenuListPageState extends State<MenuListPage> {
             );
           },
           pageTitle: 'Aditivos',
+          moduleItem: item,
         );
 
       case ModuleEnum.processApostillesRecords:
@@ -513,6 +520,7 @@ class _MenuListPageState extends State<MenuListPage> {
             );
           },
           pageTitle: 'Apostilamentos',
+          moduleItem: item,
         );
 
       case ModuleEnum.processHiringBudget:
@@ -529,6 +537,7 @@ class _MenuListPageState extends State<MenuListPage> {
             );
           },
           pageTitle: 'Orçamento',
+          moduleItem: item,
         );
 
       case ModuleEnum.processMeasurementsRecords:
@@ -545,6 +554,7 @@ class _MenuListPageState extends State<MenuListPage> {
             );
           },
           pageTitle: 'Medições',
+          moduleItem: item,
         );
 
       case ModuleEnum.operationMonitoringWork:
@@ -558,6 +568,7 @@ class _MenuListPageState extends State<MenuListPage> {
             );
           },
           pageTitle: 'Diário de Obra',
+          moduleItem: item,
         );
 
       case ModuleEnum.planningProjectRegistration:
@@ -577,6 +588,7 @@ class _MenuListPageState extends State<MenuListPage> {
             );
           },
           pageTitle: 'Faixa de Domínio',
+          moduleItem: item,
         );
 
       case ModuleEnum.trafficAccidentsDashboard:
@@ -590,7 +602,6 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleEnum.trafficInfractionsRecords:
         return const InfractionsRecordsPage();
-
 
       case ModuleEnum.financialDashboard:
         return FinancialDashboardNetworkPage();
@@ -608,9 +619,9 @@ class _MenuListPageState extends State<MenuListPage> {
               ),
             );
           },
-          pageTitle: 'Orçamento',
+          pageTitle: 'Pagamentos',
+          moduleItem: item,
         );
-
 
       case ModuleEnum.activeRoadNetwork:
         return const ActiveRoadsNetworkPage();
@@ -671,16 +682,6 @@ class _MenuListPageState extends State<MenuListPage> {
       return;
     }
 
-    final canReadContracts = permissions!.canModuleString(
-      module: ModuleCatalog.modContractsList,
-      action: 'read',
-      tenantId: tenantId,
-    );
-
-    if (!canReadContracts) {
-      return;
-    }
-
     _didWarmupProcessCubit = true;
 
     final processCubit = context.read<ContractCubit>();
@@ -692,6 +693,7 @@ class _MenuListPageState extends State<MenuListPage> {
         currentUser: currentUser,
         currentPermissions: permissions,
         tenantId: tenantId,
+        permissionModule: ModuleCatalog.modContractsList,
       );
     });
   }

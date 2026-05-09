@@ -1,3 +1,5 @@
+// lib/_widgets/menu/upBar/pop_up_photo_menu.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -21,8 +23,8 @@ class PopUpPhotoMenu extends StatefulWidget {
   const PopUpPhotoMenu({
     super.key,
     this.photoSize = 40,
-    this.menuWidth = 250,
-    this.maxMenuHeight = 360,
+    this.menuWidth = 270,
+    this.maxMenuHeight = 390,
     this.tooltip = 'Conta',
   });
 
@@ -206,6 +208,21 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu>
     );
   }
 
+  Future<void> _switchTenant() async {
+    final tenantCubit = context.read<TenantCubit>();
+
+    _removeOverlay();
+
+    await tenantCubit.prepareTenantSwitch(
+      clearPersistedSelection: true,
+      reloadAvailableTenants: true,
+    );
+
+    if (!mounted) return;
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   void _openOverlay(UserData userData) {
     final targetObject = context.findRenderObject();
 
@@ -279,19 +296,31 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu>
           id: 'empresa_logada',
           title: Row(
             children: [
-              Text('Logado: '),
-              Text(companyName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+              const Text('Logado: '),
+              Expanded(
+                child: Text(
+                  companyName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.teal.shade800,
+                  ),
+                ),
+              ),
             ],
           ),
-          subtitle: null,
+          subtitle: const Text('Clique para trocar de empresa'),
           leading: _buildTenantLogo(tenant),
           accentColor: Colors.teal.shade700,
-          onTap: null,
+          onTap: _switchTenant,
         ),
       BalloonTileData(
         id: 'perfil',
         title: Text(name.isNotEmpty ? 'Olá, $name' : 'Meu perfil'),
-        subtitle: Text(roleLabel.isNotEmpty ? roleLabel : 'Visualizar dados da conta'),
+        subtitle: Text(
+          roleLabel.isNotEmpty ? roleLabel : 'Visualizar dados da conta',
+        ),
         icon: Icons.person_outline_rounded,
         accentColor: Colors.blue.shade800,
         onTap: () {
@@ -307,8 +336,8 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu>
       if (isSuper)
         BalloonTileData(
           id: 'administrador',
-          title: Text('Administrador'),
-          subtitle: Text('Acessar painel administrativo'),
+          title: const Text('Administrador'),
+          subtitle: const Text('Acessar painel administrativo'),
           icon: Icons.admin_panel_settings_outlined,
           accentColor: Colors.indigo.shade700,
           onTap: () {
@@ -323,14 +352,16 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu>
         ),
       BalloonTileData(
         id: 'sair',
-        title: Text('Sair'),
-        subtitle: Text('Encerrar sessão atual'),
+        title: const Text('Sair'),
+        subtitle: const Text('Encerrar sessão atual'),
         icon: Icons.logout_rounded,
         accentColor: Colors.red.shade700,
         onTap: () async {
+          final loginCubit = context.read<LoginCubit>();
+
           _removeOverlay();
 
-          await context.read<LoginCubit>().signOut();
+          await loginCubit.signOut();
         },
       ),
     ];

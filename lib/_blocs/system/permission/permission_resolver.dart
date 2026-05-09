@@ -1,5 +1,3 @@
-// lib/_blocs/system/permission/permission_resolver.dart
-
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -63,6 +61,19 @@ class PermissionResolver {
     return UserPermissionData(
       uid: uid,
     );
+  }
+
+  static bool canAccessTenant({
+    required UserPermissionData? permissions,
+    required String? tenantId,
+  }) {
+    final cleanTenant = cleanTenantId(tenantId);
+
+    if (permissions == null || cleanTenant == null) {
+      return false;
+    }
+
+    return permissions.canAccessTenant(cleanTenant);
   }
 
   static bool canReadModule({

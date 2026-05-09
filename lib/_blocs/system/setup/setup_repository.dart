@@ -1,5 +1,3 @@
-// lib/_blocs/system/setup/setup_repository.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -19,9 +17,10 @@ class SetupRepository {
     String? tenantId,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        _tenantRepository = tenantRepository ?? TenantRepository(
-          tenantId: tenantId,
-        );
+        _tenantRepository = tenantRepository ??
+            TenantRepository(
+              tenantId: tenantId,
+            );
 
   String get tenantId => _tenantRepository.tenantId;
 
@@ -107,15 +106,13 @@ class SetupRepository {
       'order': order,
       if (description != null && description.trim().isNotEmpty)
         'description': description.trim(),
-      'value': ?value,
+      if (value != null) 'value': value,
       if (metadata.isNotEmpty) 'metadata': metadata,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': _currentUserId,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUserId,
     };
-
-    data.removeWhere((_, value) => value == null);
 
     await ref.set(data, SetOptions(merge: true));
 
@@ -159,15 +156,13 @@ class SetupRepository {
       if (cleanLabel != null && cleanLabel.isNotEmpty) 'label': cleanLabel,
       if (description != null) 'description': cleanDescription,
       if (cleanType != null && cleanType.isNotEmpty) 'type': cleanType,
-      'value': ?value,
-      'enabled': ?enabled,
-      'order': ?order,
-      'metadata': ?metadata,
+      if (value != null) 'value': value,
+      if (enabled != null) 'enabled': enabled,
+      if (order != null) 'order': order,
+      if (metadata != null) 'metadata': metadata,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUserId,
     };
-
-    data.removeWhere((_, value) => value == null);
 
     final ref = _itemsCollection(group).doc(cleanId);
 

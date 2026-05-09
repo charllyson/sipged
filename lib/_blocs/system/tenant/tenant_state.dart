@@ -49,15 +49,15 @@ class TenantState extends Equatable {
       hasLoadedAvailableTenants: false,
       error: null,
       selectedTenantId: null,
-      availableTenants: [],
+      availableTenants: <TenantData>[],
       tenantProfile: null,
-      units: [],
-      roads: [],
-      regions: [],
-      fundingSources: [],
-      programs: [],
-      expenseNatures: [],
-      companyBodies: [],
+      units: <String>[],
+      roads: <String>[],
+      regions: <String>[],
+      fundingSources: <String>[],
+      programs: <String>[],
+      expenseNatures: <String>[],
+      companyBodies: <String>[],
     );
   }
 
@@ -69,6 +69,24 @@ class TenantState extends Equatable {
 
   List<String> get partners => companyBodies;
 
+  bool get hasSelectedTenant {
+    final id = selectedTenantId?.trim();
+
+    return id != null && id.isNotEmpty;
+  }
+
+  bool get hasAvailableTenants {
+    return availableTenants.isNotEmpty;
+  }
+
+  bool get selectedTenantExists {
+    final id = selectedTenantId?.trim();
+
+    if (id == null || id.isEmpty) return false;
+
+    return availableTenants.any((tenant) => tenant.id.trim() == id);
+  }
+
   TenantData? get selectedTenant {
     final id = selectedTenantId?.trim();
 
@@ -77,7 +95,7 @@ class TenantState extends Equatable {
     }
 
     for (final tenant in availableTenants) {
-      if (tenant.id == id) {
+      if (tenant.id.trim() == id) {
         return tenant;
       }
     }

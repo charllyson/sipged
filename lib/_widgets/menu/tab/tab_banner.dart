@@ -8,6 +8,7 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
+import 'package:sipged/_blocs/system/user/user_state.dart';
 
 import 'package:sipged/_widgets/images/mini_avatars/mini_avatars.dart';
 
@@ -41,29 +42,16 @@ class TabBanner extends StatefulWidget {
     this.stampPendingIcon = Icons.verified_user_outlined,
     this.stampApprovedColor,
     this.stampPendingColor,
-
-    /// Mantidos apenas por compatibilidade.
-    /// Não são usados para montar o texto do banner.
     this.titleText,
     this.contractNumberText,
   });
 
   final ContractData contract;
 
-  /// Usado apenas para:
-  /// 1. numeroContrato
-  /// 2. processo
   final PublicacaoExtratoData? publicacaoExtratoData;
-
-  /// Usado para:
-  /// 1. processoAdministrativo, caso não exista número do contrato
-  /// 2. descricaoObjeto, como descrição ao lado do número
   final DfdData? dfdData;
 
-  /// Não usado.
   final String? titleText;
-
-  /// Não usado.
   final String? contractNumberText;
 
   final VoidCallback? onTap;
@@ -113,6 +101,7 @@ class _TabBannerState extends State<TabBanner> {
     if (user == null) return null;
 
     final uid = (user.uid ?? '').trim();
+
     if (uid.isEmpty) return null;
 
     final permissionState = context.read<PermissionCubit>().state;
@@ -261,7 +250,7 @@ class _TabBannerState extends State<TabBanner> {
       if (clean.isNotEmpty &&
           !_isDatabaseIdText(clean) &&
           !_isProbablyFirestoreId(clean)) {
-        return 'Contrato nº $clean';
+        return 'CONTRATO Nº $clean';
       }
     }
 
@@ -311,6 +300,37 @@ class _TabBannerState extends State<TabBanner> {
     return '$numberText — $descricaoObjeto';
   }
 
+  Map<String, bool> _initialParticipantPerms() {
+    return SystemPermission.normalizeDocPerms(
+      const {
+        'read': true,
+        'create': false,
+        'edit': false,
+        'delete': false,
+        'approve': false,
+      },
+    );
+  }
+
+  String _participantRoleOf({
+    required ContractData contract,
+    required String uid,
+    required UserState userState,
+  }) {
+    final info = contract.participantsInfo[uid];
+
+    final storedRole = info?['role']?.toString().trim();
+
+    if (storedRole != null && storedRole.isNotEmpty) {
+      return storedRole;
+    }
+
+    final user = userState.byId[uid];
+    final role = _roleForUser(user, uid);
+
+    return SystemRoleCodec.serialize(role);
+  }
+
   Future<void> _openParticipantsDialogFromBanner(
       BuildContext context,
       ContractData contrato,
@@ -330,6 +350,7 @@ class _TabBannerState extends State<TabBanner> {
     final double dialogW = math.min(screenW - 64, 760.0);
 
     await showWindowDialog<void>(
+      contentPadding: EdgeInsets.zero,
       context: context,
       title: 'Participantes do contrato',
       width: dialogW,
@@ -343,28 +364,36 @@ class _TabBannerState extends State<TabBanner> {
         participantsMode: true,
         labelFor: (uid) => userState.labelFor(uid),
         getRole: (uid) {
-          final u = userState.byId[uid];
-          final role = _roleForUser(u, uid);
-          return SystemRoleCodec.label(role);
+          return _participantRoleOf(
+            contract: _contractData,
+            uid: uid,
+            userState: userState,
+          );
         },
         getPerms: (uid) {
-          final raw = contrato.permissionContractId[uid];
+          final raw = _contractData.permissionContractId[uid];
           return SystemPermission.normalizeDocPerms(raw);
         },
-        roleOptions: const [],
-        onChangeRole: null,
+        roleOptions: const [
+          'GESTOR_REGIONAL',
+          'FISCAL',
+          'COLABORADOR',
+          'LEITOR',
+        ],
         onChanged: canEditParticipants
             ? (uids) async {
-          if (contrato.id == null) return;
+          final contractId = contrato.id?.trim();
+
+          if (contractId == null || contractId.isEmpty) return;
 
           final atuais = Map<String, Map<String, bool>>.from(
-            contrato.permissionContractId,
+            _contractData.permissionContractId,
           );
 
           for (final uid in atuais.keys.toList()) {
             if (!uids.contains(uid)) {
               await contractCubit.removeParticipant(
-                contractId: contrato.id!,
+                contractId: contractId,
                 userId: uid,
               );
             }
@@ -372,21 +401,75 @@ class _TabBannerState extends State<TabBanner> {
 
           for (final uid in uids) {
             if (!atuais.containsKey(uid)) {
-              final initialPerms = SystemPermission.initialDocPerms();
-
               await contractCubit.addParticipant(
-                contractId: contrato.id!,
+                contractId: contractId,
                 userId: uid,
-                permMap: initialPerms,
-                meta: const {},
+                permMap: _initialParticipantPerms(),
+                meta: const {
+                  'role': 'COLABORADOR',
+                },
               );
             }
           }
 
           if (!mounted) return;
+
           await _refreshLocalContract(contrato);
         }
             : null,
+        onTogglePerm: canEditParticipants
+            ? (uid, permKey, value) async {
+          final contractId = contrato.id?.trim();
+
+          if (contractId == null || contractId.isEmpty) return;
+
+          await contractCubit.updateContractPermissions(
+            contractId: contractId,
+            userId: uid,
+            permissionType: permKey,
+            value: value,
+          );
+
+          if (!mounted) return;
+
+          await _refreshLocalContract(contrato);
+        }
+            : null,
+        onSetPerms: canEditParticipants
+            ? (uid, newPerms) async {
+          final contractId = contrato.id?.trim();
+
+          if (contractId == null || contractId.isEmpty) return;
+
+          await contractCubit.setParticipantPerms(
+            contractId: contractId,
+            userId: uid,
+            permsMap: newPerms,
+          );
+
+          if (!mounted) return;
+
+          await _refreshLocalContract(contrato);
+        }
+            : null,
+        onChangeRole: canEditParticipants
+            ? (uid, newRole) async {
+          final contractId = contrato.id?.trim();
+
+          if (contractId == null || contractId.isEmpty) return;
+
+          await contractCubit.setParticipantRole(
+            contractId: contractId,
+            userId: uid,
+            role: newRole,
+          );
+
+          if (!mounted) return;
+
+          await _refreshLocalContract(contrato);
+        }
+            : null,
+        onRemove: null,
       ),
     );
   }
@@ -394,9 +477,11 @@ class _TabBannerState extends State<TabBanner> {
   Future<void> _refreshLocalContract(ContractData contrato) async {
     final cubit = widget.contractsCubit ?? context.read<ContractCubit>();
 
-    if (contrato.id == null) return;
+    final contractId = contrato.id?.trim();
 
-    final fresh = await cubit.getById(contrato.id!);
+    if (contractId == null || contractId.isEmpty) return;
+
+    final fresh = await cubit.getById(contractId);
 
     if (fresh == null || !mounted) return;
 

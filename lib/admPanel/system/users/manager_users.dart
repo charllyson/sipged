@@ -3,10 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/module/module_catalog.dart';
+import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
-import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart' as perm;
 import 'package:sipged/_blocs/system/permission/permission_repository.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
@@ -38,14 +41,20 @@ class _ManagerUsersState extends State<ManagerUsers> {
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _didInit) return;
 
       _didInit = true;
 
-      context.read<UserCubit>().ensureLoaded(
-        listenRealtime: true,
-      );
+      final userCubit = context.read<UserCubit>();
+      final tenantCubit = context.read<TenantCubit>();
+
+      await Future.wait([
+        userCubit.ensureLoaded(
+          listenRealtime: true,
+        ),
+        tenantCubit.ensureAvailableTenantsLoaded(),
+      ]);
     });
   }
 
@@ -54,6 +63,31 @@ class _ManagerUsersState extends State<ManagerUsers> {
 
     await context.read<UserCubit>().ensureLoaded(
       listenRealtime: true,
+    );
+  }
+
+  Future<void> _reloadTenants() async {
+    if (!mounted) return;
+
+    await context.read<TenantCubit>().loadAvailableTenants();
+  }
+
+  Future<void> _reloadAll() async {
+    if (!mounted) return;
+
+    await Future.wait([
+      _reloadUsers(),
+      _reloadTenants(),
+    ]);
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
     );
   }
 
@@ -104,7 +138,7 @@ class _ManagerUsersState extends State<ManagerUsers> {
       if (!mounted) return;
 
       if (created == true) {
-        await _reloadUsers();
+        await _reloadAll();
       }
     } finally {
       if (mounted) {
@@ -157,7 +191,7 @@ class _ManagerUsersState extends State<ManagerUsers> {
     if (!mounted) return;
 
     if (edited == true) {
-      await _reloadUsers();
+      await _reloadAll();
     }
   }
 
@@ -189,14 +223,6 @@ class _ManagerUsersState extends State<ManagerUsers> {
     );
   }
 
-  String? _activeTenantId() {
-    final id = context.read<PermissionCubit>().state.activeTenantId?.trim();
-
-    if (id == null || id.isEmpty) return null;
-
-    return id;
-  }
-
   perm.UserPermissionData _permissionsOf(UserData user) {
     final uid = (user.uid ?? '').trim();
     final raw = user.userSnap?.data();
@@ -213,28 +239,61 @@ class _ManagerUsersState extends State<ManagerUsers> {
     );
   }
 
-  Future<void> _persistRole(
-      UserData user,
-      perm.SystemUserRole newRole,
-      ) async {
+  List<String> _tenantIdsOf(UserData user) {
+    return context.read<UserCubit>().tenantIdsOf(user);
+  }
+
+  String _tenantLabel(TenantData tenant) {
+    final companyName = (tenant.companyName ?? '').trim();
+    if (companyName.isNotEmpty) return companyName;
+
+    final fantasyName = (tenant.fantasyName ?? '').trim();
+    if (fantasyName.isNotEmpty) return fantasyName;
+
+    final label = tenant.label.trim();
+    if (label.isNotEmpty) return label;
+
+    return tenant.id;
+  }
+
+  Future<void> _ensureUserTenantAccess({
+    required UserData user,
+    required String tenantId,
+  }) async {
     final uid = (user.uid ?? '').trim();
+    final cleanTenantId = tenantId.trim();
 
-    if (uid.isEmpty) return;
+    if (uid.isEmpty || cleanTenantId.isEmpty) return;
 
-    final tenantId = _activeTenantId();
+    await context.read<UserCubit>().addTenantToUser(
+      uid: uid,
+      tenantId: cleanTenantId,
+    );
+  }
 
-    if (tenantId == null) {
-      await _permissionRepo.setGlobalRole(
-        uid: uid,
-        role: newRole,
-      );
-    } else {
-      await _permissionRepo.setTenantRole(
-        uid: uid,
-        tenantId: tenantId,
-        role: newRole,
-      );
+  Future<void> _persistRole({
+    required UserData user,
+    required String tenantId,
+    required perm.SystemUserRole picked,
+  }) async {
+    final uid = (user.uid ?? '').trim();
+    final cleanTenantId = tenantId.trim();
+
+    if (uid.isEmpty || cleanTenantId.isEmpty) {
+      _showMessage('Selecione uma empresa antes de alterar o tipo de usuário.');
+      return;
     }
+
+    await _ensureUserTenantAccess(
+      user: user,
+      tenantId: cleanTenantId,
+    );
+
+    await _permissionRepo.setTenantRole(
+      uid: uid,
+      tenantId: cleanTenantId,
+      role: picked,
+    );
 
     await _reloadUsers();
   }
@@ -267,21 +326,32 @@ class _ManagerUsersState extends State<ManagerUsers> {
 
   Future<void> _persistModulePermission({
     required UserData user,
+    required String tenantId,
     required String module,
     required String action,
     required bool allow,
   }) async {
     final uid = (user.uid ?? '').trim();
+    final cleanTenantId = tenantId.trim();
     final cleanModule = module.trim();
 
-    if (uid.isEmpty || cleanModule.isEmpty) return;
+    if (uid.isEmpty || cleanTenantId.isEmpty || cleanModule.isEmpty) {
+      _showMessage('Selecione uma empresa antes de alterar permissões.');
+      return;
+    }
 
-    final tenantId = _activeTenantId();
+    if (allow) {
+      await _ensureUserTenantAccess(
+        user: user,
+        tenantId: cleanTenantId,
+      );
+    }
+
     final permissions = _permissionsOf(user);
 
     final currentOverride = permissions.moduleOverride(
       module: cleanModule,
-      tenantId: tenantId,
+      tenantId: cleanTenantId,
     );
 
     final updated = _copyPermissionByAction(
@@ -290,36 +360,38 @@ class _ManagerUsersState extends State<ManagerUsers> {
       value: allow,
     );
 
-    if (tenantId == null) {
-      await _permissionRepo.setGlobalModuleOverride(
-        uid: uid,
-        module: cleanModule,
-        permissions: updated,
-      );
-    } else {
-      await _permissionRepo.setTenantModuleOverride(
-        uid: uid,
-        tenantId: tenantId,
-        module: cleanModule,
-        permissions: updated,
-      );
-    }
+    await _permissionRepo.setTenantModuleOverride(
+      uid: uid,
+      tenantId: cleanTenantId,
+      module: cleanModule,
+      permissions: updated,
+    );
 
     await _reloadUsers();
   }
 
   Future<void> _persistGroupRead({
     required UserData user,
+    required String tenantId,
     required List<String> modules,
     required bool allow,
   }) async {
     final uid = (user.uid ?? '').trim();
+    final cleanTenantId = tenantId.trim();
 
-    if (uid.isEmpty || modules.isEmpty) return;
+    if (uid.isEmpty || cleanTenantId.isEmpty || modules.isEmpty) {
+      _showMessage('Selecione uma empresa antes de alterar permissões.');
+      return;
+    }
 
-    final tenantId = _activeTenantId();
+    if (allow) {
+      await _ensureUserTenantAccess(
+        user: user,
+        tenantId: cleanTenantId,
+      );
+    }
+
     final permissions = _permissionsOf(user);
-
     final futures = <Future<void>>[];
 
     for (final rawModule in modules) {
@@ -329,34 +401,43 @@ class _ManagerUsersState extends State<ManagerUsers> {
 
       final currentOverride = permissions.moduleOverride(
         module: module,
-        tenantId: tenantId,
+        tenantId: cleanTenantId,
       );
 
       final updated = currentOverride.copyWith(
         read: allow,
       );
 
-      if (tenantId == null) {
-        futures.add(
-          _permissionRepo.setGlobalModuleOverride(
-            uid: uid,
-            module: module,
-            permissions: updated,
-          ),
-        );
-      } else {
-        futures.add(
-          _permissionRepo.setTenantModuleOverride(
-            uid: uid,
-            tenantId: tenantId,
-            module: module,
-            permissions: updated,
-          ),
-        );
-      }
+      futures.add(
+        _permissionRepo.setTenantModuleOverride(
+          uid: uid,
+          tenantId: cleanTenantId,
+          module: module,
+          permissions: updated,
+        ),
+      );
     }
 
     await Future.wait(futures);
+    await _reloadUsers();
+  }
+
+  Future<void> _persistTenantAccess({
+    required UserData user,
+    required String tenantId,
+    required bool allow,
+  }) async {
+    final uid = (user.uid ?? '').trim();
+    final cleanTenantId = tenantId.trim();
+
+    if (uid.isEmpty || cleanTenantId.isEmpty) return;
+
+    await context.read<UserCubit>().toggleTenantAccessForUser(
+      uid: uid,
+      tenantId: cleanTenantId,
+      allow: allow,
+    );
+
     await _reloadUsers();
   }
 
@@ -385,7 +466,7 @@ class _ManagerUsersState extends State<ManagerUsers> {
           Center(
             child: ManagerUsersErrorPanel(
               message: message,
-              onRetry: _reloadUsers,
+              onRetry: _reloadAll,
             ),
           ),
         ],
@@ -411,127 +492,161 @@ class _ManagerUsersState extends State<ManagerUsers> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<UserCubit, UserState>(
-      builder: (context, state) {
-        if (state.isLoadingUsers && state.all.isEmpty) {
-          return _buildLoadingPage();
-        }
+  Widget _buildContent({
+    required UserState userState,
+    required TenantState tenantState,
+  }) {
+    final users = userState.all;
+    final tenants = tenantState.availableTenants;
 
-        final loadError = state.loadUsersError?.trim();
+    if (users.isEmpty) {
+      return _buildEmptyPage();
+    }
 
-        if (loadError != null && loadError.isNotEmpty) {
-          return _buildErrorPage(
-            'Erro ao carregar usuários:\n$loadError',
-          );
-        }
+    final groups = ModuleCatalog.permissionModulesByDrawerGroup();
 
-        final users = state.all;
-
-        if (users.isEmpty) {
-          return _buildEmptyPage();
-        }
-
-        final tenantId = _activeTenantId();
-        final groups = ModuleCatalog.permissionModulesByDrawerGroup();
-
-        return Scaffold(
-          floatingActionButton: _buildAddUserButton(),
-          appBar: UpBar(
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 12),
-              child: CircleButtonChange(),
+    return Scaffold(
+      floatingActionButton: _buildAddUserButton(),
+      appBar: const UpBar(
+        leading: Padding(
+          padding: EdgeInsets.only(left: 12),
+          child: CircleButtonChange(),
+        ),
+        titleWidgets: [
+          Text(
+            'Usuários, empresas e permissões por módulo',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
             ),
-            titleWidgets: [
-              Text(
-                tenantId == null
-                    ? 'Permissões globais do sistema'
-                    : 'Permissões da empresa',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          const BackgroundChange(),
+          CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 90),
+                sliver: SliverList.separated(
+                  itemCount: users.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 18),
+                  itemBuilder: (context, index) {
+                    final user = users[index];
+                    final userPermissions = _permissionsOf(user);
+
+                    final nameText = '${user.name ?? '-'} ${user.surname ?? ''}'
+                        .trim()
+                        .replaceAll(RegExp(r'\s+'), ' ');
+
+                    final userTenantIds = _tenantIdsOf(user);
+
+                    return PermissionUserCard(
+                      user: user,
+                      nameText: nameText,
+                      userPermissions: userPermissions,
+                      groups: groups,
+                      availableTenants: tenants,
+                      userTenantIds: userTenantIds,
+                      tenantLabelBuilder: _tenantLabel,
+                      onEditUser: () {
+                        return _openEditUserPage(user);
+                      },
+                      onPickRole: ({
+                        required String tenantId,
+                        required perm.SystemUserRole picked,
+                      }) {
+                        return _persistRole(
+                          user: user,
+                          tenantId: tenantId,
+                          picked: picked,
+                        );
+                      },
+                      onPersistGroupRead: ({
+                        required String tenantId,
+                        required List<String> modules,
+                        required bool allow,
+                      }) {
+                        return _persistGroupRead(
+                          user: user,
+                          tenantId: tenantId,
+                          modules: modules,
+                          allow: allow,
+                        );
+                      },
+                      onPersistModulePermission: ({
+                        required String tenantId,
+                        required String module,
+                        required String action,
+                        required bool allow,
+                      }) {
+                        return _persistModulePermission(
+                          user: user,
+                          tenantId: tenantId,
+                          module: module,
+                          action: action,
+                          allow: allow,
+                        );
+                      },
+                      onPersistTenantAccess: ({
+                        required String tenantId,
+                        required bool allow,
+                      }) {
+                        return _persistTenantAccess(
+                          user: user,
+                          tenantId: tenantId,
+                          allow: allow,
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
             ],
           ),
-          body: Stack(
-            children: [
-              const BackgroundChange(),
-              CustomScrollView(
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 90),
-                    sliver: SliverList.separated(
-                      itemCount: users.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 18),
-                      itemBuilder: (context, index) {
-                        final user = users[index];
-                        final userPermissions = _permissionsOf(user);
+        ],
+      ),
+    );
+  }
 
-                        final baseRole = userPermissions.roleForTenant(
-                          tenantId,
-                        );
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<UserCubit, UserState>(
+      builder: (context, userState) {
+        return BlocBuilder<TenantCubit, TenantState>(
+          builder: (context, tenantState) {
+            final loadingUsers =
+                userState.isLoadingUsers && userState.all.isEmpty;
 
-                        final isSuper = userPermissions.isSuperUserForTenant(
-                          tenantId,
-                        );
+            final loadingTenants =
+                tenantState.isLoading && !tenantState.hasLoadedAvailableTenants;
 
-                        final nameText =
-                        '${user.name ?? '-'} ${user.surname ?? ''}'
-                            .trim()
-                            .replaceAll(RegExp(r'\s+'), ' ');
+            if (loadingUsers || loadingTenants) {
+              return _buildLoadingPage();
+            }
 
-                        return PermissionUserCard(
-                          user: user,
-                          nameText: nameText,
-                          baseRole: baseRole,
-                          isSuper: isSuper,
-                          userPermissions: userPermissions,
-                          tenantId: tenantId,
-                          groups: groups,
+            final loadUsersError = userState.loadUsersError?.trim();
 
-                          // ESSA LINHA FAZ O BOTÃO DE EDITAR APARECER.
-                          onEditUser: () {
-                            return _openEditUserPage(user);
-                          },
+            if (loadUsersError != null && loadUsersError.isNotEmpty) {
+              return _buildErrorPage(
+                'Erro ao carregar usuários:\n$loadUsersError',
+              );
+            }
 
-                          onPickRole: (picked) {
-                            return _persistRole(
-                              user,
-                              picked,
-                            );
-                          },
-                          onPersistGroupRead: ({
-                            required List<String> modules,
-                            required bool allow,
-                          }) {
-                            return _persistGroupRead(
-                              user: user,
-                              modules: modules,
-                              allow: allow,
-                            );
-                          },
-                          onPersistModulePermission: ({
-                            required String module,
-                            required String action,
-                            required bool allow,
-                          }) {
-                            return _persistModulePermission(
-                              user: user,
-                              module: module,
-                              action: action,
-                              allow: allow,
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            final tenantError = tenantState.error?.trim();
+
+            if (tenantError != null && tenantError.isNotEmpty) {
+              return _buildErrorPage(
+                'Erro ao carregar empresas:\n$tenantError',
+              );
+            }
+
+            return _buildContent(
+              userState: userState,
+              tenantState: tenantState,
+            );
+          },
         );
       },
     );

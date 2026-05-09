@@ -4,6 +4,58 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 
+List<String> _stringListFromDynamic(dynamic value) {
+  if (value == null) return const <String>[];
+
+  if (value is List) {
+    final list = value
+        .map((e) => e?.toString().trim() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+
+    list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
+  }
+
+  if (value is Map) {
+    final list = value.entries
+        .where((entry) => entry.value == true || entry.value != null)
+        .map((entry) => entry.key.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+
+    list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
+  }
+
+  if (value is String) {
+    final list = value
+        .split(RegExp(r'[\n,;]'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+
+    list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
+  }
+
+  return const <String>[];
+}
+
+List<String> _cleanStringList(Iterable<String> values) {
+  final list = values
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet()
+      .toList();
+
+  list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  return list;
+}
+
 class UserData extends ChangeNotifier {
   String? uid;
   String? name;
@@ -44,6 +96,15 @@ class UserData extends ChangeNotifier {
   String? blockedReason;
   String? deletedReason;
 
+  /// Empresas/tenants que o usuário pode acessar.
+  final List<String> tenantIds;
+
+  /// Empresa padrão do usuário.
+  final String? primaryTenantId;
+
+  /// Última empresa selecionada pelo usuário.
+  final String? activeTenantId;
+
   UserData({
     this.uid,
     this.name,
@@ -73,6 +134,9 @@ class UserData extends ChangeNotifier {
     this.deactivatedReason,
     this.blockedReason,
     this.deletedReason,
+    this.tenantIds = const <String>[],
+    this.primaryTenantId,
+    this.activeTenantId,
   });
 
   bool get isDeletedStatus => isDeleted == true;
@@ -85,6 +149,38 @@ class UserData extends ChangeNotifier {
 
   bool get hasStatusRestriction {
     return isInactiveStatus || isBlockedStatus || isDeletedStatus;
+  }
+
+  bool get hasAnyTenantAccess => tenantIds.isNotEmpty;
+
+  bool hasTenantAccess(String? tenantId) {
+    final clean = tenantId?.trim();
+
+    if (clean == null || clean.isEmpty) return false;
+
+    return tenantIds.any(
+          (id) => id.trim().toLowerCase() == clean.toLowerCase(),
+    );
+  }
+
+  String? get effectiveTenantId {
+    final active = activeTenantId?.trim();
+
+    if (active != null && active.isNotEmpty && hasTenantAccess(active)) {
+      return active;
+    }
+
+    final primary = primaryTenantId?.trim();
+
+    if (primary != null && primary.isNotEmpty && hasTenantAccess(primary)) {
+      return primary;
+    }
+
+    if (tenantIds.isNotEmpty) {
+      return tenantIds.first;
+    }
+
+    return null;
   }
 
   String get statusLabel {
@@ -148,6 +244,14 @@ class UserData extends ChangeNotifier {
       throw Exception('Dados do usuário estão vazios');
     }
 
+    final tenantIds = _stringListFromDynamic(
+      data['tenantIds'] ??
+          data['tenants'] ??
+          data['companies'] ??
+          data['companyIds'] ??
+          data['allowedTenants'],
+    );
+
     return UserData(
       uid: snapshot.id,
       name: data['name'] as String?,
@@ -179,6 +283,9 @@ class UserData extends ChangeNotifier {
       deactivatedReason: data['deactivatedReason'] as String?,
       blockedReason: data['blockedReason'] as String?,
       deletedReason: data['deletedReason'] as String?,
+      tenantIds: tenantIds,
+      primaryTenantId: data['primaryTenantId']?.toString().trim(),
+      activeTenantId: data['activeTenantId']?.toString().trim(),
     );
   }
 
@@ -216,6 +323,9 @@ class UserData extends ChangeNotifier {
       'deactivatedReason': deactivatedReason,
       'blockedReason': blockedReason,
       'deletedReason': deletedReason,
+      'tenantIds': _cleanStringList(tenantIds),
+      'primaryTenantId': primaryTenantId,
+      'activeTenantId': activeTenantId,
     };
   }
 
@@ -249,6 +359,77 @@ class UserData extends ChangeNotifier {
       deactivatedReason: deactivatedReason,
       blockedReason: blockedReason,
       deletedReason: deletedReason,
+      tenantIds: tenantIds,
+      primaryTenantId: primaryTenantId,
+      activeTenantId: activeTenantId,
+    );
+  }
+
+  UserData copyWith({
+    String? uid,
+    String? name,
+    String? surname,
+    String? cpf,
+    String? email,
+    String? password,
+    String? gender,
+    String? urlPhoto,
+    XFile? filePhoto,
+    String? cellPhone,
+    DateTime? createUser,
+    DateTime? dateToBirthday,
+    bool? themeDark,
+    GeoPoint? geoPoint,
+    DocumentSnapshot<Map<String, dynamic>>? userSnap,
+    String? baseRole,
+    String? baseProfile,
+    bool? profileWork,
+    bool? profileLegal,
+    bool? isActive,
+    bool? isBlocked,
+    bool? isDeleted,
+    DateTime? deactivatedAt,
+    DateTime? blockedAt,
+    DateTime? deletedAt,
+    String? deactivatedReason,
+    String? blockedReason,
+    String? deletedReason,
+    List<String>? tenantIds,
+    String? primaryTenantId,
+    String? activeTenantId,
+  }) {
+    return UserData(
+      uid: uid ?? this.uid,
+      name: name ?? this.name,
+      surname: surname ?? this.surname,
+      cpf: cpf ?? this.cpf,
+      email: email ?? this.email,
+      password: password ?? this.password,
+      gender: gender ?? this.gender,
+      urlPhoto: urlPhoto ?? this.urlPhoto,
+      filePhoto: filePhoto ?? this.filePhoto,
+      cellPhone: cellPhone ?? this.cellPhone,
+      createUser: createUser ?? this.createUser,
+      dateToBirthday: dateToBirthday ?? this.dateToBirthday,
+      themeDark: themeDark ?? this.themeDark,
+      geoPoint: geoPoint ?? this.geoPoint,
+      userSnap: userSnap ?? this.userSnap,
+      baseRole: baseRole ?? this.baseRole,
+      baseProfile: baseProfile ?? this.baseProfile,
+      profileWork: profileWork ?? this.profileWork,
+      profileLegal: profileLegal ?? this.profileLegal,
+      isActive: isActive ?? this.isActive,
+      isBlocked: isBlocked ?? this.isBlocked,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deactivatedAt: deactivatedAt ?? this.deactivatedAt,
+      blockedAt: blockedAt ?? this.blockedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      deactivatedReason: deactivatedReason ?? this.deactivatedReason,
+      blockedReason: blockedReason ?? this.blockedReason,
+      deletedReason: deletedReason ?? this.deletedReason,
+      tenantIds: tenantIds ?? this.tenantIds,
+      primaryTenantId: primaryTenantId ?? this.primaryTenantId,
+      activeTenantId: activeTenantId ?? this.activeTenantId,
     );
   }
 
@@ -271,6 +452,9 @@ class UserData extends ChangeNotifier {
     bool? isActive,
     bool? isBlocked,
     bool? isDeleted,
+    List<String>? tenantIds,
+    String? primaryTenantId,
+    String? activeTenantId,
   }) {
     this.name = name ?? this.name;
     this.surname = surname ?? this.surname;
@@ -318,6 +502,9 @@ class UserData extends ChangeNotifier {
       isActive: true,
       isBlocked: false,
       isDeleted: false,
+      tenantIds: const <String>[],
+      primaryTenantId: null,
+      activeTenantId: null,
     );
   }
 
