@@ -1,5 +1,3 @@
-// lib/_blocs/modules/transit/accidents/accidents_repository.dart
-
 import 'dart:convert';
 import 'dart:math';
 
@@ -24,33 +22,30 @@ class AccidentsRepository {
     /// tenants/{tenantId}/traffic/accidents/items
     String? tenantId,
 
-    /// Caso queira informar manualmente o caminho completo da coleção de anos.
+    /// Caminho completo opcional.
     ///
     /// Exemplo:
     /// tenants/empresaA/traffic/accidents/items
     ///
-    /// Se informado, ele tem prioridade sobre o tenant fixo de teste.
+    /// Se informado, tem prioridade sobre o tenant dinâmico.
     String? baseCollectionPath,
 
-    /// Mantém leitura compatível com a estrutura antiga:
+    /// Compatibilidade com estrutura antiga:
     /// trafficAccidents/{year}/records
     bool enableLegacyFallback = true,
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        _tenantId = tenantId,
-        _baseCollectionPath = baseCollectionPath,
+        _tenantId = _cleanNullable(tenantId),
+        _baseCollectionPath = _cleanNullable(baseCollectionPath),
         _enableLegacyFallback = enableLegacyFallback,
         _publicReportBaseUrl = _resolvePublicReportBaseUrl(publicReportBaseUrl);
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
 
-  final String? _tenantId;
+  String? _tenantId;
   final String? _baseCollectionPath;
   final bool _enableLegacyFallback;
-
-  /// ID fixo temporário para teste.
-  static const String _manualTenantIdForTest = 'SZQmefRUqdtLB14ahcuh';
 
   /// Estrutura antiga.
   static const String legacyCollectionPath = 'trafficAccidents';
@@ -59,11 +54,30 @@ class AccidentsRepository {
   /// O link PDF final será: {_publicReportBaseUrl}/{token}.pdf
   final String _publicReportBaseUrl;
 
-  /// Estrutura nova temporária para teste:
+  static String? _cleanNullable(String? value) {
+    final text = value?.trim();
+
+    if (text == null || text.isEmpty) return null;
+    if (text.toLowerCase() == 'null') return null;
+
+    return text;
+  }
+
+  void setActiveTenantId(String? tenantId) {
+    _tenantId = _cleanNullable(tenantId);
+  }
+
+  bool get hasExplicitCollectionPath {
+    return (_baseCollectionPath ?? '').trim().isNotEmpty;
+  }
+
+  bool get hasTenant {
+    return hasExplicitCollectionPath || (_tenantId ?? '').trim().isNotEmpty;
+  }
+
+  /// Estrutura nova:
   ///
-  /// tenants/SZQmefRUqdtLB14ahcuh/traffic/accidents/items
-  ///
-  /// Depois, remova o uso de [_manualTenantIdForTest] e volte para [_tenantId].
+  /// tenants/{tenantId}/traffic/accidents/items
   String get collectionPath {
     final explicit = (_baseCollectionPath ?? '').trim();
 
@@ -71,16 +85,10 @@ class AccidentsRepository {
       return explicit;
     }
 
-    final tenant = _manualTenantIdForTest.trim();
+    final tenant = (_tenantId ?? '').trim();
 
     if (tenant.isNotEmpty) {
       return 'tenants/$tenant/traffic/accidents/items';
-    }
-
-    final dynamicTenant = (_tenantId ?? '').trim();
-
-    if (dynamicTenant.isNotEmpty) {
-      return 'tenants/$dynamicTenant/traffic/accidents/items';
     }
 
     return 'traffic/accidents/items';
@@ -196,6 +204,8 @@ class AccidentsRepository {
   Future<DocumentReference<Map<String, dynamic>>?> _getYearRefCompat(
       int year,
       ) async {
+    if (!hasTenant) return null;
+
     final currentRef = await _getYearRefFrom(_containers, year);
 
     if (currentRef != null) {
@@ -212,6 +222,10 @@ class AccidentsRepository {
   Future<DocumentReference<Map<String, dynamic>>> _getOrCreateYearRefCanonical(
       int year,
       ) async {
+    if (!hasTenant) {
+      throw Exception('Nenhuma empresa selecionada para salvar acidentes.');
+    }
+
     final existing = await _getYearRefFrom(_containers, year);
 
     if (existing != null) {
@@ -220,6 +234,7 @@ class AccidentsRepository {
           'year': year,
           'module': 'traffic',
           'type': 'accidents',
+          'tenantId': _tenantId,
           'updatedAt': FieldValue.serverTimestamp(),
           'updatedBy': _auth.currentUser?.uid ?? '',
         },
@@ -236,6 +251,7 @@ class AccidentsRepository {
         'year': year,
         'module': 'traffic',
         'type': 'accidents',
+        'tenantId': _tenantId,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': _auth.currentUser?.uid ?? '',
         'updatedAt': FieldValue.serverTimestamp(),
@@ -277,6 +293,8 @@ class AccidentsRepository {
 
   Future<List<DocumentReference<Map<String, dynamic>>>>
   _listYearRefsCompat() async {
+    if (!hasTenant) return <DocumentReference<Map<String, dynamic>>>[];
+
     final current = await _listYearRefsFrom(_containers);
 
     if (current.isNotEmpty || !_enableLegacyFallback) {
@@ -314,6 +332,10 @@ class AccidentsRepository {
     required String id,
     required int year,
   }) async {
+    if (!hasTenant) {
+      throw Exception('Nenhuma empresa selecionada para excluir acidentes.');
+    }
+
     final yearRef = await _getYearRefCompat(year);
 
     if (yearRef == null) {
@@ -329,6 +351,10 @@ class AccidentsRepository {
   }
 
   Future<void> saveOrUpdateAccident(AccidentsData data) async {
+    if (!hasTenant) {
+      throw Exception('Nenhuma empresa selecionada para salvar acidentes.');
+    }
+
     final user = _auth.currentUser;
 
     if (data.date == null) {
@@ -356,6 +382,7 @@ class AccidentsRepository {
       'year': year,
       'month': month,
       'yearDocId': yearRef.id,
+      'tenantId': _tenantId,
       'recordPath': recordPath,
       'recordId': recordId,
       'sourcePath': recordPath,
@@ -385,6 +412,7 @@ class AccidentsRepository {
           'year': year,
           'module': 'traffic',
           'type': 'accidents',
+          'tenantId': _tenantId,
           'updatedAt': FieldValue.serverTimestamp(),
           'updatedBy': user?.uid ?? '',
         },
@@ -404,6 +432,10 @@ class AccidentsRepository {
     int? month,
     String? city,
   }) async {
+    if (!hasTenant) {
+      return <AccidentsData>[];
+    }
+
     final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs =
     <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
@@ -477,6 +509,10 @@ class AccidentsRepository {
     DocumentSnapshot? lastDoc,
     int limit = 200,
   }) async {
+    if (!hasTenant) {
+      return _db.collection('__empty_accidents__').limit(0).get();
+    }
+
     final yearRef = await _getYearRefCompat(year);
 
     if (yearRef == null) {
@@ -494,6 +530,8 @@ class AccidentsRepository {
   }
 
   Future<int> countByYear(int year) async {
+    if (!hasTenant) return 0;
+
     final yearRef = await _getYearRefCompat(year);
 
     if (yearRef == null) {
@@ -569,6 +607,10 @@ class AccidentsRepository {
     required AccidentsData accident,
     Duration expiresIn = const Duration(days: 30),
   }) async {
+    if (!hasTenant) {
+      throw Exception('Nenhuma empresa selecionada para gerar link público.');
+    }
+
     final user = _auth.currentUser;
 
     if (user == null) {
@@ -593,6 +635,7 @@ class AccidentsRepository {
           publicDoc,
           {
             'token': token,
+            'tenantId': _tenantId,
             'accidentId': accidentId,
             'recordPath': recordPath,
             'createdAt': FieldValue.serverTimestamp(),
@@ -633,6 +676,7 @@ class AccidentsRepository {
         publicDoc,
         {
           'token': token,
+          'tenantId': _tenantId,
           'accidentId': accidentId,
           'recordPath': recordPath,
           'createdAt': FieldValue.serverTimestamp(),
@@ -668,6 +712,10 @@ class AccidentsRepository {
   Future<void> revokePublicReportLink({
     required AccidentsData accident,
   }) async {
+    if (!hasTenant) {
+      throw Exception('Nenhuma empresa selecionada para revogar link público.');
+    }
+
     final user = _auth.currentUser;
 
     if (user == null) {
@@ -710,11 +758,9 @@ class AccidentsRepository {
     });
   }
 
-  /// Corrige datas apenas dentro do módulo de acidentes.
-  ///
-  /// Não usa collectionGroup('records') aberto para não misturar acidentes,
-  /// infrações e outros módulos que também usam subcoleção chamada "records".
   Future<void> corrigirDatasAcidentesCollectionGroup() async {
+    if (!hasTenant) return;
+
     final DateFormat formato = DateFormat('dd/MM/yyyy');
     final yearRefs = await _listYearRefsCompat();
 
@@ -801,7 +847,8 @@ class AccidentsRepository {
         final arr = json.decode(utf8.decode(nomiResp.bodyBytes));
 
         if (arr is List && arr.isNotEmpty) {
-          final first = arr.first as Map<String, dynamic>;
+          final first = firstAsMap(arr);
+
           final lat = double.tryParse(first['lat']?.toString() ?? '');
           final lon = double.tryParse(first['lon']?.toString() ?? '');
 
@@ -847,7 +894,8 @@ class AccidentsRepository {
           final arr = json.decode(utf8.decode(r2.bodyBytes));
 
           if (arr is List && arr.isNotEmpty) {
-            final first = arr.first as Map<String, dynamic>;
+            final first = firstAsMap(arr);
+
             final lat = double.tryParse(first['lat']?.toString() ?? '');
             final lon = double.tryParse(first['lon']?.toString() ?? '');
 
@@ -870,6 +918,20 @@ class AccidentsRepository {
       isoCountryCode: 'BR',
       city: cidade,
     );
+  }
+
+  Map<String, dynamic> firstAsMap(List<dynamic> arr) {
+    final first = arr.first;
+
+    if (first is Map<String, dynamic>) {
+      return first;
+    }
+
+    if (first is Map) {
+      return first.cast<String, dynamic>();
+    }
+
+    return <String, dynamic>{};
   }
 
   Future<LocationPermission> _ensurePermission() async {

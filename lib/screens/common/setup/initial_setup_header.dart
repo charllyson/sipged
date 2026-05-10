@@ -1,7 +1,5 @@
 // lib/screens/common/setup/initial_setup_header.dart
 
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 

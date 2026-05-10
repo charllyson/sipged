@@ -1,3 +1,5 @@
+// lib/_blocs/modules/contracts/apostilles/apostilles_state.dart
+
 import 'package:equatable/equatable.dart';
 
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
@@ -23,20 +25,27 @@ class ApostillesState extends Equatable {
 
   final String? errorMessage;
 
-  /// ✅ SideList progress
   final bool sideLoading;
   final double? uploadProgress;
 
-  bool get canAddFile => isEditable && selected?.id != null;
+  bool get canAddFile {
+    final selectedId = selected?.id?.trim();
+
+    return isEditable && selectedId != null && selectedId.isNotEmpty;
+  }
 
   List<String> get orderOptions {
     if (existingOrders.isEmpty) return const <String>['1'];
+
     final max = existingOrders.reduce((a, b) => a > b ? a : b);
     final maxPlusOne = max + 1;
+
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
 
-  Set<String> get greyOrderItems => existingOrders.map((e) => e.toString()).toSet();
+  Set<String> get greyOrderItems {
+    return existingOrders.map((e) => e.toString()).toSet();
+  }
 
   const ApostillesState({
     required this.status,
@@ -97,18 +106,20 @@ class ApostillesState extends Equatable {
     return ApostillesState(
       status: status ?? this.status,
       apostilles: apostilles ?? this.apostilles,
-      selected: clearSelected ? null : (selected ?? this.selected),
+      selected: clearSelected ? null : selected ?? this.selected,
       isSaving: isSaving ?? this.isSaving,
       isEditable: isEditable ?? this.isEditable,
       editingMode: editingMode ?? this.editingMode,
       formValid: formValid ?? this.formValid,
-      selectedIndex: clearSelectedIndex ? null : (selectedIndex ?? this.selectedIndex),
+      selectedIndex:
+      clearSelectedIndex ? null : selectedIndex ?? this.selectedIndex,
       sideAttachments: sideAttachments ?? this.sideAttachments,
       nextAvailableOrder: nextAvailableOrder ?? this.nextAvailableOrder,
       existingOrders: existingOrders ?? this.existingOrders,
-      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       sideLoading: sideLoading ?? this.sideLoading,
-      uploadProgress: clearUploadProgress ? null : (uploadProgress ?? this.uploadProgress),
+      uploadProgress:
+      clearUploadProgress ? null : uploadProgress ?? this.uploadProgress,
     );
   }
 

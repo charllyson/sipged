@@ -1,3 +1,5 @@
+// lib/_blocs/modules/actives/roads/active_roads_cubit.dart
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -13,11 +15,13 @@ import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
 import 'package:sipged/_utils/geometry/sipged_tile_math.dart';
 
 class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
-  final ActiveRoadsRepository _repo;
-
-  ActiveRoadsCubit({ActiveRoadsRepository? repository})
-      : _repo = repository ?? ActiveRoadsRepository(),
+  ActiveRoadsCubit({
+    ActiveRoadsRepository? repository,
+    String? tenantId,
+  })  : _repo = repository ?? ActiveRoadsRepository(tenantId: tenantId),
         super(const ActiveRoadsState());
+
+  final ActiveRoadsRepository _repo;
 
   static const double clusterUntilZoom = 12.0;
 
@@ -39,16 +43,118 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
   LatLngBounds? _lastBounds;
   double? _lastZoom;
 
+  /// Controla se a lista completa já foi carregada para o tenant atual.
+  /// Isso evita que a tela de registros dependa do carregamento parcial do mapa.
+  String? _fullListLoadedTenantId;
+
+  String? get currentTenantId => _repo.currentTenantId;
+
+  bool get hasTenant => _repo.hasTenant;
+
+  void setActiveTenantId(String? tenantId) {
+    final before = _repo.currentTenantId;
+    _repo.setActiveTenantId(tenantId);
+    final after = _repo.currentTenantId;
+
+    if (before == after) return;
+
+    _requestSeq++;
+
+    _debounce?.cancel();
+    _cameraDebounce?.cancel();
+
+    clearCache();
+
+    _lastBounds = null;
+    _lastZoom = null;
+    _fullListLoadedTenantId = null;
+
+    emit(const ActiveRoadsState());
+  }
+
+  /// Warmup usado pelo mapa.
+  ///
+  /// Mantém a lógica performática:
+  /// - se houver bounds, carrega por viewport/tiles;
+  /// - se não houver bounds, faz fallback completo.
   Future<void> warmup({int bucket = 4}) async {
-    if (_lastBounds != null) {
-      await loadViewport(bucket: bucket, bounds: _lastBounds!);
+    if (!_repo.hasTenant) {
+      emit(
+        state.copyWith(
+          initialized: false,
+          loadStatus: ActiveRoadsLoadStatus.idle,
+          all: const <ActiveRoadsData>[],
+          mapGeoms: const <ActiveRoadMapGeom>[],
+          regionLabels: const <String>[],
+          error: null,
+        ),
+      );
       return;
     }
 
-    await _loadAllFallback(setInitialized: true, bucket: bucket);
+    if (state.initialized) return;
+
+    if (_lastBounds != null) {
+      await loadViewport(
+        bucket: bucket,
+        bounds: _lastBounds!,
+      );
+      return;
+    }
+
+    await _loadAllFallback(
+      setInitialized: true,
+      bucket: bucket,
+      markAsFullList: true,
+    );
+  }
+
+  /// Warmup usado pela tela de registros.
+  ///
+  /// Esta tela precisa da coleção completa, não apenas dos itens do viewport
+  /// carregados pelo mapa.
+  Future<void> warmupRecords({
+    int bucket = 4,
+    bool forceRefresh = false,
+  }) async {
+    if (!_repo.hasTenant) {
+      emit(
+        state.copyWith(
+          initialized: false,
+          loadStatus: ActiveRoadsLoadStatus.idle,
+          all: const <ActiveRoadsData>[],
+          mapGeoms: const <ActiveRoadMapGeom>[],
+          regionLabels: const <String>[],
+          error: null,
+        ),
+      );
+      return;
+    }
+
+    final tenantId = _repo.currentTenantId;
+
+    final alreadyLoadedFullList =
+        !forceRefresh &&
+            tenantId != null &&
+            tenantId == _fullListLoadedTenantId &&
+            state.initialized &&
+            state.loadStatus == ActiveRoadsLoadStatus.success;
+
+    if (alreadyLoadedFullList) return;
+
+    await _loadAllFallback(
+      setInitialized: true,
+      bucket: bucket,
+      forceRefresh: true,
+      markAsFullList: true,
+    );
   }
 
   Future<void> refresh({int bucket = 4}) async {
+    if (!_repo.hasTenant) return;
+
+    _fullListLoadedTenantId = null;
+
     if (_lastBounds != null) {
       await loadViewport(
         bucket: bucket,
@@ -60,6 +166,14 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
 
     await _loadAllFallback(
       setInitialized: false,
+      bucket: bucket,
+      forceRefresh: true,
+      markAsFullList: true,
+    );
+  }
+
+  Future<void> refreshRecords({int bucket = 4}) async {
+    await warmupRecords(
       bucket: bucket,
       forceRefresh: true,
     );
@@ -98,7 +212,6 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     _debounce?.cancel();
     _debounce = Timer(_debounceDuration, () {
       if (_rawCache == null) return;
-
       _applyBucketFromCache(bucket);
     });
   }
@@ -144,6 +257,8 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     required LatLngBounds bounds,
     bool forceRefresh = false,
   }) async {
+    if (!_repo.hasTenant) return;
+
     final reqId = ++_requestSeq;
 
     final hasData = state.all.isNotEmpty && state.mapGeoms.isNotEmpty;
@@ -227,7 +342,10 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     required bool setInitialized,
     required int bucket,
     bool forceRefresh = false,
+    bool markAsFullList = false,
   }) async {
+    if (!_repo.hasTenant) return;
+
     final reqId = ++_requestSeq;
 
     emit(
@@ -251,6 +369,7 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
       if (forceRefresh || _rawCache == null) {
         final tParse = Stopwatch()..start();
 
+        clearCache();
         _rawCache = _buildRawSegmentsFromRoads(list);
 
         tParse.stop();
@@ -268,6 +387,10 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
       _applyBucketFromCache(bucket);
 
       if (reqId != _requestSeq) return;
+
+      if (markAsFullList) {
+        _fullListLoadedTenantId = _repo.currentTenantId;
+      }
 
       emit(
         state.copyWith(
@@ -304,7 +427,7 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
       emit(
         state.copyWith(
           activeBucket: bucket,
-          mapGeoms: const [],
+          mapGeoms: const <ActiveRoadMapGeom>[],
           geomVersion: state.geomVersion + 1,
         ),
       );
@@ -632,6 +755,8 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
   }
 
   Future<void> upsert(ActiveRoadsData data) async {
+    if (!_repo.hasTenant) return;
+
     emit(
       state.copyWith(
         savingOrImporting: true,
@@ -654,6 +779,8 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
       final sorted = _sortRoads(list);
       final regionLabels = _buildRegionLabelsFromData(sorted);
 
+      _fullListLoadedTenantId = _repo.currentTenantId;
+
       clearCache();
 
       _rawCache = _buildRawSegmentsFromRoads(sorted);
@@ -664,9 +791,11 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
 
       emit(
         state.copyWith(
+          initialized: true,
           all: sorted,
           regionLabels: regionLabels,
           savingOrImporting: false,
+          loadStatus: ActiveRoadsLoadStatus.success,
           error: null,
         ),
       );
@@ -684,6 +813,8 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
   }
 
   Future<void> deleteById(String id) async {
+    if (!_repo.hasTenant) return;
+
     emit(
       state.copyWith(
         savingOrImporting: true,
@@ -700,6 +831,8 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
       final sorted = _sortRoads(filtered);
       final regionLabels = _buildRegionLabelsFromData(sorted);
 
+      _fullListLoadedTenantId = _repo.currentTenantId;
+
       clearCache();
 
       _rawCache = _buildRawSegmentsFromRoads(sorted);
@@ -710,9 +843,11 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
 
       emit(
         state.copyWith(
+          initialized: true,
           all: sorted,
           regionLabels: regionLabels,
           savingOrImporting: false,
+          loadStatus: ActiveRoadsLoadStatus.success,
           error: null,
         ),
       );
@@ -733,6 +868,8 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     required List<Map<String, dynamic>> linhasPrincipais,
     required List<Map<String, dynamic>> subcolecoes,
   }) async {
+    if (!_repo.hasTenant) return;
+
     emit(
       state.copyWith(
         savingOrImporting: true,
@@ -746,9 +883,6 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
         subcolecoes: subcolecoes,
       );
 
-      final bounds = _lastBounds;
-      final zoom = _lastZoom;
-
       emit(
         state.copyWith(
           savingOrImporting: false,
@@ -756,17 +890,10 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
         ),
       );
 
-      if (bounds != null && zoom != null) {
-        await loadViewport(
-          bucket: bucketForZoom(zoom),
-          bounds: bounds,
-          forceRefresh: true,
-        );
-      } else {
-        await refresh(
-          bucket: _activeBucket ?? 4,
-        );
-      }
+      await warmupRecords(
+        bucket: _activeBucket ?? 4,
+        forceRefresh: true,
+      );
     } catch (e, s) {
       _perf('ActiveRoads.importBatch error: $e');
       _perf('$s');

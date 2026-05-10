@@ -1,4 +1,5 @@
 // lib/screens/modules/contracts/apostilles/apostilles_form_section.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +11,7 @@ import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
+
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
@@ -37,6 +39,9 @@ class ApostilleFormSection extends StatelessWidget {
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
+
+  final bool sideLoading;
+  final double? uploadProgress;
 
   final Future<bool> Function({
   required int index,
@@ -69,6 +74,8 @@ class ApostilleFormSection extends StatelessWidget {
     this.onAddSideItem,
     this.onTapSideItem,
     this.onDeleteSideItem,
+    this.sideLoading = false,
+    this.uploadProgress,
     this.onRenamePersist,
     this.onItemsChanged,
     required this.orderNumberOptions,
@@ -227,6 +234,9 @@ class ApostilleFormSection extends StatelessWidget {
           canEditSide && onRenamePersist != null ? onRenamePersist : null,
           onItemsChanged: onItemsChanged,
           width: sideWidth,
+          // Ajuste necessário para refletir upload/carregamento dos anexos.
+          loading: sideLoading,
+          uploadProgress: uploadProgress,
         );
 
         return BasicCard(

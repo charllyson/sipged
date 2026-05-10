@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ValidityData {
+  static const String collectionName = 'orders';
+
   String? id;
   String? uidContract;
   DateTime? orderdate;
@@ -257,8 +259,9 @@ class ValidityData {
       'orderType': ordertype ?? '',
       'orderdate': orderdate,
       'orderDate': orderdate,
-      'pdfUrl': pdfUrl,
-      'attachments': attachments?.map((item) => item.toMap()).toList(),
+      if (pdfUrl != null && pdfUrl!.trim().isNotEmpty) 'pdfUrl': pdfUrl,
+      if (attachments != null && attachments!.isNotEmpty)
+        'attachments': attachments!.map((item) => item.toMap()).toList(),
       if (createdBy != null && createdBy!.trim().isNotEmpty)
         'createdBy': createdBy,
       if (createdAt != null) 'createdAt': createdAt,

@@ -1,3 +1,5 @@
+// lib/screens/modules/actives/roads/records/list_roads_acronym.dart
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
@@ -5,6 +7,7 @@ import 'package:sipged/screens/modules/actives/roads/records/active_roads_table.
 
 typedef RoadTapCallback = void Function(ActiveRoadsData road);
 typedef RoadDeleteCallback = void Function(String roadId);
+typedef RoadSortCallback = void Function(int columnIndex, bool ascending);
 
 class ListRoadAcronym extends StatefulWidget {
   const ListRoadAcronym({
@@ -14,7 +17,11 @@ class ListRoadAcronym extends StatefulWidget {
     required this.constraints,
     required this.onTapItem,
     required this.onDelete,
+    required this.onExpansionChanged,
+    required this.onSort,
     this.initiallyExpanded = false,
+    this.sortColumnIndex,
+    this.isAscending = true,
   });
 
   final String title;
@@ -22,6 +29,12 @@ class ListRoadAcronym extends StatefulWidget {
   final BoxConstraints constraints;
   final RoadTapCallback onTapItem;
   final RoadDeleteCallback onDelete;
+  final ValueChanged<bool> onExpansionChanged;
+
+  final RoadSortCallback onSort;
+  final int? sortColumnIndex;
+  final bool isAscending;
+
   final bool initiallyExpanded;
 
   @override
@@ -37,72 +50,143 @@ class _ListRoadAcronymState extends State<ListRoadAcronym> {
     _isExpanded = widget.initiallyExpanded;
   }
 
+  @override
+  void didUpdateWidget(covariant ListRoadAcronym oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.initiallyExpanded != widget.initiallyExpanded) {
+      _isExpanded = widget.initiallyExpanded;
+    }
+  }
+
   void _handleExpansionChanged(bool open) {
     setState(() {
       _isExpanded = open;
     });
+
+    widget.onExpansionChanged(open);
   }
 
   @override
   Widget build(BuildContext context) {
     final total = widget.items.length;
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.primary;
     final totalKm = ActiveRoadsData.sumExtension(widget.items);
 
-    return ExpansionTile(
-      key: ValueKey('tile_road_${widget.title}'),
-      initiallyExpanded: widget.initiallyExpanded,
-      maintainState: true,
-      onExpansionChanged: _handleExpansionChanged,
-      tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      childrenPadding: const EdgeInsets.only(bottom: 12),
-      title: Row(
-        children: [
-          Text(
-            'Rodovia ${widget.title}',
-            style: const TextStyle(fontWeight: FontWeight.w700),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: Card(
+        elevation: 0,
+        color: Colors.white.withValues(alpha: 0.92),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: Colors.grey.shade300,
           ),
-          const SizedBox(width: 8),
-          Text(
-            '• ${_fmtNum(totalKm, maxDecimals: 3)} km',
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ExpansionTile(
+          key: PageStorageKey<String>('tile_road_${widget.title}'),
+          initiallyExpanded: widget.initiallyExpanded,
+          maintainState: true,
+          onExpansionChanged: _handleExpansionChanged,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          childrenPadding: const EdgeInsets.only(bottom: 12),
+          leading: Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
+              color: const Color(0xFF091D68).withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(12),
-              color: color.withValues(alpha: 0.12),
             ),
-            child: Text(
-              '$total',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: color,
+            child: const Icon(
+              Icons.alt_route_rounded,
+              color: Color(0xFF091D68),
+              size: 22,
+            ),
+          ),
+          title: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  'Rodovia ${widget.title}',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
               ),
+              const SizedBox(width: 8),
+              Text(
+                '• ${_fmtNum(totalKm, maxDecimals: 3)} km',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          subtitle: Text(
+            '$total sub-trecho${total == 1 ? '' : 's'} encontrado${total == 1 ? '' : 's'}',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
             ),
           ),
-        ],
-      ),
-      children: [
-        if (_isExpanded)
-          ListRoadsTable(
-            items: widget.items,
-            constraints: widget.constraints,
-            onTapItem: widget.onTapItem,
-            onDelete: widget.onDelete,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  color: const Color(0xFF091D68).withValues(alpha: 0.12),
+                ),
+                child: Text(
+                  '$total',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF091D68),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                _isExpanded
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+              ),
+            ],
           ),
-      ],
+          children: [
+            if (_isExpanded)
+              ListRoadsTable(
+                items: widget.items,
+                constraints: widget.constraints,
+                onTapItem: widget.onTapItem,
+                onDelete: widget.onDelete,
+                sortColumnIndex: widget.sortColumnIndex,
+                isAscending: widget.isAscending,
+                onSort: widget.onSort,
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 String _fmtNum(num? v, {int maxDecimals = 1}) {
   if (v == null) return '-';
+
   var s = v.toStringAsFixed(maxDecimals);
+
   while (s.contains('.') && (s.endsWith('0') || s.endsWith('.'))) {
     s = s.substring(0, s.length - 1);
   }
+
   return s;
 }

@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/screens/modules/financial/dashboard/finance_utils.dart';
 
@@ -8,19 +9,86 @@ import 'empenho_repository.dart';
 import 'empenho_state.dart';
 
 class EmpenhoCubit extends Cubit<EmpenhoState> {
-  final EmpenhoRepository _repo;
-
   EmpenhoCubit({
     EmpenhoRepository? repository,
-  })  : _repo = repository ?? EmpenhoRepository(),
-        super(EmpenhoState.initial());
+    UserPermissionData? initialPermissions,
+    String? initialTenantId,
+  })  : _repo = repository ?? EmpenhoRepository(tenantId: initialTenantId),
+        _tenantId = initialTenantId?.trim(),
+        super(EmpenhoState.initial()) {
+    _syncTenantOnRepository();
+  }
+
+  final EmpenhoRepository _repo;
+
+  String? _tenantId;
+
+  String? _lastContractId;
+
+  String? get activeTenantId {
+    final clean = _tenantId?.trim();
+
+    if (clean == null || clean.isEmpty) return null;
+
+    return clean;
+  }
+
+  void _syncTenantOnRepository() {
+    _repo.setActiveTenantId(activeTenantId);
+  }
+
+  bool _hasTenantOrFail() {
+    final tid = activeTenantId;
+
+    if (tid == null || tid.isEmpty) {
+      emit(
+        state.copyWith(
+          status: EmpenhoStatus.failure,
+          items: const [],
+          dfds: const [],
+          loadingDfds: false,
+          error: 'Tenant ativo não identificado para carregar empenhos.',
+        ),
+      );
+
+      return false;
+    }
+
+    _repo.setActiveTenantId(tid);
+
+    return true;
+  }
+
+  Future<void> updatePermissions({
+    UserPermissionData? permissions,
+    String? tenantId,
+    bool reload = true,
+  }) async {
+    final oldTenantId = activeTenantId;
+
+
+    final cleanTenantId = tenantId?.trim();
+    _tenantId =
+    cleanTenantId == null || cleanTenantId.isEmpty ? null : cleanTenantId;
+
+    _syncTenantOnRepository();
+
+    final changedTenant = oldTenantId != activeTenantId;
+
+    if (!reload || !changedTenant) return;
+
+    await init(contractId: _lastContractId);
+  }
 
   Future<void> init({
     String? contractId,
   }) async {
-    await loadDfds();
-
     final cid = (contractId ?? '').trim();
+    _lastContractId = cid.isEmpty ? null : cid;
+
+    if (!_hasTenantOrFail()) return;
+
+    await loadDfds();
 
     if (cid.isNotEmpty) {
       await loadByContract(cid);
@@ -31,6 +99,7 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
 
   Future<void> loadDfds() async {
     if (state.loadingDfds) return;
+    if (!_hasTenantOrFail()) return;
 
     emit(
       state.copyWith(
@@ -61,6 +130,10 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
   }
 
   Future<void> loadAll() async {
+    _lastContractId = null;
+
+    if (!_hasTenantOrFail()) return;
+
     emit(
       state.copyWith(
         status: EmpenhoStatus.loading,
@@ -92,6 +165,10 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
 
   Future<void> loadByContract(String contractId) async {
     final cid = contractId.trim();
+
+    _lastContractId = cid.isEmpty ? null : cid;
+
+    if (!_hasTenantOrFail()) return;
 
     emit(
       state.copyWith(
@@ -384,6 +461,8 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
     required Attachment oldItem,
     required Attachment newItem,
   }) async {
+    if (!_hasTenantOrFail()) return false;
+
     final selected = state.selected;
 
     if (selected?.id == null || selected!.id!.trim().isEmpty) {
@@ -495,6 +574,8 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
   }
 
   Future<void> saveOrUpdate() async {
+    if (!_hasTenantOrFail()) return;
+
     if (!formValidated) {
       emit(
         state.copyWith(
@@ -585,6 +666,8 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
   }
 
   Future<void> deleteSelected() async {
+    if (!_hasTenantOrFail()) return;
+
     final selected = state.selected;
 
     if (selected?.id == null || selected!.id!.trim().isEmpty) {

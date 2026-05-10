@@ -1,3 +1,6 @@
+// lib/screens/modules/traffic/accidents/records/accidents_records_network_page.dart
+
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -10,15 +13,21 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_repository.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
+
 import 'package:sipged/_services/bluetooth/ble_client.dart';
 import 'package:sipged/_services/bluetooth/ble_client_iface.dart';
 
+import 'package:sipged/_widgets/buttons/expanded_button_change.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
@@ -31,26 +40,17 @@ import 'accidents_map_section.dart';
 import 'accidents_selector_dates_section.dart';
 import 'accidents_table_section.dart';
 
-class AccidentsRecordsNetworkPage extends StatelessWidget {
+class AccidentsRecordsNetworkPage extends StatefulWidget {
   const AccidentsRecordsNetworkPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const _AccidentsRecordsNetworkPageInner();
-  }
+  State<AccidentsRecordsNetworkPage> createState() =>
+      _AccidentsRecordsNetworkPageState();
 }
 
-class _AccidentsRecordsNetworkPageInner extends StatefulWidget {
-  const _AccidentsRecordsNetworkPageInner();
-
-  @override
-  State<_AccidentsRecordsNetworkPageInner> createState() =>
-      _AccidentsRecordsNetworkPageInnerState();
-}
-
-class _AccidentsRecordsNetworkPageInnerState
-    extends State<_AccidentsRecordsNetworkPageInner> {
-  bool _inited = false;
+class _AccidentsRecordsNetworkPageState
+    extends State<AccidentsRecordsNetworkPage> {
+  late final AccidentsCubit _cubit;
 
   AccidentsData _formData = const AccidentsData();
   AccidentsData? _selectedAccident;
@@ -60,6 +60,13 @@ class _AccidentsRecordsNetworkPageInnerState
   bool _showForm = true;
   bool _showTable = true;
   bool _showMap = true;
+
+  bool _firedUserWarmup = false;
+  bool _didScheduleInitialLoad = false;
+  bool _loadingLocal = false;
+
+  String? _lastTenantId;
+  String? _lastFailureMessage;
 
   MapController? _mapController;
   void Function(LatLng)? _setActivePoint;
@@ -81,12 +88,184 @@ class _AccidentsRecordsNetworkPageInnerState
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _inited) return;
+    _cubit = AccidentsCubit(
+      repository: AccidentsRepository(),
+    );
+  }
 
-      context.read<AccidentsCubit>().warmup();
-      _inited = true;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (!_firedUserWarmup) {
+      _firedUserWarmup = true;
+
+      context.read<UserCubit>().warmup(
+        listenRealtime: true,
+        bindCurrentUser: true,
+      );
+    }
+
+    final tenantState = context.read<TenantCubit>().state;
+    final tenantId = _tenantIdFromTenantState(tenantState);
+
+    _syncTenant(tenantId);
+  }
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
+
+  String? _cleanId(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+    if (text.toLowerCase() == 'null') return null;
+
+    return text;
+  }
+
+  String? _idFromObject(dynamic object) {
+    if (object == null) return null;
+
+    try {
+      final clean = _cleanId(object.id);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.tenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.companyId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.uid);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    return null;
+  }
+
+  String? _tenantIdFromTenantState(TenantState state) {
+    final dynamic s = state;
+
+    try {
+      final clean = _cleanId(s.activeTenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.currentTenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.tenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.companyId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.current);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.tenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.currentTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.activeTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.selectedTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.company);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.selectedCompany);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    return null;
+  }
+
+  void _syncTenant(String? tenantId) {
+    final cleanTenantId = tenantId?.trim();
+
+    if (_lastTenantId == cleanTenantId) return;
+
+    _lastTenantId = cleanTenantId;
+    _lastFailureMessage = null;
+    _didScheduleInitialLoad = false;
+
+    _selectedAccident = null;
+    _formData = const AccidentsData();
+    formValidated = false;
+
+    _cubit.setActiveTenantId(cleanTenantId);
+
+    if (cleanTenantId == null || cleanTenantId.isEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      unawaited(_refreshAccidents(forceReload: true));
     });
+  }
+
+  Future<void> _refreshAccidents({bool forceReload = true}) async {
+    if (!_cubit.hasTenant) return;
+
+    if (mounted) {
+      setState(() {
+        _loadingLocal = true;
+      });
+    }
+
+    try {
+      if (!_cubit.state.initialized) {
+        await _cubit.warmup();
+      } else {
+        await _cubit.refresh(forceReload: forceReload);
+      }
+
+      if (!mounted) return;
+
+      await _createNew(_cubit.state);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingLocal = false;
+        });
+      }
+    }
   }
 
   void _notify({
@@ -164,11 +343,11 @@ class _AccidentsRecordsNetworkPageInnerState
       id: _selectedAccident?.id ?? _formData.id,
     );
 
-    await context.read<AccidentsCubit>().saveAccident(dataToSave);
+    await _cubit.saveAccident(dataToSave);
   }
 
   Future<void> _delete(String id, {int? yearHint}) async {
-    await context.read<AccidentsCubit>().deleteAccident(
+    await _cubit.deleteAccident(
       id: id,
       yearHint: yearHint,
     );
@@ -180,10 +359,16 @@ class _AccidentsRecordsNetworkPageInnerState
       _formData = data;
       formValidated = _isFormValid(_formData);
     });
+
+    final point = data.latLng;
+    if (point != null) {
+      _mapController?.move(point, 18);
+      _setActivePoint?.call(point);
+    }
   }
 
   Future<void> _updateMapFromCep(String cep) async {
-    await context.read<AccidentsCubit>().geocodeCep(cep);
+    await _cubit.geocodeCep(cep);
   }
 
   void _applyLocationSuggestionToForm(AccidentsState state) {
@@ -238,8 +423,7 @@ class _AccidentsRecordsNetworkPageInnerState
 
   Future<void> _handlePublicReport(AccidentsData item) async {
     try {
-      final cubit = context.read<AccidentsCubit>();
-      final url = await cubit.generatePublicReportLink(
+      final url = await _cubit.generatePublicReportLink(
         item,
         expiresIn: const Duration(days: 30),
       );
@@ -275,7 +459,9 @@ class _AccidentsRecordsNetworkPageInnerState
                           icon: const Icon(Icons.copy),
                           label: const Text('Copiar link'),
                           onPressed: () async {
-                            await Clipboard.setData(ClipboardData(text: url));
+                            await Clipboard.setData(
+                              ClipboardData(text: url),
+                            );
 
                             if (!btnContext.mounted) return;
 
@@ -308,9 +494,7 @@ class _AccidentsRecordsNetworkPageInnerState
                             if (!btnContext.mounted) return;
                             if (!ok) return;
 
-                            await btnContext
-                                .read<AccidentsCubit>()
-                                .revokePublicReportLink(item);
+                            await _cubit.revokePublicReportLink(item);
 
                             if (!btnContext.mounted) return;
 
@@ -352,11 +536,10 @@ class _AccidentsRecordsNetworkPageInnerState
   }
 
   Future<void> _handlePrintLabel(AccidentsData item) async {
-    final cubit = context.read<AccidentsCubit>();
-
     String publicUrl = '';
+
     try {
-      publicUrl = await cubit.generatePublicReportLink(
+      publicUrl = await _cubit.generatePublicReportLink(
         item,
         expiresIn: const Duration(days: 30),
       );
@@ -380,6 +563,19 @@ class _AccidentsRecordsNetworkPageInnerState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            SelectableText(
+              texto,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            QrImageView(
+              data: qrData,
+              version: QrVersions.auto,
+              size: 180,
+            ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -543,12 +739,15 @@ class _AccidentsRecordsNetworkPageInnerState
         String? publicUrlOverride,
       }) {
     final override = (publicUrlOverride ?? '').trim();
+
     if (override.isNotEmpty) return override;
 
     final id = (d.id ?? '').trim();
+
     if (id.isNotEmpty) return 'sipged://accidents/$id';
 
     final ordem = (d.order ?? '').toString();
+
     return 'sipged://accidents/order/$ordem';
   }
 
@@ -646,7 +845,7 @@ class _AccidentsRecordsNetworkPageInnerState
                     },
                     onClear: () => _createNew(state),
                     onGetLocation: () {
-                      context.read<AccidentsCubit>().getCurrentLocation();
+                      _cubit.getCurrentLocation();
                     },
                     onUpdateMapFromLatLng: (lat, lon) {
                       final latLng = LatLng(lat, lon);
@@ -654,7 +853,7 @@ class _AccidentsRecordsNetworkPageInnerState
                       _mapController?.move(latLng, 18);
                       _setActivePoint?.call(latLng);
 
-                      context.read<AccidentsCubit>().reverseGeocode(
+                      _cubit.reverseGeocode(
                         latitude: lat,
                         longitude: lon,
                       );
@@ -683,9 +882,12 @@ class _AccidentsRecordsNetworkPageInnerState
 
                         if (y == state.year && m == state.month) return;
 
-                        context.read<AccidentsCubit>().changeFilter(
+                        await _cubit.changeFilter(
                           year: y,
                           month: m,
+                          city: state.city,
+                          type: state.type,
+                          severity: state.severity,
                         );
                       },
                     ),
@@ -730,7 +932,7 @@ class _AccidentsRecordsNetworkPageInnerState
       onControllerReady: (mc) => _mapController = mc,
       onBindSetActivePoint: (setPoint) => _setActivePoint = setPoint,
       onMapTap: (lat, lon) {
-        context.read<AccidentsCubit>().reverseGeocode(
+        _cubit.reverseGeocode(
           latitude: lat,
           longitude: lon,
         );
@@ -738,117 +940,272 @@ class _AccidentsRecordsNetworkPageInnerState
     );
   }
 
+  Widget _emptyState({
+    required String title,
+    required String subtitle,
+    IconData icon = Icons.warning_amber_rounded,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 42,
+              color: Colors.grey.shade500,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoTenantScaffold() {
+    return Scaffold(
+      appBar: const UpBar(
+        titleWidgets: [
+          Text('Acidentes'),
+        ],
+      ),
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          const BackgroundChange(),
+          _emptyState(
+            title: 'Nenhuma empresa selecionada',
+            subtitle: 'Selecione uma empresa para visualizar os acidentes.',
+            icon: Icons.business_outlined,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<AccidentsCubit, AccidentsState>(
-      listenWhen: (prev, curr) =>
-      prev.error != curr.error ||
-          prev.success != curr.success ||
-          prev.locationError != curr.locationError ||
-          prev.locationSuggestion != curr.locationSuggestion,
-      listener: (context, state) async {
-        if (state.error != null && state.error!.trim().isNotEmpty) {
-          _notify(
-            title: 'Falha na operação',
-            subtitle: state.error!,
-            type: NotificationStatus.error,
-            leadingLabel: 'Acidentes',
-            duration: const Duration(seconds: 6),
-          );
-        }
+    return BlocProvider.value(
+      value: _cubit,
+      child: BlocListener<TenantCubit, TenantState>(
+        listener: (context, tenantState) {
+          final tenantId = _tenantIdFromTenantState(tenantState);
+          _syncTenant(tenantId);
+        },
+        child: Builder(
+          builder: (context) {
+            final tenantState = context.watch<TenantCubit>().state;
+            final tenantId = _tenantIdFromTenantState(tenantState);
 
-        if (state.success != null && state.success!.trim().isNotEmpty) {
-          _notify(
-            title: 'Operação concluída',
-            subtitle: state.success!,
-            type: NotificationStatus.success,
-            leadingLabel: 'Acidentes',
-            duration: const Duration(seconds: 4),
-          );
+            if (tenantId == null || tenantId.isEmpty) {
+              return _buildNoTenantScaffold();
+            }
 
-          await _createNew(state);
+            return BlocConsumer<AccidentsCubit, AccidentsState>(
+              listenWhen: (prev, curr) {
+                return prev.error != curr.error ||
+                    prev.success != curr.success ||
+                    prev.locationError != curr.locationError ||
+                    prev.locationSuggestion != curr.locationSuggestion;
+              },
+              listener: (context, state) async {
+                if (state.error != null && state.error!.trim().isNotEmpty) {
+                  if (_lastFailureMessage != state.error) {
+                    _lastFailureMessage = state.error;
 
-          if (!context.mounted) return;
-        }
+                    _notify(
+                      title: 'Falha na operação',
+                      subtitle: state.error!,
+                      type: NotificationStatus.error,
+                      leadingLabel: 'Acidentes',
+                      duration: const Duration(seconds: 6),
+                    );
+                  }
+                } else {
+                  _lastFailureMessage = null;
+                }
 
-        if (state.locationError != null &&
-            state.locationError!.trim().isNotEmpty) {
-          _notify(
-            title: 'Falha ao obter endereço',
-            subtitle: state.locationError!,
-            type: NotificationStatus.error,
-            leadingLabel: 'Localização',
-            duration: const Duration(seconds: 6),
-          );
-        }
-
-        if (state.locationSuggestion != null) {
-          _applyLocationSuggestionToForm(state);
-        }
-      },
-      builder: (context, state) {
-        return Scaffold(
-          appBar: UpBar(
-            actions: [
-              IconButton(
-                tooltip: 'Formulário',
-                icon: Icon(
-                  _showForm ? Icons.description : Icons.description_outlined,
-                  color: Colors.white,
-                ),
-                onPressed: () => setState(() => _showForm = !_showForm),
-              ),
-              IconButton(
-                tooltip: 'Tabela',
-                icon: Icon(
-                  _showTable ? Icons.table_chart : Icons.table_chart_outlined,
-                  color: Colors.white,
-                ),
-                onPressed: () => setState(() => _showTable = !_showTable),
-              ),
-              IconButton(
-                tooltip: 'Mapa',
-                icon: Icon(
-                  _showMap ? Icons.map : Icons.map_outlined,
-                  color: Colors.white,
-                ),
-                onPressed: () => setState(() => _showMap = !_showMap),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.white,
-          body: Stack(
-            children: [
-              const BackgroundChange(),
-              LayoutBuilder(
-                builder: (context, c) {
-                  final left = _buildLeftPanel(state);
-                  final right = _buildRightMap();
-
-                  return SplitLayout(
-                    left: left,
-                    right: right,
-                    showRightPanel: _showMap,
-                    stackedRightOnTop: true,
+                if (state.success != null && state.success!.trim().isNotEmpty) {
+                  _notify(
+                    title: 'Operação concluída',
+                    subtitle: state.success!,
+                    type: NotificationStatus.success,
+                    leadingLabel: 'Acidentes',
+                    duration: const Duration(seconds: 4),
                   );
-                },
-              ),
-              if (state.saving || state.gettingLocation)
-                Stack(
-                  children: [
-                    ModalBarrier(
-                      dismissible: false,
-                      color: Colors.black.withValues(alpha: 0.25),
-                    ),
-                    const Center(
-                      child: LoadingTreeDots(size: 120),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        );
-      },
+
+                  await _createNew(state);
+
+                  if (!context.mounted) return;
+                }
+
+                if (state.locationError != null &&
+                    state.locationError!.trim().isNotEmpty) {
+                  _notify(
+                    title: 'Falha ao obter endereço',
+                    subtitle: state.locationError!,
+                    type: NotificationStatus.error,
+                    leadingLabel: 'Localização',
+                    duration: const Duration(seconds: 6),
+                  );
+                }
+
+                if (state.locationSuggestion != null) {
+                  _applyLocationSuggestionToForm(state);
+                }
+              },
+              builder: (context, state) {
+                if (!_didScheduleInitialLoad &&
+                    !_loadingLocal &&
+                    !state.initialized) {
+                  _didScheduleInitialLoad = true;
+
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+
+                    unawaited(_refreshAccidents(forceReload: true));
+                  });
+                }
+
+                final loading = _loadingLocal ||
+                    (!state.initialized && state.loading);
+
+                return Scaffold(
+                  appBar: UpBar(
+                    titleWidgets: const [
+                      Text('Acidentes'),
+                    ],
+                    actions: [
+                      IconButton(
+                        tooltip: 'Formulário',
+                        icon: Icon(
+                          _showForm
+                              ? Icons.description
+                              : Icons.description_outlined,
+                          color: Colors.white,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _showForm = !_showForm;
+                          });
+                        },
+                      ),
+                      IconButton(
+                        tooltip: 'Tabela',
+                        icon: Icon(
+                          _showTable
+                              ? Icons.table_chart
+                              : Icons.table_chart_outlined,
+                          color: Colors.white,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _showTable = !_showTable;
+                          });
+                        },
+                      ),
+                      IconButton(
+                        tooltip: 'Mapa',
+                        icon: Icon(
+                          _showMap ? Icons.map : Icons.map_outlined,
+                          color: Colors.white,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _showMap = !_showMap;
+                          });
+                        },
+                      ),
+                      IconButton(
+                        tooltip: 'Atualizar',
+                        icon: const Icon(
+                          Icons.refresh,
+                          color: Colors.white,
+                        ),
+                        onPressed: loading
+                            ? null
+                            : () {
+                          unawaited(
+                            _refreshAccidents(forceReload: true),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Colors.white,
+                  body: Stack(
+                    children: [
+                      const BackgroundChange(),
+                      if (loading && state.universe.isEmpty)
+                        const Center(
+                          child: LoadingTreeDots(
+                            color: Colors.blue,
+                            message: Text('Carregando acidentes ...'),
+                          ),
+                        )
+                      else
+                        LayoutBuilder(
+                          builder: (context, c) {
+                            final left = _buildLeftPanel(state);
+                            final right = _buildRightMap();
+
+                            return SplitLayout(
+                              left: left,
+                              right: right,
+                              showRightPanel: _showMap,
+                              stackedRightOnTop: true,
+                            );
+                          },
+                        ),
+                      if (state.saving || state.gettingLocation)
+                        Stack(
+                          children: [
+                            ModalBarrier(
+                              dismissible: false,
+                              color: Colors.black.withValues(alpha: 0.25),
+                            ),
+                            const Center(
+                              child: LoadingTreeDots(size: 120),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  floatingActionButton: ExpandedButtonChange(
+                    icon: Icons.add,
+                    label: 'Novo acidente',
+                    color: Colors.blue,
+                    onPressed: state.saving || state.gettingLocation
+                        ? null
+                        : () {
+                      unawaited(_createNew(state));
+                    },
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
     );
   }
 }

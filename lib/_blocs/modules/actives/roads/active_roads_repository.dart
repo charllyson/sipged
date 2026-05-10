@@ -1,3 +1,5 @@
+// lib/_blocs/modules/actives/roads/active_roads_repository.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -7,51 +9,58 @@ class ActiveRoadsRepository {
   ActiveRoadsRepository({
     String? tenantId,
     FirebaseFirestore? firestore,
-  })  : _tenantId = tenantId ?? _manualTenantIdForTest,
-        _db = firestore ?? FirebaseFirestore.instance;
+    FirebaseAuth? auth,
+  })  : _tenantId = _cleanTenantId(tenantId),
+        _db = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
-  /// ---------------------------------------------------------------------------
-  /// TESTE TEMPORÁRIO MULTI-TENANT
-  /// ---------------------------------------------------------------------------
-  ///
-  /// ID fixo usado enquanto o TenantContext/TenantCubit ainda não estiver
-  /// integrado oficialmente.
-  ///
-  /// Quando for remover o tenant fixo, altere para:
-  ///
-  /// static const String? _manualTenantIdForTest = null;
-  ///
-  static const String _manualTenantIdForTest = 'SZQmefRUqdtLB14ahcuh';
-
-  final String? _tenantId;
   final FirebaseFirestore _db;
+  final FirebaseAuth _auth;
 
-  bool get _hasTenant {
-    return _tenantId != null && _tenantId.trim().isNotEmpty;
+  String? _tenantId;
+
+  static String? _cleanTenantId(String? value) {
+    final clean = value?.trim();
+    return clean == null || clean.isEmpty ? null : clean;
   }
 
-  String get effectiveTenantId {
-    return _tenantId?.trim() ?? '';
+  String? get currentTenantId => _cleanTenantId(_tenantId);
+
+  bool get hasTenant => currentTenantId != null;
+
+  String get tenantId {
+    final clean = currentTenantId;
+
+    if (clean == null || clean.isEmpty) {
+      throw StateError(
+        'tenantId não definido em ActiveRoadsRepository. '
+            'Selecione uma empresa antes de acessar rodovias.',
+      );
+    }
+
+    return clean;
+  }
+
+  void setActiveTenantId(String? value) {
+    final next = _cleanTenantId(value);
+    if (_tenantId == next) return;
+    _tenantId = next;
   }
 
   String get collectionPath {
-    if (_hasTenant) {
-      return 'tenants/$effectiveTenantId/assets/roads/items';
-    }
-
-    return 'actives_roads';
+    return 'tenants/$tenantId/assets/roads/items';
   }
 
   String get tilesBasePath {
-    if (_hasTenant) {
-      return 'tenants/$effectiveTenantId/assets/roads/tiles';
-    }
-
-    return 'actives_roads_tiles';
+    return 'tenants/$tenantId/assets/roads/tiles';
   }
 
   CollectionReference<Map<String, dynamic>> get _ref {
     return _db.collection(collectionPath);
+  }
+
+  String _uid() {
+    return _auth.currentUser?.uid ?? '';
   }
 
   // ---------------------------------------------------------------------------
@@ -59,8 +68,9 @@ class ActiveRoadsRepository {
   // ---------------------------------------------------------------------------
 
   Future<List<ActiveRoadsData>> fetchAll() async {
-    final qs = await _ref.get();
+    if (!hasTenant) return const <ActiveRoadsData>[];
 
+    final qs = await _ref.get();
     final list = <ActiveRoadsData>[];
 
     for (final doc in qs.docs) {
@@ -82,15 +92,16 @@ class ActiveRoadsRepository {
     required int bucket,
     required List<String> quadKeys,
   }) async {
+    if (!hasTenant) return const <ActiveRoadsData>[];
     if (quadKeys.isEmpty) return const <ActiveRoadsData>[];
 
     final byId = <String, ActiveRoadsData>{};
 
-    for (final qk in quadKeys) {
+    for (final quadKey in quadKeys) {
       final qs = await _db
           .collection(tilesBasePath)
           .doc('b$bucket')
-          .collection(qk)
+          .collection(quadKey)
           .doc('roads')
           .collection('items')
           .get();
@@ -104,8 +115,9 @@ class ActiveRoadsRepository {
           id: doc.id,
         );
 
-        final id = road.id;
-        if (id != null && id.trim().isNotEmpty) {
+        final id = road.id?.trim();
+
+        if (id != null && id.isNotEmpty) {
           byId[id] = road;
         }
       }
@@ -115,9 +127,12 @@ class ActiveRoadsRepository {
   }
 
   Future<ActiveRoadsData?> getById(String id) async {
-    if (id.trim().isEmpty) return null;
+    if (!hasTenant) return null;
 
-    final snap = await _ref.doc(id.trim()).get();
+    final cleanId = id.trim();
+    if (cleanId.isEmpty) return null;
+
+    final snap = await _ref.doc(cleanId).get();
 
     if (!snap.exists) return null;
 
@@ -131,30 +146,42 @@ class ActiveRoadsRepository {
   }
 
   Future<ActiveRoadsData> upsert(ActiveRoadsData data) async {
-    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (!hasTenant) {
+      throw StateError(
+        'tenantId é obrigatório para salvar rodovia.',
+      );
+    }
 
-    final docRef = data.id != null && data.id!.trim().isNotEmpty
-        ? _ref.doc(data.id!.trim())
+    final existingId = data.id?.trim();
+
+    final docRef = existingId != null && existingId.isNotEmpty
+        ? _ref.doc(existingId)
         : _ref.doc();
 
-    final id = data.id != null && data.id!.trim().isNotEmpty
-        ? data.id!.trim()
+    final id = existingId != null && existingId.isNotEmpty
+        ? existingId
         : docRef.id;
-
-    final json = data.toMap()
-      ..addAll({
-        'id': id,
-        if (_hasTenant) 'tenantId': effectiveTenantId,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': firebaseUser?.uid ?? '',
-      });
 
     final snap = await docRef.get();
     final isNew = !snap.exists || snap.data()?['createdAt'] == null;
 
+    final json = data.copyWith(id: id).toMap()
+      ..addAll({
+        'id': id,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'recordPath': docRef.path,
+        'sourceCollectionModel': 'tenant_assets_roads_items',
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      });
+
     if (isNew) {
       json['createdAt'] = FieldValue.serverTimestamp();
-      json['createdBy'] = firebaseUser?.uid ?? '';
+      json['createdBy'] = _uid();
+    } else {
+      json.remove('createdAt');
+      json.remove('createdBy');
     }
 
     await docRef.set(
@@ -173,9 +200,12 @@ class ActiveRoadsRepository {
   }
 
   Future<void> deleteById(String id) async {
-    if (id.trim().isEmpty) return;
+    if (!hasTenant) return;
 
-    await _ref.doc(id.trim()).delete();
+    final cleanId = id.trim();
+    if (cleanId.isEmpty) return;
+
+    await _ref.doc(cleanId).delete();
   }
 
   // ---------------------------------------------------------------------------
@@ -186,29 +216,32 @@ class ActiveRoadsRepository {
     required List<Map<String, dynamic>> linhasPrincipais,
     required List<Map<String, dynamic>> subcolecoes,
   }) async {
-    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (!hasTenant) {
+      throw StateError(
+        'tenantId é obrigatório para importar rodovias.',
+      );
+    }
 
     for (int i = 0; i < linhasPrincipais.length; i++) {
       final linha = Map<String, dynamic>.from(linhasPrincipais[i]);
       final docRef = _ref.doc();
 
       linha['id'] = docRef.id;
-
-      if (_hasTenant) {
-        linha['tenantId'] = effectiveTenantId;
-      }
-
+      linha['tenantId'] = tenantId;
+      linha['companyId'] = tenantId;
+      linha['recordPath'] = docRef.path;
+      linha['sourceCollectionModel'] = 'tenant_assets_roads_items';
       linha['updatedAt'] = FieldValue.serverTimestamp();
-      linha['updatedBy'] = firebaseUser?.uid ?? '';
+      linha['updatedBy'] = _uid();
       linha['createdAt'] = FieldValue.serverTimestamp();
-      linha['createdBy'] = firebaseUser?.uid ?? '';
+      linha['createdBy'] = _uid();
 
       if (i < subcolecoes.length) {
         final sub = Map<String, dynamic>.from(subcolecoes[i]);
 
         if (sub['geometryType'] == 'MultiLineString' && sub['points'] is List) {
-          final ml = (sub['points'] as List).cast<List>();
-          final flattened = _flattenMultiLinePoints(ml);
+          final multiLine = (sub['points'] as List).cast<List>();
+          final flattened = _flattenMultiLinePoints(multiLine);
 
           sub['points'] = flattened;
           sub['geometryType'] = 'LineString';
@@ -218,12 +251,12 @@ class ActiveRoadsRepository {
 
         linha['geometryType'] = sub['geometryType'] ?? 'LineString';
 
-        linha['points'] = pontos.map((p) {
-          if (p is GeoPoint) return p;
+        linha['points'] = pontos.map((point) {
+          if (point is GeoPoint) return point;
 
-          if (p is Map) {
-            final lat = p['latitude'] ?? p['lat'];
-            final lon = p['longitude'] ?? p['lng'] ?? p['lon'];
+          if (point is Map) {
+            final lat = point['latitude'] ?? point['lat'];
+            final lon = point['longitude'] ?? point['lng'] ?? point['lon'];
 
             return GeoPoint(
               (lat as num).toDouble(),
@@ -231,14 +264,14 @@ class ActiveRoadsRepository {
             );
           }
 
-          if (p is List && p.length >= 2) {
+          if (point is List && point.length >= 2) {
             return GeoPoint(
-              (p[1] as num).toDouble(),
-              (p[0] as num).toDouble(),
+              (point[1] as num).toDouble(),
+              (point[0] as num).toDouble(),
             );
           }
 
-          throw ArgumentError('Ponto inválido: $p');
+          throw ArgumentError('Ponto inválido: $point');
         }).toList();
       }
 
@@ -255,41 +288,44 @@ class ActiveRoadsRepository {
 
   Map<String, dynamic> _normalizeIfNeeded(
       Map<String, dynamic> data,
-      DocumentReference ref,
+      DocumentReference<Map<String, dynamic>> ref,
       ) {
     try {
-      final pts = data['points'];
-      final gtype = (data['geometryType'] ?? '').toString();
+      final points = data['points'];
+      final geometryType = (data['geometryType'] ?? '').toString();
 
-      final isNested = pts is List &&
-          pts.isNotEmpty &&
-          (pts.first is List || gtype == 'MultiLineString');
+      final isNested = points is List &&
+          points.isNotEmpty &&
+          (points.first is List || geometryType == 'MultiLineString');
 
       if (!isNested) {
         return data;
       }
 
-      final ml = pts.cast<List>();
+      final multiLine = points.cast<List>();
 
-      final flattened = _flattenMultiLinePoints(ml)
-          .map((p) {
+      final flattened = _flattenMultiLinePoints(multiLine).map((point) {
         return GeoPoint(
-          p['latitude']!,
-          p['longitude']!,
+          point['latitude']!,
+          point['longitude']!,
         );
-      })
-          .toList();
+      }).toList();
 
       final fixed = Map<String, dynamic>.from(data)
         ..['points'] = flattened
-        ..['geometryType'] = 'LineString';
+        ..['geometryType'] = 'LineString'
+        ..['tenantId'] = tenantId
+        ..['companyId'] = tenantId
+        ..['recordPath'] = ref.path;
 
       ref.update({
         'points': flattened,
         'geometryType': 'LineString',
-        if (_hasTenant) 'tenantId': effectiveTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'recordPath': ref.path,
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
+        'updatedBy': _uid(),
       });
 
       return fixed;
@@ -307,18 +343,18 @@ class ActiveRoadsRepository {
       return dx * dx + dy * dy;
     }
 
-    for (final seg in multi) {
-      final pontos = seg.map<Map<String, double>>((p) {
-        if (p is GeoPoint) {
+    for (final segment in multi) {
+      final pontos = segment.map<Map<String, double>>((point) {
+        if (point is GeoPoint) {
           return {
-            'latitude': p.latitude,
-            'longitude': p.longitude,
+            'latitude': point.latitude,
+            'longitude': point.longitude,
           };
         }
 
-        if (p is Map) {
-          final lat = p['latitude'] ?? p['lat'];
-          final lon = p['longitude'] ?? p['lng'] ?? p['lon'];
+        if (point is Map) {
+          final lat = point['latitude'] ?? point['lat'];
+          final lon = point['longitude'] ?? point['lng'] ?? point['lon'];
 
           return {
             'latitude': (lat as num).toDouble(),
@@ -326,14 +362,14 @@ class ActiveRoadsRepository {
           };
         }
 
-        if (p is List && p.length >= 2) {
+        if (point is List && point.length >= 2) {
           return {
-            'latitude': (p[1] as num).toDouble(),
-            'longitude': (p[0] as num).toDouble(),
+            'latitude': (point[1] as num).toDouble(),
+            'longitude': (point[0] as num).toDouble(),
           };
         }
 
-        throw ArgumentError('Ponto inválido: $p');
+        throw ArgumentError('Ponto inválido: $point');
       }).toList();
 
       if (pontos.isEmpty) continue;

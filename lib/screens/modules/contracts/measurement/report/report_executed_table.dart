@@ -1,5 +1,3 @@
-// lib/screens/modules/contracts/measurement/report/report_executed_table.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
@@ -108,6 +106,15 @@ class ReportExecutedTable extends StatelessWidget {
     final measurementOrder = measurement.order;
 
     final list = payments.where((payment) {
+      final paymentContractId = payment.contractId?.trim() ?? '';
+      final measurementContractId = measurement.contractId?.trim() ?? '';
+
+      if (measurementContractId.isNotEmpty &&
+          paymentContractId.isNotEmpty &&
+          paymentContractId != measurementContractId) {
+        return false;
+      }
+
       final paymentMeasurementId = payment.measurementId?.trim() ?? '';
 
       if (measurementId.isNotEmpty && paymentMeasurementId == measurementId) {
@@ -115,6 +122,12 @@ class ReportExecutedTable extends StatelessWidget {
       }
 
       if (paymentMeasurementId.isEmpty &&
+          measurementOrder != null &&
+          payment.measurementOrder == measurementOrder) {
+        return true;
+      }
+
+      if (measurementId.isEmpty &&
           measurementOrder != null &&
           payment.measurementOrder == measurementOrder) {
         return true;
@@ -250,10 +263,7 @@ class ReportExecutedTable extends StatelessWidget {
           rowsPerPageOptions: const <int>[10, 25, 50, 100],
           sortColumnIndex: 0,
           sortAscending: true,
-
-          // Aumentado para comportar melhor a subtabela de pagamentos.
           minTableWidth: 1800,
-
           defaultColumnWidth: 150,
           actionsColumnWidth: 56,
           colorHeadTable: const Color(0xFF091D68),

@@ -311,7 +311,7 @@ class UserHeaderContent extends StatelessWidget {
     required bool compact,
   }) {
     final children = <Widget>[
-      if (topActions != null) topActions!,
+      ?topActions,
       _buildHeaderIconActions(compact: compact),
     ];
 

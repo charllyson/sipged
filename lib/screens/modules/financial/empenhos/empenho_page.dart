@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_cubit.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_state.dart';
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
@@ -63,6 +65,16 @@ class _EmpenhoPageState extends State<EmpenhoPage> {
 
       _initialized = true;
 
+      final permissionState = context.read<PermissionCubit>().state;
+
+      await context.read<EmpenhoCubit>().updatePermissions(
+        permissions: permissionState.current,
+        tenantId: permissionState.activeTenantId,
+        reload: false,
+      );
+
+      if (!mounted) return;
+
       await context.read<EmpenhoCubit>().init(
         contractId: _contractId,
       );
@@ -71,52 +83,95 @@ class _EmpenhoPageState extends State<EmpenhoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<EmpenhoCubit, EmpenhoState>(
-      builder: (context, st) {
-        final isInitialLoading =
-            st.status == EmpenhoStatus.loading && st.items.isEmpty;
-
-        return Stack(
-          children: [
-            const BackgroundChange(),
-            SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: EmpenhoFormSection(
-                      currency: _currency,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: EmpenhoTableSection(
-                      items: st.items,
-                      selected: st.selected,
-                      currency: _currency,
-                      onSelect: (e) {
-                        context.read<EmpenhoCubit>().select(e);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                ],
-              ),
-            ),
-            if (isInitialLoading)
-              const Positioned.fill(
-                child: ColoredBox(
-                  color: Color(0x11FFFFFF),
-                  child: Center(
-                    child: LoadingTreeDots(size: 90),
-                  ),
-                ),
-              ),
-          ],
+    return BlocListener<PermissionCubit, PermissionState>(
+      listenWhen: (previous, current) {
+        return previous.current != current.current ||
+            previous.activeTenantId != current.activeTenantId;
+      },
+      listener: (context, permissionState) {
+        context.read<EmpenhoCubit>().updatePermissions(
+          permissions: permissionState.current,
+          tenantId: permissionState.activeTenantId,
+          reload: true,
         );
       },
+      child: BlocBuilder<EmpenhoCubit, EmpenhoState>(
+        builder: (context, st) {
+          final isInitialLoading =
+              st.status == EmpenhoStatus.loading && st.items.isEmpty;
+
+          return Stack(
+            children: [
+              const BackgroundChange(),
+              SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (st.error != null && st.error!.trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                        child: Material(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Colors.red.shade700,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    st.error!,
+                                    style: TextStyle(
+                                      color: Colors.red.shade800,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: EmpenhoFormSection(
+                        currency: _currency,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: EmpenhoTableSection(
+                        items: st.items,
+                        selected: st.selected,
+                        currency: _currency,
+                        onSelect: (e) {
+                          context.read<EmpenhoCubit>().select(e);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                ),
+              ),
+              if (isInitialLoading)
+                const Positioned.fill(
+                  child: ColoredBox(
+                    color: Color(0x11FFFFFF),
+                    child: Center(
+                      child: LoadingTreeDots(size: 90),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

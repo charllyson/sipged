@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class RevisionMeasurementData {
@@ -10,15 +11,13 @@ class RevisionMeasurementData {
   DateTime? date;
   double? value;
 
-  // meta
   String? contractId;
-  String? pdfUrl; // legado
+  String? pdfUrl;
   DateTime? createdAt;
   String? createdBy;
   DateTime? updatedAt;
   String? updatedBy;
 
-  // anexos com rótulo
   List<Attachment>? attachments;
 
   RevisionMeasurementData({
@@ -36,91 +35,249 @@ class RevisionMeasurementData {
     this.attachments,
   });
 
-  static double? _toDouble(dynamic v) {
-    if (v == null) return null;
-    if (v is num) return v.toDouble();
-    if (v is String) return double.tryParse(v.replaceAll(',', '.'));
-    return null;
-  }
+  static double? _toDouble(dynamic value) {
+    if (value == null) return null;
 
-  static int? _toInt(dynamic v) {
-    if (v == null) return null;
-    if (v is num) return v.toInt();
-    if (v is String) return int.tryParse(v);
-    return null;
-  }
+    if (value is num) return value.toDouble();
 
-  static DateTime? _toDate(dynamic v) {
-    if (v == null) return null;
-    if (v is DateTime) return v;
-    if (v is Timestamp) return v.toDate();
-    if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);
-    if (v is String) return DateTime.tryParse(v);
-    return null;
-  }
+    if (value is String) {
+      final text = value.trim();
 
-  static List<Attachment>? _toAttachments(dynamic v) {
-    if (v == null) return null;
-    if (v is List) {
-      return v
-          .map((e) => Attachment.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
+      if (text.isEmpty) return null;
+
+      final normalized = text
+          .replaceAll('R\$', '')
+          .replaceAll(' ', '')
+          .replaceAll('.', '')
+          .replaceAll(',', '.')
+          .trim();
+
+      return double.tryParse(normalized);
     }
+
     return null;
   }
 
-  factory RevisionMeasurementData.fromDocument(DocumentSnapshot snap) {
-    final data = (snap.data() as Map<String, dynamic>?) ?? {};
-    final contractId = snap.reference.parent.parent?.id;
+  static int? _toInt(dynamic value) {
+    if (value == null) return null;
 
-    return RevisionMeasurementData(
-      id: (data['id'] as String?) ?? snap.id,
-      order: _toInt(data['order']),
-      numberprocess: data['numberprocess'] as String?,
-      date: _toDate(data['date']),
-      value: _toDouble(data['value']),
-      pdfUrl: data['pdfUrl'] as String?,
-      contractId: contractId,
-      createdAt: _toDate(data['createdAt']),
-      createdBy: data['createdBy'] as String?,
-      updatedAt: _toDate(data['updatedAt']),
-      updatedBy: data['updatedBy'] as String?,
-      attachments: _toAttachments(data['attachments']),
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+
+    if (value is String) {
+      final text = value.trim();
+
+      if (text.isEmpty) return null;
+
+      final onlyDigits = text.replaceAll(RegExp(r'[^\d-]'), '');
+
+      return int.tryParse(onlyDigits);
+    }
+
+    return null;
+  }
+
+  static DateTime? _toDate(dynamic value) {
+    if (value == null) return null;
+
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+
+    if (value is String) {
+      final text = value.trim();
+
+      if (text.isEmpty) return null;
+
+      final iso = DateTime.tryParse(text);
+
+      if (iso != null) return iso;
+
+      final parts = text.split('/');
+
+      if (parts.length == 3) {
+        final day = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        final year = int.tryParse(parts[2]);
+
+        if (day != null && month != null && year != null) {
+          final parsed = DateTime(year, month, day);
+
+          if (parsed.day == day &&
+              parsed.month == month &&
+              parsed.year == year) {
+            return parsed;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  static String? _toStringOrNull(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    return text.isEmpty ? null : text;
+  }
+
+  static List<Attachment>? _toAttachments(dynamic value) {
+    if (value == null) return null;
+    if (value is! List) return null;
+
+    final list = <Attachment>[];
+
+    for (final item in value) {
+      if (item == null) continue;
+
+      if (item is Attachment) {
+        list.add(item);
+        continue;
+      }
+
+      if (item is Map<String, dynamic>) {
+        list.add(Attachment.fromMap(item));
+        continue;
+      }
+
+      if (item is Map) {
+        list.add(
+          Attachment.fromMap(
+            Map<String, dynamic>.from(item),
+          ),
+        );
+      }
+    }
+
+    return list.isEmpty ? null : list;
+  }
+
+  static Map<String, dynamic> _readSnapData(DocumentSnapshot snapshot) {
+    if (snapshot is DocumentSnapshot<Map<String, dynamic>>) {
+      return snapshot.data() ?? <String, dynamic>{};
+    }
+
+    final raw = snapshot.data();
+
+    return raw is Map<String, dynamic> ? raw : <String, dynamic>{};
+  }
+
+  static dynamic _pick(
+      Map<String, dynamic> map,
+      List<String> keys,
+      ) {
+    for (final key in keys) {
+      if (map.containsKey(key)) return map[key];
+    }
+
+    return null;
+  }
+
+  factory RevisionMeasurementData.fromDocument(DocumentSnapshot snapshot) {
+    final data = _readSnapData(snapshot);
+    final contractIdFromPath = snapshot.reference.parent.parent?.id;
+
+    return RevisionMeasurementData.fromMap(
+      data,
+      id: snapshot.id,
+      fallbackContractId: contractIdFromPath,
     );
   }
 
-  factory RevisionMeasurementData.fromMap(Map<String, dynamic> json) {
+  factory RevisionMeasurementData.fromMap(
+      Map<String, dynamic> json, {
+        String? id,
+        String? fallbackContractId,
+      }) {
     return RevisionMeasurementData(
-      id: json['id'] as String?,
-      order: _toInt(json['order']),
-      numberprocess: json['numberprocess'] as String?,
-      date: _toDate(json['date']),
-      value: _toDouble(json['value']),
-      pdfUrl: json['pdfUrl'] as String?,
-      contractId: json['contractId'] as String?,
+      id: id ?? _toStringOrNull(json['id']),
+      order: _toInt(
+        _pick(
+          json,
+          const [
+            'order',
+            'revisionorder',
+            'revisionOrder',
+            'ordem',
+          ],
+        ),
+      ),
+      numberprocess: _toStringOrNull(
+        _pick(
+          json,
+          const [
+            'numberprocess',
+            'numberProcess',
+            'revisionnumberprocess',
+            'revisionNumberProcess',
+            'processNumber',
+          ],
+        ),
+      ),
+      date: _toDate(
+        _pick(
+          json,
+          const [
+            'date',
+            'revisiondate',
+            'revisionDate',
+            'data',
+          ],
+        ),
+      ),
+      value: _toDouble(
+        _pick(
+          json,
+          const [
+            'value',
+            'revisionvalue',
+            'revisionValue',
+            'valor',
+          ],
+        ),
+      ),
+      pdfUrl: _toStringOrNull(json['pdfUrl']),
+      contractId: _toStringOrNull(
+        _pick(
+          json,
+          const [
+            'contractId',
+            'uidContract',
+            'uidcontract',
+          ],
+        ),
+      ) ??
+          fallbackContractId,
       createdAt: _toDate(json['createdAt']),
-      createdBy: json['createdBy'] as String?,
+      createdBy: _toStringOrNull(json['createdBy']),
       updatedAt: _toDate(json['updatedAt']),
-      updatedBy: json['updatedBy'] as String?,
+      updatedBy: _toStringOrNull(json['updatedBy']),
       attachments: _toAttachments(json['attachments']),
     );
   }
 
   Map<String, dynamic> toFirestore() {
-    return {
-      'id': id,
-      'order': order,
-      'numberprocess': numberprocess,
-      'date': date,
-      'value': value,
-      'pdfUrl': pdfUrl,
-      'contractId': contractId,
-      'createdAt': createdAt,
-      'createdBy': createdBy,
-      'updatedAt': updatedAt,
-      'updatedBy': updatedBy,
-      'attachments': attachments?.map((e) => e.toMap()).toList(),
-    }..removeWhere((k, v) => v == null);
+    return <String, dynamic>{
+      if (id != null && id!.trim().isNotEmpty) 'id': id,
+      if (order != null) 'order': order,
+      if (numberprocess != null && numberprocess!.trim().isNotEmpty)
+        'numberprocess': numberprocess,
+      if (date != null) 'date': date,
+      if (value != null) 'value': value,
+      if (pdfUrl != null && pdfUrl!.trim().isNotEmpty) 'pdfUrl': pdfUrl,
+      if (contractId != null && contractId!.trim().isNotEmpty)
+        'contractId': contractId,
+      if (createdAt != null) 'createdAt': createdAt,
+      if (createdBy != null && createdBy!.trim().isNotEmpty)
+        'createdBy': createdBy,
+      if (updatedAt != null) 'updatedAt': updatedAt,
+      if (updatedBy != null && updatedBy!.trim().isNotEmpty)
+        'updatedBy': updatedBy,
+      if (attachments != null && attachments!.isNotEmpty)
+        'attachments': attachments!.map((item) => item.toMap()).toList(),
+    };
   }
 
   RevisionMeasurementData copyWith({
@@ -136,20 +293,33 @@ class RevisionMeasurementData {
     DateTime? updatedAt,
     String? updatedBy,
     List<Attachment>? attachments,
+    bool clearId = false,
+    bool clearOrder = false,
+    bool clearNumberprocess = false,
+    bool clearDate = false,
+    bool clearValue = false,
+    bool clearContractId = false,
+    bool clearPdfUrl = false,
+    bool clearCreatedAt = false,
+    bool clearCreatedBy = false,
+    bool clearUpdatedAt = false,
+    bool clearUpdatedBy = false,
+    bool clearAttachments = false,
   }) {
     return RevisionMeasurementData(
-      id: id ?? this.id,
-      order: order ?? this.order,
-      numberprocess: numberprocess ?? this.numberprocess,
-      date: date ?? this.date,
-      value: value ?? this.value,
-      contractId: contractId ?? this.contractId,
-      pdfUrl: pdfUrl ?? this.pdfUrl,
-      createdAt: createdAt ?? this.createdAt,
-      createdBy: createdBy ?? this.createdBy,
-      updatedAt: updatedAt ?? this.updatedAt,
-      updatedBy: updatedBy ?? this.updatedBy,
-      attachments: attachments ?? this.attachments,
+      id: clearId ? null : id ?? this.id,
+      order: clearOrder ? null : order ?? this.order,
+      numberprocess:
+      clearNumberprocess ? null : numberprocess ?? this.numberprocess,
+      date: clearDate ? null : date ?? this.date,
+      value: clearValue ? null : value ?? this.value,
+      contractId: clearContractId ? null : contractId ?? this.contractId,
+      pdfUrl: clearPdfUrl ? null : pdfUrl ?? this.pdfUrl,
+      createdAt: clearCreatedAt ? null : createdAt ?? this.createdAt,
+      createdBy: clearCreatedBy ? null : createdBy ?? this.createdBy,
+      updatedAt: clearUpdatedAt ? null : updatedAt ?? this.updatedAt,
+      updatedBy: clearUpdatedBy ? null : updatedBy ?? this.updatedBy,
+      attachments: clearAttachments ? null : attachments ?? this.attachments,
     );
   }
 }

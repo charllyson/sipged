@@ -64,6 +64,7 @@ class PagedTableChanged<T> extends StatefulWidget {
 
   final int? sortColumnIndex;
   final bool sortAscending;
+
   final void Function(
       int columnIndex,
       bool ascending,
@@ -115,12 +116,16 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
 
   late Set<String> _expandedKeys;
 
-  final ScrollController _horizontalCtrl = ScrollController();
+  late final ScrollController _horizontalCtrl;
   PagedTableMetrics? _lastMetrics;
 
   @override
   void initState() {
     super.initState();
+
+    _horizontalCtrl = ScrollController(
+      keepScrollOffset: false,
+    );
 
     _rowsPerPage = widget.rowsPerPageOptions.contains(widget.initialRowsPerPage)
         ? widget.initialRowsPerPage
@@ -162,7 +167,12 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
   }
 
   String? _keyOf(T item) {
-    return widget.getKey?.call(item);
+    final rawKey = widget.getKey?.call(item);
+    final key = rawKey?.trim();
+
+    if (key == null || key.isEmpty) return null;
+
+    return key;
   }
 
   bool _isSelected(T item) {
@@ -258,6 +268,8 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
         },
       ),
     );
+
+    if (!mounted) return;
 
     if (shouldDelete == true) {
       widget.onDelete?.call(item);
@@ -464,16 +476,8 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
       return an.compareTo(bn);
     }
 
-    DateTime? ad;
-    DateTime? bd;
-
-    try {
-      ad = DateTime.tryParse(aa);
-    } catch (_) {}
-
-    try {
-      bd = DateTime.tryParse(bb);
-    } catch (_) {}
+    final ad = DateTime.tryParse(aa);
+    final bd = DateTime.tryParse(bb);
 
     if (ad != null && bd != null) {
       return ad.compareTo(bd);
@@ -598,8 +602,13 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
                 controller: _horizontalCtrl,
                 thumbVisibility: needsHorizontalScroll,
                 child: SingleChildScrollView(
+                  key: ValueKey<String>(
+                    'paged_table_horizontal_scroll_${widget.hashCode}',
+                  ),
                   controller: _horizontalCtrl,
                   scrollDirection: Axis.horizontal,
+                  primary: false,
+                  restorationId: null,
                   physics: needsHorizontalScroll
                       ? const ClampingScrollPhysics()
                       : const NeverScrollableScrollPhysics(),

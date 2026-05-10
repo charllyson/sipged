@@ -1,3 +1,5 @@
+// lib/screens/modules/contracts/measurement/revision/revision_measurement.dart
+
 import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -262,9 +264,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   DateTime? _parseDateTimeFromExtra(dynamic value) {
     if (value == null) return null;
 
-    if (value is DateTime) {
-      return value;
-    }
+    if (value is DateTime) return value;
 
     final text = value.toString().trim();
 
@@ -272,9 +272,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
     final iso = DateTime.tryParse(text);
 
-    if (iso != null) {
-      return iso;
-    }
+    if (iso != null) return iso;
 
     final parts = text.split('/');
 
@@ -300,9 +298,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   num? _parseNumFromExtra(dynamic value) {
     if (value == null) return null;
 
-    if (value is num) {
-      return value;
-    }
+    if (value is num) return value;
 
     final text = value.toString().trim();
 
@@ -322,8 +318,6 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
@@ -439,16 +433,16 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
     final maxOrder = state.revisions
         .map((item) => item.order ?? 0)
-        .fold<int>(0, (prev, curr) => math.max(prev, curr));
+        .fold<int>(0, (previous, current) => math.max(previous, current));
 
     return maxOrder + 1;
   }
 
   void _fillFieldsFromSelected(RevisionMeasurementState state) {
-    final sel = state.selected;
+    final selected = state.selected;
     _selectedSideIndex = null;
 
-    if (sel == null) {
+    if (selected == null) {
       orderCtrl.text = _computeNextOrder(state).toString();
       processCtrl.clear();
       valueCtrl.clear();
@@ -457,14 +451,15 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
       return;
     }
 
-    orderCtrl.text = (sel.order ?? '').toString();
-    processCtrl.text = sel.numberprocess ?? '';
-    valueCtrl.text = SipGedFormatMoney.brlNoSymbol(sel.value);
+    orderCtrl.text = (selected.order ?? '').toString();
+    processCtrl.text = selected.numberprocess ?? '';
+    valueCtrl.text = SipGedFormatMoney.brlNoSymbol(selected.value);
 
-    if (sel.date != null) {
-      final d = sel.date!;
+    if (selected.date != null) {
+      final date = selected.date!;
+
       dateCtrl.text =
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+      '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
     } else {
       dateCtrl.clear();
     }
@@ -485,17 +480,17 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
     if (parts.length != 3) return null;
 
-    final d = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    final y = int.tryParse(parts[2]);
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
 
-    if (d == null || m == null || y == null) return null;
-    if (m < 1 || m > 12) return null;
-    if (d < 1 || d > 31) return null;
+    if (day == null || month == null || year == null) return null;
+    if (month < 1 || month > 12) return null;
+    if (day < 1 || day > 31) return null;
 
-    final date = DateTime(y, m, d);
+    final date = DateTime(year, month, day);
 
-    if (date.day != d || date.month != m || date.year != y) {
+    if (date.day != day || date.month != month || date.year != year) {
       return null;
     }
 
@@ -577,7 +572,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
         if (state.status == RevisionMeasurementStatus.error) {
           return Center(
             child: Text(
-              state.errorMessage ?? 'Erro ao carregar revisões',
+              state.errorMessage ?? 'Erro ao carregar revisões.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.red),
             ),
@@ -656,6 +651,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                             processNumberRevisionController: processCtrl,
                             dateRevisionController: dateCtrl,
                             valueRevisionController: valueCtrl,
+                            sideLoading: state.uploading,
+                            sideUploadProgress: state.uploadProgress,
                             onSave: () async {
                               final ok = await confirmDialog(
                                 context,
@@ -695,16 +692,9 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               }
 
                               final isNew = state.selected?.id == null;
-                              final base =
-                                  state.selected ?? RevisionMeasurementData();
 
-                              final id = base.id ??
-                                  DateTime.now()
-                                      .millisecondsSinceEpoch
-                                      .toString();
-
-                              final data = base.copyWith(
-                                id: id,
+                              final data = RevisionMeasurementData(
+                                id: state.selected?.id,
                                 contractId: contractId,
                                 order: effectiveOrder,
                                 numberprocess: processCtrl.text.trim(),
@@ -715,9 +705,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               );
 
                               try {
-                                await cubit.saveOrUpdate(
-                                  contractId: contractId,
-                                  revisionMeasurementId: id,
+                                final savedId = await cubit.saveOrUpdate(
                                   data: data,
                                 );
 
@@ -740,7 +728,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                     'action': isNew
                                         ? 'revision_created'
                                         : 'revision_updated',
-                                    'revisionId': id,
+                                    'revisionId': savedId,
                                     'revisionOrder': data.order,
                                     'revisionProcess': data.numberprocess,
                                     'revisionValue': data.value,
@@ -764,21 +752,18 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                             },
                             sideItems: attachments,
                             selectedSideIndex: _selectedSideIndex,
-                            onAddSideItem: state.selected != null
+                            onAddSideItem: state.selected != null &&
+                                state.selected?.id != null
                                 ? () async {
                               final selected = state.selected;
 
                               try {
+                                final uploaded =
                                 await cubit.addAttachmentWithPicker(
                                   contract: widget.contractData,
                                 );
 
                                 if (!mounted) return;
-
-                                final uploaded =
-                                cubit.state.attachments.isNotEmpty
-                                    ? cubit.state.attachments.last
-                                    : null;
 
                                 setState(() {
                                   _selectedSideIndex =
@@ -797,8 +782,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 await _safeNotify(
                                   title: 'Arquivo anexado à revisão',
                                   subtitle: _contractSummary,
-                                  details: uploaded != null &&
-                                      uploaded.label.isNotEmpty
+                                  details: uploaded.label.isNotEmpty
                                       ? '${uploaded.label} anexado por $actorName.'
                                       : 'Upload concluído por $actorName.',
                                   status: NotificationStatus.success,
@@ -809,8 +793,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                     'revision_attachment_created',
                                     'revisionId': selected?.id,
                                     'revisionOrder': selected?.order,
-                                    'attachmentLabel': uploaded?.label,
-                                    'attachmentUrl': uploaded?.url,
+                                    'attachmentLabel': uploaded.label,
+                                    'attachmentUrl': uploaded.url,
                                   },
                                 );
                               } catch (e) {

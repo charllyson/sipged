@@ -1,5 +1,3 @@
-// lib/_blocs/modules/transit/infractions/infractions_cubit.dart
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,13 +10,15 @@ import 'infractions_state.dart';
 
 class InfractionsCubit extends Cubit<InfractionsState> {
   InfractionsCubit({
-    required InfractionsRepository repository,
-  })  : _repository = repository,
+    InfractionsRepository? repository,
+  })  : _repository = repository ?? InfractionsRepository(),
         super(InfractionsState.initial()) {
     _attachValidation();
   }
 
   final InfractionsRepository _repository;
+
+  bool get hasTenant => _repository.hasTenant;
 
   final TextEditingController orderCtrl = TextEditingController();
   final TextEditingController aitNumberCtrl = TextEditingController();
@@ -34,6 +34,36 @@ class InfractionsCubit extends Cubit<InfractionsState> {
   final TextEditingController longitudeCtrl = TextEditingController();
 
   DateTime? _dateValue;
+
+  void setActiveTenantId(String? tenantId) {
+    _repository.setActiveTenantId(tenantId);
+
+    if (!_repository.hasTenant) {
+      _dateValue = null;
+
+      for (final controller in _controllers) {
+        controller.clear();
+      }
+
+      emit(
+        InfractionsState.initial().copyWith(
+          initRan: false,
+          loading: false,
+          isSaving: false,
+          isFiltering: false,
+          isPaging: false,
+          clearErrorMessage: true,
+          clearCurrentInfractionId: true,
+          clearSelectedInfraction: true,
+          clearSelectedYear: true,
+          clearSelectedMonth: true,
+          selectorUniverseAll: const <InfractionsData>[],
+          filtered: const <InfractionsData>[],
+          pageItems: const <InfractionsData>[],
+        ),
+      );
+    }
+  }
 
   LocationSettings _locationSettings({
     LocationAccuracy accuracy = LocationAccuracy.best,
@@ -72,8 +102,27 @@ class InfractionsCubit extends Cubit<InfractionsState> {
     }
   }
 
-  Future<void> postFrameInit() async {
-    if (state.initRan) return;
+  Future<void> postFrameInit({bool forceReload = false}) async {
+    if (!_repository.hasTenant) {
+      emit(
+        state.copyWith(
+          initRan: false,
+          loading: false,
+          clearErrorMessage: true,
+          selectorUniverseAll: const <InfractionsData>[],
+          filtered: const <InfractionsData>[],
+          pageItems: const <InfractionsData>[],
+          clearSelectedInfraction: true,
+          clearCurrentInfractionId: true,
+          clearSelectedYear: true,
+          clearSelectedMonth: true,
+        ),
+      );
+
+      return;
+    }
+
+    if (state.initRan && !forceReload) return;
 
     emit(
       state.copyWith(
@@ -93,9 +142,8 @@ class InfractionsCubit extends Cubit<InfractionsState> {
           .toList()
         ..sort((a, b) => b.compareTo(a));
 
-      final int selectedYear = yearsInData.isNotEmpty
-          ? yearsInData.first
-          : DateTime.now().year;
+      final int selectedYear =
+      yearsInData.isNotEmpty ? yearsInData.first : DateTime.now().year;
 
       emit(
         state.copyWith(
@@ -126,6 +174,22 @@ class InfractionsCubit extends Cubit<InfractionsState> {
     }
   }
 
+  Future<void> refresh({bool forceReload = true}) async {
+    if (!_repository.hasTenant) return;
+
+    if (!forceReload && state.initRan) {
+      await applyDateFilter(
+        year: state.selectedYear,
+        month: state.selectedMonth,
+        resetToFirstPage: false,
+        source: 'refresh',
+      );
+      return;
+    }
+
+    await postFrameInit(forceReload: true);
+  }
+
   Future<List<InfractionsData>> _loadAllYearsUniverse() async {
     final years = await _repository.listAvailableYears();
 
@@ -154,6 +218,7 @@ class InfractionsCubit extends Cubit<InfractionsState> {
     bool resetToFirstPage = false,
     String source = '?',
   }) async {
+    if (!_repository.hasTenant) return;
     if (state.isFiltering) return;
 
     final bool sameFilters =
@@ -172,7 +237,9 @@ class InfractionsCubit extends Cubit<InfractionsState> {
       allowReset = false;
     }
 
-    if (!allowReset && sameFilters) return;
+    if (!allowReset && sameFilters && source != 'save' && source != 'delete') {
+      return;
+    }
 
     emit(
       state.copyWith(
@@ -201,18 +268,15 @@ class InfractionsCubit extends Cubit<InfractionsState> {
           return orderA.compareTo(orderB);
         }
 
-        final int dateA =
-            a.dateInfraction?.millisecondsSinceEpoch ?? 0;
-        final int dateB =
-            b.dateInfraction?.millisecondsSinceEpoch ?? 0;
+        final int dateA = a.dateInfraction?.millisecondsSinceEpoch ?? 0;
+        final int dateB = b.dateInfraction?.millisecondsSinceEpoch ?? 0;
 
         return dateA.compareTo(dateB);
       });
 
       final int totalDocs = filtered.length;
-      final int totalPages = totalDocs == 0
-          ? 1
-          : ((totalDocs + state.itemsPerPage - 1) ~/ state.itemsPerPage);
+      final int totalPages =
+      totalDocs == 0 ? 1 : ((totalDocs + state.itemsPerPage - 1) ~/ state.itemsPerPage);
 
       int currentPage = state.currentPage;
 
@@ -232,6 +296,7 @@ class InfractionsCubit extends Cubit<InfractionsState> {
       emit(
         state.copyWith(
           selectedYear: year,
+          clearSelectedYear: year == null,
           selectedMonth: month,
           clearSelectedMonth: month == null,
           filtered: filtered,
@@ -249,6 +314,7 @@ class InfractionsCubit extends Cubit<InfractionsState> {
         dateCtrl.text = _formatDateUI(now);
         timeCtrl.text = _formatTimeUI(now);
 
+        _dateValue = now;
         _validateForm();
       }
     } catch (e) {
@@ -275,9 +341,10 @@ class InfractionsCubit extends Cubit<InfractionsState> {
 
     final int start = (currentPage - 1) * itemsPerPage;
 
-    final int end = (start + itemsPerPage) > filtered.length
-        ? filtered.length
-        : start + itemsPerPage;
+    if (start >= filtered.length) return const <InfractionsData>[];
+
+    final int end =
+    (start + itemsPerPage) > filtered.length ? filtered.length : start + itemsPerPage;
 
     return filtered.sublist(start, end);
   }
@@ -375,6 +442,8 @@ class InfractionsCubit extends Cubit<InfractionsState> {
     final int nextOrder = _calcNextOrder(state.filtered);
     final DateTime now = DateTime.now();
 
+    _dateValue = now;
+
     orderCtrl.text = nextOrder.toString();
     dateCtrl.text = _formatDateUI(now);
     timeCtrl.text = _formatTimeUI(now);
@@ -390,6 +459,15 @@ class InfractionsCubit extends Cubit<InfractionsState> {
   }
 
   Future<void> saveOrUpdate() async {
+    if (!_repository.hasTenant) {
+      emit(
+        state.copyWith(
+          errorMessage: 'Nenhuma empresa selecionada para salvar infrações.',
+        ),
+      );
+      return;
+    }
+
     emit(
       state.copyWith(
         isSaving: true,
@@ -438,6 +516,15 @@ class InfractionsCubit extends Cubit<InfractionsState> {
   }
 
   Future<void> deleteInfraction(String id) async {
+    if (!_repository.hasTenant) {
+      emit(
+        state.copyWith(
+          errorMessage: 'Nenhuma empresa selecionada para excluir infrações.',
+        ),
+      );
+      return;
+    }
+
     emit(
       state.copyWith(
         isSaving: true,
@@ -597,11 +684,7 @@ class InfractionsCubit extends Cubit<InfractionsState> {
         bairroCtrl.text = place.subLocality ?? '';
       }
 
-      emit(
-        state.copyWith(
-          formValidated: state.formValidated,
-        ),
-      );
+      _validateForm();
     } catch (e) {
       emit(
         state.copyWith(

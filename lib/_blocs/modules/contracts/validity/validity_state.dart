@@ -10,6 +10,7 @@ import 'package:sipged/_widgets/list/files/attachment.dart';
 class ValidityState extends Equatable {
   final bool isLoading;
   final bool isSaving;
+  final bool isEditable;
   final String? errorMessage;
 
   final ContractData? contract;
@@ -28,6 +29,7 @@ class ValidityState extends Equatable {
   const ValidityState({
     this.isLoading = false,
     this.isSaving = false,
+    this.isEditable = false,
     this.errorMessage,
     this.contract,
     this.validities = const <ValidityData>[],
@@ -44,6 +46,7 @@ class ValidityState extends Equatable {
     return const ValidityState(
       isLoading: false,
       isSaving: false,
+      isEditable: false,
       errorMessage: null,
       contract: null,
       validities: <ValidityData>[],
@@ -60,6 +63,7 @@ class ValidityState extends Equatable {
   ValidityState copyWith({
     bool? isLoading,
     bool? isSaving,
+    bool? isEditable,
     String? errorMessage,
     ContractData? contract,
     List<ValidityData>? validities,
@@ -78,20 +82,20 @@ class ValidityState extends Equatable {
     return ValidityState(
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
-      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      contract: clearContract ? null : (contract ?? this.contract),
+      isEditable: isEditable ?? this.isEditable,
+      errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      contract: clearContract ? null : contract ?? this.contract,
       validities: validities ?? this.validities,
       additives: additives ?? this.additives,
       selectedValidity: clearSelectedValidity
           ? null
-          : (selectedValidity ?? this.selectedValidity),
+          : selectedValidity ?? this.selectedValidity,
       nextOrderNumber: nextOrderNumber ?? this.nextOrderNumber,
       orderNumberOptions: orderNumberOptions ?? this.orderNumberOptions,
       greyOrderItems: greyOrderItems ?? this.greyOrderItems,
       availableOrderTypes: availableOrderTypes ?? this.availableOrderTypes,
-      attachments: clearAttachments
-          ? const <Attachment>[]
-          : (attachments ?? this.attachments),
+      attachments:
+      clearAttachments ? const <Attachment>[] : attachments ?? this.attachments,
     );
   }
 
@@ -99,6 +103,7 @@ class ValidityState extends Equatable {
   List<Object?> get props => <Object?>[
     isLoading,
     isSaving,
+    isEditable,
     errorMessage,
     contract,
     validities,

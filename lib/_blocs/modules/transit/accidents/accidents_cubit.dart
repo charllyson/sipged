@@ -1,4 +1,3 @@
-// lib/_blocs/modules/transit/accidents/accidents_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'accidents_data.dart';
@@ -6,53 +5,86 @@ import 'accidents_repository.dart';
 import 'accidents_state.dart';
 
 class AccidentsCubit extends Cubit<AccidentsState> {
-  final AccidentsRepository repo;
-
   AccidentsCubit({AccidentsRepository? repository})
       : repo = repository ?? AccidentsRepository(),
         super(AccidentsState.initial());
 
-  // ============================================================
-  //                      HELPERS INTERNOS
-  // ============================================================
+  final AccidentsRepository repo;
+
+  bool get hasTenant => repo.hasTenant;
+
+  void setActiveTenantId(String? tenantId) {
+    repo.setActiveTenantId(tenantId);
+
+    if (!repo.hasTenant) {
+      emit(
+        AccidentsState.initial().copyWith(
+          initialized: false,
+          loading: false,
+          saving: false,
+          setYearNull: true,
+          setMonthNull: true,
+          setCityNull: true,
+          setTypeNull: true,
+          setSeverityNull: true,
+          clearLocationSuggestion: true,
+          clearLocationError: true,
+          clearLastPublicReportUrl: true,
+        ),
+      );
+    }
+  }
 
   List<AccidentsData> _sortDescByDate(List<AccidentsData> list) {
     final cp = List<AccidentsData>.from(list);
+
     cp.sort((a, b) {
       final ad = a.date ?? DateTime.fromMillisecondsSinceEpoch(0);
       final bd = b.date ?? DateTime.fromMillisecondsSinceEpoch(0);
+
       return bd.compareTo(ad);
     });
+
     return cp;
   }
 
   List<AccidentsData> _slice(List<AccidentsData> list, int page, int limit) {
     if (list.isEmpty) return const [];
+
     final start = (page - 1) * limit;
+
     if (start >= list.length) return const [];
+
     final end = (start + limit) > list.length ? list.length : (start + limit);
+
     return list.sublist(start, end);
   }
 
-  int _calcTotalPages(int totalDocs, int limit) =>
-      totalDocs == 0 ? 1 : ((totalDocs + limit - 1) ~/ limit);
+  int _calcTotalPages(int totalDocs, int limit) {
+    return totalDocs == 0 ? 1 : ((totalDocs + limit - 1) ~/ limit);
+  }
 
   Map<String, double> _resumeMapByType(List<AccidentsData> view) {
     final Map<String, double> out = {};
+
     for (final a in view) {
       final key = AccidentsData.canonicalType(a.typeOfAccident);
       out[key] = (out[key] ?? 0) + 1.0;
     }
+
     return out;
   }
 
   String _severityOf(AccidentsData a) {
-    final deaths = (a.death ?? 0);
+    final deaths = a.death ?? 0;
+
     if (deaths > 0) return 'GRAVE';
 
-    final score = (a.scoresVictims ?? 0);
+    final score = a.scoresVictims ?? 0;
+
     if (score >= 3) return 'GRAVE';
     if (score == 2) return 'MODERADO';
+
     return 'LEVE';
   }
 
@@ -76,6 +108,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
 
     return universe.where((a) {
       final date = a.date;
+
       if (date == null) return false;
 
       final okYear = year == null || date.year == year;
@@ -93,7 +126,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
           normalizedSeverity == null || sev == normalizedSeverity;
 
       return okYear && okMonth && okCity && okType && okSeverity;
-    }).toList();
+    }).toList(growable: false);
   }
 
   Future<void> _recomputeAndEmit({
@@ -111,7 +144,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     bool setSeverityNull = false,
   }) async {
     final all = allOverride ?? state.all;
-
     final view = _sortDescByDate(all);
 
     final totalPages = _calcTotalPages(view.length, state.limitPerPage);
@@ -151,10 +183,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     );
   }
 
-  // ============================================================
-  //                 API PÚBLICA (base)
-  // ============================================================
-
   Future<void> warmup({
     int? initialYear,
     int? initialMonth,
@@ -162,6 +190,29 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     String? initialType,
     String? initialSeverity,
   }) async {
+    if (!repo.hasTenant) {
+      emit(
+        state.copyWith(
+          initialized: false,
+          loading: false,
+          universe: const [],
+          all: const [],
+          view: const [],
+          pageItems: const [],
+          totalsByCity: const {},
+          totalsByType: const {},
+          resumeByType: const {},
+          error: null,
+          success: null,
+          clearLocationSuggestion: true,
+          clearLocationError: true,
+          clearLastPublicReportUrl: true,
+        ),
+      );
+
+      return;
+    }
+
     final normalizedCity =
     (initialCity?.trim().isNotEmpty == true) ? initialCity!.trim() : null;
 
@@ -189,6 +240,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
 
     try {
       final universe = await repo.getAllAccidents();
+
       emit(state.copyWith(universe: universe));
 
       final filtered = _applyLocalFilter(
@@ -217,7 +269,13 @@ class AccidentsCubit extends Cubit<AccidentsState> {
 
       emit(state.copyWith(initialized: true));
     } catch (err) {
-      emit(state.copyWith(loading: false, error: '$err'));
+      emit(
+        state.copyWith(
+          loading: false,
+          initialized: false,
+          error: '$err',
+        ),
+      );
     }
   }
 
@@ -228,6 +286,8 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     String? type,
     String? severity,
   }) async {
+    if (!repo.hasTenant) return;
+
     emit(
       state.copyWith(
         loading: true,
@@ -242,8 +302,10 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     try {
       final normalizedCity =
       (city?.trim().isNotEmpty == true) ? city!.trim() : null;
+
       final normalizedType =
       (type?.trim().isNotEmpty == true) ? type!.trim() : null;
+
       final normalizedSeverity =
       (severity?.trim().isNotEmpty == true) ? severity!.trim() : null;
 
@@ -280,6 +342,17 @@ class AccidentsCubit extends Cubit<AccidentsState> {
   }
 
   Future<void> saveAccident(AccidentsData data) async {
+    if (!repo.hasTenant) {
+      emit(
+        state.copyWith(
+          saving: false,
+          error: 'Nenhuma empresa selecionada para salvar acidentes.',
+        ),
+      );
+
+      return;
+    }
+
     emit(
       state.copyWith(
         saving: true,
@@ -294,6 +367,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
       await repo.saveOrUpdateAccident(data);
 
       final universe = await repo.getAllAccidents();
+
       emit(state.copyWith(universe: universe));
 
       final filtered = _applyLocalFilter(
@@ -336,6 +410,17 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     required String id,
     int? yearHint,
   }) async {
+    if (!repo.hasTenant) {
+      emit(
+        state.copyWith(
+          saving: false,
+          error: 'Nenhuma empresa selecionada para excluir acidentes.',
+        ),
+      );
+
+      return;
+    }
+
     emit(
       state.copyWith(
         saving: true,
@@ -348,9 +433,11 @@ class AccidentsCubit extends Cubit<AccidentsState> {
 
     try {
       final y = yearHint ?? state.year ?? DateTime.now().year;
+
       await repo.deleteAccident(id: id, year: y);
 
       final universe = await repo.getAllAccidents();
+
       emit(state.copyWith(universe: universe));
 
       final filtered = _applyLocalFilter(
@@ -363,8 +450,11 @@ class AccidentsCubit extends Cubit<AccidentsState> {
       );
 
       final shouldGoBackOnePage = state.currentPage > 1 &&
-          _slice(_sortDescByDate(filtered), state.currentPage, state.limitPerPage)
-              .isEmpty;
+          _slice(
+            _sortDescByDate(filtered),
+            state.currentPage,
+            state.limitPerPage,
+          ).isEmpty;
 
       final nextPage =
       shouldGoBackOnePage ? state.currentPage - 1 : state.currentPage;
@@ -396,7 +486,9 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     }
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool forceReload = true}) async {
+    if (!repo.hasTenant) return;
+
     emit(
       state.copyWith(
         loading: true,
@@ -408,8 +500,12 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     );
 
     try {
+      final universe = forceReload ? await repo.getAllAccidents() : state.universe;
+
+      emit(state.copyWith(universe: universe));
+
       final filtered = _applyLocalFilter(
-        state.universe,
+        universe,
         year: state.year,
         month: state.month,
         city: state.city,
@@ -436,10 +532,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     }
   }
 
-  // ============================================================
-  // ✅ LINK PÚBLICO (QR)
-  // ============================================================
-
   Future<String> generatePublicReportLink(
       AccidentsData accident, {
         Duration expiresIn = const Duration(days: 30),
@@ -459,8 +551,8 @@ class AccidentsCubit extends Cubit<AccidentsState> {
         expiresIn: expiresIn,
       );
 
-      // Recarrega universo pra refletir o token no item
       final universe = await repo.getAllAccidents();
+
       emit(state.copyWith(universe: universe));
 
       final filtered = _applyLocalFilter(
@@ -516,6 +608,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
       await repo.revokePublicReportLink(accident: accident);
 
       final universe = await repo.getAllAccidents();
+
       emit(state.copyWith(universe: universe));
 
       final filtered = _applyLocalFilter(
@@ -553,16 +646,14 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     }
   }
 
-  // ============================================================
-  // ✅ TOGGLES (INTERAÇÃO)
-  // ============================================================
-
-  bool _equalsNorm(String? a, String? b) =>
-      (a ?? '').trim().toUpperCase() == (b ?? '').trim().toUpperCase();
+  bool _equalsNorm(String? a, String? b) {
+    return (a ?? '').trim().toUpperCase() == (b ?? '').trim().toUpperCase();
+  }
 
   Future<void> toggleCity(String? city) async {
     final incoming = (city?.trim().isNotEmpty == true) ? city!.trim() : null;
     final shouldClear = _equalsNorm(state.city, incoming);
+
     await changeFilter(
       year: state.year,
       month: state.month,
@@ -575,6 +666,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
   Future<void> toggleType(String? type) async {
     final incoming = (type?.trim().isNotEmpty == true) ? type!.trim() : null;
     final shouldClear = _equalsNorm(state.type, incoming);
+
     await changeFilter(
       year: state.year,
       month: state.month,
@@ -588,6 +680,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     final incoming =
     (severity?.trim().isNotEmpty == true) ? severity!.trim() : null;
     final shouldClear = _equalsNorm(state.severity, incoming);
+
     await changeFilter(
       year: state.year,
       month: state.month,
@@ -598,7 +691,8 @@ class AccidentsCubit extends Cubit<AccidentsState> {
   }
 
   Future<void> toggleMonth(int? month) async {
-    final shouldClear = (state.month != null && state.month == month);
+    final shouldClear = state.month != null && state.month == month;
+
     await changeFilter(
       year: state.year,
       month: shouldClear ? null : month,
@@ -607,10 +701,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
       severity: state.severity,
     );
   }
-
-  // =============================
-  //         LOCALIZAÇÃO
-  // =============================
 
   Future<void> getCurrentLocation() async {
     emit(
@@ -623,6 +713,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
 
     try {
       final suggestion = await repo.resolveCurrentLocation();
+
       emit(
         state.copyWith(
           gettingLocation: false,
@@ -653,8 +744,11 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     );
 
     try {
-      final suggestion =
-      await repo.reverseGeocode(lat: latitude, lon: longitude);
+      final suggestion = await repo.reverseGeocode(
+        lat: latitude,
+        lon: longitude,
+      );
+
       emit(
         state.copyWith(
           gettingLocation: false,
@@ -683,6 +777,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
 
     try {
       final suggestion = await repo.geocodeCep(cep);
+
       emit(
         state.copyWith(
           gettingLocation: false,

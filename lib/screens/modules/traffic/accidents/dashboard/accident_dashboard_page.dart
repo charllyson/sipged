@@ -8,12 +8,16 @@ import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_repository.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
 
 import 'package:sipged/_blocs/system/location/ibge_localidade_cubit.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_state.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_repository.dart';
+
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
 
 import 'package:sipged/screens/modules/traffic/accidents/dashboard/accident_dashboard_map.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
@@ -31,12 +35,163 @@ class AccidentDashboardPage extends StatefulWidget {
 }
 
 class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
+  late final AccidentsCubit _accidentsCubit;
+  late final IBGELocationCubit _locationCubit;
+
   final LatLng _fallbackCenter = const LatLng(-9.6498, -35.7089);
 
   static const int _ufCodeAL = 27;
-
   static const double _mobilePanelRatio = 0.65;
   static const double _mobileBreakpoint = 980.0;
+
+  String? _lastTenantId;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _accidentsCubit = AccidentsCubit(
+      repository: AccidentsRepository(),
+    );
+
+    _locationCubit = IBGELocationCubit(
+      repository: IBGELocationRepository(),
+    )..loadInitialAuto(fallbackUfCode: _ufCodeAL);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final tenantState = context.read<TenantCubit>().state;
+    final tenantId = _tenantIdFromTenantState(tenantState);
+
+    _syncTenantAndWarmup(tenantId);
+  }
+
+  @override
+  void dispose() {
+    _accidentsCubit.close();
+    _locationCubit.close();
+
+    super.dispose();
+  }
+
+  String? _cleanId(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+    if (text.toLowerCase() == 'null') return null;
+
+    return text;
+  }
+
+  String? _idFromObject(dynamic object) {
+    if (object == null) return null;
+
+    try {
+      final clean = _cleanId(object.id);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.tenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.companyId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.uid);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    return null;
+  }
+
+  String? _tenantIdFromTenantState(TenantState state) {
+    final dynamic s = state;
+
+    try {
+      final clean = _cleanId(s.activeTenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.currentTenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.tenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.companyId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.current);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.tenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.currentTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.activeTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.selectedTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.company);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.selectedCompany);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    return null;
+  }
+
+  void _syncTenantAndWarmup(String? tenantId) {
+    final cleanTenantId = tenantId?.trim();
+
+    if (_lastTenantId == cleanTenantId) return;
+
+    _lastTenantId = cleanTenantId;
+
+    _accidentsCubit.setActiveTenantId(cleanTenantId);
+
+    if (cleanTenantId == null || cleanTenantId.isEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      _accidentsCubit.warmup();
+    });
+  }
 
   bool _equalsNorm(String? a, String? b) {
     return (a ?? '').trim().toUpperCase() == (b ?? '').trim().toUpperCase();
@@ -81,78 +236,138 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
     );
   }
 
+  Widget _emptyTenant() {
+    return Scaffold(
+      appBar: const UpBar(showPhotoMenu: true),
+      body: Stack(
+        children: [
+          const BackgroundChange(),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.business_outlined,
+                    size: 42,
+                    color: Colors.grey.shade500,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Nenhuma empresa selecionada',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.grey.shade800,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Selecione uma empresa para visualizar o dashboard de acidentes.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (_) => AccidentsCubit()..warmup(),
-        ),
-        BlocProvider(
-          create: (_) => IBGELocationCubit(
-            repository: IBGELocationRepository(),
-          )..loadInitialAuto(fallbackUfCode: _ufCodeAL),
-        ),
+        BlocProvider.value(value: _accidentsCubit),
+        BlocProvider.value(value: _locationCubit),
       ],
-      child: Scaffold(
-        appBar: UpBar(),
-        body: Stack(
-          children: [
-            const BackgroundChange(),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth;
-                final height = constraints.maxHeight;
+      child: BlocListener<TenantCubit, TenantState>(
+        listener: (context, tenantState) {
+          final tenantId = _tenantIdFromTenantState(tenantState);
+          _syncTenantAndWarmup(tenantId);
+        },
+        child: Builder(
+          builder: (context) {
+            final tenantState = context.watch<TenantCubit>().state;
+            final tenantId = _tenantIdFromTenantState(tenantState);
 
-                final targetBottomPanelHeight = (height * _mobilePanelRatio)
-                    .clamp(260.0, height * 0.90);
+            if (tenantId == null || tenantId.isEmpty) {
+              return _emptyTenant();
+            }
 
-                final layoutKey = ValueKey(
-                  'split_${width.round()}_${height.round()}_${targetBottomPanelHeight.round()}',
-                );
+            final theme = Theme.of(context);
+            final isDark = theme.brightness == Brightness.dark;
 
-                return BlocBuilder<AccidentsCubit, AccidentsState>(
-                  builder: (context, accidentState) {
-                    return BlocBuilder<IBGELocationCubit, IBGELocationState>(
-                      builder: (context, geoState) {
-                        final polygons = geoState.cityPolygons;
+            return Scaffold(
+              appBar: const UpBar(showPhotoMenu: true),
+              body: Stack(
+                children: [
+                  const BackgroundChange(),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth;
+                      final height = constraints.maxHeight;
 
-                        return SplitLayout(
-                          key: layoutKey,
-                          breakpoint: _mobileBreakpoint,
-                          rightPanelWidth: 640,
-                          bottomPanelHeight: targetBottomPanelHeight,
-                          showRightPanel: true,
-                          showDividers: true,
-                          dividerThickness: 12,
-                          dividerBackgroundColor: isDark
-                              ? const Color(0xFF0B0F17)
-                              : Colors.white,
-                          dividerBorderColor: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : Colors.black.withValues(alpha: 0.08),
-                          gripColor: isDark
-                              ? Colors.white.withValues(alpha: 0.35)
-                              : Colors.black.withValues(alpha: 0.25),
-                          stackedRightOnTop: false,
-                          left: _buildLeftMap(
-                            theme: theme,
-                            accidentState: accidentState,
-                            geoState: geoState,
-                            polygons: polygons,
-                          ),
-                          right: const AccidentDashboardPanel(),
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ],
+                      final targetBottomPanelHeight =
+                      (height * _mobilePanelRatio).clamp(
+                        260.0,
+                        height * 0.90,
+                      );
+
+                      final layoutKey = ValueKey(
+                        'split_${width.round()}_${height.round()}_${targetBottomPanelHeight.round()}',
+                      );
+
+                      return BlocBuilder<AccidentsCubit, AccidentsState>(
+                        builder: (context, accidentState) {
+                          return BlocBuilder<IBGELocationCubit,
+                              IBGELocationState>(
+                            builder: (context, geoState) {
+                              final polygons = geoState.cityPolygons;
+
+                              return SplitLayout(
+                                key: layoutKey,
+                                breakpoint: _mobileBreakpoint,
+                                rightPanelWidth: 640,
+                                bottomPanelHeight: targetBottomPanelHeight,
+                                showRightPanel: true,
+                                showDividers: true,
+                                dividerThickness: 12,
+                                dividerBackgroundColor: isDark
+                                    ? const Color(0xFF0B0F17)
+                                    : Colors.white,
+                                dividerBorderColor: isDark
+                                    ? Colors.white.withValues(alpha: 0.08)
+                                    : Colors.black.withValues(alpha: 0.08),
+                                gripColor: isDark
+                                    ? Colors.white.withValues(alpha: 0.35)
+                                    : Colors.black.withValues(alpha: 0.25),
+                                stackedRightOnTop: false,
+                                left: _buildLeftMap(
+                                  theme: theme,
+                                  accidentState: accidentState,
+                                  geoState: geoState,
+                                  polygons: polygons,
+                                ),
+                                right: const AccidentDashboardPanel(),
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

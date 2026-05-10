@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
+
 import 'revision_measurement_data.dart';
 
 enum RevisionMeasurementStatus {
@@ -16,23 +17,18 @@ const Object _unset = Object();
 class RevisionMeasurementState extends Equatable {
   final RevisionMeasurementStatus status;
 
-  /// Lista de revisões do contrato atual.
   final List<RevisionMeasurementData> revisions;
-
-  /// Erro, se existir.
   final String? errorMessage;
-
-  /// ContractId carregado.
   final String? contractId;
 
-  /// Loading geral: salvar, excluir, atualizar anexos etc.
   final bool isSaving;
 
-  /// Seleção atual.
+  final bool uploading;
+  final double? uploadProgress;
+
   final RevisionMeasurementData? selected;
   final int? selectedIndex;
 
-  /// Anexos do item selecionado.
   final List<Attachment> attachments;
   final int? selectedAttachmentIndex;
 
@@ -42,6 +38,8 @@ class RevisionMeasurementState extends Equatable {
     this.errorMessage,
     this.contractId,
     this.isSaving = false,
+    this.uploading = false,
+    this.uploadProgress,
     this.selected,
     this.selectedIndex,
     this.attachments = const [],
@@ -54,6 +52,8 @@ class RevisionMeasurementState extends Equatable {
     Object? errorMessage = _unset,
     Object? contractId = _unset,
     bool? isSaving,
+    bool? uploading,
+    Object? uploadProgress = _unset,
     Object? selected = _unset,
     Object? selectedIndex = _unset,
     List<Attachment>? attachments,
@@ -65,9 +65,14 @@ class RevisionMeasurementState extends Equatable {
       errorMessage: identical(errorMessage, _unset)
           ? this.errorMessage
           : errorMessage as String?,
-      contractId:
-      identical(contractId, _unset) ? this.contractId : contractId as String?,
+      contractId: identical(contractId, _unset)
+          ? this.contractId
+          : contractId as String?,
       isSaving: isSaving ?? this.isSaving,
+      uploading: uploading ?? this.uploading,
+      uploadProgress: identical(uploadProgress, _unset)
+          ? this.uploadProgress
+          : uploadProgress as double?,
       selected: identical(selected, _unset)
           ? this.selected
           : selected as RevisionMeasurementData?,
@@ -88,6 +93,8 @@ class RevisionMeasurementState extends Equatable {
       errorMessage: null,
       contractId: null,
       isSaving: false,
+      uploading: false,
+      uploadProgress: null,
       selected: null,
       selectedIndex: null,
       attachments: [],
@@ -102,6 +109,8 @@ class RevisionMeasurementState extends Equatable {
     errorMessage,
     contractId,
     isSaving,
+    uploading,
+    uploadProgress,
     selected,
     selectedIndex,
     attachments,

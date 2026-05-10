@@ -1,5 +1,6 @@
 // lib/_blocs/modules/contracts/apostilles/apostilles_cubit.dart
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -94,49 +95,42 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     UserData? initialUser,
     UserPermissionData? initialPermissions,
     String? tenantId,
-    this.moduleId = 'apostilles',
+    this.moduleId = 'contracts_apostilles',
     this.enforcePermissions = false,
   })  : _currentUser = initialUser,
         _currentPermissions = initialPermissions,
-        _tenantId = tenantId,
+        _tenantId = _resolveInitialTenantId(
+          tenantId: tenantId,
+          permissions: initialPermissions,
+          user: initialUser,
+        ),
         super(ApostillesState.initial()) {
-    _init();
+    _syncRepositoryTenant();
 
     if (initialUser != null || initialPermissions != null) {
       updateUser(
         initialUser,
         permissions: initialPermissions,
-        tenantId: tenantId,
+        tenantId: _tenantId,
+        reload: false,
       );
     } else {
       emit(state.copyWith(isEditable: !enforcePermissions));
     }
-  }
 
-  final ContractData contract;
-  final ApostillesRepository repository;
+    final contractId = contract.id?.trim();
 
-  final String moduleId;
+    if (contractId == null || contractId.isEmpty) {
+      _emitEmptyLoaded();
+      return;
+    }
 
-  /// Quando false, não bloqueia gravação se a permissão ainda não foi injetada.
-  /// Isso evita falso negativo em telas que ainda não conectaram PermissionCubit.
-  final bool enforcePermissions;
-
-  UserData? _currentUser;
-  UserPermissionData? _currentPermissions;
-  String? _tenantId;
-
-  // ---------------------------------------------------------------------------
-  // Inicialização
-  // ---------------------------------------------------------------------------
-
-  Future<void> _init() async {
-    final cId = contract.id?.trim();
-
-    if (cId == null || cId.isEmpty) {
+    if (_hasTenantId) {
+      unawaited(loadApostilles());
+    } else {
       emit(
         state.copyWith(
-          status: ApostillesStatus.loaded,
+          status: ApostillesStatus.initial,
           apostilles: const <ApostillesData>[],
           existingOrders: <int>{},
           nextAvailableOrder: 1,
@@ -146,45 +140,187 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           sideAttachments: const <Attachment>[],
           sideLoading: false,
           clearUploadProgress: true,
+          clearError: true,
           isEditable: _canWrite(),
         ),
       );
-      return;
     }
-
-    await loadApostilles();
   }
 
-  // ---------------------------------------------------------------------------
-  // Permissões
-  // ---------------------------------------------------------------------------
+  final ContractData contract;
+  final ApostillesRepository repository;
+
+  final String moduleId;
+
+  /// Quando false, não bloqueia gravação se a permissão ainda não foi injetada.
+  final bool enforcePermissions;
+
+  UserData? _currentUser;
+  UserPermissionData? _currentPermissions;
+  String? _tenantId;
+
+  bool get _hasTenantId {
+    final value = _tenantId?.trim();
+    return value != null && value.isNotEmpty;
+  }
+
+  bool get isEditable => _canWrite();
+
+  static String? _resolveInitialTenantId({
+    required String? tenantId,
+    required UserPermissionData? permissions,
+    required UserData? user,
+  }) {
+    final direct = tenantId?.trim();
+
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+
+    final permissionTenant = permissions?.activeTenantId?.trim();
+
+    if (permissionTenant != null && permissionTenant.isNotEmpty) {
+      return permissionTenant;
+    }
+
+    final userTenant = user?.effectiveTenantId?.trim();
+
+    if (userTenant != null && userTenant.isNotEmpty) {
+      return userTenant;
+    }
+
+    return null;
+  }
+
+  void _syncRepositoryTenant() {
+    repository.setActiveTenantId(_tenantId);
+  }
+
+  String _requireTenantId() {
+    final id = _tenantId?.trim();
+
+    if (id == null || id.isEmpty) {
+      throw Exception(
+        'Nenhuma empresa ativa foi selecionada para acessar apostilamentos.',
+      );
+    }
+
+    repository.setActiveTenantId(id);
+
+    return id;
+  }
+
+  void _emitEmptyLoaded() {
+    emit(
+      state.copyWith(
+        status: ApostillesStatus.loaded,
+        apostilles: const <ApostillesData>[],
+        existingOrders: <int>{},
+        nextAvailableOrder: 1,
+        clearSelected: true,
+        clearSelectedIndex: true,
+        editingMode: false,
+        sideAttachments: const <Attachment>[],
+        sideLoading: false,
+        clearUploadProgress: true,
+        clearError: true,
+        isEditable: _canWrite(),
+      ),
+    );
+  }
 
   void updateUser(
       UserData? user, {
         UserPermissionData? permissions,
         String? tenantId,
+        bool reload = true,
       }) {
-    _currentUser = user;
-    _currentPermissions = permissions ?? _permissionsFromUser(user);
-    _tenantId = tenantId ?? _tenantId;
+    final previousTenantId = _tenantId;
 
-    emit(state.copyWith(isEditable: _canWrite()));
+    _currentUser = user ?? _currentUser;
+    _currentPermissions =
+        permissions ?? _permissionsFromUser(user) ?? _currentPermissions;
+
+    final resolvedTenantId = _resolveInitialTenantId(
+      tenantId: tenantId,
+      permissions: _currentPermissions,
+      user: _currentUser,
+    );
+
+    if (resolvedTenantId != null && resolvedTenantId.trim().isNotEmpty) {
+      _tenantId = resolvedTenantId.trim();
+    }
+
+    _syncRepositoryTenant();
+
+    emit(
+      state.copyWith(
+        isEditable: _canWrite(),
+        clearError: true,
+      ),
+    );
+
+    final contractId = contract.id?.trim();
+
+    final shouldReload = reload &&
+        contractId != null &&
+        contractId.isNotEmpty &&
+        _hasTenantId &&
+        (previousTenantId != _tenantId ||
+            state.status == ApostillesStatus.initial ||
+            state.status == ApostillesStatus.error);
+
+    if (shouldReload) {
+      unawaited(loadApostilles());
+    }
   }
 
   void updatePermissions({
     UserPermissionData? permissions,
     String? tenantId,
   }) {
-    _currentPermissions = permissions;
-    _tenantId = tenantId ?? _tenantId;
+    final previousTenantId = _tenantId;
 
-    emit(state.copyWith(isEditable: _canWrite()));
+    _currentPermissions = permissions ?? _currentPermissions;
+
+    final resolvedTenantId = _resolveInitialTenantId(
+      tenantId: tenantId,
+      permissions: _currentPermissions,
+      user: _currentUser,
+    );
+
+    if (resolvedTenantId != null && resolvedTenantId.trim().isNotEmpty) {
+      _tenantId = resolvedTenantId.trim();
+    }
+
+    _syncRepositoryTenant();
+
+    emit(
+      state.copyWith(
+        isEditable: _canWrite(),
+        clearError: true,
+      ),
+    );
+
+    final contractId = contract.id?.trim();
+
+    final shouldReload = contractId != null &&
+        contractId.isNotEmpty &&
+        _hasTenantId &&
+        (previousTenantId != _tenantId ||
+            state.status == ApostillesStatus.initial ||
+            state.status == ApostillesStatus.error);
+
+    if (shouldReload) {
+      unawaited(loadApostilles());
+    }
   }
 
   UserPermissionData? _permissionsFromUser(UserData? user) {
     if (user == null) return null;
 
     final uid = (user.uid ?? '').trim();
+
     if (uid.isEmpty) return null;
 
     final raw = user.userSnap?.data();
@@ -227,17 +363,17 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           tenantId: _tenantId,
         ) ||
         permissions.canModuleString(
-          module: 'contracts_apostilles',
+          module: 'apostilles',
           action: 'create',
           tenantId: _tenantId,
         ) ||
         permissions.canModuleString(
-          module: 'contracts_apostilles',
+          module: 'apostilles',
           action: 'edit',
           tenantId: _tenantId,
         ) ||
         permissions.canModuleString(
-          module: 'contracts_apostilles',
+          module: 'apostilles',
           action: 'delete',
           tenantId: _tenantId,
         );
@@ -261,33 +397,43 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       tenantId: _tenantId,
     ) ||
         permissions.canModuleString(
-          module: 'contracts_apostilles',
+          module: 'apostilles',
           action: 'delete',
           tenantId: _tenantId,
         );
   }
 
   void _assertCanWrite() {
+    _requireTenantId();
+
     if (_canWrite()) return;
-    throw Exception('Usuário sem permissão para alterar apostilamentos.');
+
+    throw Exception(
+      'Usuário sem permissão para alterar apostilamentos. '
+          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+    );
   }
 
   void _assertCanDelete() {
+    _requireTenantId();
+
     if (_canDelete()) return;
-    throw Exception('Usuário sem permissão para apagar apostilamentos.');
+
+    throw Exception(
+      'Usuário sem permissão para apagar apostilamentos. '
+          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+    );
   }
 
-  // ---------------------------------------------------------------------------
-  // Carregamento
-  // ---------------------------------------------------------------------------
-
   Future<void> loadApostilles() async {
+    _syncRepositoryTenant();
+
     final cId = contract.id?.trim();
 
-    if (cId == null || cId.isEmpty) {
+    if (!_hasTenantId) {
       emit(
         state.copyWith(
-          status: ApostillesStatus.loaded,
+          status: ApostillesStatus.error,
           apostilles: const <ApostillesData>[],
           existingOrders: <int>{},
           nextAvailableOrder: 1,
@@ -297,10 +443,15 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           sideAttachments: const <Attachment>[],
           sideLoading: false,
           clearUploadProgress: true,
-          clearError: true,
+          errorMessage: 'Nenhuma empresa ativa foi selecionada.',
           isEditable: _canWrite(),
         ),
       );
+      return;
+    }
+
+    if (cId == null || cId.isEmpty) {
+      _emitEmptyLoaded();
       return;
     }
 
@@ -323,8 +474,8 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           apostilles: list,
           existingOrders: orders,
           nextAvailableOrder: next,
-          sideAttachments: state.sideAttachments,
           isEditable: _canWrite(),
+          clearError: true,
         ),
       );
     } catch (e) {
@@ -337,10 +488,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       );
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // Seleção
-  // ---------------------------------------------------------------------------
 
   void selectApostilleByIndex(int index) {
     if (index < 0 || index >= state.apostilles.length) {
@@ -358,7 +505,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   }
 
   void selectApostille(ApostillesData data) {
-    final index = state.apostilles.indexWhere((e) => e.id == data.id);
+    final index = state.apostilles.indexWhere((item) => item.id == data.id);
 
     if (index == -1) {
       _clearSelection();
@@ -380,7 +527,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     }
 
     final index = state.apostilles.indexWhere(
-          (e) => (e.apostilleOrder ?? 0) == order,
+          (item) => (item.apostilleOrder ?? 0) == order,
     );
 
     if (index == -1) {
@@ -444,7 +591,9 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   }
 
   void createNewApostille({int? keepOrder}) {
-    _assertCanWrite();
+    if (enforcePermissions) {
+      _assertCanWrite();
+    }
 
     final next = keepOrder ?? _computeNextOrder(state.existingOrders);
 
@@ -463,19 +612,15 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Formulário
-  // ---------------------------------------------------------------------------
-
   void updateFormValidity({
     required String orderText,
     required String dateText,
     required String processText,
     required String valueText,
   }) {
-    final ord = int.tryParse(orderText.trim()) ?? 0;
+    final order = int.tryParse(orderText.trim()) ?? 0;
 
-    final valid = ord > 0 &&
+    final valid = order > 0 &&
         dateText.trim().isNotEmpty &&
         processText.trim().isNotEmpty &&
         valueText.trim().isNotEmpty;
@@ -490,7 +635,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
     try {
       return state.apostilles.firstWhere(
-            (e) => (e.apostilleOrder ?? 0) == order,
+            (item) => (item.apostilleOrder ?? 0) == order,
       );
     } catch (_) {
       return null;
@@ -502,17 +647,19 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     required String? fallbackId,
   }) {
     final cleanSelected = selectedId?.trim();
-    if (cleanSelected != null && cleanSelected.isNotEmpty) return cleanSelected;
+
+    if (cleanSelected != null && cleanSelected.isNotEmpty) {
+      return cleanSelected;
+    }
 
     final cleanFallback = fallbackId?.trim();
-    if (cleanFallback != null && cleanFallback.isNotEmpty) return cleanFallback;
+
+    if (cleanFallback != null && cleanFallback.isNotEmpty) {
+      return cleanFallback;
+    }
 
     return null;
   }
-
-  // ---------------------------------------------------------------------------
-  // CRUD
-  // ---------------------------------------------------------------------------
 
   Future<ApostilleSaveResult> saveOrUpdate({
     required String orderText,
@@ -531,19 +678,19 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     emit(state.copyWith(isSaving: true, clearError: true));
 
     try {
-      final ord = int.tryParse(orderText.trim()) ?? 0;
+      final order = int.tryParse(orderText.trim()) ?? 0;
 
-      if (ord <= 0) {
+      if (order <= 0) {
         throw Exception('Informe uma ordem válida para o apostilamento.');
       }
 
-      final byOrder = _findByOrder(ord);
+      final byOrder = _findByOrder(order);
       final resolvedId = state.selected?.id ?? byOrder?.id;
 
       final apostille = ApostillesData(
         id: resolvedId,
         contractId: cId,
-        apostilleOrder: ord,
+        apostilleOrder: order,
         apostilleData: SipGedFormatDates.ddMMyyyyToDate(dateText),
         apostilleValue: SipGedFormatNumbers.toDouble(valueText),
         apostilleNumberProcess: processText.trim(),
@@ -564,15 +711,11 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
       await loadApostilles();
 
-      if (ord > 0) {
-        selectApostilleByOrder(ord);
-      } else {
-        createNewApostille();
-      }
+      selectApostilleByOrder(order);
 
       return ApostilleSaveResult(
         created: created,
-        order: ord,
+        order: order,
         apostilleId: _resolveSelectedIdFallback(
           selectedId: state.selected?.id,
           fallbackId: resolvedId,
@@ -624,7 +767,18 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       );
 
       await loadApostilles();
-      createNewApostille();
+
+      emit(
+        state.copyWith(
+          clearSelected: true,
+          clearSelectedIndex: true,
+          editingMode: false,
+          sideAttachments: const <Attachment>[],
+          sideLoading: false,
+          clearUploadProgress: true,
+          nextAvailableOrder: _computeNextOrder(state.existingOrders),
+        ),
+      );
 
       return result;
     } catch (e) {
@@ -641,11 +795,9 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Anexos
-  // ---------------------------------------------------------------------------
-
   Future<void> reloadAttachments() async {
+    _syncRepositoryTenant();
+
     final cId = contract.id?.trim();
     final selected = state.selected;
 
@@ -680,7 +832,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         return;
       }
 
-      if ((selected.pdfUrl ?? '').isNotEmpty) {
+      if ((selected.pdfUrl ?? '').trim().isNotEmpty) {
         emit(
           state.copyWith(
             sideAttachments: const <Attachment>[],
@@ -707,17 +859,21 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         return;
       }
 
-      final list = files.map((f) {
-        final ext = RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
-            .firstMatch(f.name)
-            ?.group(0) ??
+      final tenantId = _requireTenantId();
+
+      final list = files.map((file) {
+        final ext = RegExp(
+          r'\.([a-z0-9]+)$',
+          caseSensitive: false,
+        ).firstMatch(file.name)?.group(0) ??
             '';
 
         return Attachment(
-          id: f.name,
-          label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
-          url: f.url,
-          path: 'contracts/$cId/apostilles/${selected.id}/${f.name}',
+          id: file.name,
+          label: file.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+          url: file.url,
+          path:
+          'tenants/$tenantId/contracts/$cId/apostilles/${selected.id}/${file.name}',
           ext: ext,
           createdAt: DateTime.now(),
           createdBy: _currentUser?.uid ?? _currentPermissions?.uid,
@@ -743,8 +899,15 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           clearUploadProgress: true,
         ),
       );
-    } catch (_) {
-      emit(state.copyWith(sideLoading: false, clearUploadProgress: true));
+    } catch (e) {
+      emit(
+        state.copyWith(
+          sideLoading: false,
+          clearUploadProgress: true,
+          errorMessage: 'Erro ao carregar anexos: $e',
+        ),
+      );
+
       rethrow;
     }
   }
@@ -755,9 +918,9 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         .last
         .replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
 
-    final ord = apostille.apostilleOrder ?? 0;
+    final order = apostille.apostilleOrder ?? 0;
 
-    return 'Apostilamento $ord - $base';
+    return 'Apostilamento $order - $base';
   }
 
   Future<ApostilleAttachmentAddResult> addAttachmentWithPicker(
@@ -766,13 +929,15 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     _assertCanWrite();
 
     final cId = contract.id?.trim();
-    final a = state.selected;
+    final apostille = state.selected;
 
     if (cId == null || cId.isEmpty) {
       throw Exception('Contrato não informado para anexar arquivo.');
     }
 
-    if (a == null || a.id == null || a.id!.trim().isEmpty) {
+    if (apostille == null ||
+        apostille.id == null ||
+        apostille.id!.trim().isEmpty) {
       throw Exception(
         'Selecione ou salve um apostilamento antes de anexar arquivos.',
       );
@@ -794,31 +959,40 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       final (Uint8List bytes, String originalName) =
       await repository.pickFileBytes();
 
-      final label = _suggestLabelFromName(a, originalName);
+      final label = _suggestLabelFromName(apostille, originalName);
 
-      final att = await repository.uploadAttachmentBytes(
+      final attachment = await repository.uploadAttachmentBytes(
         contract: contract,
-        apostille: a,
+        apostille: apostille,
         bytes: bytes,
         originalName: originalName,
         label: label,
-        onProgress: (p) {
-          final v = p.isNaN ? 0.0 : p.clamp(0.0, 1.0);
-          emit(state.copyWith(uploadProgress: v, sideLoading: true));
+        onProgress: (progress) {
+          final value = (progress.isNaN ? 0.0 : progress.clamp(0.0, 1.0))
+              .toDouble();
+
+          emit(
+            state.copyWith(
+              uploadProgress: value,
+              sideLoading: true,
+            ),
+          );
         },
       );
 
       final current = List<Attachment>.from(
-        a.attachments ?? const <Attachment>[],
-      )..add(att);
+        apostille.attachments ?? const <Attachment>[],
+      )..add(attachment);
 
       await repository.setAttachments(
         contractId: cId,
-        apostilleId: a.id!,
+        apostilleId: apostille.id!,
         attachments: current,
       );
 
-      final updatedSelected = a.copyWith(attachments: current);
+      final updatedSelected = apostille.copyWith(
+        attachments: current,
+      );
 
       emit(
         state.copyWith(
@@ -830,9 +1004,9 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       );
 
       return ApostilleAttachmentAddResult(
-        apostilleId: a.id,
-        apostilleOrder: a.apostilleOrder,
-        attachment: att,
+        apostilleId: apostille.id,
+        apostilleOrder: apostille.apostilleOrder,
+        attachment: attachment,
       );
     } catch (e) {
       emit(
@@ -854,17 +1028,19 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     _assertCanWrite();
 
     final cId = contract.id?.trim();
-    final a = state.selected;
+    final apostille = state.selected;
 
     if (cId == null || cId.isEmpty) {
       throw Exception('Contrato não informado para renomear anexo.');
     }
 
-    if (a == null || a.id == null || a.id!.trim().isEmpty) {
+    if (apostille == null ||
+        apostille.id == null ||
+        apostille.id!.trim().isEmpty) {
       throw Exception('Nenhum apostilamento selecionado.');
     }
 
-    final attachments = a.attachments ?? const <Attachment>[];
+    final attachments = apostille.attachments ?? const <Attachment>[];
 
     if (attachments.isEmpty) {
       throw Exception('O apostilamento selecionado não possui anexos.');
@@ -883,17 +1059,17 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     );
 
     try {
-      final oldAtt = attachments[index];
+      final oldAttachment = attachments[index];
 
       final updated = Attachment(
-        id: oldAtt.id,
-        label: newLabel.trim().isEmpty ? oldAtt.label : newLabel.trim(),
-        url: oldAtt.url,
-        path: oldAtt.path,
-        ext: oldAtt.ext,
-        size: oldAtt.size,
-        createdAt: oldAtt.createdAt,
-        createdBy: oldAtt.createdBy,
+        id: oldAttachment.id,
+        label: newLabel.trim().isEmpty ? oldAttachment.label : newLabel.trim(),
+        url: oldAttachment.url,
+        path: oldAttachment.path,
+        ext: oldAttachment.ext,
+        size: oldAttachment.size,
+        createdAt: oldAttachment.createdAt,
+        createdBy: oldAttachment.createdBy,
         updatedAt: DateTime.now(),
         updatedBy: _currentUser?.uid ?? _currentPermissions?.uid,
       );
@@ -903,13 +1079,13 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
       await repository.setAttachments(
         contractId: cId,
-        apostilleId: a.id!,
+        apostilleId: apostille.id!,
         attachments: list,
       );
 
       emit(
         state.copyWith(
-          selected: a.copyWith(attachments: list),
+          selected: apostille.copyWith(attachments: list),
           sideAttachments: list,
           sideLoading: false,
           clearUploadProgress: true,
@@ -917,9 +1093,9 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       );
 
       return ApostilleAttachmentRenameResult(
-        apostilleId: a.id,
-        apostilleOrder: a.apostilleOrder,
-        oldAttachment: oldAtt,
+        apostilleId: apostille.id,
+        apostilleOrder: apostille.apostilleOrder,
+        oldAttachment: oldAttachment,
         newAttachment: updated,
       );
     } catch (e) {
@@ -939,13 +1115,15 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     _assertCanWrite();
 
     final cId = contract.id?.trim();
-    final a = state.selected;
+    final apostille = state.selected;
 
     if (cId == null || cId.isEmpty) {
       throw Exception('Contrato não informado para remover anexo.');
     }
 
-    if (a == null || a.id == null || a.id!.trim().isEmpty) {
+    if (apostille == null ||
+        apostille.id == null ||
+        apostille.id!.trim().isEmpty) {
       throw Exception('Nenhum apostilamento selecionado.');
     }
 
@@ -958,38 +1136,41 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     );
 
     try {
-      final atts = List<Attachment>.from(
-        a.attachments ?? const <Attachment>[],
+      final attachments = List<Attachment>.from(
+        apostille.attachments ?? const <Attachment>[],
       );
 
-      if (index < 0 || index >= atts.length) {
+      if (index < 0 || index >= attachments.length) {
         throw Exception('Índice de anexo inválido.');
       }
 
-      final removed = atts.removeAt(index);
+      final removed = attachments.removeAt(index);
 
-      if (removed.path.isNotEmpty) {
+      if (removed.path.trim().isNotEmpty) {
         await repository.deleteStorageByPath(removed.path);
       }
 
       await repository.setAttachments(
         contractId: cId,
-        apostilleId: a.id!,
-        attachments: atts,
+        apostilleId: apostille.id!,
+        attachments: attachments,
       );
 
       emit(
         state.copyWith(
-          selected: a.copyWith(attachments: atts),
-          sideAttachments: atts,
+          selected: apostille.copyWith(
+            attachments: attachments,
+            clearAttachments: attachments.isEmpty,
+          ),
+          sideAttachments: attachments,
           sideLoading: false,
           clearUploadProgress: true,
         ),
       );
 
       return ApostilleAttachmentDeleteResult(
-        apostilleId: a.id,
-        apostilleOrder: a.apostilleOrder,
+        apostilleId: apostille.id,
+        apostilleOrder: apostille.apostilleOrder,
         attachment: removed,
       );
     } catch (e) {
@@ -1005,14 +1186,10 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Helpers de ordem
-  // ---------------------------------------------------------------------------
-
   Set<int> _extractExistingOrders(List<ApostillesData> list) {
     return list
-        .map((e) => e.apostilleOrder ?? 0)
-        .where((e) => e > 0)
+        .map((item) => item.apostilleOrder ?? 0)
+        .where((order) => order > 0)
         .toSet();
   }
 
@@ -1024,6 +1201,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     }
 
     final max = existing.reduce((a, b) => a > b ? a : b);
+
     return max + 1;
   }
 }

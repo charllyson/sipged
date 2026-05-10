@@ -1,4 +1,8 @@
+// lib/_widgets/.../alert_validity.dart
+// ajuste o caminho conforme onde esse arquivo está no seu projeto
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
@@ -13,6 +17,9 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
 
 import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
@@ -42,11 +49,19 @@ class _AlertValidityState extends State<AlertValidity>
   OverlayEntry? _entry;
   Offset? _initialAnchor;
 
+  String? _activeTenantId;
+
   @override
   void initState() {
     super.initState();
 
-    _future = _loadInfo(widget.contract);
+    final permissionState = context.read<PermissionCubit>().state;
+    _activeTenantId = permissionState.activeTenantId?.trim();
+
+    _future = _loadInfo(
+      contract: widget.contract,
+      tenantId: _activeTenantId,
+    );
 
     _positionWatcher = AnimationController(
       vsync: this,
@@ -60,15 +75,21 @@ class _AlertValidityState extends State<AlertValidity>
 
     if (oldWidget.contract.id != widget.contract.id) {
       _removeOverlay();
-      _future = _loadInfo(widget.contract);
+
+      _future = _loadInfo(
+        contract: widget.contract,
+        tenantId: _activeTenantId,
+      );
     }
   }
 
   @override
   void dispose() {
     _removeOverlay();
+
     _positionWatcher.removeListener(_watchAnchorPosition);
     _positionWatcher.dispose();
+
     _balloonTick.dispose();
 
     super.dispose();
@@ -89,8 +110,20 @@ class _AlertValidityState extends State<AlertValidity>
     return repo.readDataForContract(contractId);
   }
 
-  Future<List<AdditivesData>> _loadAdditives(String contractId) async {
-    final additivesRepo = AdditivesRepository();
+  Future<List<AdditivesData>> _loadAdditives({
+    required String contractId,
+    required String? tenantId,
+  }) async {
+    final cleanTenantId = tenantId?.trim();
+
+    if (cleanTenantId == null || cleanTenantId.isEmpty) {
+      return const <AdditivesData>[];
+    }
+
+    final additivesRepo = AdditivesRepository(
+      tenantId: cleanTenantId,
+    );
+
     return additivesRepo.ensureForContract(contractId);
   }
 
@@ -105,10 +138,19 @@ class _AlertValidityState extends State<AlertValidity>
         0;
   }
 
-  Future<_ValidityAlertInfo?> _loadInfo(ContractData contract) async {
+  Future<_ValidityAlertInfo?> _loadInfo({
+    required ContractData contract,
+    required String? tenantId,
+  }) async {
     final contractId = contract.id?.trim();
 
     if (contractId == null || contractId.isEmpty) {
+      return null;
+    }
+
+    final cleanTenantId = tenantId?.trim();
+
+    if (cleanTenantId == null || cleanTenantId.isEmpty) {
       return null;
     }
 
@@ -116,7 +158,10 @@ class _AlertValidityState extends State<AlertValidity>
       _loadDfdStatus(contractId),
       _loadPublicacao(contractId),
       _loadTr(contractId),
-      _loadAdditives(contractId),
+      _loadAdditives(
+        contractId: contractId,
+        tenantId: cleanTenantId,
+      ),
     ]);
 
     final dfdData = results[0] as DfdData?;
@@ -150,7 +195,9 @@ class _AlertValidityState extends State<AlertValidity>
 
     final int diasAditivos = aditivos.fold<int>(
       0,
-          (soma, a) => soma + (a.additiveValidityContractDays ?? 0),
+          (totalAtual, aditivo) {
+        return totalAtual + (aditivo.additiveValidityContractDays ?? 0);
+      },
     );
 
     final int totalDiasContrato = vigenciaDias + diasAditivos;
@@ -484,6 +531,22 @@ class _AlertValidityState extends State<AlertValidity>
     );
   }
 
+  void _reloadForPermissionState(PermissionState permissionState) {
+    final nextTenantId = permissionState.activeTenantId?.trim();
+
+    if (_activeTenantId == nextTenantId) return;
+
+    _removeOverlay();
+
+    setState(() {
+      _activeTenantId = nextTenantId;
+      _future = _loadInfo(
+        contract: widget.contract,
+        tenantId: _activeTenantId,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final contractId = widget.contract.id?.trim();
@@ -492,26 +555,34 @@ class _AlertValidityState extends State<AlertValidity>
       return const SizedBox.shrink();
     }
 
-    return FutureBuilder<_ValidityAlertInfo?>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.square(
-            dimension: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-            ),
-          );
-        }
-
-        final info = snapshot.data;
-
-        if (info == null) {
-          return const SizedBox.shrink();
-        }
-
-        return _buildButton(info);
+    return BlocListener<PermissionCubit, PermissionState>(
+      listenWhen: (previous, current) {
+        return previous.activeTenantId != current.activeTenantId;
       },
+      listener: (context, permissionState) {
+        _reloadForPermissionState(permissionState);
+      },
+      child: FutureBuilder<_ValidityAlertInfo?>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+              ),
+            );
+          }
+
+          final info = snapshot.data;
+
+          if (info == null) {
+            return const SizedBox.shrink();
+          }
+
+          return _buildButton(info);
+        },
+      ),
     );
   }
 }

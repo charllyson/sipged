@@ -1,5 +1,3 @@
-// lib/screens/modules/financial/payments/report_paid_form.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -12,7 +10,6 @@ import 'package:sipged/_blocs/system/permission/permission_state.dart';
 
 import 'package:sipged/screens/modules/financial/payments/report/report_paid_empty.dart';
 import 'package:sipged/screens/modules/financial/payments/report/report_paid_form_view.dart';
-
 
 class ReportMeasurementPaymentFormSection extends StatelessWidget {
   const ReportMeasurementPaymentFormSection({
@@ -55,7 +52,7 @@ class ReportMeasurementPaymentFormSection extends StatelessWidget {
     }
 
     return BlocProvider(
-      key: ValueKey('payment-cubit-$_contractId-$measurementId'),
+      key: ValueKey<String>('payment-cubit-$_contractId-$measurementId'),
       create: (context) {
         final permissionState = context.read<PermissionCubit>().state;
 

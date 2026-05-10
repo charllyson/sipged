@@ -10,6 +10,12 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
+
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
+
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
@@ -33,22 +39,9 @@ class ActiveOAEsNetworkPage extends StatefulWidget {
 }
 
 class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
-  // ---------------------------------------------------------------------------
-  // TESTE MANUAL MULTI-TENANT
-  //
-  // Enquanto o tenant ainda não vem do usuário logado / empresa selecionada,
-  // defina manualmente aqui.
-  //
-  // Quando for integrar oficialmente, substitua por:
-  // final tenantId = context.read<TenantCubit>().state.currentTenantId;
-  // ou equivalente.
-  // ---------------------------------------------------------------------------
+  late final ActiveOaesCubit _cubit;
 
-  static const String _manualTenantId = 'SZQmefRUqdtLB14ahcuh';
-
-  late final ActiveOaesRepository _repo = ActiveOaesRepository(
-    tenantId: _manualTenantId,
-  );
+  String? _lastTenantId;
 
   _RightPanelMode _mode = _RightPanelMode.analytics;
   bool _showPanel = true;
@@ -56,14 +49,182 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   ActiveOaesData? _detailsData;
   int? _selectedSideIndex;
 
+  ActiveOaesRepository get _repo => _cubit.repository;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _cubit = ActiveOaesCubit(
+      repository: ActiveOaesRepository(),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final tenantState = context.read<TenantCubit>().state;
+    final permissionState = context.read<PermissionCubit>().state;
+
+    final tenantId = _tenantIdFromTenantState(tenantState);
+
+    _syncTenantPermissionAndWarmup(
+      tenantId: tenantId,
+      permissionState: permissionState,
+    );
+  }
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
+
   // ---------------------------------------------------------------------------
-  // Actions gerais
+  // Tenant helpers iguais à tela de rodovias
+  // ---------------------------------------------------------------------------
+
+  String? _cleanId(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+    if (text.toLowerCase() == 'null') return null;
+
+    return text;
+  }
+
+  String? _idFromObject(dynamic object) {
+    if (object == null) return null;
+
+    try {
+      final clean = _cleanId(object.id);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.tenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.companyId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.uid);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    return null;
+  }
+
+  String? _tenantIdFromTenantState(TenantState state) {
+    final dynamic s = state;
+
+    try {
+      final clean = _cleanId(s.activeTenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.currentTenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.tenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.companyId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.current);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.tenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.currentTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.activeTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.selectedTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.company);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.selectedCompany);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    return null;
+  }
+
+  void _syncTenantPermissionAndWarmup({
+    required String? tenantId,
+    required PermissionState permissionState,
+  }) {
+    final cleanTenantId = tenantId?.trim();
+
+    final tenantChanged = _lastTenantId != cleanTenantId;
+
+    if (tenantChanged) {
+      _lastTenantId = cleanTenantId;
+
+      _detailsData = null;
+      _selectedSideIndex = null;
+      _mode = _RightPanelMode.analytics;
+
+      _cubit.updatePermissions(
+        permissions: permissionState.current,
+        tenantId: cleanTenantId,
+      );
+
+      if (cleanTenantId == null || cleanTenantId.isEmpty) return;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _cubit.warmup();
+      });
+
+      return;
+    }
+
+    _cubit.updatePermissions(
+      permissions: permissionState.current,
+      tenantId: cleanTenantId,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Painel / filtros
   // ---------------------------------------------------------------------------
 
   void _clearFilters() {
-    final cubit = context.read<ActiveOaesCubit>();
-    cubit.setPieFilter(null);
-    cubit.setRegionFilter(null);
+    _cubit.clearAllFilters();
   }
 
   void _togglePanelVisibility() {
@@ -91,17 +252,17 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // Attachments
+  // Anexos
   // ---------------------------------------------------------------------------
 
-  String _attachmentsDir(ActiveOaesData d) {
-    final id = d.id;
+  String _attachmentsDir(ActiveOaesData data) {
+    final id = data.id?.trim();
 
-    if (id == null || id.trim().isEmpty) {
+    if (id == null || id.isEmpty) {
       return '${_repo.storageBasePath}/sem_id/attachments';
     }
 
-    return '${_repo.storageBasePath}/${id.trim()}/attachments';
+    return '${_repo.storageBasePath}/$id/attachments';
   }
 
   List<Attachment> _currentAttachments() {
@@ -109,19 +270,17 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   }
 
   Future<void> _persistAttachments(List<Attachment> next) async {
-    final d = _detailsData;
+    final data = _detailsData;
 
-    if (d == null || d.id == null || d.id!.trim().isEmpty) {
-      return;
-    }
+    if (data == null || data.id == null || data.id!.trim().isEmpty) return;
 
-    final updated = d.copyWith(
+    final updated = data.copyWith(
       attachments: next,
     );
 
-    final saved = await _repo.upsert(updated);
+    final saved = await _cubit.upsert(updated);
 
-    if (!mounted) return;
+    if (!mounted || saved == null) return;
 
     setState(() {
       _detailsData = saved;
@@ -129,18 +288,16 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   }
 
   Future<void> _onAddSideItem() async {
-    final d = _detailsData;
+    final data = _detailsData;
 
-    if (d == null || d.id == null || d.id!.trim().isEmpty) {
-      return;
-    }
+    if (data == null || data.id == null || data.id!.trim().isEmpty) return;
 
     final att = await _repo.pickAndUploadSingle(
-      baseDir: _attachmentsDir(d),
+      baseDir: _attachmentsDir(data),
       onProgress: (_) {},
     );
 
-    if (att == null) return;
+    if (!mounted || att == null) return;
 
     final next = <Attachment>[
       ..._currentAttachments(),
@@ -150,19 +307,19 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     await _persistAttachments(next);
   }
 
-  bool _isPdfAttachment(Attachment a) {
-    final ext = a.ext.toLowerCase().trim();
+  bool _isPdfAttachment(Attachment attachment) {
+    final ext = attachment.ext.toLowerCase().trim();
 
     if (ext == 'pdf' || ext == '.pdf') return true;
 
-    final url = a.url.toLowerCase();
+    final url = attachment.url.toLowerCase();
 
     return url.endsWith('.pdf') || url.contains('.pdf?');
   }
 
-  Future<void> _openAttachmentInline(Attachment att) async {
-    if (!_isPdfAttachment(att)) {
-      final uri = Uri.tryParse(att.url);
+  Future<void> _openAttachmentInline(Attachment attachment) async {
+    if (!_isPdfAttachment(attachment)) {
+      final uri = Uri.tryParse(attachment.url);
 
       if (uri != null) {
         await launchUrl(
@@ -174,7 +331,11 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
       return;
     }
 
-    final titulo = att.label.isNotEmpty ? att.label : 'Documento PDF';
+    if (!mounted) return;
+
+    final titulo = attachment.label.isNotEmpty
+        ? attachment.label
+        : 'Documento PDF';
 
     await showWindowDialog<void>(
       context: context,
@@ -197,7 +358,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
               child: IconButton(
                 tooltip: 'Abrir em outra aba',
                 onPressed: () {
-                  final uri = Uri.tryParse(att.url);
+                  final uri = Uri.tryParse(attachment.url);
 
                   if (uri != null) {
                     launchUrl(
@@ -212,7 +373,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
             const Divider(height: 1),
             Expanded(
               child: SfPdfViewer.network(
-                att.url,
+                attachment.url,
                 canShowScrollStatus: true,
                 canShowPaginationDialog: true,
                 enableDoubleTapZooming: true,
@@ -246,7 +407,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
       title: 'Excluir anexo',
       width: 420,
       child: Builder(
-        builder: (dialogCtx) {
+        builder: (dialogContext) {
           return Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
             child: Column(
@@ -260,14 +421,14 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
                   children: [
                     TextButton(
                       onPressed: () {
-                        Navigator.of(dialogCtx).pop(false);
+                        Navigator.of(dialogContext).pop(false);
                       },
                       child: const Text('Cancelar'),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
                       onPressed: () {
-                        Navigator.of(dialogCtx).pop(true);
+                        Navigator.of(dialogContext).pop(true);
                       },
                       child: const Text('Excluir'),
                     ),
@@ -280,7 +441,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (!mounted || confirmed != true) return;
 
     final path = items[index].path;
 
@@ -288,9 +449,9 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
       await _repo.deleteByPath(path);
     }
 
-    final next = <Attachment>[
-      ...items,
-    ]..removeAt(index);
+    if (!mounted) return;
+
+    final next = <Attachment>[...items]..removeAt(index);
 
     await _persistAttachments(next);
 
@@ -310,14 +471,10 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   }) async {
     final items = _currentAttachments();
 
-    if (index < 0 || index >= items.length) {
-      return false;
-    }
+    if (index < 0 || index >= items.length) return false;
 
     try {
-      final next = <Attachment>[
-        ...items,
-      ];
+      final next = <Attachment>[...items];
 
       next[index] = newItem.copyWith(
         updatedAt: DateTime.now(),
@@ -332,24 +489,20 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   }
 
   void _onItemsChanged(List<dynamic> newItems) {
-    final d = _detailsData;
+    final data = _detailsData;
 
-    if (d == null) return;
+    if (data == null) return;
 
     final next = newItems.whereType<Attachment>().toList();
 
     setState(() {
-      _detailsData = d.copyWith(
+      _detailsData = data.copyWith(
         attachments: next,
       );
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Right pane separado para não forçar rebuild do mapa
-  // ---------------------------------------------------------------------------
-
-  Widget? _buildRightPane() {
+  Widget? _buildRightPane(BuildContext context) {
     switch (_mode) {
       case _RightPanelMode.none:
         return null;
@@ -382,7 +535,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
           onDeleteSideItem: _onDeleteSideItem,
           onRenamePersist: _onRenamePersist,
           onItemsChanged: _onItemsChanged,
-          isEditable: true,
+          isEditable: context.watch<ActiveOaesCubit>().isEditable,
         );
     }
   }
@@ -393,52 +546,132 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
 
   @override
   Widget build(BuildContext context) {
-    final rightPane = _buildRightPane();
+    return BlocProvider<ActiveOaesCubit>.value(
+      value: _cubit,
+      child: MultiBlocListener(
+        listeners: [
+          BlocListener<TenantCubit, TenantState>(
+            listener: (context, tenantState) {
+              final permissionState = context.read<PermissionCubit>().state;
+              final tenantId = _tenantIdFromTenantState(tenantState);
 
-    return Scaffold(
-      appBar: UpBar(
-        showPhotoMenu: true,
-        actions: [
-          IconButton(
-            tooltip: 'Limpar filtros',
-            icon: const Icon(
-              Icons.filter_alt_off,
-              color: Colors.white,
-            ),
-            onPressed: _clearFilters,
+              _syncTenantPermissionAndWarmup(
+                tenantId: tenantId,
+                permissionState: permissionState,
+              );
+            },
           ),
-          IconButton(
-            tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
-            icon: Icon(
-              _showPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
-              color: Colors.white,
-            ),
-            onPressed: _togglePanelVisibility,
+          BlocListener<PermissionCubit, PermissionState>(
+            listenWhen: (previous, current) {
+              return previous.current != current.current ||
+                  previous.activeTenantId != current.activeTenantId;
+            },
+            listener: (context, permissionState) {
+              final tenantState = context.read<TenantCubit>().state;
+              final tenantIdFromTenantState =
+              _tenantIdFromTenantState(tenantState);
+
+              final tenantId = tenantIdFromTenantState ??
+                  _cleanId(permissionState.activeTenantId);
+
+              _syncTenantPermissionAndWarmup(
+                tenantId: tenantId,
+                permissionState: permissionState,
+              );
+            },
           ),
         ],
-      ),
-      body: SplitLayout(
-        left: BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
-          buildWhen: (prev, curr) {
-            return prev.loadStatus != curr.loadStatus ||
-                prev.initialized != curr.initialized ||
-                prev.all != curr.all ||
-                prev.selectedPieIndexFilter != curr.selectedPieIndexFilter ||
-                prev.selectedRegionFilter != curr.selectedRegionFilter;
-          },
-          builder: (context, state) {
-            return ActiveOaesMapMapbox(
-              state: state,
-              onOpenDetails: _openDetails,
+        child: Builder(
+          builder: (context) {
+            final tenantState = context.watch<TenantCubit>().state;
+            final permissionState = context.watch<PermissionCubit>().state;
+
+            final tenantIdFromTenantState =
+            _tenantIdFromTenantState(tenantState);
+
+            final tenantId = tenantIdFromTenantState ??
+                _cleanId(permissionState.activeTenantId);
+
+            if (tenantId == null || tenantId.isEmpty) {
+              return Scaffold(
+                appBar: const UpBar(showPhotoMenu: true),
+                body: const Center(
+                  child: Text(
+                    'Selecione uma empresa para visualizar as OAEs.',
+                  ),
+                ),
+              );
+            }
+
+            final rightPane = _buildRightPane(context);
+
+            return Scaffold(
+              appBar: UpBar(
+                showPhotoMenu: true,
+                actions: [
+                  IconButton(
+                    tooltip: 'Limpar filtros',
+                    icon: const Icon(
+                      Icons.filter_alt_off,
+                      color: Colors.white,
+                    ),
+                    onPressed: _clearFilters,
+                  ),
+                  IconButton(
+                    tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
+                    icon: Icon(
+                      _showPanel
+                          ? Icons.view_sidebar
+                          : Icons.view_sidebar_outlined,
+                      color: Colors.white,
+                    ),
+                    onPressed: _togglePanelVisibility,
+                  ),
+                ],
+              ),
+              body: BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
+                buildWhen: (previous, current) {
+                  return previous.loadStatus != current.loadStatus ||
+                      previous.initialized != current.initialized ||
+                      previous.all != current.all ||
+                      previous.regionLabels != current.regionLabels ||
+                      previous.selectedPieIndexFilter !=
+                          current.selectedPieIndexFilter ||
+                      previous.selectedRegionFilter !=
+                          current.selectedRegionFilter ||
+                      previous.isEditable != current.isEditable;
+                },
+                builder: (context, state) {
+                  if (state.loadStatus == ActiveOaesLoadStatus.failure) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          state.error ?? 'Erro ao carregar OAEs.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return SplitLayout(
+                    left: ActiveOaesMapMapbox(
+                      state: state,
+                      onOpenDetails: _openDetails,
+                    ),
+                    right: rightPane ?? const SizedBox.shrink(),
+                    showRightPanel: _showPanel && rightPane != null,
+                    breakpoint: 980.0,
+                    rightPanelWidth: 580.0,
+                    bottomPanelHeight: 420.0,
+                    showDividers: true,
+                  );
+                },
+              ),
             );
           },
         ),
-        right: rightPane ?? const SizedBox.shrink(),
-        showRightPanel: _showPanel && rightPane != null,
-        breakpoint: 980.0,
-        rightPanelWidth: 580.0,
-        bottomPanelHeight: 420.0,
-        showDividers: true,
       ),
     );
   }

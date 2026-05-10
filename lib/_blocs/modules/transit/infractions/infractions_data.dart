@@ -1,5 +1,3 @@
-// lib/_blocs/modules/transit/infractions/infractions_data.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class InfractionsData {
@@ -55,6 +53,7 @@ class InfractionsData {
 
     if (value is int) {
       final String raw = value.toString();
+
       return DateTime.fromMillisecondsSinceEpoch(
         raw.length <= 10 ? value * 1000 : value,
       );
@@ -62,6 +61,7 @@ class InfractionsData {
 
     if (value is String) {
       final String raw = value.trim();
+
       if (raw.isEmpty) return null;
 
       final matchBr = RegExp(
@@ -92,6 +92,7 @@ class InfractionsData {
       'dataInfraction',
     ]) {
       final DateTime? date = _asDate(data[key]);
+
       if (date != null) return date;
     }
 
@@ -113,11 +114,18 @@ class InfractionsData {
 
     if (raw.isEmpty) return null;
 
-    final String normalized = raw.contains(',')
-        ? raw.replaceAll('.', '').replaceAll(',', '.')
-        : raw;
+    final String normalized =
+    raw.contains(',') ? raw.replaceAll('.', '').replaceAll(',', '.') : raw;
 
     return double.tryParse(normalized);
+  }
+
+  static String? _asString(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    return text.isEmpty ? null : text;
   }
 
   factory InfractionsData.fromDocument({
@@ -144,25 +152,25 @@ class InfractionsData {
         String? id,
       }) {
     return InfractionsData(
-      id: id ?? map['id'] as String?,
-      contractId: map['contractId'] as String?,
+      id: id ?? _asString(map['id']),
+      contractId: _asString(map['contractId']),
       orderInfraction: _asInt(map['orderInfraction']),
-      aitNumber: map['aitNumber'] as String?,
+      aitNumber: _asString(map['aitNumber']),
       dateInfraction: _readDate(map),
-      codeInfraction: map['codeInfraction'] as String?,
-      descriptionInfraction: map['descriptionInfraction'] as String?,
-      organCode: map['organCode'] as String?,
-      organAuthority: map['organAuthority'] as String?,
-      addressInfraction: map['addressInfraction'] as String?,
-      bairro: (map['Bairro'] ?? map['bairro']) as String?,
+      codeInfraction: _asString(map['codeInfraction']),
+      descriptionInfraction: _asString(map['descriptionInfraction']),
+      organCode: _asString(map['organCode']),
+      organAuthority: _asString(map['organAuthority']),
+      addressInfraction: _asString(map['addressInfraction']),
+      bairro: _asString(map['Bairro'] ?? map['bairro']),
       latitude: _asDouble(map['latitude']),
       longitude: _asDouble(map['longitude']),
       createdAt: _asDate(map['createdAt']),
-      createdBy: map['createdBy'] as String?,
+      createdBy: _asString(map['createdBy']),
       updatedAt: _asDate(map['updatedAt']),
-      updatedBy: map['updatedBy'] as String?,
+      updatedBy: _asString(map['updatedBy']),
       deletedAt: _asDate(map['deletedAt']),
-      deletedBy: map['deletedBy'] as String?,
+      deletedBy: _asString(map['deletedBy']),
     );
   }
 
@@ -172,9 +180,8 @@ class InfractionsData {
       'contractId': contractId ?? '',
       'orderInfraction': orderInfraction ?? 0,
       'aitNumber': aitNumber ?? '',
-      'dateInfraction': dateInfraction != null
-          ? Timestamp.fromDate(dateInfraction!)
-          : null,
+      'dateInfraction':
+      dateInfraction != null ? Timestamp.fromDate(dateInfraction!) : null,
       'codeInfraction': codeInfraction ?? '',
       'descriptionInfraction': descriptionInfraction ?? '',
       'organCode': organCode ?? '',

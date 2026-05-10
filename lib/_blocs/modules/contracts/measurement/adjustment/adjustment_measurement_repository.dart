@@ -1,5 +1,3 @@
-// lib/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_repository.dart
-
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -18,18 +16,51 @@ class AdjustmentMeasurementRepository {
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
     FirebaseStorage? storage,
+    String? tenantId,
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _storage = storage ?? FirebaseStorage.instance,
+        _tenantId = _cleanTenantId(tenantId);
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final FirebaseStorage _storage;
 
-  static const String fixedTenantId = 'SZQmefRUqdtLB14ahcuh';
+  String? _tenantId;
 
-  static const String tenantContractsCollectionPath =
-      'tenants/$fixedTenantId/contracts';
+  static String? _cleanTenantId(String? value) {
+    final clean = value?.trim();
+    return clean == null || clean.isEmpty ? null : clean;
+  }
+
+  String get tenantId {
+    final clean = _tenantId?.trim();
+
+    if (clean == null || clean.isEmpty) {
+      throw StateError(
+        'tenantId não definido em AdjustmentMeasurementRepository. '
+            'Selecione uma empresa antes de acessar reajustes.',
+      );
+    }
+
+    return clean;
+  }
+
+  String? get currentTenantId => _cleanTenantId(_tenantId);
+
+  bool get hasTenant => currentTenantId != null;
+
+  void setActiveTenantId(String? value) {
+    final next = _cleanTenantId(value);
+
+    if (_tenantId == next) return;
+
+    _tenantId = next;
+  }
+
+  String get tenantContractsCollectionPath {
+    return 'tenants/$tenantId/contracts';
+  }
 
   CollectionReference<Map<String, dynamic>> _contractsCol() {
     return _db.collection(tenantContractsCollectionPath);
@@ -66,7 +97,7 @@ class AdjustmentMeasurementRepository {
     if (parts.length < 6) return false;
 
     return parts[0] == 'tenants' &&
-        parts[1] == fixedTenantId &&
+        parts[1] == tenantId &&
         parts[2] == 'contracts' &&
         parts[4] == AdjustmentMeasurementData.collectionName;
   }
@@ -74,6 +105,8 @@ class AdjustmentMeasurementRepository {
   Future<List<AdjustmentMeasurementData>> getAllAdjustmentsOfContract({
     required String uidContract,
   }) async {
+    if (!hasTenant) return const <AdjustmentMeasurementData>[];
+
     final contractId = uidContract.trim();
 
     if (contractId.isEmpty) return const <AdjustmentMeasurementData>[];
@@ -99,12 +132,14 @@ class AdjustmentMeasurementRepository {
 
   Future<List<AdjustmentMeasurementData>>
   getAllAdjustmentsCollectionGroup() async {
+    if (!hasTenant) return const <AdjustmentMeasurementData>[];
+
     QuerySnapshot<Map<String, dynamic>> qs;
 
     try {
       qs = await _db
           .collectionGroup(AdjustmentMeasurementData.collectionName)
-          .where('tenantId', isEqualTo: fixedTenantId)
+          .where('tenantId', isEqualTo: tenantId)
           .get();
     } on FirebaseException catch (e) {
       if (e.code == 'failed-precondition' || e.code == 'not-found') {
@@ -130,6 +165,10 @@ class AdjustmentMeasurementRepository {
     required String contractId,
     required AdjustmentMeasurementData adj,
   }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para salvar reajuste.');
+    }
+
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) {
@@ -157,8 +196,8 @@ class AdjustmentMeasurementRepository {
         'contractId': cleanContractId,
         'uidContract': cleanContractId,
         'uidcontract': cleanContractId,
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'recordPath': docRef.path,
         'sourceCollectionModel': 'tenant_contract_adjustments_measurement',
         'updatedAt': FieldValue.serverTimestamp(),
@@ -185,6 +224,8 @@ class AdjustmentMeasurementRepository {
     required String contractId,
     required String adjustmentId,
   }) async {
+    if (!hasTenant) return;
+
     final cleanContractId = contractId.trim();
     final cleanAdjustmentId = adjustmentId.trim();
 
@@ -204,7 +245,9 @@ class AdjustmentMeasurementRepository {
       if (raw is List) {
         for (final item in raw) {
           if (item is Map) {
-            final att = Attachment.fromMap(Map<String, dynamic>.from(item));
+            final att = Attachment.fromMap(
+              Map<String, dynamic>.from(item),
+            );
 
             if (att.path.trim().isNotEmpty) {
               await deleteStorageByPath(att.path);
@@ -216,7 +259,7 @@ class AdjustmentMeasurementRepository {
 
     try {
       final folder = _storage.ref(
-        'tenants/$fixedTenantId/contracts/$cleanContractId/'
+        'tenants/$tenantId/contracts/$cleanContractId/'
             '${AdjustmentMeasurementData.collectionName}/$cleanAdjustmentId/attachments',
       );
 
@@ -239,6 +282,10 @@ class AdjustmentMeasurementRepository {
     required String adjustmentId,
     required String url,
   }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para salvar PDF do reajuste.');
+    }
+
     final cleanContractId = contractId.trim();
     final cleanAdjustmentId = adjustmentId.trim();
     final cleanUrl = url.trim();
@@ -253,8 +300,8 @@ class AdjustmentMeasurementRepository {
     await docRef.set(
       {
         'pdfUrl': cleanUrl.isEmpty ? FieldValue.delete() : cleanUrl,
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'contractId': cleanContractId,
         'uidContract': cleanContractId,
         'uidcontract': cleanContractId,
@@ -271,6 +318,10 @@ class AdjustmentMeasurementRepository {
     required String adjustmentId,
     required List<Attachment> attachments,
   }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para salvar anexos.');
+    }
+
     final cleanContractId = contractId.trim();
     final cleanAdjustmentId = adjustmentId.trim();
 
@@ -287,9 +338,9 @@ class AdjustmentMeasurementRepository {
       {
         'attachments': attachments.isEmpty
             ? FieldValue.delete()
-            : attachments.map((e) => e.toMap()).toList(),
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+            : attachments.map((item) => item.toMap()).toList(),
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'contractId': cleanContractId,
         'uidContract': cleanContractId,
         'uidcontract': cleanContractId,
@@ -330,11 +381,15 @@ class AdjustmentMeasurementRepository {
   }) {
     final contractId = contract.id?.trim();
 
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para PDF de reajuste.');
+    }
+
     if (contractId == null || contractId.isEmpty) {
       throw Exception('contract.id é obrigatório para PDF de reajuste.');
     }
 
-    return 'tenants/$fixedTenantId/contracts/$contractId/'
+    return 'tenants/$tenantId/contracts/$contractId/'
         '${AdjustmentMeasurementData.collectionName}/$measurementId/'
         '${fileName(contract, adj, extrato: extrato)}';
   }
@@ -346,6 +401,10 @@ class AdjustmentMeasurementRepository {
     final contractId = contract.id?.trim();
     final adjustmentId = adjustment.id?.trim();
 
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para anexos de reajuste.');
+    }
+
     if (contractId == null || contractId.isEmpty) {
       throw Exception('contract.id é obrigatório para anexos de reajuste.');
     }
@@ -354,7 +413,7 @@ class AdjustmentMeasurementRepository {
       throw Exception('adjustment.id é obrigatório para anexos de reajuste.');
     }
 
-    return 'tenants/$fixedTenantId/contracts/$contractId/'
+    return 'tenants/$tenantId/contracts/$contractId/'
         '${AdjustmentMeasurementData.collectionName}/$adjustmentId/attachments';
   }
 
@@ -425,7 +484,7 @@ class AdjustmentMeasurementRepository {
         contentType:
         ext == '.pdf' ? 'application/pdf' : 'application/octet-stream',
         customMetadata: {
-          'tenantId': fixedTenantId,
+          'tenantId': tenantId,
           'originalName': originalName,
           'contractId': contract.id ?? '',
           'adjustmentId': adjustment.id ?? '',
@@ -558,6 +617,10 @@ class AdjustmentMeasurementRepository {
     required void Function(double progress) onProgress,
     PublicacaoExtratoData? extrato,
   }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para upload de PDF de reajuste.');
+    }
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['pdf'],
@@ -582,7 +645,7 @@ class AdjustmentMeasurementRepository {
       SettableMetadata(
         contentType: 'application/pdf',
         customMetadata: {
-          'tenantId': fixedTenantId,
+          'tenantId': tenantId,
           'contractId': contract.id ?? '',
           'adjustmentId': adjustmentId,
         },
@@ -639,6 +702,8 @@ class AdjustmentMeasurementRepository {
   }
 
   Future<void> _recalcularFinancialPercentage(String contractId) async {
+    if (!hasTenant) return;
+
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) return;
@@ -655,7 +720,7 @@ class AdjustmentMeasurementRepository {
     }
 
     final adjs = await _contractDoc(cleanContractId)
-        .collection('adjustmentsMeasurement')
+        .collection(AdjustmentMeasurementData.collectionName)
         .get();
 
     for (final doc in adjs.docs) {
@@ -691,7 +756,8 @@ class AdjustmentMeasurementRepository {
     double totalApostilas = 0.0;
 
     for (final doc in apos.docs) {
-      final value = doc.data()['apostilleValue'] ?? doc.data()['apostillevalue'];
+      final value =
+          doc.data()['apostilleValue'] ?? doc.data()['apostillevalue'];
       totalApostilas += value is num ? value.toDouble() : 0.0;
     }
 
@@ -702,8 +768,8 @@ class AdjustmentMeasurementRepository {
     await _contractDoc(cleanContractId).set(
       {
         'financialPercentage': percent,
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),

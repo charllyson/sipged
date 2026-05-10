@@ -5,8 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sipged/_utils/formatters/sipged_format_numbers.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
-/// Modelo de apostilamento.
 class ApostillesData {
+  static const String collectionName = 'apostilles';
+
   String? id;
   String? contractId;
 
@@ -15,10 +16,8 @@ class ApostillesData {
   DateTime? apostilleData;
   double? apostilleValue;
 
-  /// Legado: último PDF salvo no documento.
   String? pdfUrl;
 
-  /// Múltiplos anexos com rótulo.
   List<Attachment>? attachments;
 
   DateTime? createdAt;
@@ -44,10 +43,6 @@ class ApostillesData {
     this.deletedAt,
     this.deletedBy,
   });
-
-  // ---------------------------------------------------------------------------
-  // Helpers de parsing
-  // ---------------------------------------------------------------------------
 
   static DateTime? _toDate(dynamic value) {
     if (value == null) return null;
@@ -163,10 +158,6 @@ class ApostillesData {
     return null;
   }
 
-  // ---------------------------------------------------------------------------
-  // Factory: Firestore Document
-  // ---------------------------------------------------------------------------
-
   factory ApostillesData.fromDocument({
     required DocumentSnapshot snapshot,
   }) {
@@ -185,10 +176,6 @@ class ApostillesData {
       fallbackContractId: contractIdFromPath,
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // Factory: Map genérico
-  // ---------------------------------------------------------------------------
 
   factory ApostillesData.fromMap(
       Map<String, dynamic> map, {
@@ -285,10 +272,6 @@ class ApostillesData {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Copy
-  // ---------------------------------------------------------------------------
-
   ApostillesData copyWith({
     String? id,
     String? contractId,
@@ -342,30 +325,25 @@ class ApostillesData {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Firestore
-  // ---------------------------------------------------------------------------
-
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       if (id != null && id!.trim().isNotEmpty) 'id': id,
       if (contractId != null && contractId!.trim().isNotEmpty)
         'contractId': contractId,
 
-      // Campos atuais usados no sistema.
       'apostillenumberprocess': apostilleNumberProcess ?? '',
       'apostilleorder': apostilleOrder ?? 0,
       'apostilledata': apostilleData,
       'apostillevalue': apostilleValue ?? 0.0,
 
-      // Compatibilidade/consulta futura.
       'apostilleNumberProcess': apostilleNumberProcess ?? '',
       'apostilleOrder': apostilleOrder ?? 0,
       'apostilleDate': apostilleData,
       'apostilleValue': apostilleValue ?? 0.0,
 
-      'pdfUrl': pdfUrl,
-      'attachments': attachments?.map((e) => e.toMap()).toList(),
+      if (pdfUrl != null && pdfUrl!.trim().isNotEmpty) 'pdfUrl': pdfUrl,
+      if (attachments != null && attachments!.isNotEmpty)
+        'attachments': attachments!.map((e) => e.toMap()).toList(),
 
       if (createdAt != null) 'createdAt': createdAt,
       if (createdBy != null && createdBy!.trim().isNotEmpty)

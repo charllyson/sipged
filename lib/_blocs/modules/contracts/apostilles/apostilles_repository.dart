@@ -17,18 +17,17 @@ class ApostillesRepository {
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
     FirebaseAuth? auth,
+    String? tenantId,
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _storage = storage ?? FirebaseStorage.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+        _auth = auth ?? FirebaseAuth.instance,
+        _activeTenantId = tenantId?.trim();
 
   final FirebaseFirestore _db;
   final FirebaseStorage _storage;
   final FirebaseAuth _auth;
 
-  static const String fixedTenantId = 'SZQmefRUqdtLB14ahcuh';
-
-  static const String tenantContractsCollectionPath =
-      'tenants/$fixedTenantId/contracts';
+  String? _activeTenantId;
 
   final Map<String, List<ApostillesData>> _byContract =
   <String, List<ApostillesData>>{};
@@ -39,12 +38,41 @@ class ApostillesRepository {
 
   final Map<String, String> _statusByContract = <String, String>{};
 
-  // ---------------------------------------------------------------------------
-  // References
-  // ---------------------------------------------------------------------------
+  void setActiveTenantId(String? tenantId) {
+    final clean = tenantId?.trim();
+    final next = clean == null || clean.isEmpty ? null : clean;
+
+    if (_activeTenantId == next) return;
+
+    _activeTenantId = next;
+    _clearCaches();
+  }
+
+  String? get activeTenantId => _activeTenantId;
+
+  String _requireTenantId() {
+    final id = _activeTenantId?.trim();
+
+    if (id == null || id.isEmpty) {
+      throw Exception(
+        'Nenhuma empresa ativa foi selecionada para acessar apostilamentos.',
+      );
+    }
+
+    return id;
+  }
+
+  void _clearCaches() {
+    _byContract.clear();
+    _loading.clear();
+    _allApostillesCache = null;
+    _statusByContract.clear();
+  }
 
   CollectionReference<Map<String, dynamic>> _contractsCol() {
-    return _db.collection(tenantContractsCollectionPath);
+    final tenantId = _requireTenantId();
+
+    return _db.collection('tenants').doc(tenantId).collection('contracts');
   }
 
   DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
@@ -86,6 +114,8 @@ class ApostillesRepository {
   }
 
   bool _isTenantApostillePath(String path) {
+    final tenantId = _requireTenantId();
+
     final parts = path
         .split('/')
         .map((part) => part.trim())
@@ -95,7 +125,7 @@ class ApostillesRepository {
     if (parts.length < 6) return false;
 
     return parts[0] == 'tenants' &&
-        parts[1] == fixedTenantId &&
+        parts[1] == tenantId &&
         parts[2] == 'contracts' &&
         parts[4] == 'apostilles';
   }
@@ -107,6 +137,7 @@ class ApostillesRepository {
 
     if (value is String) {
       final text = value.trim();
+
       if (text.isEmpty) return null;
 
       final iso = DateTime.tryParse(text);
@@ -135,10 +166,6 @@ class ApostillesRepository {
 
     return text.isEmpty ? null : text;
   }
-
-  // ---------------------------------------------------------------------------
-  // Status via DFD
-  // ---------------------------------------------------------------------------
 
   Future<String?> _loadStatusContratoFromDfd(String contractId) async {
     try {
@@ -202,11 +229,9 @@ class ApostillesRepository {
     return value == null || value.trim().isEmpty ? null : value.trim();
   }
 
-  // ---------------------------------------------------------------------------
-  // Listagens
-  // ---------------------------------------------------------------------------
-
   Future<List<ApostillesData>> _loadAllApostillesOnce() async {
+    final tenantId = _requireTenantId();
+
     if (_allApostillesCache != null) return _allApostillesCache!;
 
     QuerySnapshot<Map<String, dynamic>> snap;
@@ -214,7 +239,7 @@ class ApostillesRepository {
     try {
       snap = await _db
           .collectionGroup('apostilles')
-          .where('tenantId', isEqualTo: fixedTenantId)
+          .where('tenantId', isEqualTo: tenantId)
           .get();
     } on FirebaseException catch (e) {
       if (e.code == 'failed-precondition' || e.code == 'not-found') {
@@ -326,14 +351,11 @@ class ApostillesRepository {
     return _byContract[contractId] ?? const <ApostillesData>[];
   }
 
-  // ---------------------------------------------------------------------------
-  // CRUD
-  // ---------------------------------------------------------------------------
-
   Future<void> saveOrUpdateApostille({
     required String contractId,
     required ApostillesData data,
   }) async {
+    final tenantId = _requireTenantId();
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) {
@@ -360,8 +382,8 @@ class ApostillesRepository {
       ..addAll({
         'id': apostilleId,
         'contractId': cleanContractId,
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'recordPath': docRef.path,
         'sourceCollectionModel': 'tenant_contract_apostilles',
         'updatedAt': FieldValue.serverTimestamp(),
@@ -391,6 +413,7 @@ class ApostillesRepository {
     required String contractId,
     required String apostilleId,
   }) async {
+    final tenantId = _requireTenantId();
     final cleanContractId = contractId.trim();
     final cleanApostilleId = apostilleId.trim();
 
@@ -424,7 +447,7 @@ class ApostillesRepository {
 
     try {
       final folder = _storage.ref(
-        'tenants/$fixedTenantId/contracts/$cleanContractId/apostilles/$cleanApostilleId/',
+        'tenants/$tenantId/contracts/$cleanContractId/apostilles/$cleanApostilleId/',
       );
 
       final result = await folder.listAll();
@@ -447,14 +470,11 @@ class ApostillesRepository {
     _invalidateAllApostillesCache();
   }
 
-  // ---------------------------------------------------------------------------
-  // Notificações
-  // ---------------------------------------------------------------------------
-
   Future<void> _notificarUsuariosSobreApostilamento(
       ApostillesData apostila,
       String contractId,
       ) async {
+    final tenantId = _requireTenantId();
     final uid = _auth.currentUser?.uid;
 
     if (uid == null) return;
@@ -464,7 +484,7 @@ class ApostillesRepository {
     await ref.set({
       'tipo': 'apostilamento',
       'titulo': 'Novo apostilamento nº ${apostila.apostilleOrder}',
-      'tenantId': fixedTenantId,
+      'tenantId': tenantId,
       'contractId': contractId,
       'apostilleId': apostila.id,
       'createdAt': FieldValue.serverTimestamp(),
@@ -481,12 +501,14 @@ class ApostillesRepository {
         .limit(10)
         .snapshots()
         .asyncMap((snapshot) async {
+      final tenantId = _requireTenantId();
       final registros = <Registro>[];
 
       for (final doc in snapshot.docs) {
         final data = doc.data();
 
         if (data['tipo'] != 'apostilamento') continue;
+        if (data['tenantId']?.toString() != tenantId) continue;
 
         final contractId = data['contractId']?.toString();
         final apostilleId = data['apostilleId']?.toString();
@@ -528,10 +550,6 @@ class ApostillesRepository {
 
     return ContractData.fromDocument(snapshot: snap);
   }
-
-  // ---------------------------------------------------------------------------
-  // Agregações
-  // ---------------------------------------------------------------------------
 
   Future<double> somarValoresApostilamentosPorStatus({
     required List<ContractData> contratos,
@@ -579,10 +597,6 @@ class ApostillesRepository {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Attachments + Storage
-  // ---------------------------------------------------------------------------
-
   String _sanitize(String value) {
     return value.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
   }
@@ -625,6 +639,7 @@ class ApostillesRepository {
   }
 
   String folderFor(ContractData contract, ApostillesData apostille) {
+    final tenantId = _requireTenantId();
     final contractId = contract.id?.trim();
     final apostilleId = apostille.id?.trim();
 
@@ -636,7 +651,7 @@ class ApostillesRepository {
       throw Exception('apostille.id é obrigatório para anexos de apostilamento.');
     }
 
-    return 'tenants/$fixedTenantId/contracts/$contractId/apostilles/$apostilleId/';
+    return 'tenants/$tenantId/contracts/$contractId/apostilles/$apostilleId/';
   }
 
   Future<(Uint8List bytes, String originalName)> pickFileBytes() async {
@@ -657,6 +672,7 @@ class ApostillesRepository {
     required String label,
     void Function(double progress)? onProgress,
   }) async {
+    final tenantId = _requireTenantId();
     final dir = folderFor(contract, apostille);
     final name = storedFileName(originalName);
     final ref = _storage.ref('$dir$name');
@@ -670,7 +686,7 @@ class ApostillesRepository {
             ? 'application/pdf'
             : 'application/octet-stream',
         customMetadata: {
-          'tenantId': fixedTenantId,
+          'tenantId': tenantId,
           'originalName': originalName,
           'label': label,
           'contractId': contract.id ?? '',
@@ -706,6 +722,7 @@ class ApostillesRepository {
     required String contractId,
     required String apostilleId,
   }) async {
+    final tenantId = _requireTenantId();
     final cleanContractId = contractId.trim();
     final cleanApostilleId = apostilleId.trim();
 
@@ -714,7 +731,7 @@ class ApostillesRepository {
     }
 
     final folderRef = _storage.ref(
-      'tenants/$fixedTenantId/contracts/$cleanContractId/apostilles/$cleanApostilleId/',
+      'tenants/$tenantId/contracts/$cleanContractId/apostilles/$cleanApostilleId/',
     );
 
     final out = <({String name, String url})>[];
@@ -750,6 +767,7 @@ class ApostillesRepository {
     required String apostilleId,
     required List<Attachment> attachments,
   }) async {
+    final tenantId = _requireTenantId();
     final cleanContractId = contractId.trim();
     final cleanApostilleId = apostilleId.trim();
 
@@ -767,8 +785,8 @@ class ApostillesRepository {
         'attachments': attachments.isEmpty
             ? FieldValue.delete()
             : attachments.map((item) => item.toMap()).toList(),
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'contractId': cleanContractId,
         'recordPath': docRef.path,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -795,10 +813,6 @@ class ApostillesRepository {
     _invalidateAllApostillesCache();
   }
 
-  // ---------------------------------------------------------------------------
-  // PDF compatibilidade
-  // ---------------------------------------------------------------------------
-
   String legacyFileName(ContractData contract, ApostillesData apostille) {
     final contrato = _sanitize('contrato');
     final ordem = (apostille.apostilleOrder ?? 0).toString().padLeft(3, '0');
@@ -817,6 +831,7 @@ class ApostillesRepository {
     required Uint8List bytes,
     void Function(double progress)? onProgress,
   }) async {
+    final tenantId = _requireTenantId();
     final ref = _storage.ref(legacyPathFor(contract, apostille));
 
     final task = ref.putData(
@@ -824,7 +839,7 @@ class ApostillesRepository {
       SettableMetadata(
         contentType: 'application/pdf',
         customMetadata: {
-          'tenantId': fixedTenantId,
+          'tenantId': tenantId,
           'contractId': contract.id ?? '',
           'apostilleId': apostille.id ?? '',
         },
@@ -899,6 +914,7 @@ class ApostillesRepository {
     required String apostilleId,
     required String url,
   }) async {
+    final tenantId = _requireTenantId();
     final cleanContractId = contractId.trim();
     final cleanApostilleId = apostilleId.trim();
     final cleanUrl = url.trim();
@@ -915,8 +931,8 @@ class ApostillesRepository {
     await docRef.set(
       {
         'pdfUrl': cleanUrl.isEmpty ? FieldValue.delete() : cleanUrl,
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'contractId': cleanContractId,
         'recordPath': docRef.path,
         'updatedAt': FieldValue.serverTimestamp(),

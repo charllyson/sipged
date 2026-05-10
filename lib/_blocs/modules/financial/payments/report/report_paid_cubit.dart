@@ -1,5 +1,3 @@
-// lib/_blocs/modules/financial/payments/report_paid_cubit.dart
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
@@ -15,25 +13,128 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
     ReportPaidRepository? repository,
     UserPermissionData? initialPermissions,
     String? initialTenantId,
+    String? tenantId,
     this.moduleId = 'operation_measurements',
   })  : _repo = repository ?? ReportPaidRepository(),
         _currentPermissions = initialPermissions,
-        _tenantId = initialTenantId,
-        super(ReportPaidState.initial());
+        _tenantId = _resolveInitialTenantId(
+          tenantId: initialTenantId ?? tenantId,
+          permissions: initialPermissions,
+        ),
+        super(ReportPaidState.initial()) {
+    _syncRepositoryTenant();
+  }
 
   final ReportPaidRepository _repo;
-
   final String moduleId;
 
   UserPermissionData? _currentPermissions;
   String? _tenantId;
 
+  static String? _cleanTenantId(String? value) {
+    final clean = value?.trim();
+    return clean == null || clean.isEmpty ? null : clean;
+  }
+
+  static String? _resolveInitialTenantId({
+    required String? tenantId,
+    required UserPermissionData? permissions,
+  }) {
+    final direct = _cleanTenantId(tenantId);
+
+    if (direct != null) {
+      return direct;
+    }
+
+    final permissionTenant = _cleanTenantId(permissions?.activeTenantId);
+
+    if (permissionTenant != null) {
+      return permissionTenant;
+    }
+
+    return null;
+  }
+
+  void _syncRepositoryTenant() {
+    _repo.setActiveTenantId(_tenantId);
+  }
+
+  void setTenantId(String? tenantId) {
+    final previousTenantId = _tenantId;
+
+    _tenantId = _cleanTenantId(tenantId);
+    _syncRepositoryTenant();
+
+    final currentContractId = state.contractId?.trim();
+    final currentMeasurementId = state.measurementId?.trim();
+
+    if (previousTenantId != _tenantId &&
+        currentContractId != null &&
+        currentContractId.isNotEmpty &&
+        currentMeasurementId != null &&
+        currentMeasurementId.isNotEmpty) {
+      Future.microtask(
+            () => loadByMeasurement(
+          contractId: currentContractId,
+          measurementId: currentMeasurementId,
+        ),
+      );
+    }
+  }
+
+  bool get _hasTenantId {
+    final clean = _tenantId?.trim();
+    return clean != null && clean.isNotEmpty;
+  }
+
+  String _requireTenantId() {
+    final clean = _tenantId?.trim();
+
+    if (clean == null || clean.isEmpty) {
+      throw Exception(
+        'Nenhuma empresa ativa foi selecionada para acessar pagamentos.',
+      );
+    }
+
+    _repo.setActiveTenantId(clean);
+
+    return clean;
+  }
+
   void updatePermissions({
     UserPermissionData? permissions,
     String? tenantId,
   }) {
-    _currentPermissions = permissions;
-    _tenantId = tenantId;
+    final previousTenantId = _tenantId;
+
+    _currentPermissions = permissions ?? _currentPermissions;
+
+    final resolvedTenantId = _resolveInitialTenantId(
+      tenantId: tenantId,
+      permissions: _currentPermissions,
+    );
+
+    if (resolvedTenantId != null) {
+      _tenantId = resolvedTenantId;
+    }
+
+    _syncRepositoryTenant();
+
+    final currentContractId = state.contractId?.trim();
+    final currentMeasurementId = state.measurementId?.trim();
+
+    if (previousTenantId != _tenantId &&
+        currentContractId != null &&
+        currentContractId.isNotEmpty &&
+        currentMeasurementId != null &&
+        currentMeasurementId.isNotEmpty) {
+      Future.microtask(
+            () => loadByMeasurement(
+          contractId: currentContractId,
+          measurementId: currentMeasurementId,
+        ),
+      );
+    }
   }
 
   bool get isEditable => _canWrite();
@@ -56,7 +157,8 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
 
     if (permissions == null) return false;
 
-    if (permissions.isSuperUserForTenant(_tenantId)) {
+    if (permissions.isGlobalSuperUser ||
+        permissions.isSuperUserForTenant(_tenantId)) {
       return true;
     }
 
@@ -82,7 +184,8 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
 
     if (permissions == null) return false;
 
-    if (permissions.isSuperUserForTenant(_tenantId)) {
+    if (permissions.isGlobalSuperUser ||
+        permissions.isSuperUserForTenant(_tenantId)) {
       return true;
     }
 
@@ -94,6 +197,8 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
   }
 
   void _assertCanWrite() {
+    _requireTenantId();
+
     if (_canWrite()) return;
 
     throw Exception(
@@ -103,6 +208,8 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
   }
 
   void _assertCanDelete() {
+    _requireTenantId();
+
     if (_canDelete()) return;
 
     throw Exception(
@@ -169,6 +276,8 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
     String? keepSelectedPaymentId,
     bool autoSelectFirstPayment = true,
   }) async {
+    _syncRepositoryTenant();
+
     final cleanContractId = contractId.trim();
     final cleanMeasurementId = measurementId.trim();
 
@@ -182,6 +291,25 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
           contractId: cleanContractId,
           measurementId: cleanMeasurementId,
           clearError: true,
+          uploading: false,
+          clearUploadProgress: true,
+        ),
+      );
+      return;
+    }
+
+    if (!_hasTenantId) {
+      emit(
+        state.copyWith(
+          status: ReportPaidStatus.failure,
+          payments: const <ReportPaidData>[],
+          clearSelected: true,
+          clearSelectedSideIndex: true,
+          contractId: cleanContractId,
+          measurementId: cleanMeasurementId,
+          error: 'Nenhuma empresa ativa foi selecionada.',
+          uploading: false,
+          clearUploadProgress: true,
         ),
       );
       return;
@@ -197,6 +325,8 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
         contractId: cleanContractId,
         measurementId: cleanMeasurementId,
         clearError: true,
+        uploading: false,
+        clearUploadProgress: true,
       ),
     );
 
@@ -217,9 +347,6 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
         }
       }
 
-      // Ajuste principal:
-      // Quando a medição possui pagamentos e nenhum pagamento está selecionado,
-      // seleciona automaticamente o primeiro pagamento para preencher o formulário.
       if (selected == null && autoSelectFirstPayment && list.isNotEmpty) {
         selected = list.first;
       }
@@ -240,6 +367,8 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
           contractId: cleanContractId,
           measurementId: cleanMeasurementId,
           clearError: true,
+          uploading: false,
+          clearUploadProgress: true,
         ),
       );
     } catch (e) {
@@ -247,6 +376,8 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
         state.copyWith(
           status: ReportPaidStatus.failure,
           error: e.toString(),
+          uploading: false,
+          clearUploadProgress: true,
         ),
       );
     }
@@ -276,6 +407,12 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
   Future<List<ReportPaidData>> getPaymentsByContract({
     required String contractId,
   }) {
+    _syncRepositoryTenant();
+
+    if (!_hasTenantId) {
+      return Future.value(const <ReportPaidData>[]);
+    }
+
     return _repo.getPaymentsByContract(contractId: contractId);
   }
 
@@ -494,10 +631,12 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
         measurementId: cleanMeasurementId,
         paymentId: cleanPaymentId,
         onProgress: (progress) {
+          final value = progress.isNaN ? 0.0 : progress.clamp(0.0, 1.0);
+
           emit(
             state.copyWith(
               uploading: true,
-              uploadProgress: progress,
+              uploadProgress: value.toDouble(),
               clearError: true,
             ),
           );

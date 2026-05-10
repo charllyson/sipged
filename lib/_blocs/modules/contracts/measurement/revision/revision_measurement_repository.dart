@@ -17,18 +17,51 @@ class RevisionMeasurementRepository {
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
     FirebaseStorage? storage,
+    String? tenantId,
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _storage = storage ?? FirebaseStorage.instance,
+        _tenantId = _cleanTenantId(tenantId);
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final FirebaseStorage _storage;
 
-  static const String fixedTenantId = 'SZQmefRUqdtLB14ahcuh';
+  String? _tenantId;
 
-  static const String tenantContractsCollectionPath =
-      'tenants/$fixedTenantId/contracts';
+  static String? _cleanTenantId(String? value) {
+    final clean = value?.trim();
+    return clean == null || clean.isEmpty ? null : clean;
+  }
+
+  String get tenantId {
+    final clean = _tenantId?.trim();
+
+    if (clean == null || clean.isEmpty) {
+      throw StateError(
+        'tenantId não definido em RevisionMeasurementRepository. '
+            'Selecione uma empresa antes de acessar revisões.',
+      );
+    }
+
+    return clean;
+  }
+
+  String? get currentTenantId => _cleanTenantId(_tenantId);
+
+  bool get hasTenant => currentTenantId != null;
+
+  void setActiveTenantId(String? value) {
+    final next = _cleanTenantId(value);
+
+    if (_tenantId == next) return;
+
+    _tenantId = next;
+  }
+
+  String get tenantContractsCollectionPath {
+    return 'tenants/$tenantId/contracts';
+  }
 
   CollectionReference<Map<String, dynamic>> _contractsCol() {
     return _db.collection(tenantContractsCollectionPath);
@@ -65,7 +98,7 @@ class RevisionMeasurementRepository {
     if (parts.length < 6) return false;
 
     return parts[0] == 'tenants' &&
-        parts[1] == fixedTenantId &&
+        parts[1] == tenantId &&
         parts[2] == 'contracts' &&
         parts[4] == RevisionMeasurementData.collectionName;
   }
@@ -73,23 +106,25 @@ class RevisionMeasurementRepository {
   Future<List<RevisionMeasurementData>> getAllRevisionsOfContract({
     required String uidContract,
   }) async {
+    if (!hasTenant) return const <RevisionMeasurementData>[];
+
     final contractId = uidContract.trim();
 
     if (contractId.isEmpty) return const <RevisionMeasurementData>[];
 
-    QuerySnapshot<Map<String, dynamic>> qs;
+    QuerySnapshot<Map<String, dynamic>> query;
 
     try {
-      qs = await _col(contractId).orderBy('order').get();
+      query = await _col(contractId).orderBy('order').get();
     } on FirebaseException catch (e) {
       if (e.code == 'failed-precondition' || e.code == 'not-found') {
-        qs = await _col(contractId).get();
+        query = await _col(contractId).get();
       } else {
         rethrow;
       }
     }
 
-    final list = qs.docs.map(RevisionMeasurementData.fromDocument).toList();
+    final list = query.docs.map(RevisionMeasurementData.fromDocument).toList();
 
     list.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
 
@@ -97,16 +132,18 @@ class RevisionMeasurementRepository {
   }
 
   Future<List<RevisionMeasurementData>> getAllRevisionsCollectionGroup() async {
-    QuerySnapshot<Map<String, dynamic>> qs;
+    if (!hasTenant) return const <RevisionMeasurementData>[];
+
+    QuerySnapshot<Map<String, dynamic>> query;
 
     try {
-      qs = await _db
+      query = await _db
           .collectionGroup(RevisionMeasurementData.collectionName)
-          .where('tenantId', isEqualTo: fixedTenantId)
+          .where('tenantId', isEqualTo: tenantId)
           .get();
     } on FirebaseException catch (e) {
       if (e.code == 'failed-precondition' || e.code == 'not-found') {
-        qs = await _db
+        query = await _db
             .collectionGroup(RevisionMeasurementData.collectionName)
             .get();
       } else {
@@ -114,7 +151,7 @@ class RevisionMeasurementRepository {
       }
     }
 
-    final list = qs.docs
+    final list = query.docs
         .where((doc) => _isTenantRevisionPath(doc.reference.path))
         .map(RevisionMeasurementData.fromDocument)
         .toList();
@@ -124,42 +161,46 @@ class RevisionMeasurementRepository {
     return list;
   }
 
-  Future<void> saveOrUpdateRevision({
+  Future<String> saveOrUpdateRevision({
     required String contractId,
-    required String revisionMeasurementId,
+    required String? revisionMeasurementId,
     required RevisionMeasurementData rev,
   }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para salvar revisão.');
+    }
+
     final cleanContractId = contractId.trim();
-    final cleanRevisionId = revisionMeasurementId.trim();
 
     if (cleanContractId.isEmpty) {
       throw Exception('contractId é obrigatório para salvar revisão.');
     }
 
-    if (cleanRevisionId.isEmpty) {
-      throw Exception('revisionMeasurementId é obrigatório para salvar revisão.');
-    }
-
-    final docRef = _doc(
+    final cleanRevisionId = revisionMeasurementId?.trim();
+    final docRef = cleanRevisionId == null || cleanRevisionId.isEmpty
+        ? _col(cleanContractId).doc()
+        : _doc(
       contractId: cleanContractId,
       revisionId: cleanRevisionId,
     );
+
+    final revisionId = docRef.id;
 
     final existing = await docRef.get();
 
     final data = rev
         .copyWith(
-      id: cleanRevisionId,
+      id: revisionId,
       contractId: cleanContractId,
     )
         .toFirestore()
       ..addAll({
-        'id': cleanRevisionId,
+        'id': revisionId,
         'contractId': cleanContractId,
         'uidContract': cleanContractId,
         'uidcontract': cleanContractId,
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'recordPath': docRef.path,
         'sourceCollectionModel': 'tenant_contract_revisions_measurement',
         'updatedAt': FieldValue.serverTimestamp(),
@@ -180,12 +221,16 @@ class RevisionMeasurementRepository {
     await docRef.set(data, SetOptions(merge: true));
 
     await _recalcularFinancialPercentage(cleanContractId);
+
+    return revisionId;
   }
 
   Future<void> deleteRevision({
     required String contractId,
     required String revisionId,
   }) async {
+    if (!hasTenant) return;
+
     final cleanContractId = contractId.trim();
     final cleanRevisionId = revisionId.trim();
 
@@ -205,10 +250,12 @@ class RevisionMeasurementRepository {
       if (raw is List) {
         for (final item in raw) {
           if (item is Map) {
-            final att = Attachment.fromMap(Map<String, dynamic>.from(item));
+            final attachment = Attachment.fromMap(
+              Map<String, dynamic>.from(item),
+            );
 
-            if (att.path.trim().isNotEmpty) {
-              await deleteStorageByPath(att.path);
+            if (attachment.path.trim().isNotEmpty) {
+              await deleteStorageByPath(attachment.path);
             }
           }
         }
@@ -217,7 +264,7 @@ class RevisionMeasurementRepository {
 
     try {
       final folder = _storage.ref(
-        'tenants/$fixedTenantId/contracts/$cleanContractId/'
+        'tenants/$tenantId/contracts/$cleanContractId/'
             '${RevisionMeasurementData.collectionName}/$cleanRevisionId/attachments',
       );
 
@@ -240,6 +287,10 @@ class RevisionMeasurementRepository {
     required String revisionMeasurementId,
     required String url,
   }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para salvar PDF da revisão.');
+    }
+
     final cleanContractId = contractId.trim();
     final cleanRevisionId = revisionMeasurementId.trim();
     final cleanUrl = url.trim();
@@ -254,8 +305,8 @@ class RevisionMeasurementRepository {
     await docRef.set(
       {
         'pdfUrl': cleanUrl.isEmpty ? FieldValue.delete() : cleanUrl,
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'contractId': cleanContractId,
         'uidContract': cleanContractId,
         'uidcontract': cleanContractId,
@@ -272,6 +323,10 @@ class RevisionMeasurementRepository {
     required String revisionId,
     required List<Attachment> attachments,
   }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para salvar anexos da revisão.');
+    }
+
     final cleanContractId = contractId.trim();
     final cleanRevisionId = revisionId.trim();
 
@@ -288,9 +343,9 @@ class RevisionMeasurementRepository {
       {
         'attachments': attachments.isEmpty
             ? FieldValue.delete()
-            : attachments.map((e) => e.toMap()).toList(),
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+            : attachments.map((item) => item.toMap()).toList(),
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'contractId': cleanContractId,
         'uidContract': cleanContractId,
         'uidcontract': cleanContractId,
@@ -343,7 +398,10 @@ class RevisionMeasurementRepository {
     return '$base-$random${ext.isEmpty ? ".bin" : ext}';
   }
 
-  String attachmentsDir(ContractData contract, RevisionMeasurementData revision) {
+  String attachmentsDir(
+      ContractData contract,
+      RevisionMeasurementData revision,
+      ) {
     final contractId = contract.id?.trim();
     final revisionId = revision.id?.trim();
 
@@ -355,7 +413,7 @@ class RevisionMeasurementRepository {
       throw Exception('revision.id é obrigatório para anexos de revisão.');
     }
 
-    return 'tenants/$fixedTenantId/contracts/$contractId/'
+    return 'tenants/$tenantId/contracts/$contractId/'
         '${RevisionMeasurementData.collectionName}/$revisionId/attachments';
   }
 
@@ -377,6 +435,10 @@ class RevisionMeasurementRepository {
     required String label,
     void Function(double progress)? onProgress,
   }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para enviar anexo da revisão.');
+    }
+
     final dir = attachmentsDir(contract, revision);
     final name = storedFileName(originalName);
     final ref = _storage.ref('$dir/$name');
@@ -389,7 +451,8 @@ class RevisionMeasurementRepository {
         contentType:
         ext == '.pdf' ? 'application/pdf' : 'application/octet-stream',
         customMetadata: {
-          'tenantId': fixedTenantId,
+          'tenantId': tenantId,
+          'companyId': tenantId,
           'originalName': originalName,
           'contractId': contract.id ?? '',
           'revisionId': revision.id ?? '',
@@ -399,7 +462,8 @@ class RevisionMeasurementRepository {
 
     task.snapshotEvents.listen((event) {
       if (event.totalBytes > 0) {
-        onProgress?.call(event.bytesTransferred / event.totalBytes);
+        final progress = event.bytesTransferred / event.totalBytes;
+        onProgress?.call(progress.clamp(0.0, 1.0));
       }
     });
 
@@ -431,35 +495,37 @@ class RevisionMeasurementRepository {
   }
 
   Future<void> _recalcularFinancialPercentage(String contractId) async {
+    if (!hasTenant) return;
+
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) return;
 
     double total = 0.0;
 
-    final reps = await _contractDoc(cleanContractId)
+    final reportsSnapshot = await _contractDoc(cleanContractId)
         .collection('reportsMeasurement')
         .get();
 
-    for (final doc in reps.docs) {
+    for (final doc in reportsSnapshot.docs) {
       final value = doc.data()['value'];
       total += value is num ? value.toDouble() : 0.0;
     }
 
-    final adjs = await _contractDoc(cleanContractId)
+    final adjustmentsSnapshot = await _contractDoc(cleanContractId)
         .collection('adjustmentsMeasurement')
         .get();
 
-    for (final doc in adjs.docs) {
+    for (final doc in adjustmentsSnapshot.docs) {
       final value = doc.data()['value'];
       total += value is num ? value.toDouble() : 0.0;
     }
 
-    final revs = await _contractDoc(cleanContractId)
-        .collection('revisionsMeasurement')
+    final revisionsSnapshot = await _contractDoc(cleanContractId)
+        .collection(RevisionMeasurementData.collectionName)
         .get();
 
-    for (final doc in revs.docs) {
+    for (final doc in revisionsSnapshot.docs) {
       final value = doc.data()['value'];
       total += value is num ? value.toDouble() : 0.0;
     }
@@ -468,35 +534,37 @@ class RevisionMeasurementRepository {
     final initialValue = contractSnap.data()?['initialContractValue'];
     final baseInicial = initialValue is num ? initialValue.toDouble() : 0.0;
 
-    final adds = await _contractDoc(cleanContractId).collection('additives').get();
+    final additivesSnapshot =
+    await _contractDoc(cleanContractId).collection('additives').get();
 
     double totalAditivos = 0.0;
 
-    for (final doc in adds.docs) {
+    for (final doc in additivesSnapshot.docs) {
       final value = doc.data()['additiveValue'] ?? doc.data()['additivevalue'];
       totalAditivos += value is num ? value.toDouble() : 0.0;
     }
 
-    final apos =
+    final apostillesSnapshot =
     await _contractDoc(cleanContractId).collection('apostilles').get();
 
     double totalApostilas = 0.0;
 
-    for (final doc in apos.docs) {
-      final value = doc.data()['apostilleValue'] ?? doc.data()['apostillevalue'];
+    for (final doc in apostillesSnapshot.docs) {
+      final value =
+          doc.data()['apostilleValue'] ?? doc.data()['apostillevalue'];
       totalApostilas += value is num ? value.toDouble() : 0.0;
     }
 
     final totalBase = baseInicial + totalAditivos + totalApostilas;
-
     final percent = totalBase > 0 ? (total / totalBase) * 100.0 : 0.0;
 
     await _contractDoc(cleanContractId).set(
       {
         'financialPercentage': percent,
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
       },
       SetOptions(merge: true),
     );

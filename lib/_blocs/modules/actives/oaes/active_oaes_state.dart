@@ -1,51 +1,54 @@
+// lib/_blocs/modules/actives/oaes/active_oaes_state.dart
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 
-enum ActiveOaesLoadStatus { idle, loading, success, failure }
+enum ActiveOaesLoadStatus {
+  idle,
+  loading,
+  success,
+  failure,
+}
 
 class ActiveOaesState extends Equatable {
-  static const _unset = Object();
+  static const Object _unset = Object();
 
   final bool initialized;
   final ActiveOaesLoadStatus loadStatus;
   final String? error;
 
-  /// Lista principal (sem filtro)
+  /// Lista principal sem filtro.
   final List<ActiveOaesData> all;
 
-  /// Edição/formulário
+  /// Edição/formulário.
   final ActiveOaesData form;
   final bool isEditable;
   final bool saving;
   final int? selectedIndex;
 
-  /// >>> FILTROS <<<
-  /// Índice da fatia no pie (0..5) – ou null (sem filtro)
+  /// Índice da fatia no gráfico de pizza, ou null para sem filtro.
   final int? selectedPieIndexFilter;
 
-  /// Rótulo da região (ex.: "SERTÃO") – ou null (sem filtro)
+  /// Rótulo da região selecionada, ou null para sem filtro.
   final String? selectedRegionFilter;
 
-  /// >>> REGIÕES (Setup) <<<
-  /// Labels das regiões vindas do Setup (company/órgão atual).
-  ///
-  /// Essa lista passa a ser a FONTE ÚNICA de rótulos de região (não mais HiringData.regions).
+  /// Regiões usadas nos gráficos/filtros.
   final List<String> regionLabels;
 
   ActiveOaesState({
     this.initialized = false,
     this.loadStatus = ActiveOaesLoadStatus.idle,
     this.error,
-    this.all = const [],
+    this.all = const <ActiveOaesData>[],
     ActiveOaesData? form,
     this.isEditable = false,
     this.saving = false,
     this.selectedIndex,
     this.selectedPieIndexFilter,
     this.selectedRegionFilter,
-    this.regionLabels = const [],
+    this.regionLabels = const <String>[],
   }) : form = form ?? ActiveOaesData();
 
   ActiveOaesState copyWith({
@@ -56,13 +59,12 @@ class ActiveOaesState extends Equatable {
     ActiveOaesData? form,
     bool? isEditable,
     bool? saving,
-    int? selectedIndex,
 
-    /// Use _unset para diferenciar "não alterar" de "definir null"
+    /// Usar Object para permitir limpar com null.
+    Object? selectedIndex = _unset,
     Object? selectedPieIndexFilter = _unset,
     Object? selectedRegionFilter = _unset,
 
-    /// Regiões vindas do Setup
     List<String>? regionLabels,
   }) {
     return ActiveOaesState(
@@ -73,7 +75,9 @@ class ActiveOaesState extends Equatable {
       form: form ?? this.form,
       isEditable: isEditable ?? this.isEditable,
       saving: saving ?? this.saving,
-      selectedIndex: selectedIndex,
+      selectedIndex: identical(selectedIndex, _unset)
+          ? this.selectedIndex
+          : selectedIndex as int?,
       selectedPieIndexFilter: identical(selectedPieIndexFilter, _unset)
           ? this.selectedPieIndexFilter
           : selectedPieIndexFilter as int?,
@@ -100,72 +104,102 @@ class ActiveOaesState extends Equatable {
   ];
 
   // ===========================================================================
-  // PIE (Notas 0..5)
+  // PIE - Notas 0..5
   // ===========================================================================
+
   List<int> get _pieScoresOrder => const <int>[0, 1, 2, 3, 4, 5];
 
   Map<int, int> get _countByScore {
-    final map = <int, int>{for (final s in _pieScoresOrder) s: 0};
-    for (final o in all) {
-      final s = (o.score ?? -1).toInt().clamp(0, 5);
-      map[s] = (map[s] ?? 0) + 1;
+    final map = <int, int>{
+      for (final score in _pieScoresOrder) score: 0,
+    };
+
+    for (final oae in all) {
+      final score = (oae.score ?? -1).toInt().clamp(0, 5);
+      map[score] = (map[score] ?? 0) + 1;
     }
+
     return map;
   }
 
-  /// Encontra o primeiro índice em `all` com a nota informada (para espelhar seleção)
   int firstOriginalIndexForScore(int scoreInt) {
-    return all.indexWhere((o) => (o.score ?? -1).toInt() == scoreInt);
+    return all.indexWhere(
+          (oae) => (oae.score ?? -1).toInt() == scoreInt,
+    );
   }
 
   List<({Color color, String labelText, int score, double value})>
   get _pieItems {
     final counts = _countByScore;
+
     return _pieScoresOrder.map((score) {
-      final qtd = counts[score] ?? 0;
+      final quantity = counts[score] ?? 0;
       final label = ActiveOaesData.getLabelByNota(score);
       final color = ActiveOaesData.getColorByNota(score.toDouble());
+
       return (
       score: score,
       labelText: label,
-      value: qtd.toDouble(),
+      value: quantity.toDouble(),
       color: color,
       );
     }).toList(growable: false);
   }
 
-  List<String> get pieLabelsForChart =>
-      _pieItems.map((e) => e.labelText).toList(growable: false);
+  List<String> get pieLabelsForChart {
+    return _pieItems.map((item) => item.labelText).toList(growable: false);
+  }
 
-  List<double> get pieValuesForChart =>
-      _pieItems.map((e) => e.value).toList(growable: false);
+  List<double> get pieValuesForChart {
+    return _pieItems.map((item) => item.value).toList(growable: false);
+  }
 
-  List<Color> get pieColorsForChart =>
-      _pieItems.map((e) => e.color).toList(growable: false);
+  List<Color> get pieColorsForChart {
+    return _pieItems.map((item) => item.color).toList(growable: false);
+  }
 
-  /// Soma total das fatias do pie (ex.: 294)
-  double get pieTotal => _pieItems.fold<double>(0.0, (sum, e) => sum + e.value);
+  double get pieTotal {
+    return _pieItems.fold<double>(
+      0.0,
+          (previousTotal, item) => previousTotal + item.value,
+    );
+  }
 
-  /// Mapeia índice do pie para a nota correspondente
   int scoreFromPieChartIndex(int pieIndex) {
     final items = _pieItems;
-    if (pieIndex < 0 || pieIndex >= items.length) return -1;
+
+    if (pieIndex < 0 || pieIndex >= items.length) {
+      return -1;
+    }
+
     return items[pieIndex].score;
   }
 
   // ===========================================================================
-  // GAUGE (derivado do Pie)
+  // GAUGE
   // ===========================================================================
+
   GaugeVM gaugeForPieSelection({int? selectedPieIndex}) {
     final total = pieTotal;
+
     if (total <= 0) {
-      return const GaugeVM(label: 'Total', count: 0, total: 0, percent: 0);
+      return const GaugeVM(
+        label: 'Total',
+        count: 0,
+        total: 0,
+        percent: 0,
+      );
     }
 
     if (selectedPieIndex == null ||
         selectedPieIndex < 0 ||
         selectedPieIndex >= pieValuesForChart.length) {
-      return GaugeVM(label: 'Total', count: total, total: total, percent: 1.0);
+      return GaugeVM(
+        label: 'Total',
+        count: total,
+        total: total,
+        percent: 1.0,
+      );
     }
 
     final value = pieValuesForChart[selectedPieIndex];
@@ -180,125 +214,175 @@ class ActiveOaesState extends Equatable {
   }
 
   // ===========================================================================
-  // REGIÕES (Bar Chart) - AGORA VINDO DO SETUPDATA
+  // REGIÕES
   // ===========================================================================
-  /// Labels de região usados pelos gráficos/barras.
-  /// Preenchidos via `ActiveOaesCubit.syncRegionsFromSetup`.
+
   List<String> get regionLabelsForCharts => regionLabels;
 
   List<double> get regionCounts {
     final labels = regionLabelsForCharts;
     final values = <double>[];
+
     for (final label in labels) {
-      final rUp = label.toUpperCase();
-      final count =
-          all.where((o) => (o.region ?? '').toUpperCase() == rUp).length;
+      final normalizedRegion = label.toUpperCase();
+
+      final count = all.where((oae) {
+        return (oae.region ?? '').toUpperCase() == normalizedRegion;
+      }).length;
+
       values.add(count.toDouble());
     }
+
     return values;
   }
 
-  /// Contagens por região filtradas por uma nota (score) específica.
   List<double> regionCountsFiltered({int? score}) {
     final labels = regionLabelsForCharts;
     final values = <double>[];
+
     for (final label in labels) {
-      final rUp = label.toUpperCase();
-      final count = all.where((o) {
-        final sameRegion = (o.region ?? '').toUpperCase() == rUp;
+      final normalizedRegion = label.toUpperCase();
+
+      final count = all.where((oae) {
+        final sameRegion =
+            (oae.region ?? '').toUpperCase() == normalizedRegion;
+
         if (!sameRegion) return false;
         if (score == null) return true;
-        final s = (o.score ?? -1).toInt();
-        return s == score;
+
+        final currentScore = (oae.score ?? -1).toInt();
+
+        return currentScore == score;
       }).length;
+
       values.add(count.toDouble());
     }
+
     return values;
   }
 
   List<double> get regionTotalsByValue {
     final labels = regionLabelsForCharts;
     final values = <double>[];
+
     for (final label in labels) {
-      final rUp = label.toUpperCase();
-      final sum = all
-          .where((o) => (o.region ?? '').toUpperCase() == rUp)
-          .fold<double>(0.0, (acc, o) => acc + (o.valueIntervention ?? 0.0));
-      values.add(sum);
+      final normalizedRegion = label.toUpperCase();
+
+      final total = all
+          .where(
+            (oae) => (oae.region ?? '').toUpperCase() == normalizedRegion,
+      )
+          .fold<double>(
+        0.0,
+            (previousTotal, oae) {
+          return previousTotal + (oae.valueIntervention ?? 0.0);
+        },
+      );
+
+      values.add(total);
     }
+
     return values;
   }
 
   List<Color> regionBarColors(int? selectedRegionIndex) {
     final values = regionCounts;
-    return List<Color>.generate(values.length, (i) {
-      final v = values[i];
-      if (v == 0.0) return Colors.grey.shade300;
-      return (selectedRegionIndex != null && selectedRegionIndex == i)
-          ? Colors.orangeAccent
-          : Colors.blueAccent;
+
+    return List<Color>.generate(values.length, (index) {
+      final value = values[index];
+
+      if (value == 0.0) {
+        return Colors.grey.shade300;
+      }
+
+      if (selectedRegionIndex != null && selectedRegionIndex == index) {
+        return Colors.orangeAccent;
+      }
+
+      return Colors.blueAccent;
     });
   }
 
   // ===========================================================================
-  // >>> FILTRO APLICADO (para o MAPA e demais UIs) <<<
+  // FILTROS APLICADOS
   // ===========================================================================
+
   int? get _scoreFilterOrNull {
     if (selectedPieIndexFilter == null) return null;
-    final idx = selectedPieIndexFilter!;
-    final score = scoreFromPieChartIndex(idx);
+
+    final index = selectedPieIndexFilter!;
+    final score = scoreFromPieChartIndex(index);
+
     if (score < 0) return null;
+
     return score;
   }
 
-  /// Lista já filtrada por (região) e/ou (score do pie)
   List<ActiveOaesData> get filteredAll {
     final scoreFilter = _scoreFilterOrNull;
     final regionFilter = selectedRegionFilter?.toUpperCase();
 
-    return all.where((o) {
+    return all.where((oae) {
       final okRegion = regionFilter == null
           ? true
-          : (o.region ?? '').toUpperCase() == regionFilter;
+          : (oae.region ?? '').toUpperCase() == regionFilter;
+
       if (!okRegion) return false;
 
       if (scoreFilter == null) return true;
-      final s = (o.score ?? -1).toInt();
-      return s == scoreFilter;
+
+      final score = (oae.score ?? -1).toInt();
+
+      return score == scoreFilter;
     }).toList(growable: false);
   }
 
-  /// Totais por região levando em conta o score selecionado no pie (se houver)
   List<double> regionCountsFilteredByPie() {
     final labels = regionLabelsForCharts;
     final scoreFilter = _scoreFilterOrNull;
     final values = <double>[];
 
     for (final label in labels) {
-      final rUp = label.toUpperCase();
-      final count = all.where((o) {
-        final sameRegion = (o.region ?? '').toUpperCase() == rUp;
+      final normalizedRegion = label.toUpperCase();
+
+      final count = all.where((oae) {
+        final sameRegion =
+            (oae.region ?? '').toUpperCase() == normalizedRegion;
+
         if (!sameRegion) return false;
         if (scoreFilter == null) return true;
-        final s = (o.score ?? -1).toInt();
-        return s == scoreFilter;
+
+        final score = (oae.score ?? -1).toInt();
+
+        return score == scoreFilter;
       }).length;
+
       values.add(count.toDouble());
     }
+
     return values;
   }
 
-  /// Conveniência para o MapInteractivePage (se ainda quiser espelhar região selecionada)
-  List<String>? get selectedRegionNamesForMap =>
-      selectedRegionFilter == null ? null : [selectedRegionFilter!];
+  List<String>? get selectedRegionNamesForMap {
+    if (selectedRegionFilter == null) return null;
+
+    return <String>[selectedRegionFilter!];
+  }
 
   // ===========================================================================
-  // ViewModel/VMs auxiliares
+  // ViewModels auxiliares
   // ===========================================================================
+
   List<ActiveOaesData> _dataForRegion(String? region) {
-    if (region == null || region.isEmpty) return all;
-    final rUp = region.toUpperCase();
-    return all.where((o) => (o.region ?? '').toUpperCase() == rUp).toList();
+    if (region == null || region.trim().isEmpty) {
+      return all;
+    }
+
+    final normalizedRegion = region.toUpperCase();
+
+    return all.where((oae) {
+      return (oae.region ?? '').toUpperCase() == normalizedRegion;
+    }).toList(growable: false);
   }
 
   PieVM pieVM({String? region}) {
@@ -313,22 +397,37 @@ class ActiveOaesState extends Equatable {
 
     final subset = _dataForRegion(region);
     final order = _pieScoresOrder;
-    final counts = <int, int>{for (final s in order) s: 0};
+
+    final counts = <int, int>{
+      for (final score in order) score: 0,
+    };
+
     for (final oae in subset) {
-      final s = (oae.score ?? -1).toInt().clamp(0, 5);
-      counts[s] = (counts[s] ?? 0) + 1;
+      final score = (oae.score ?? -1).toInt().clamp(0, 5);
+      counts[score] = (counts[score] ?? 0) + 1;
     }
 
     final labels = <String>[];
     final values = <double>[];
     final colors = <Color>[];
+
     for (final score in order) {
       labels.add(ActiveOaesData.getLabelByNota(score));
       values.add((counts[score] ?? 0).toDouble());
       colors.add(ActiveOaesData.getColorByNota(score.toDouble()));
     }
-    final total = values.fold<double>(0.0, (acc, v) => acc + v);
-    return PieVM(labels: labels, values: values, colors: colors, total: total);
+
+    final total = values.fold<double>(
+      0.0,
+          (previousTotal, value) => previousTotal + value,
+    );
+
+    return PieVM(
+      labels: labels,
+      values: values,
+      colors: colors,
+      total: total,
+    );
   }
 
   GaugeVM gaugeForPieSelectionWithRegion({
@@ -339,7 +438,12 @@ class ActiveOaesState extends Equatable {
     final total = vm.total;
 
     if (total <= 0) {
-      return const GaugeVM(label: 'Total', count: 0, total: 0, percent: 0);
+      return const GaugeVM(
+        label: 'Total',
+        count: 0,
+        total: 0,
+        percent: 0,
+      );
     }
 
     if (selectedPieIndex == null ||
@@ -355,6 +459,7 @@ class ActiveOaesState extends Equatable {
 
     final value = vm.values[selectedPieIndex];
     final label = vm.labels[selectedPieIndex];
+
     return GaugeVM(
       label: label,
       count: value,
@@ -363,47 +468,49 @@ class ActiveOaesState extends Equatable {
     );
   }
 
-  // ---- VMs tabela ----
   List<OaeRowVM> get oaesRowsVM {
-    return all.map((a) {
-      final scoreStr = () {
-        final s = a.score;
-        if (s == null) return '-';
-        final asInt = s.truncateToDouble() == s;
-        return s.toStringAsFixed(asInt ? 0 : 1);
+    return all.map((oae) {
+      final scoreText = () {
+        final score = oae.score;
+
+        if (score == null) return '-';
+
+        final isInteger = score.truncateToDouble() == score;
+
+        return score.toStringAsFixed(isInteger ? 0 : 1);
       }();
 
       return OaeRowVM(
-        id: a.id,
-        order: '${a.order ?? '-'}',
-        score: scoreStr,
-        state: a.state ?? '-',
-        region: a.region ?? '-',
-        identificationName: a.identificationName ?? '-',
-        extensionStr: _fmtNum(a.extension),
-        widthStr: _fmtNum(a.width),
-        areaStr: _fmtNum(a.area),
-        structureType: a.structureType ?? '-',
-        relatedContracts: a.relatedContracts ?? '-',
-        valueInterventionStr: _fmtMoneyBR(a.valueIntervention),
-        linearCostMediaStr: _fmtMoneyBR(a.linearCostMedia),
-        costEstimateStr: _fmtMoneyBR(a.costEstimate),
-        lastDateInterventionStr: _fmtDate(a.lastDateIntervention),
-        companyBuild: a.companyBuild ?? '-',
-        latStr: _fmtNum(a.latitude, maxDecimals: 6),
-        lngStr: _fmtNum(a.longitude, maxDecimals: 6),
-        altStr: _fmtNum(a.altitude, maxDecimals: 2),
+        id: oae.id,
+        order: '${oae.order ?? '-'}',
+        score: scoreText,
+        state: oae.state ?? '-',
+        region: oae.region ?? '-',
+        identificationName: oae.identificationName ?? '-',
+        extensionStr: _fmtNum(oae.extension),
+        widthStr: _fmtNum(oae.width),
+        areaStr: _fmtNum(oae.area),
+        structureType: oae.structureType ?? '-',
+        relatedContracts: oae.relatedContracts ?? '-',
+        valueInterventionStr: _fmtMoneyBR(oae.valueIntervention),
+        linearCostMediaStr: _fmtMoneyBR(oae.linearCostMedia),
+        costEstimateStr: _fmtMoneyBR(oae.costEstimate),
+        lastDateInterventionStr: _fmtDate(oae.lastDateIntervention),
+        companyBuild: oae.companyBuild ?? '-',
+        latStr: _fmtNum(oae.latitude, maxDecimals: 6),
+        lngStr: _fmtNum(oae.longitude, maxDecimals: 6),
+        altStr: _fmtNum(oae.altitude, maxDecimals: 2),
       );
     }).toList(growable: false);
   }
 }
 
-/// VM do Gauge
 class GaugeVM {
   final String label;
   final double count;
   final double total;
   final double percent;
+
   const GaugeVM({
     required this.label,
     required this.count,
@@ -411,16 +518,17 @@ class GaugeVM {
     required this.percent,
   });
 
-  String get subtitle =>
-      '${count.toStringAsFixed(0)} de ${total.toStringAsFixed(0)}';
+  String get subtitle {
+    return '${count.toStringAsFixed(0)} de ${total.toStringAsFixed(0)}';
+  }
 }
 
-/// VM do Pie
 class PieVM {
   final List<String> labels;
   final List<double> values;
   final List<Color> colors;
-  final double total; // soma(values)
+  final double total;
+
   const PieVM({
     required this.labels,
     required this.values,
@@ -429,7 +537,6 @@ class PieVM {
   });
 }
 
-/// ViewModel de uma linha pré-formatada
 class OaeRowVM {
   OaeRowVM({
     required this.id,
@@ -454,44 +561,77 @@ class OaeRowVM {
   });
 
   final String? id;
-  final String order, score, state, region, identificationName;
-  final String extensionStr, widthStr, areaStr;
-  final String structureType, relatedContracts;
-  final String valueInterventionStr, linearCostMediaStr, costEstimateStr;
-  final String lastDateInterventionStr, companyBuild;
-  final String latStr, lngStr, altStr;
+
+  final String order;
+  final String score;
+  final String state;
+  final String region;
+  final String identificationName;
+
+  final String extensionStr;
+  final String widthStr;
+  final String areaStr;
+
+  final String structureType;
+  final String relatedContracts;
+
+  final String valueInterventionStr;
+  final String linearCostMediaStr;
+  final String costEstimateStr;
+
+  final String lastDateInterventionStr;
+  final String companyBuild;
+
+  final String latStr;
+  final String lngStr;
+  final String altStr;
 }
 
-// ---------- Helpers locais simples (sem intl) ----------
-String _fmtDate(DateTime? d) {
-  if (d == null) return '-';
-  final dd = d.day.toString().padLeft(2, '0');
-  final mm = d.month.toString().padLeft(2, '0');
-  final yy = d.year.toString().padLeft(4, '0');
-  return '$dd/$mm/$yy';
+// -----------------------------------------------------------------------------
+// Helpers locais
+// -----------------------------------------------------------------------------
+
+String _fmtDate(DateTime? date) {
+  if (date == null) return '-';
+
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  final year = date.year.toString().padLeft(4, '0');
+
+  return '$day/$month/$year';
 }
 
-String _fmtMoneyBR(double? v) {
-  if (v == null) return '-';
-  final s = v.toStringAsFixed(2);
-  final parts = s.split('.');
+String _fmtMoneyBR(double? value) {
+  if (value == null) return '-';
+
+  final fixed = value.toStringAsFixed(2);
+  final parts = fixed.split('.');
   final intPart = parts[0];
-  final dec = parts[1];
+  final decimals = parts[1];
 
-  final buf = StringBuffer();
+  final buffer = StringBuffer();
+
   for (int i = 0; i < intPart.length; i++) {
-    buf.write(intPart[i]);
+    buffer.write(intPart[i]);
+
     final left = intPart.length - i - 1;
-    if (left > 0 && left % 3 == 0) buf.write('.');
+
+    if (left > 0 && left % 3 == 0) {
+      buffer.write('.');
+    }
   }
-  return 'R\$ ${buf.toString()},$dec';
+
+  return 'R\$ ${buffer.toString()},$decimals';
 }
 
-String _fmtNum(num? v, {int maxDecimals = 3}) {
-  if (v == null) return '-';
-  var s = v.toStringAsFixed(maxDecimals);
-  while (s.contains('.') && (s.endsWith('0') || s.endsWith('.'))) {
-    s = s.substring(0, s.length - 1);
+String _fmtNum(num? value, {int maxDecimals = 3}) {
+  if (value == null) return '-';
+
+  var text = value.toStringAsFixed(maxDecimals);
+
+  while (text.contains('.') && (text.endsWith('0') || text.endsWith('.'))) {
+    text = text.substring(0, text.length - 1);
   }
-  return s;
+
+  return text;
 }

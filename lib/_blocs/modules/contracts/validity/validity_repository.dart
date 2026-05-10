@@ -1,3 +1,5 @@
+// lib/_blocs/modules/contracts/validity/validity_repository.dart
+
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -18,21 +20,39 @@ class ValidityRepository {
     FirebaseFirestore? db,
     FirebaseAuth? auth,
     FirebaseStorage? storage,
+    String? tenantId,
   })  : _db = db ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _storage = storage ?? FirebaseStorage.instance,
+        _activeTenantId = tenantId?.trim();
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final FirebaseStorage _storage;
 
-  static const String fixedTenantId = 'SZQmefRUqdtLB14ahcuh';
+  String? _activeTenantId;
 
-  static const String tenantContractsCollectionPath =
-      'tenants/$fixedTenantId/contracts';
+  void setActiveTenantId(String? tenantId) {
+    final clean = tenantId?.trim();
+    _activeTenantId = clean == null || clean.isEmpty ? null : clean;
+  }
+
+  String _requireTenantId() {
+    final tenantId = _activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw Exception(
+        'Nenhuma empresa ativa foi selecionada para acessar vigências.',
+      );
+    }
+
+    return tenantId;
+  }
 
   CollectionReference<Map<String, dynamic>> _contractsCol() {
-    return _db.collection(tenantContractsCollectionPath);
+    final tenantId = _requireTenantId();
+
+    return _db.collection('tenants').doc(tenantId).collection('contracts');
   }
 
   DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
@@ -40,7 +60,7 @@ class ValidityRepository {
   }
 
   CollectionReference<Map<String, dynamic>> _ordersCol(String contractId) {
-    return _contractDoc(contractId).collection('orders');
+    return _contractDoc(contractId).collection(ValidityData.collectionName);
   }
 
   DocumentReference<Map<String, dynamic>> _orderDoc({
@@ -73,12 +93,14 @@ class ValidityRepository {
 
     if (value is String) {
       final text = value.trim();
+
       if (text.isEmpty) return null;
 
       final iso = DateTime.tryParse(text);
       if (iso != null) return iso;
 
       final parts = text.split('/');
+
       if (parts.length == 3) {
         final day = int.tryParse(parts[0]);
         final month = int.tryParse(parts[1]);
@@ -160,6 +182,7 @@ class ValidityRepository {
   }
 
   Future<ValidityData> salvarOuAtualizarValidade(ValidityData data) async {
+    final tenantId = _requireTenantId();
     final firebaseUser = _auth.currentUser;
     final uidContract = data.uidContract?.trim();
 
@@ -171,8 +194,8 @@ class ValidityRepository {
 
     await contractRef.set(
       <String, dynamic>{
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': firebaseUser?.uid ?? '',
       },
@@ -195,8 +218,8 @@ class ValidityRepository {
     final json = data.toJson()
       ..addAll({
         'id': validityId,
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'contractId': uidContract,
         'uidcontract': uidContract,
         'uidContract': uidContract,
@@ -225,6 +248,7 @@ class ValidityRepository {
   }
 
   Future<void> deletarValidade(String uidContract, String uidValidade) async {
+    final tenantId = _requireTenantId();
     final contractId = uidContract.trim();
     final validityId = uidValidade.trim();
 
@@ -258,7 +282,7 @@ class ValidityRepository {
 
     try {
       final folder = _storage.ref(
-        'tenants/$fixedTenantId/contracts/$contractId/orders/$validityId/',
+        'tenants/$tenantId/contracts/$contractId/orders/$validityId/',
       );
 
       final result = await folder.listAll();
@@ -274,8 +298,8 @@ class ValidityRepository {
 
     await _contractDoc(contractId).set(
       <String, dynamic>{
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': _uid(),
       },
@@ -317,6 +341,7 @@ class ValidityRepository {
       ValidityData validade,
       String contractId,
       ) async {
+    final tenantId = _requireTenantId();
     final currentUid = _auth.currentUser?.uid;
 
     if (currentUid == null) return;
@@ -330,8 +355,8 @@ class ValidityRepository {
     await ref.set({
       'tipo': 'validade',
       'titulo': validade.ordertype ?? 'Vigência atualizada',
-      'tenantId': fixedTenantId,
-      'companyId': fixedTenantId,
+      'tenantId': tenantId,
+      'companyId': tenantId,
       'contractId': contractId,
       'validityId': validade.id,
       'createdAt': FieldValue.serverTimestamp(),
@@ -348,6 +373,7 @@ class ValidityRepository {
         .limit(10)
         .snapshots()
         .asyncMap((snapshot) async {
+      final tenantId = _requireTenantId();
       final registros = <Registro>[];
 
       for (final doc in snapshot.docs) {
@@ -358,6 +384,7 @@ class ValidityRepository {
         final validityId = data['validityId'];
 
         if (tipo != 'validade') continue;
+        if (data['tenantId']?.toString() != tenantId) continue;
         if (contractId is! String || validityId is! String) continue;
 
         final originalSnap = await _orderDoc(
@@ -427,11 +454,13 @@ class ValidityRepository {
     var value = name.trim();
 
     final queryIndex = value.indexOf('?');
+
     if (queryIndex != -1) {
       value = value.substring(0, queryIndex);
     }
 
     final hashIndex = value.indexOf('#');
+
     if (hashIndex != -1) {
       value = value.substring(0, hashIndex);
     }
@@ -452,6 +481,7 @@ class ValidityRepository {
   }
 
   String _folderFor(ContractData contract, ValidityData validity) {
+    final tenantId = _requireTenantId();
     final contractId = contract.id?.trim();
     final validityId = validity.id?.trim();
 
@@ -463,7 +493,7 @@ class ValidityRepository {
       throw Exception('Validade sem ID para operação de Storage.');
     }
 
-    return 'tenants/$fixedTenantId/contracts/$contractId/orders/$validityId/';
+    return 'tenants/$tenantId/contracts/$contractId/orders/$validityId/';
   }
 
   String _legacyFileName(
@@ -524,6 +554,7 @@ class ValidityRepository {
     required String label,
     void Function(double progress)? onProgress,
   }) async {
+    final tenantId = _requireTenantId();
     final dir = _folderFor(contract, validity);
     final fileName = _storedFileName(originalName);
     final ref = _storage.ref('$dir$fileName');
@@ -536,8 +567,8 @@ class ValidityRepository {
             ? 'application/pdf'
             : 'application/octet-stream',
         customMetadata: {
-          'tenantId': fixedTenantId,
-          'companyId': fixedTenantId,
+          'tenantId': tenantId,
+          'companyId': tenantId,
           'originalName': originalName,
           'label': label,
           'contractId': contract.id ?? '',
@@ -573,6 +604,7 @@ class ValidityRepository {
     required String contractId,
     required String validityId,
   }) async {
+    final tenantId = _requireTenantId();
     final cleanContractId = contractId.trim();
     final cleanValidityId = validityId.trim();
 
@@ -581,7 +613,7 @@ class ValidityRepository {
     }
 
     final folderRef = _storage.ref(
-      'tenants/$fixedTenantId/contracts/$cleanContractId/orders/$cleanValidityId/',
+      'tenants/$tenantId/contracts/$cleanContractId/orders/$cleanValidityId/',
     );
 
     final output = <({String name, String url})>[];
@@ -631,6 +663,7 @@ class ValidityRepository {
     required String validityId,
     required List<Attachment> attachments,
   }) async {
+    final tenantId = _requireTenantId();
     final cleanContractId = contractId.trim();
     final cleanValidityId = validityId.trim();
 
@@ -645,8 +678,8 @@ class ValidityRepository {
 
     await _contractDoc(cleanContractId).set(
       <String, dynamic>{
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': _uid(),
       },
@@ -658,8 +691,8 @@ class ValidityRepository {
         'attachments': attachments.isEmpty
             ? FieldValue.delete()
             : attachments.map((item) => item.toMap()).toList(),
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'contractId': cleanContractId,
         'uidcontract': cleanContractId,
         'uidContract': cleanContractId,
@@ -675,6 +708,7 @@ class ValidityRepository {
     required ContractData contract,
     required ValidityData validity,
   }) async {
+    final tenantId = _requireTenantId();
     final contractId = contract.id?.trim();
     final validityId = validity.id?.trim();
 
@@ -714,8 +748,8 @@ class ValidityRepository {
         {
           'attachments': <Map<String, dynamic>>[attachment.toMap()],
           'pdfUrl': FieldValue.delete(),
-          'tenantId': fixedTenantId,
-          'companyId': fixedTenantId,
+          'tenantId': tenantId,
+          'companyId': tenantId,
           'contractId': contractId,
           'uidcontract': contractId,
           'uidContract': contractId,
@@ -752,8 +786,7 @@ class ValidityRepository {
         id: file.name,
         label: file.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
         url: file.url,
-        path:
-        'tenants/$fixedTenantId/contracts/$contractId/orders/$validityId/${file.name}',
+        path: 'tenants/$tenantId/contracts/$contractId/orders/$validityId/${file.name}',
         ext: ext,
         createdAt: DateTime.now(),
         createdBy: _auth.currentUser?.uid,
@@ -778,6 +811,8 @@ class ValidityRepository {
     void Function(double progress)? onProgress,
     PublicacaoExtratoData? extrato,
   }) async {
+    final tenantId = _requireTenantId();
+
     final ref = _storage.ref(
       _legacyPathFor(
         contract,
@@ -791,8 +826,8 @@ class ValidityRepository {
       SettableMetadata(
         contentType: 'application/pdf',
         customMetadata: {
-          'tenantId': fixedTenantId,
-          'companyId': fixedTenantId,
+          'tenantId': tenantId,
+          'companyId': tenantId,
           'contractId': contract.id ?? '',
           'validityId': validity.id ?? '',
         },
@@ -889,6 +924,7 @@ class ValidityRepository {
     required String validadeId,
     required String url,
   }) async {
+    final tenantId = _requireTenantId();
     final cleanContractId = contractId.trim();
     final cleanValidadeId = validadeId.trim();
     final cleanUrl = url.trim();
@@ -904,8 +940,8 @@ class ValidityRepository {
 
     await _contractDoc(cleanContractId).set(
       <String, dynamic>{
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': _uid(),
       },
@@ -915,8 +951,8 @@ class ValidityRepository {
     await docRef.set(
       {
         'pdfUrl': cleanUrl.isEmpty ? FieldValue.delete() : cleanUrl,
-        'tenantId': fixedTenantId,
-        'companyId': fixedTenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'contractId': cleanContractId,
         'uidcontract': cleanContractId,
         'uidContract': cleanContractId,
@@ -934,6 +970,7 @@ class ValidityRepository {
     PublicacaoExtratoData? extrato,
   }) async {
     try {
+      final tenantId = _requireTenantId();
       final contractId = contract.id?.trim();
       final validityId = validity.id?.trim();
 
@@ -960,8 +997,8 @@ class ValidityRepository {
       await docRef.set(
         {
           'pdfUrl': FieldValue.delete(),
-          'tenantId': fixedTenantId,
-          'companyId': fixedTenantId,
+          'tenantId': tenantId,
+          'companyId': tenantId,
           'contractId': contractId,
           'uidcontract': contractId,
           'uidContract': contractId,
@@ -1109,9 +1146,7 @@ class ValidityRepository {
     final ordemInicio = sorted
         .firstWhere(
           (validity) {
-        return (validity.ordertype ?? '')
-            .toUpperCase()
-            .contains('INÍCIO');
+        return (validity.ordertype ?? '').toUpperCase().contains('INÍCIO');
       },
       orElse: () => ValidityData(orderdate: null),
     )

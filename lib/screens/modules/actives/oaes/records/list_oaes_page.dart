@@ -1,160 +1,132 @@
-// lib/screens/modules/actives/oaes/list_oaes_page.dart
-import 'dart:async';
+// lib/screens/modules/actives/oaes/records/list_oaes_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+
 import 'list_oaes_status.dart';
 
-/// Callback para clique em uma OAE.
 typedef OaeTapCallback = void Function(ActiveOaesData oae);
-
-/// Callback para exclusão de uma OAE (recebe apenas o id).
 typedef OaeDeleteCallback = void Function(String oaeId);
+typedef OaeExpandedGetter = bool Function(String key);
+typedef OaeExpansionCallback = void Function(String key, bool open);
+typedef OaeSortCallback = void Function(int columnIndex, bool ascending);
 
-/// Helper para mapear nota -> cor/label
 class OaeScoreHelper {
-  static const _prefsExpandedKey = 'oaes_expanded_score_keys';
-
-  /// Normaliza o score double em int [0..5], ou -1 para "sem nota"
   static int normalizeScore(double? score) {
     if (score == null) return -1;
-    final v = score.round();
-    if (v < 0 || v > 5) return -1;
-    return v;
+
+    final value = score.round();
+
+    if (value < 0 || value > 5) return -1;
+
+    return value;
   }
 
-  /// Carrega do SharedPreferences quais grupos de nota estavam expandidos
-  static Future<Set<int>> loadExpandedScores() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getStringList(_prefsExpandedKey) ?? const <String>[];
-      return raw.map(int.parse).toSet();
-    } catch (_) {
-      return <int>{};
-    }
+  static String keyOf(int score) {
+    return 'SCORE_$score';
   }
 
-  /// Salva no SharedPreferences os grupos de nota expandidos
-  static Future<void> saveExpandedScores(Set<int> scores) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(
-        _prefsExpandedKey,
-        scores.map((e) => e.toString()).toList(),
-      );
-    } catch (_) {
-      // silencioso
-    }
+  static List<int> get scoreOrder {
+    return const <int>[1, 2, 3, 4, 5, 0, -1];
   }
 }
 
-class ListOaesPage extends StatefulWidget {
+class ListOaesPage extends StatelessWidget {
   const ListOaesPage({
     super.key,
     required this.oaes,
     required this.onTapItem,
     required this.onDelete,
+    required this.isExpanded,
+    required this.onExpansionChanged,
+    required this.onSort,
+    this.sortColumnIndex,
+    this.isAscending = true,
   });
 
-  /// Lista completa de OAEs já carregadas do Cubit.
   final List<ActiveOaesData> oaes;
-
-  /// Clique na linha (para selecionar no formulário, por exemplo).
   final OaeTapCallback onTapItem;
-
-  /// Exclusão de OAE (recebe apenas o id).
   final OaeDeleteCallback onDelete;
 
-  @override
-  State<ListOaesPage> createState() => _ListOaesPageState();
-}
+  final OaeExpandedGetter isExpanded;
+  final OaeExpansionCallback onExpansionChanged;
 
-class _ListOaesPageState extends State<ListOaesPage> {
-  final _searchCtrl = TextEditingController();
-  Timer? _debounce;
-  final String _search = '';
+  final OaeSortCallback onSort;
+  final int? sortColumnIndex;
+  final bool isAscending;
 
-  /// Conjunto de notas expandidas (0..5, -1 para "sem nota").
-  final Set<int> _expandedScores = <int>{};
-
-  @override
-  void initState() {
-    super.initState();
-    OaeScoreHelper.loadExpandedScores().then((set) {
-      if (!mounted) return;
-      setState(() {
-        _expandedScores
-          ..clear()
-          ..addAll(set);
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _toggleExpanded(int scoreKey, bool open) {
-    setState(() {
-      if (open) {
-        _expandedScores.add(scoreKey);
-      } else {
-        _expandedScores.remove(scoreKey);
-      }
-    });
-    OaeScoreHelper.saveExpandedScores(_expandedScores);
-  }
-
-  /// Aplica filtro simples por texto (identificação, região, rodovia, empresa).
-  List<ActiveOaesData> _applySearch(List<ActiveOaesData> base) {
-    if (_search.isEmpty) return base;
-    return base.where((o) {
-      final id = (o.identificationName ?? '').toUpperCase();
-      final region = (o.region ?? '').toUpperCase();
-      final road = (o.road ?? '').toUpperCase();
-      final company = (o.companyBuild ?? '').toUpperCase();
-      return id.contains(_search) ||
-          region.contains(_search) ||
-          road.contains(_search) ||
-          company.contains(_search);
-    }).toList(growable: false);
-  }
-
-  /// Agrupa por nota normalizada.
   Map<int, List<ActiveOaesData>> _groupByScore(List<ActiveOaesData> list) {
     final map = <int, List<ActiveOaesData>>{};
-    for (final o in list) {
-      final scoreKey = OaeScoreHelper.normalizeScore(o.score);
-      map.putIfAbsent(scoreKey, () => <ActiveOaesData>[]).add(o);
+
+    for (final oae in list) {
+      final scoreKey = OaeScoreHelper.normalizeScore(oae.score);
+
+      map.putIfAbsent(scoreKey, () => <ActiveOaesData>[]).add(oae);
     }
 
-    // ordena cada grupo por identificação
-    for (final e in map.entries) {
-      e.value.sort(
-            (a, b) =>
-            (a.identificationName ?? '')
-                .toUpperCase()
-                .compareTo((b.identificationName ?? '').toUpperCase()),
-      );
-    }
     return map;
+  }
+
+  Widget _emptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.account_tree_outlined,
+              size: 42,
+              color: Colors.grey.shade500,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Nenhuma OAE disponível',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Não há OAEs cadastradas ou compatíveis com a busca atual.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _applySearch(widget.oaes);
-    final byScore = _groupByScore(filtered);
-    const scoreOrder = <int>[1, 2, 3, 4, 5, 0, -1];
+    if (oaes.isEmpty) {
+      return _emptyState();
+    }
+
+    final grouped = _groupByScore(oaes);
+
+    final visibleScoreKeys = OaeScoreHelper.scoreOrder.where((scoreKey) {
+      final items = grouped[scoreKey] ?? const <ActiveOaesData>[];
+      return items.isNotEmpty;
+    }).toList(growable: false);
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Column(
-          children: scoreOrder.map((scoreKey) {
-            final items = byScore[scoreKey] ?? const <ActiveOaesData>[];
+        return ListView.builder(
+          padding: const EdgeInsets.only(bottom: 96),
+          itemCount: visibleScoreKeys.length,
+          itemBuilder: (context, index) {
+            final scoreKey = visibleScoreKeys[index];
+            final items = grouped[scoreKey] ?? const <ActiveOaesData>[];
+
             if (items.isEmpty) {
               return const SizedBox.shrink();
             }
@@ -164,18 +136,26 @@ class _ListOaesPageState extends State<ListOaesPage> {
               scoreKey >= 0 ? scoreKey.toDouble() : -1,
             );
 
+            final expansionKey = OaeScoreHelper.keyOf(scoreKey);
+
             return ListOaesStatus(
               title: label,
               scoreKey: scoreKey,
+              expansionKey: expansionKey,
               color: color,
               items: items,
               constraints: constraints,
-              initiallyExpanded: _expandedScores.contains(scoreKey),
-              onExpansionChanged: (open) => _toggleExpanded(scoreKey, open),
-              onTapItem: widget.onTapItem,
-              onDelete: widget.onDelete,
+              initiallyExpanded: isExpanded(expansionKey),
+              onExpansionChanged: (open) {
+                onExpansionChanged(expansionKey, open);
+              },
+              onTapItem: onTapItem,
+              onDelete: onDelete,
+              sortColumnIndex: sortColumnIndex,
+              isAscending: isAscending,
+              onSort: onSort,
             );
-          }).toList(),
+          },
         );
       },
     );

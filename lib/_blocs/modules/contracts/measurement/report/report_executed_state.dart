@@ -1,6 +1,5 @@
-// lib/_blocs/modules/contracts/measurement/report/report_executed_state.dart
-
 import 'package:equatable/equatable.dart';
+
 import 'report_executed_data.dart';
 
 enum ReportExecutedStatus {
@@ -9,6 +8,8 @@ enum ReportExecutedStatus {
   success,
   failure,
 }
+
+const Object _unset = Object();
 
 class ReportExecutedState extends Equatable {
   const ReportExecutedState({
@@ -21,13 +22,9 @@ class ReportExecutedState extends Equatable {
   });
 
   final ReportExecutedStatus status;
-
   final List<ReportExecutedData> measurements;
-
   final String? error;
-
   final String? contractId;
-
   final bool uploading;
   final double? uploadProgress;
 
@@ -45,28 +42,28 @@ class ReportExecutedState extends Equatable {
   ReportExecutedState copyWith({
     ReportExecutedStatus? status,
     List<ReportExecutedData>? measurements,
-    String? error,
-    bool clearError = false,
-    String? contractId,
-    bool clearContractId = false,
+    Object? error = _unset,
+    Object? contractId = _unset,
     bool? uploading,
-    double? uploadProgress,
-    bool clearUploadProgress = false,
+    Object? uploadProgress = _unset,
   }) {
     return ReportExecutedState(
       status: status ?? this.status,
       measurements: measurements ?? this.measurements,
-      error: clearError ? null : error ?? this.error,
-      contractId: clearContractId ? null : contractId ?? this.contractId,
+      error: identical(error, _unset) ? this.error : error as String?,
+      contractId: identical(contractId, _unset)
+          ? this.contractId
+          : contractId as String?,
       uploading: uploading ?? this.uploading,
-      uploadProgress:
-      clearUploadProgress ? null : uploadProgress ?? this.uploadProgress,
+      uploadProgress: identical(uploadProgress, _unset)
+          ? this.uploadProgress
+          : uploadProgress as double?,
     );
   }
 
   @override
   List<Object?> get props {
-    return [
+    return <Object?>[
       status,
       measurements,
       error,

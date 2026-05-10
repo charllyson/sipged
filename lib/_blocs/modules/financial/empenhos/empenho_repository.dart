@@ -6,41 +6,41 @@ import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'empenho_data.dart';
 
 class EmpenhoRepository {
+  EmpenhoRepository({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+    String? tenantId,
+    this.collectionPath,
+  })  : _db = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance,
+        _tenantId = tenantId?.trim();
+
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
 
-  /// Tenant temporário para testes.
-  ///
-  /// Depois que validarmos, remova esse fallback e injete o tenant real
-  /// pelo contexto da empresa logada.
-  static const String testTenantId = 'SZQmefRUqdtLB14ahcuh';
-
-  /// Se informado, usa:
-  /// tenants/{tenantId}/financial/empenhos/items
-  final String? tenantId;
+  String? _tenantId;
 
   /// Permite sobrescrever totalmente o caminho.
   ///
   /// Útil para testes, telas administrativas ou migrações.
   final String? collectionPath;
 
-  EmpenhoRepository({
-    FirebaseFirestore? firestore,
-    FirebaseAuth? auth,
-    this.tenantId,
-    this.collectionPath,
-  })  : _db = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+  void setActiveTenantId(String? tenantId) {
+    final clean = tenantId?.trim();
+
+    _tenantId = clean == null || clean.isEmpty ? null : clean;
+  }
 
   String get resolvedTenantId {
-    final tid = tenantId?.trim() ?? '';
+    final tid = _tenantId?.trim() ?? '';
 
-    if (tid.isNotEmpty) {
-      return tid;
+    if (tid.isEmpty) {
+      throw StateError(
+        'Tenant ativo não identificado para carregar empenhos.',
+      );
     }
 
-    // TEMPORÁRIO PARA TESTE
-    return testTenantId;
+    return tid;
   }
 
   String get resolvedCollectionPath {
@@ -87,10 +87,11 @@ class EmpenhoRepository {
   Future<List<DfdData>> getAvailableDfds({
     int limit = 1500,
   }) async {
+    final currentTenantId = resolvedTenantId;
+
     final snap = await _db.collectionGroup('objeto').limit(limit).get();
 
     final map = <String, DfdData>{};
-    final currentTenantId = resolvedTenantId;
 
     for (final doc in snap.docs) {
       final data = doc.data();
@@ -109,11 +110,18 @@ class EmpenhoRepository {
 
       final tenantIndex = segments.indexOf('tenants');
 
-      if (tenantIndex >= 0) {
-        if (tenantIndex + 1 >= segments.length ||
-            segments[tenantIndex + 1] != currentTenantId) {
-          continue;
-        }
+      if (tenantIndex < 0) {
+        continue;
+      }
+
+      if (tenantIndex + 1 >= segments.length) {
+        continue;
+      }
+
+      final docTenantId = segments[tenantIndex + 1].trim();
+
+      if (docTenantId != currentTenantId) {
+        continue;
       }
 
       String? contractId;
@@ -154,6 +162,7 @@ class EmpenhoRepository {
 
   Future<String> saveOrUpdate(EmpenhoData e) async {
     final uid = _auth.currentUser?.uid ?? '';
+    final tenantId = resolvedTenantId;
 
     final isUpdate = (e.id ?? '').trim().isNotEmpty;
 
@@ -166,7 +175,7 @@ class EmpenhoRepository {
     final payload = normalized.toFirestore()
       ..addAll({
         'id': id,
-        'tenantId': resolvedTenantId,
+        'tenantId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': uid,
       });

@@ -56,7 +56,9 @@ class AdjustmentMeasurement extends StatelessWidget {
         final permissionState = context.read<PermissionCubit>().state;
 
         return AdjustmentMeasurementCubit(
-          repository: AdjustmentMeasurementRepository(),
+          repository: AdjustmentMeasurementRepository(
+            tenantId: permissionState.activeTenantId,
+          ),
           initialPermissions: permissionState.current,
           initialTenantId: permissionState.activeTenantId,
           moduleId: 'operation_measurements_adjustments',
@@ -68,10 +70,20 @@ class AdjustmentMeasurement extends StatelessWidget {
               previous.activeTenantId != current.activeTenantId;
         },
         listener: (context, permissionState) {
-          context.read<AdjustmentMeasurementCubit>().updatePermissions(
+          final cubit = context.read<AdjustmentMeasurementCubit>();
+
+          cubit.updatePermissions(
             permissions: permissionState.current,
             tenantId: permissionState.activeTenantId,
           );
+
+          cubit.setTenantId(permissionState.activeTenantId);
+
+          final activeTenantId = permissionState.activeTenantId?.trim();
+
+          if (activeTenantId != null && activeTenantId.isNotEmpty) {
+            cubit.loadByContract(contractId);
+          }
         },
         child: _AdjustmentMeasurementView(contractData: contractData),
       ),
@@ -87,8 +99,9 @@ class _AdjustmentMeasurementView extends StatefulWidget {
   final ContractData contractData;
 
   @override
-  State<_AdjustmentMeasurementView> createState() =>
-      _AdjustmentMeasurementViewState();
+  State<_AdjustmentMeasurementView> createState() {
+    return _AdjustmentMeasurementViewState();
+  }
 }
 
 class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> {
@@ -114,7 +127,9 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
       return descricaoObjeto;
     }
 
-    if (_contractId.isNotEmpty) return 'Contrato $_contractId';
+    if (_contractId.isNotEmpty) {
+      return 'Contrato $_contractId';
+    }
 
     return 'Contrato sem identificação';
   }
@@ -209,14 +224,17 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
         if (composed.isNotEmpty) return composed;
 
         final email = (meta['email'] ?? '').toString().trim();
+
         if (email.isNotEmpty) return email;
       }
     }
 
     final displayName = currentUser?.displayName?.trim() ?? '';
+
     if (displayName.isNotEmpty) return displayName;
 
     final email = currentUser?.email?.trim() ?? '';
+
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
@@ -231,6 +249,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
       for (final item in users) {
         if ((item.uid ?? '').trim() == cleanUid) {
           final photo = item.urlPhoto?.trim() ?? '';
+
           if (photo.isNotEmpty) return photo;
         }
       }
@@ -261,9 +280,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
   DateTime? _parseDateTimeFromExtra(dynamic value) {
     if (value == null) return null;
 
-    if (value is DateTime) {
-      return value;
-    }
+    if (value is DateTime) return value;
 
     final text = value.toString().trim();
 
@@ -271,9 +288,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
     final iso = DateTime.tryParse(text);
 
-    if (iso != null) {
-      return iso;
-    }
+    if (iso != null) return iso;
 
     final parts = text.split('/');
 
@@ -299,9 +314,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
   num? _parseNumFromExtra(dynamic value) {
     if (value == null) return null;
 
-    if (value is num) {
-      return value;
-    }
+    if (value is num) return value;
 
     final text = value.toString().trim();
 
@@ -321,8 +334,6 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
@@ -429,7 +440,9 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
         dateCtrl.text.trim().isNotEmpty;
 
     if (formValidated != ok && mounted) {
-      setState(() => formValidated = ok);
+      setState(() {
+        formValidated = ok;
+      });
     }
   }
 
@@ -445,6 +458,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
   void _fillFieldsFromSelected(AdjustmentMeasurementState state) {
     final sel = state.selected;
+
     _selectedSideIndex = null;
 
     if (sel == null) {
@@ -462,6 +476,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
     if (sel.date != null) {
       final d = sel.date!;
+
       dateCtrl.text =
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
     } else {
@@ -522,6 +537,16 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
           );
         }
 
+        if (state.status == AdjustmentMeasurementStatus.error) {
+          return Center(
+            child: Text(
+              state.errorMessage ?? 'Erro ao carregar reajustes.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+          );
+        }
+
         final labels = state.adjustments
             .map((item) => (item.order ?? 0).toString())
             .toList();
@@ -532,7 +557,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
         final total = state.adjustments.fold<double>(
           0.0,
-              (sum, item) => sum + (item.value ?? 0.0),
+              (previousTotal, item) => previousTotal + (item.value ?? 0.0),
         );
 
         final double totalApostilles = 0.0;
@@ -604,6 +629,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                               if (!ok) return;
 
                               final parsedOrder = _parseInt(orderCtrl.text);
+
                               final effectiveOrder =
                               (parsedOrder == null || parsedOrder <= 0)
                                   ? _computeNextOrder(state)
@@ -688,14 +714,17 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                             },
                             onClear: () {
                               cubit.clearSelection();
-                              setState(() => _selectedSideIndex = null);
+
+                              setState(() {
+                                _selectedSideIndex = null;
+                              });
                             },
                             sideItems: attachments,
                             selectedSideIndex: _selectedSideIndex,
-                            onAddSideItem: (state.selected != null &&
+                            onAddSideItem: state.selected != null &&
                                 state.selected?.id != null &&
                                 contractId != null &&
-                                contractId.isNotEmpty)
+                                contractId.isNotEmpty
                                 ? () async {
                               try {
                                 await cubit.pickAndUploadAttachment(
@@ -709,7 +738,9 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 setState(() {
                                   _selectedSideIndex =
                                   cubit.state.attachments.isNotEmpty
-                                      ? cubit.state.attachments
+                                      ? cubit
+                                      .state
+                                      .attachments
                                       .length -
                                       1
                                       : null;
@@ -721,8 +752,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                     : null;
 
                                 final actorName = _resolveActorName(
-                                  FirebaseAuth
-                                      .instance.currentUser?.uid,
+                                  FirebaseAuth.instance.currentUser?.uid,
                                 );
 
                                 await _safeNotify(
@@ -756,7 +786,9 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                             }
                                 : null,
                             onTapSideItem: (index) {
-                              setState(() => _selectedSideIndex = index);
+                              setState(() {
+                                _selectedSideIndex = index;
+                              });
                             },
                             onDeleteSideItem: (index) async {
                               if (contractId == null || contractId.isEmpty) {
@@ -766,6 +798,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                               final sel = state.selected;
 
                               if (sel?.id == null) return;
+
                               if (index < 0 || index >= attachments.length) {
                                 return;
                               }
@@ -787,7 +820,9 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 );
 
                                 if (mounted) {
-                                  setState(() => _selectedSideIndex = null);
+                                  setState(() {
+                                    _selectedSideIndex = null;
+                                  });
                                 }
 
                                 final actorName = _resolveActorName(
@@ -951,7 +986,9 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
                             final deleted = state.adjustments.firstWhere(
                                   (item) => item.id == id,
-                              orElse: () => AdjustmentMeasurementData(id: id),
+                              orElse: () {
+                                return AdjustmentMeasurementData(id: id);
+                              },
                             );
 
                             try {

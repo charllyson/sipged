@@ -1,5 +1,3 @@
-// lib/_blocs/modules/transit/infractions/infractions_state.dart
-
 import 'package:equatable/equatable.dart';
 
 import 'infractions_data.dart';
@@ -101,8 +99,7 @@ class InfractionsState extends Equatable {
       currentPage: currentPage ?? this.currentPage,
       totalPages: totalPages ?? this.totalPages,
       itemsPerPage: itemsPerPage ?? this.itemsPerPage,
-      selectorUniverseAll:
-      selectorUniverseAll ?? this.selectorUniverseAll,
+      selectorUniverseAll: selectorUniverseAll ?? this.selectorUniverseAll,
       filtered: filtered ?? this.filtered,
       pageItems: pageItems ?? this.pageItems,
     );

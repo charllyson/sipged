@@ -1,5 +1,3 @@
-// lib/_blocs/modules/transit/infractions/infractions_repository.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -21,21 +19,31 @@ class InfractionsRepository {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
 
-  final String? _tenantId;
+  String? _tenantId;
   final String? _baseCollectionPath;
   final bool _enableLegacyFallback;
 
-  /// ID fixo temporário para teste.
-  static const String _manualTenantIdForTest = 'SZQmefRUqdtLB14ahcuh';
-
-  /// Estrutura antiga.
   static const String legacyCollectionPath = 'trafficInfractions';
 
-  /// Estrutura nova temporária para teste:
-  ///
-  /// tenants/SZQmefRUqdtLB14ahcuh/traffic/infractions/items
-  ///
-  /// Depois, remova o uso de [_manualTenantIdForTest] e volte para [_tenantId].
+  bool get hasTenant {
+    final explicit = (_baseCollectionPath ?? '').trim();
+    if (explicit.isNotEmpty) return true;
+
+    final tenant = (_tenantId ?? '').trim();
+    return tenant.isNotEmpty;
+  }
+
+  void setActiveTenantId(String? tenantId) {
+    final clean = tenantId?.trim();
+
+    if (clean == null || clean.isEmpty || clean.toLowerCase() == 'null') {
+      _tenantId = null;
+      return;
+    }
+
+    _tenantId = clean;
+  }
+
   String get collectionPath {
     final explicit = (_baseCollectionPath ?? '').trim();
 
@@ -43,16 +51,10 @@ class InfractionsRepository {
       return explicit;
     }
 
-    final tenant = _manualTenantIdForTest.trim();
+    final tenant = (_tenantId ?? '').trim();
 
     if (tenant.isNotEmpty) {
       return 'tenants/$tenant/traffic/infractions/items';
-    }
-
-    final dynamicTenant = (_tenantId ?? '').trim();
-
-    if (dynamicTenant.isNotEmpty) {
-      return 'tenants/$dynamicTenant/traffic/infractions/items';
     }
 
     return 'traffic/infractions/items';
@@ -105,6 +107,10 @@ class InfractionsRepository {
   Future<DocumentReference<Map<String, dynamic>>> _getOrCreateContainerForYear(
       int year,
       ) async {
+    if (!hasTenant) {
+      throw Exception('Nenhuma empresa selecionada para salvar infrações.');
+    }
+
     final existing = await _getContainerByYearFrom(_containers, year);
 
     if (existing != null) {
@@ -150,7 +156,13 @@ class InfractionsRepository {
 
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
   listYearContainers() async {
-    final current = await _listYearContainersFrom(_containers);
+    if (!hasTenant && !_enableLegacyFallback) {
+      return const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    }
+
+    final current = hasTenant
+        ? await _listYearContainersFrom(_containers)
+        : const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
     if (current.isNotEmpty || !_enableLegacyFallback) {
       return current;
@@ -197,7 +209,9 @@ class InfractionsRepository {
   }
 
   Future<List<InfractionsData>> getAllInfractions() async {
-    final current = await _getAllInfractionsFrom(_containers);
+    final current = hasTenant
+        ? await _getAllInfractionsFrom(_containers)
+        : const <InfractionsData>[];
 
     if (current.isNotEmpty || !_enableLegacyFallback) {
       return current;
@@ -277,12 +291,16 @@ class InfractionsRepository {
     required int year,
     required InfractionsData data,
   }) async {
+    if (!hasTenant) {
+      throw Exception('Nenhuma empresa selecionada para salvar infrações.');
+    }
+
     final user = _auth.currentUser;
 
     final containerRef = await _getOrCreateContainerForYear(year);
     final recordsRef = containerRef.collection('records');
 
-    final docRef = data.id != null && data.id!.isNotEmpty
+    final docRef = data.id != null && data.id!.trim().isNotEmpty
         ? recordsRef.doc(data.id)
         : recordsRef.doc();
 
@@ -339,6 +357,10 @@ class InfractionsRepository {
     required int year,
     required String recordId,
   }) async {
+    if (!hasTenant) {
+      throw Exception('Nenhuma empresa selecionada para excluir infrações.');
+    }
+
     final container = await _getContainerByYearCompat(year);
 
     if (container == null) {

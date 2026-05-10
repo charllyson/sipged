@@ -18,6 +18,9 @@ import 'package:sipged/_blocs/system/notification/helpers/notification_apostille
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
+
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
@@ -93,9 +96,16 @@ class _ApostillesPageState extends State<ApostillesPage> {
   void initState() {
     super.initState();
 
+    final permissionState = context.read<PermissionCubit>().state;
+
     _cubit = ApostillesCubit(
       contract: widget.contractData,
-      repository: ApostillesRepository(),
+      repository: ApostillesRepository(
+        tenantId: permissionState.activeTenantId,
+      ),
+      initialPermissions: permissionState.current,
+      tenantId: permissionState.activeTenantId,
+      moduleId: _route,
       enforcePermissions: false,
     );
 
@@ -171,6 +181,10 @@ class _ApostillesPageState extends State<ApostillesPage> {
       'contracts/$contractId/hiring/dfd',
       'contracts/$contractId/dfd/main',
       'contracts/$contractId/demand/dfd',
+
+      // Caminhos multi-tenant, caso o DFD já esteja no novo padrão.
+      if (_cubit.state.errorMessage == null)
+        ..._tenantDfdCandidatePaths(contractId),
     ];
 
     for (final path in candidatePaths) {
@@ -187,6 +201,27 @@ class _ApostillesPageState extends State<ApostillesPage> {
     }
 
     return null;
+  }
+
+  List<String> _tenantDfdCandidatePaths(String contractId) {
+    try {
+      final tenantId = context.read<PermissionCubit>().state.activeTenantId;
+      final cleanTenantId = tenantId?.trim();
+
+      if (cleanTenantId == null || cleanTenantId.isEmpty) {
+        return const <String>[];
+      }
+
+      return <String>[
+        'tenants/$cleanTenantId/contracts/$contractId/hiring/00Dfd',
+        'tenants/$cleanTenantId/contracts/$contractId/hiring/01Dfd',
+        'tenants/$cleanTenantId/contracts/$contractId/hiring/dfd',
+        'tenants/$cleanTenantId/contracts/$contractId/dfd/main',
+        'tenants/$cleanTenantId/contracts/$contractId/demand/dfd',
+      ];
+    } catch (_) {
+      return const <String>[];
+    }
   }
 
   DfdData? _parseDfd(
@@ -343,10 +378,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -393,11 +425,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         'sourceKey': _notificationSource,
         'subSource': _notificationSource,
         'notificationSource': _notificationSource,
-
-        /// Mantidos para o NotificationBell identificar usuário/foto.
         'actorId': currentUserId,
         'actorName': actorName,
-
         'contractId': _contractId,
         'contractNumber': _contractNumber,
         'processNumber': _contractNumber,
@@ -415,10 +444,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -745,150 +771,77 @@ class _ApostillesPageState extends State<ApostillesPage> {
   Widget build(BuildContext context) {
     return BlocProvider<ApostillesCubit>.value(
       value: _cubit,
-      child: BlocBuilder<ApostillesCubit, ApostillesState>(
-        builder: (context, state) {
-          _applyInitialNextOrderOnce(state);
+      child: BlocListener<PermissionCubit, PermissionState>(
+        listenWhen: (previous, current) {
+          return previous.current != current.current ||
+              previous.activeTenantId != current.activeTenantId;
+        },
+        listener: (context, permissionState) {
+          _cubit.updatePermissions(
+            permissions: permissionState.current,
+            tenantId: permissionState.activeTenantId,
+          );
+        },
+        child: BlocBuilder<ApostillesCubit, ApostillesState>(
+          builder: (context, state) {
+            _applyInitialNextOrderOnce(state);
 
-          if (state.selected == null && _lastFilledId != null) {
-            _clearForm(keepOrder: true);
-          }
+            if (state.selected == null && _lastFilledId != null) {
+              _clearForm(keepOrder: true);
+            }
 
-          if (state.selected != null && state.selected!.id != _lastFilledId) {
-            _fillForm(state.selected!);
-            _cubit.reloadAttachments();
-          }
+            if (state.selected != null && state.selected!.id != _lastFilledId) {
+              _fillForm(state.selected!);
+              _cubit.reloadAttachments();
+            }
 
-          final isLoading = state.status == ApostillesStatus.loading;
+            final isLoading = state.status == ApostillesStatus.loading;
 
-          final labels = state.apostilles
-              .map((item) => (item.apostilleOrder ?? '').toString())
-              .toList();
+            final labels = state.apostilles
+                .map((item) => (item.apostilleOrder ?? '').toString())
+                .toList();
 
-          final values = state.apostilles
-              .map((item) => (item.apostilleValue ?? 0.0).toDouble())
-              .toList();
+            final values = state.apostilles
+                .map((item) => (item.apostilleValue ?? 0.0).toDouble())
+                .toList();
 
-          return Stack(
-            children: [
-              Column(
-                children: [
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: constraints.maxHeight,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SectionTitle(
-                                  text: 'Cadastrar apostilamentos no sistema',
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
+            return Stack(
+              children: [
+                Column(
+                  children: [
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SectionTitle(
+                                    text: 'Cadastrar apostilamentos no sistema',
                                   ),
-                                  child: ApostilleFormSection(
-                                    isEditable: state.isEditable,
-                                    editingMode: state.editingMode,
-                                    formValidated: state.formValid,
-                                    selectedApostille: state.selected,
-                                    currentApostilleId: state.selected?.id,
-                                    contractData: widget.contractData,
-                                    orderController: _orderCtrl,
-                                    processController: _processCtrl,
-                                    dateController: _dateCtrl,
-                                    valueController: _valueCtrl,
-                                    onSave: _save,
-                                    onClear: () {
-                                      try {
-                                        _cubit.createNewApostille();
-                                      } catch (e) {
-                                        _safeNotify(
-                                          title: 'Sem permissão',
-                                          subtitle: e.toString(),
-                                          status: NotificationStatus.error,
-                                        );
-                                        return;
-                                      }
-
-                                      _clearForm();
-
-                                      _orderCtrl.text =
-                                          state.nextAvailableOrder.toString();
-
-                                      _cubit.updateFormValidity(
-                                        orderText: _orderCtrl.text,
-                                        dateText: _dateCtrl.text,
-                                        processText: _processCtrl.text,
-                                        valueText: _valueCtrl.text,
-                                      );
-                                    },
-                                    orderNumberOptions: state.orderOptions,
-                                    greyOrderItems: state.greyOrderItems,
-                                    onChangedOrderNumber: (value) {
-                                      if (value == null) return;
-
-                                      _orderCtrl.text = value;
-
-                                      final order =
-                                          int.tryParse(value.trim()) ?? 0;
-
-                                      _cubit.selectApostilleByOrder(order);
-                                      _cubit.reloadAttachments();
-
-                                      if (_cubit.state.selected == null) {
-                                        _clearForm(keepOrder: true);
-                                      } else {
-                                        _fillForm(_cubit.state.selected!);
-                                      }
-
-                                      _cubit.updateFormValidity(
-                                        orderText: _orderCtrl.text,
-                                        dateText: _dateCtrl.text,
-                                        processText: _processCtrl.text,
-                                        valueText: _valueCtrl.text,
-                                      );
-                                    },
-                                    sideItems: state.sideAttachments,
-                                    selectedSideIndex:
-                                    _selectedAttachmentIndex,
-                                    onAddSideItem:
-                                    state.canAddFile ? _addAttachment : null,
-                                    onTapSideItem: (index) {
-                                      setState(() {
-                                        _selectedAttachmentIndex = index;
-                                      });
-                                    },
-                                    onDeleteSideItem: _deleteAttachment,
-                                    onRenamePersist:
-                                    _persistRenameAttachment,
-                                    onItemsChanged: (newItems) {
-                                      _ensureSelectedAttachmentIndexValid(
-                                        newItems.length,
-                                      );
-                                    },
-                                  ),
-                                ),
-                                const SectionTitle(
-                                  text: 'Gráfico dos apostilamentos',
-                                ),
-                                if (!isLoading && state.apostilles.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.all(24),
-                                    child: Text(
-                                      'Nenhum apostilamento cadastrado para exibir no gráfico.',
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
                                     ),
-                                  )
-                                else
-                                  ApostilleGraphSection(
-                                    labels: labels,
-                                    values: values,
-                                    selectedIndex: state.selectedIndex,
-                                    onSelectIndex: (index) {
-                                      if (index < 0) {
+                                    child: ApostilleFormSection(
+                                      isEditable: state.isEditable,
+                                      editingMode: state.editingMode,
+                                      formValidated: state.formValid,
+                                      selectedApostille: state.selected,
+                                      currentApostilleId: state.selected?.id,
+                                      contractData: widget.contractData,
+                                      orderController: _orderCtrl,
+                                      processController: _processCtrl,
+                                      dateController: _dateCtrl,
+                                      valueController: _valueCtrl,
+                                      sideLoading: state.sideLoading,
+                                      uploadProgress: state.uploadProgress,
+                                      onSave: _save,
+                                      onClear: () {
                                         try {
                                           _cubit.createNewApostille();
                                         } catch (e) {
@@ -905,71 +858,161 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                         _orderCtrl.text =
                                             state.nextAvailableOrder.toString();
 
-                                        return;
-                                      }
+                                        _cubit.updateFormValidity(
+                                          orderText: _orderCtrl.text,
+                                          dateText: _dateCtrl.text,
+                                          processText: _processCtrl.text,
+                                          valueText: _valueCtrl.text,
+                                        );
+                                      },
+                                      orderNumberOptions: state.orderOptions,
+                                      greyOrderItems: state.greyOrderItems,
+                                      onChangedOrderNumber: (value) {
+                                        if (value == null) return;
 
-                                      _cubit.selectApostilleByIndex(index);
-                                      _cubit.reloadAttachments();
+                                        _orderCtrl.text = value;
 
-                                      final selected = _cubit.state.selected;
+                                        final order =
+                                            int.tryParse(value.trim()) ?? 0;
 
-                                      if (selected?.apostilleOrder != null) {
-                                        _orderCtrl.text = selected!
-                                            .apostilleOrder
-                                            .toString();
-                                      }
-                                    },
+                                        _cubit.selectApostilleByOrder(order);
+                                        _cubit.reloadAttachments();
+
+                                        if (_cubit.state.selected == null) {
+                                          _clearForm(keepOrder: true);
+                                        } else {
+                                          _fillForm(_cubit.state.selected!);
+                                        }
+
+                                        _cubit.updateFormValidity(
+                                          orderText: _orderCtrl.text,
+                                          dateText: _dateCtrl.text,
+                                          processText: _processCtrl.text,
+                                          valueText: _valueCtrl.text,
+                                        );
+                                      },
+                                      sideItems: state.sideAttachments,
+                                      selectedSideIndex:
+                                      _selectedAttachmentIndex,
+                                      onAddSideItem: state.canAddFile
+                                          ? _addAttachment
+                                          : null,
+                                      onTapSideItem: (index) {
+                                        setState(() {
+                                          _selectedAttachmentIndex = index;
+                                        });
+                                      },
+                                      onDeleteSideItem: _deleteAttachment,
+                                      onRenamePersist:
+                                      _persistRenameAttachment,
+                                      onItemsChanged: (newItems) {
+                                        _ensureSelectedAttachmentIndexValid(
+                                          newItems.length,
+                                        );
+                                      },
+                                    ),
                                   ),
-                                const SectionTitle(
-                                  text: 'Apostilamentos cadastrados no sistema',
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
+                                  const SectionTitle(
+                                    text: 'Gráfico dos apostilamentos',
                                   ),
-                                  child: ApostilleTableSection(
-                                    apostilles: state.apostilles,
-                                    isLoading: isLoading,
-                                    selectedItem: state.selected,
-                                    onTapItem: (apostille) {
-                                      _cubit.selectApostille(apostille);
-                                      _cubit.reloadAttachments();
+                                  if (!isLoading && state.apostilles.isEmpty)
+                                    const Padding(
+                                      padding: EdgeInsets.all(24),
+                                      child: Text(
+                                        'Nenhum apostilamento cadastrado para exibir no gráfico.',
+                                      ),
+                                    )
+                                  else
+                                    ApostilleGraphSection(
+                                      labels: labels,
+                                      values: values,
+                                      selectedIndex: state.selectedIndex,
+                                      onSelectIndex: (index) {
+                                        if (index < 0) {
+                                          try {
+                                            _cubit.createNewApostille();
+                                          } catch (e) {
+                                            _safeNotify(
+                                              title: 'Sem permissão',
+                                              subtitle: e.toString(),
+                                              status: NotificationStatus.error,
+                                            );
+                                            return;
+                                          }
 
-                                      if (apostille.apostilleOrder != null) {
-                                        _orderCtrl.text = apostille
-                                            .apostilleOrder
-                                            .toString();
-                                      }
-                                    },
-                                    onDelete: _deleteApostille,
+                                          _clearForm();
+
+                                          _orderCtrl.text = state
+                                              .nextAvailableOrder
+                                              .toString();
+
+                                          return;
+                                        }
+
+                                        _cubit.selectApostilleByIndex(index);
+                                        _cubit.reloadAttachments();
+
+                                        final selected = _cubit.state.selected;
+
+                                        if (selected?.apostilleOrder != null) {
+                                          _orderCtrl.text = selected!
+                                              .apostilleOrder
+                                              .toString();
+                                        }
+                                      },
+                                    ),
+                                  const SectionTitle(
+                                    text:
+                                    'Apostilamentos cadastrados no sistema',
                                   ),
-                                ),
-                                const SizedBox(height: 20),
-                              ],
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    child: ApostilleTableSection(
+                                      apostilles: state.apostilles,
+                                      isLoading: isLoading,
+                                      selectedItem: state.selected,
+                                      onTapItem: (apostille) {
+                                        _cubit.selectApostille(apostille);
+                                        _cubit.reloadAttachments();
+
+                                        if (apostille.apostilleOrder != null) {
+                                          _orderCtrl.text = apostille
+                                              .apostilleOrder
+                                              .toString();
+                                        }
+                                      },
+                                      onDelete: _deleteApostille,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const FootBar(),
-                ],
-              ),
-              if (state.isSaving || isLoading || _loadingContractDisplay)
-                Stack(
-                  children: [
-                    ModalBarrier(
-                      dismissible: false,
-                      color: Colors.black.withValues(alpha: 0.4),
-                    ),
-                    const Center(
-                      child: LoadingTreeDots(size: 120),
-                    ),
+                    const FootBar(),
                   ],
                 ),
-            ],
-          );
-        },
+                if (state.isSaving || isLoading || _loadingContractDisplay)
+                  Stack(
+                    children: [
+                      ModalBarrier(
+                        dismissible: false,
+                        color: Colors.black.withValues(alpha: 0.4),
+                      ),
+                      const Center(
+                        child: LoadingTreeDots(size: 120),
+                      ),
+                    ],
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

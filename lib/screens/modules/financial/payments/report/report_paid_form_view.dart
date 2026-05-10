@@ -1,5 +1,3 @@
-// lib/screens/modules/financial/payments/report/report_measurement_payment_form_view.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -45,8 +43,9 @@ class ReportMeasurementPaymentFormView extends StatefulWidget {
   final Future<void> Function()? onPaymentsChanged;
 
   @override
-  State<ReportMeasurementPaymentFormView> createState() =>
-      _ReportMeasurementPaymentFormViewState();
+  State<ReportMeasurementPaymentFormView> createState() {
+    return _ReportMeasurementPaymentFormViewState();
+  }
 }
 
 class _ReportMeasurementPaymentFormViewState
@@ -70,14 +69,21 @@ class _ReportMeasurementPaymentFormViewState
 
   int _formNonce = 0;
   int _fundingNonce = 0;
+
   bool _startupLoaded = false;
   bool _formOk = false;
 
-  String get _contractId => widget.contractData.id?.trim() ?? '';
+  String get _contractId {
+    return widget.contractData.id?.trim() ?? '';
+  }
 
-  String get _measurementId => widget.selectedReportMeasurement.id?.trim() ?? '';
+  String get _measurementId {
+    return widget.selectedReportMeasurement.id?.trim() ?? '';
+  }
 
-  double get _measurementValue => widget.selectedReportMeasurement.value ?? 0.0;
+  double get _measurementValue {
+    return widget.selectedReportMeasurement.value ?? 0.0;
+  }
 
   int? get _measurementOrder {
     final fromModel = widget.selectedReportMeasurement.order;
@@ -147,6 +153,13 @@ class _ReportMeasurementPaymentFormViewState
 
     if (_orderCtrl.text != nextOrder) {
       _orderCtrl.text = nextOrder;
+    }
+
+    final oldMeasurementId = oldWidget.selectedReportMeasurement.id?.trim();
+    final nextMeasurementId = widget.selectedReportMeasurement.id?.trim();
+
+    if (oldMeasurementId != nextMeasurementId) {
+      _fillFromPayment(null);
     }
   }
 
@@ -231,7 +244,9 @@ class _ReportMeasurementPaymentFormViewState
   double _sumPaymentTotalValues(List<ReportPaidData> payments) {
     return payments.fold<double>(
       0.0,
-          (totalValue, payment) => totalValue + _paymentTotalValue(payment),
+          (totalValue, payment) {
+        return totalValue + _paymentTotalValue(payment);
+      },
     );
   }
 
@@ -390,7 +405,9 @@ class _ReportMeasurementPaymentFormViewState
     final ok = _computeFormOk();
 
     if (_formOk != ok && mounted) {
-      setState(() => _formOk = ok);
+      setState(() {
+        _formOk = ok;
+      });
     }
   }
 
@@ -463,7 +480,9 @@ class _ReportMeasurementPaymentFormViewState
       maxLines: maxLines,
       keyboardType: money
           ? const TextInputType.numberWithOptions(decimal: true)
-          : (date ? TextInputType.datetime : TextInputType.text),
+          : date
+          ? TextInputType.datetime
+          : TextInputType.text,
       prefixText: money ? 'R\$ ' : null,
       prefixStyle: const TextStyle(
         fontSize: 14,
@@ -487,7 +506,9 @@ class _ReportMeasurementPaymentFormViewState
     DateTime? initialValue,
   }) {
     return DateFieldChange(
-      key: ValueKey('payment-date-$keyId-$_formNonce-${controller.text}'),
+      key: ValueKey<String>(
+        'payment-date-$keyId-$_formNonce-${controller.text}',
+      ),
       width: width,
       enabled: widget.isEditable,
       controller: controller,
@@ -524,6 +545,209 @@ class _ReportMeasurementPaymentFormViewState
     return (_parseOptionalCurrency(_inssValueCtrl.text) ?? 0.0) +
         (_parseOptionalCurrency(_irpfValueCtrl.text) ?? 0.0) +
         (_parseOptionalCurrency(_issValueCtrl.text) ?? 0.0);
+  }
+
+  Future<void> _savePayment({
+    required ReportPaidCubit cubit,
+    required ScaffoldMessengerState scaffoldMessenger,
+    required ReportPaidData? selected,
+    required List<Attachment> attachments,
+  }) async {
+    final date = _parseDate(_dateCtrl.text);
+    final value = _parseCurrency(_valueCtrl.text);
+
+    final inssDate = _parseOptionalDate(_inssDateCtrl.text);
+    final inssValue = _parseOptionalCurrency(_inssValueCtrl.text);
+
+    final irpfDate = _parseOptionalDate(_irpfDateCtrl.text);
+    final irpfValue = _parseOptionalCurrency(_irpfValueCtrl.text);
+
+    final issDate = _parseOptionalDate(_issDateCtrl.text);
+    final issValue = _parseOptionalCurrency(_issValueCtrl.text);
+
+    if (date == null) {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Informe uma data de pagamento válida.'),
+        ),
+      );
+      return;
+    }
+
+    final data = ReportPaidData(
+      id: selected?.id,
+      contractId: _contractId,
+      measurementId: _measurementId,
+      measurementOrder: _measurementOrder,
+      fundingSourceId: _fonteCtrl.text.trim(),
+      fundingSourceLabel: _fonteCtrl.text.trim(),
+      paymentDate: date,
+      paymentValue: value,
+      inssPaymentDate: inssDate,
+      inssPaymentValue: inssValue,
+      irpfPaymentDate: irpfDate,
+      irpfPaymentValue: irpfValue,
+      issPaymentDate: issDate,
+      issPaymentValue: issValue,
+      note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
+      attachments: attachments.isEmpty ? null : List<Attachment>.from(attachments),
+    );
+
+    try {
+      await cubit.saveOrUpdate(
+        data: data,
+        measurementValue: _measurementValue,
+      );
+
+      await _notifyParentPaymentsChanged();
+
+      if (!mounted) return;
+
+      cubit.select(null);
+      _fillFromPayment(null);
+    } catch (e) {
+      if (!mounted) return;
+
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deletePayment({
+    required ReportPaidCubit cubit,
+    required ScaffoldMessengerState scaffoldMessenger,
+    required ReportPaidData payment,
+  }) async {
+    final id = payment.id?.trim();
+
+    if (id == null || id.isEmpty) return;
+
+    try {
+      await cubit.deletePayment(
+        contractId: _contractId,
+        measurementId: _measurementId,
+        paymentId: id,
+        measurementValue: _measurementValue,
+      );
+
+      await _notifyParentPaymentsChanged();
+
+      if (!mounted) return;
+
+      cubit.select(null);
+      _fillFromPayment(null);
+    } catch (e) {
+      if (!mounted) return;
+
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+        ),
+      );
+    }
+  }
+
+  Future<void> _uploadAttachment({
+    required ReportPaidCubit cubit,
+    required ScaffoldMessengerState scaffoldMessenger,
+    required ReportPaidData? selected,
+  }) async {
+    final selectedPayment = selected;
+
+    if (selectedPayment == null) return;
+
+    final paymentId = selectedPayment.id?.trim() ?? '';
+
+    if (paymentId.isEmpty) return;
+
+    try {
+      await cubit.pickAndUploadAttachment(
+        contractId: _contractId,
+        measurementId: _measurementId,
+        paymentId: paymentId,
+      );
+
+      await _notifyParentPaymentsChanged();
+    } catch (e) {
+      if (!mounted) return;
+
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteAttachment({
+    required ReportPaidCubit cubit,
+    required ScaffoldMessengerState scaffoldMessenger,
+    required ReportPaidData? selected,
+    required List<Attachment> attachments,
+    required int index,
+  }) async {
+    final selectedPayment = selected;
+
+    if (selectedPayment == null) return;
+
+    if (index < 0 || index >= attachments.length) return;
+
+    final paymentId = selectedPayment.id?.trim() ?? '';
+
+    if (paymentId.isEmpty) return;
+
+    try {
+      await cubit.deleteAttachment(
+        contractId: _contractId,
+        measurementId: _measurementId,
+        paymentId: paymentId,
+        attachment: attachments[index],
+      );
+
+      await _notifyParentPaymentsChanged();
+    } catch (e) {
+      if (!mounted) return;
+
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+        ),
+      );
+    }
+  }
+
+  Future<bool> _renameAttachment({
+    required ReportPaidCubit cubit,
+    required ReportPaidData? selected,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
+    final selectedPayment = selected;
+
+    if (selectedPayment == null) return false;
+
+    final paymentId = selectedPayment.id?.trim() ?? '';
+
+    if (paymentId.isEmpty) return false;
+
+    try {
+      await cubit.renameAttachmentLabel(
+        contractId: _contractId,
+        measurementId: _measurementId,
+        paymentId: paymentId,
+        oldItem: oldItem,
+        newItem: newItem,
+      );
+
+      await _notifyParentPaymentsChanged();
+
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -578,6 +802,23 @@ class _ReportMeasurementPaymentFormViewState
                     );
                   }
 
+                  if (paymentState.status == ReportPaidStatus.failure &&
+                      paymentState.payments.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          paymentState.error ?? 'Erro ao carregar pagamentos.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: SipGedTheme.danger,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
                   final selected = paymentState.selected;
                   final attachments =
                       selected?.attachments ?? const <Attachment>[];
@@ -602,7 +843,7 @@ class _ReportMeasurementPaymentFormViewState
                       ),
                       DropDownChange(
                         showSpecialAlways: true,
-                        key: ValueKey(
+                        key: ValueKey<String>(
                           'payment-funding-$_fundingNonce-${_fonteCtrl.text}',
                         ),
                         width: inputsWidth,
@@ -843,85 +1084,12 @@ class _ReportMeasurementPaymentFormViewState
                         ),
                         onPressed: _formOk && widget.isEditable
                             ? () async {
-                          final date = _parseDate(_dateCtrl.text);
-                          final value = _parseCurrency(_valueCtrl.text);
-
-                          final inssDate = _parseOptionalDate(
-                            _inssDateCtrl.text,
+                          await _savePayment(
+                            cubit: cubit,
+                            scaffoldMessenger: scaffoldMessenger,
+                            selected: selected,
+                            attachments: attachments,
                           );
-                          final inssValue = _parseOptionalCurrency(
-                            _inssValueCtrl.text,
-                          );
-
-                          final irpfDate = _parseOptionalDate(
-                            _irpfDateCtrl.text,
-                          );
-                          final irpfValue = _parseOptionalCurrency(
-                            _irpfValueCtrl.text,
-                          );
-
-                          final issDate = _parseOptionalDate(
-                            _issDateCtrl.text,
-                          );
-                          final issValue = _parseOptionalCurrency(
-                            _issValueCtrl.text,
-                          );
-
-                          if (date == null) {
-                            scaffoldMessenger.showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Informe uma data de pagamento válida.',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-
-                          final data = ReportPaidData(
-                            id: selected?.id,
-                            contractId: _contractId,
-                            measurementId: _measurementId,
-                            measurementOrder: _measurementOrder,
-                            fundingSourceId: _fonteCtrl.text.trim(),
-                            fundingSourceLabel: _fonteCtrl.text.trim(),
-                            paymentDate: date,
-                            paymentValue: value,
-                            inssPaymentDate: inssDate,
-                            inssPaymentValue: inssValue,
-                            irpfPaymentDate: irpfDate,
-                            irpfPaymentValue: irpfValue,
-                            issPaymentDate: issDate,
-                            issPaymentValue: issValue,
-                            note: _noteCtrl.text.trim().isEmpty
-                                ? null
-                                : _noteCtrl.text.trim(),
-                            attachments: attachments.isEmpty
-                                ? null
-                                : List<Attachment>.from(attachments),
-                          );
-
-                          try {
-                            await cubit.saveOrUpdate(
-                              data: data,
-                              measurementValue: _measurementValue,
-                            );
-
-                            await _notifyParentPaymentsChanged();
-
-                            if (!mounted) return;
-
-                            cubit.select(null);
-                            _fillFromPayment(null);
-                          } catch (e) {
-                            if (!mounted) return;
-
-                            scaffoldMessenger.showSnackBar(
-                              SnackBar(
-                                content: Text(e.toString()),
-                              ),
-                            );
-                          }
                         }
                             : null,
                       ),
@@ -955,33 +1123,11 @@ class _ReportMeasurementPaymentFormViewState
                         },
                         onDelete: widget.isEditable
                             ? (payment) async {
-                          final id = payment.id?.trim();
-
-                          if (id == null || id.isEmpty) return;
-
-                          try {
-                            await cubit.deletePayment(
-                              contractId: _contractId,
-                              measurementId: _measurementId,
-                              paymentId: id,
-                              measurementValue: _measurementValue,
-                            );
-
-                            await _notifyParentPaymentsChanged();
-
-                            if (!mounted) return;
-
-                            cubit.select(null);
-                            _fillFromPayment(null);
-                          } catch (e) {
-                            if (!mounted) return;
-
-                            scaffoldMessenger.showSnackBar(
-                              SnackBar(
-                                content: Text(e.toString()),
-                              ),
-                            );
-                          }
+                          await _deletePayment(
+                            cubit: cubit,
+                            scaffoldMessenger: scaffoldMessenger,
+                            payment: payment,
+                          );
                         }
                             : null,
                       ),
@@ -997,31 +1143,11 @@ class _ReportMeasurementPaymentFormViewState
                     width: sideWidth,
                     onAddPressed: widget.isEditable && selected?.id != null
                         ? () async {
-                      final selectedPayment = selected;
-
-                      if (selectedPayment == null) return;
-
-                      final paymentId = selectedPayment.id?.trim() ?? '';
-
-                      if (paymentId.isEmpty) return;
-
-                      try {
-                        await cubit.pickAndUploadAttachment(
-                          contractId: _contractId,
-                          measurementId: _measurementId,
-                          paymentId: paymentId,
-                        );
-
-                        await _notifyParentPaymentsChanged();
-                      } catch (e) {
-                        if (!mounted) return;
-
-                        scaffoldMessenger.showSnackBar(
-                          SnackBar(
-                            content: Text(e.toString()),
-                          ),
-                        );
-                      }
+                      await _uploadAttachment(
+                        cubit: cubit,
+                        scaffoldMessenger: scaffoldMessenger,
+                        selected: selected,
+                      );
                     }
                         : null,
                     onTap: (index) {
@@ -1029,36 +1155,13 @@ class _ReportMeasurementPaymentFormViewState
                     },
                     onDelete: widget.isEditable && selected?.id != null
                         ? (index) async {
-                      final selectedPayment = selected;
-
-                      if (selectedPayment == null) return;
-
-                      if (index < 0 || index >= attachments.length) {
-                        return;
-                      }
-
-                      final paymentId = selectedPayment.id?.trim() ?? '';
-
-                      if (paymentId.isEmpty) return;
-
-                      try {
-                        await cubit.deleteAttachment(
-                          contractId: _contractId,
-                          measurementId: _measurementId,
-                          paymentId: paymentId,
-                          attachment: attachments[index],
-                        );
-
-                        await _notifyParentPaymentsChanged();
-                      } catch (e) {
-                        if (!mounted) return;
-
-                        scaffoldMessenger.showSnackBar(
-                          SnackBar(
-                            content: Text(e.toString()),
-                          ),
-                        );
-                      }
+                      await _deleteAttachment(
+                        cubit: cubit,
+                        scaffoldMessenger: scaffoldMessenger,
+                        selected: selected,
+                        attachments: attachments,
+                        index: index,
+                      );
                     }
                         : null,
                     enableRename: widget.isEditable && selected?.id != null,
@@ -1072,29 +1175,12 @@ class _ReportMeasurementPaymentFormViewState
                       required Attachment oldItem,
                       required Attachment newItem,
                     }) async {
-                      final selectedPayment = selected;
-
-                      if (selectedPayment == null) return false;
-
-                      final paymentId = selectedPayment.id?.trim() ?? '';
-
-                      if (paymentId.isEmpty) return false;
-
-                      try {
-                        await cubit.renameAttachmentLabel(
-                          contractId: _contractId,
-                          measurementId: _measurementId,
-                          paymentId: paymentId,
-                          oldItem: oldItem,
-                          newItem: newItem,
-                        );
-
-                        await _notifyParentPaymentsChanged();
-
-                        return true;
-                      } catch (_) {
-                        return false;
-                      }
+                      return _renameAttachment(
+                        cubit: cubit,
+                        selected: selected,
+                        oldItem: oldItem,
+                        newItem: newItem,
+                      );
                     },
                   );
 

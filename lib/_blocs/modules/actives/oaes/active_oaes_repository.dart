@@ -15,73 +15,96 @@ class ActiveOaesRepository {
     String? tenantId,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
-  })  : _tenantId = tenantId ?? _manualTenantIdForTest,
+    FirebaseAuth? auth,
+  })  : _tenantId = _cleanTenantId(tenantId),
         _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _storage = storage ?? FirebaseStorage.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
-  /// ---------------------------------------------------------------------------
-  /// TESTE TEMPORÁRIO
-  /// ---------------------------------------------------------------------------
-  ///
-  /// Coloque aqui manualmente o ID do tenant enquanto o TenantContext/TenantCubit
-  /// ainda não foi implementado.
-  ///
-  /// Exemplo:
-  /// static const String? _manualTenantIdForTest = 'der-al';
-  ///
-  /// Quando quiser voltar para o comportamento antigo/automático:
-  /// static const String? _manualTenantIdForTest = null;
-  ///
-  static const String _manualTenantIdForTest = 'SZQmefRUqdtLB14ahcuh';
-
-  final String? _tenantId;
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
+  final FirebaseAuth _auth;
 
-  bool get _hasTenant {
-    return _tenantId != null && _tenantId.trim().isNotEmpty;
+  String? _tenantId;
+
+  static String? _cleanTenantId(String? value) {
+    final clean = value?.trim();
+    return clean == null || clean.isEmpty ? null : clean;
   }
 
+  String? get currentTenantId => _cleanTenantId(_tenantId);
+
+  bool get hasTenant => currentTenantId != null;
+
   String get effectiveTenantId {
-    return _tenantId?.trim() ?? '';
+    final clean = currentTenantId;
+
+    if (clean == null || clean.isEmpty) {
+      throw StateError(
+        'tenantId não definido em ActiveOaesRepository. '
+            'Selecione uma empresa antes de acessar OAEs.',
+      );
+    }
+
+    return clean;
+  }
+
+  void setActiveTenantId(String? value) {
+    final next = _cleanTenantId(value);
+
+    if (_tenantId == next) return;
+
+    _tenantId = next;
   }
 
   String get collectionPath {
-    if (_hasTenant) {
-      return 'tenants/$effectiveTenantId/assets/oaes/items';
-    }
-
-    return 'actives_oaes';
+    return 'tenants/$effectiveTenantId/assets/oaes/items';
   }
 
   String get storageBasePath {
-    if (_hasTenant) {
-      return 'tenants/$effectiveTenantId/assets/oaes';
-    }
-
-    return 'actives_oaes';
+    return 'tenants/$effectiveTenantId/assets/oaes';
   }
 
   CollectionReference<Map<String, dynamic>> get _ref {
     return _firestore.collection(collectionPath);
   }
 
+  String _uid() {
+    return _auth.currentUser?.uid ?? '';
+  }
+
   // ---------------------------------------------------------------------------
-  // OAE DATA (Firestore)
+  // OAE DATA
   // ---------------------------------------------------------------------------
 
   Future<List<ActiveOaesData>> fetchAll() async {
-    final snapshot = await _ref.orderBy('order').get();
+    if (!hasTenant) return const <ActiveOaesData>[];
 
-    return snapshot.docs.map((doc) {
-      return ActiveOaesData.fromDocument(doc);
-    }).toList();
+    QuerySnapshot<Map<String, dynamic>> snapshot;
+
+    try {
+      snapshot = await _ref.orderBy('order').get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'failed-precondition' || e.code == 'not-found') {
+        snapshot = await _ref.get();
+      } else {
+        rethrow;
+      }
+    }
+
+    final list = snapshot.docs.map(ActiveOaesData.fromDocument).toList();
+
+    list.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
+
+    return list;
   }
 
   Future<List<ActiveOaesData>> fetchPage({
     DocumentSnapshot? startAfter,
     int limit = 20,
   }) async {
+    if (!hasTenant) return const <ActiveOaesData>[];
+
     Query<Map<String, dynamic>> query = _ref.orderBy('order').limit(limit);
 
     if (startAfter != null) {
@@ -90,31 +113,40 @@ class ActiveOaesRepository {
 
     final snapshot = await query.get();
 
-    return snapshot.docs.map((doc) {
-      return ActiveOaesData.fromDocument(doc);
-    }).toList();
+    return snapshot.docs.map(ActiveOaesData.fromDocument).toList();
   }
 
   Future<ActiveOaesData> upsert(ActiveOaesData data) async {
-    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para salvar OAE.');
+    }
 
-    final docRef = data.id != null ? _ref.doc(data.id) : _ref.doc();
-    data.id ??= docRef.id;
+    final docRef = data.id == null || data.id!.trim().isEmpty
+        ? _ref.doc()
+        : _ref.doc(data.id!.trim());
 
-    final json = data.toMap()
+    final id = docRef.id;
+    final existing = await docRef.get();
+
+    final json = data.copyWith(id: id).toMap()
       ..addAll({
-        'id': data.id,
-        if (_hasTenant) 'tenantId': effectiveTenantId,
+        'id': id,
+        'tenantId': effectiveTenantId,
+        'companyId': effectiveTenantId,
+        'recordPath': docRef.path,
+        'sourceCollectionModel': 'tenant_assets_oaes_items',
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': firebaseUser?.uid ?? '',
+        'updatedBy': _uid(),
       });
 
-    final snapshot = await docRef.get();
-    final isNew = !snapshot.exists || snapshot.data()?['createdAt'] == null;
+    final isNew = !existing.exists || existing.data()?['createdAt'] == null;
 
     if (isNew) {
       json['createdAt'] = FieldValue.serverTimestamp();
-      json['createdBy'] = firebaseUser?.uid ?? '';
+      json['createdBy'] = _uid();
+    } else {
+      json.remove('createdAt');
+      json.remove('createdBy');
     }
 
     await docRef.set(json, SetOptions(merge: true));
@@ -124,19 +156,64 @@ class ActiveOaesRepository {
   }
 
   Future<void> deleteById(String id) async {
-    await _ref.doc(id).delete();
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para excluir OAE.');
+    }
+
+    final cleanId = id.trim();
+
+    if (cleanId.isEmpty) return;
+
+    await _ref.doc(cleanId).delete();
   }
 
   Future<ActiveOaesData?> getById(String id) async {
-    final snap = await _ref.doc(id).get();
+    if (!hasTenant) return null;
+
+    final cleanId = id.trim();
+
+    if (cleanId.isEmpty) return null;
+
+    final snap = await _ref.doc(cleanId).get();
 
     if (!snap.exists) return null;
 
     return ActiveOaesData.fromDocument(snap);
   }
 
+  Future<void> setAttachments({
+    required String oaeId,
+    required List<Attachment> attachments,
+  }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para salvar anexos da OAE.');
+    }
+
+    final cleanId = oaeId.trim();
+
+    if (cleanId.isEmpty) {
+      throw Exception('oaeId é obrigatório para salvar anexos.');
+    }
+
+    final docRef = _ref.doc(cleanId);
+
+    await docRef.set(
+      {
+        'attachments': attachments.isEmpty
+            ? FieldValue.delete()
+            : attachments.map((item) => item.toMap()).toList(),
+        'tenantId': effectiveTenantId,
+        'companyId': effectiveTenantId,
+        'recordPath': docRef.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
   // ---------------------------------------------------------------------------
-  // Helpers de nome/caminho para Storage
+  // Helpers Storage
   // ---------------------------------------------------------------------------
 
   String _sanitize(String s) {
@@ -234,6 +311,10 @@ class ActiveOaesRepository {
     void Function(double progress)? onProgress,
     String? forcedLabel,
   }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para enviar arquivo de OAE.');
+    }
+
     final dir = baseDir.endsWith('/')
         ? baseDir.substring(0, baseDir.length - 1)
         : baseDir;
@@ -243,23 +324,25 @@ class ActiveOaesRepository {
 
     final ext = _extNoDot(originalName);
     final label = forcedLabel ?? _baseName(originalName);
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _uid();
 
     final task = ref.putData(
       bytes,
       SettableMetadata(
         contentType: _contentTypeForExt(ext),
         customMetadata: {
+          'tenantId': effectiveTenantId,
+          'companyId': effectiveTenantId,
           'originalName': originalName,
-          if (_hasTenant) 'tenantId': effectiveTenantId,
         },
       ),
     );
 
     if (onProgress != null) {
-      task.snapshotEvents.listen((e) {
-        if (e.totalBytes > 0) {
-          onProgress(e.bytesTransferred / e.totalBytes);
+      task.snapshotEvents.listen((event) {
+        if (event.totalBytes > 0) {
+          final progress = event.bytesTransferred / event.totalBytes;
+          onProgress(progress.clamp(0.0, 1.0));
         }
       });
     }
@@ -290,6 +373,10 @@ class ActiveOaesRepository {
     void Function(double progress)? onProgress,
     String? forcedLabel,
   }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para anexar arquivo de OAE.');
+    }
+
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
       type: allowedExtensions == null ? FileType.any : FileType.custom,
@@ -315,8 +402,12 @@ class ActiveOaesRepository {
   // ---------------------------------------------------------------------------
 
   Future<bool> deleteByPath(String storagePath) async {
+    final cleanPath = storagePath.trim();
+
+    if (cleanPath.isEmpty) return false;
+
     try {
-      await _storage.ref(storagePath).delete();
+      await _storage.ref(cleanPath).delete();
       return true;
     } catch (_) {
       return false;
@@ -324,16 +415,24 @@ class ActiveOaesRepository {
   }
 
   Future<String?> getDownloadUrlByPath(String storagePath) async {
+    final cleanPath = storagePath.trim();
+
+    if (cleanPath.isEmpty) return null;
+
     try {
-      return await _storage.ref(storagePath).getDownloadURL();
+      return await _storage.ref(cleanPath).getDownloadURL();
     } catch (_) {
       return null;
     }
   }
 
   Future<bool> existsPath(String storagePath) async {
+    final cleanPath = storagePath.trim();
+
+    if (cleanPath.isEmpty) return false;
+
     try {
-      await _storage.ref(storagePath).getMetadata();
+      await _storage.ref(cleanPath).getMetadata();
       return true;
     } catch (_) {
       return false;
@@ -345,7 +444,13 @@ class ActiveOaesRepository {
   // ---------------------------------------------------------------------------
 
   Future<List<Attachment>> loadPhotos(String oaeId) async {
-    final snap = await _ref.doc(oaeId).get();
+    if (!hasTenant) return const <Attachment>[];
+
+    final cleanId = oaeId.trim();
+
+    if (cleanId.isEmpty) return const <Attachment>[];
+
+    final snap = await _ref.doc(cleanId).get();
     final data = snap.data() ?? <String, dynamic>{};
     final raw = data['photos'] as List? ?? const [];
 
@@ -364,12 +469,24 @@ class ActiveOaesRepository {
   }
 
   Future<void> savePhotos(String oaeId, List<Attachment> photos) async {
-    await _ref.doc(oaeId).set({
-      'photos': photos.map((a) => a.toMap()).toList(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
-      if (_hasTenant) 'tenantId': effectiveTenantId,
-    }, SetOptions(merge: true));
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para salvar fotos da OAE.');
+    }
+
+    final cleanId = oaeId.trim();
+
+    if (cleanId.isEmpty) return;
+
+    await _ref.doc(cleanId).set(
+      {
+        'photos': photos.map((a) => a.toMap()).toList(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+        'tenantId': effectiveTenantId,
+        'companyId': effectiveTenantId,
+      },
+      SetOptions(merge: true),
+    );
   }
 
   Future<Attachment> uploadPhotoBytes({
@@ -379,7 +496,17 @@ class ActiveOaesRepository {
     void Function(double progress)? onProgress,
     String? forcedLabel,
   }) {
-    final baseDir = '$storageBasePath/$oaeId/photos';
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para enviar foto da OAE.');
+    }
+
+    final cleanId = oaeId.trim();
+
+    if (cleanId.isEmpty) {
+      throw Exception('oaeId é obrigatório para enviar foto.');
+    }
+
+    final baseDir = '$storageBasePath/$cleanId/photos';
 
     return uploadBytes(
       baseDir: baseDir,

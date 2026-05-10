@@ -1,4 +1,3 @@
-// lib/_blocs/modules/actives/roads/active_roads_data.dart
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -30,9 +29,11 @@ class ActiveRoadsData {
   final String? roadCode;
   final String? initialSegment;
   final String? finalSegment;
+
   final double? initialKm;
   final double? finalKm;
   final double? extension;
+
   final String? stateSurface;
   final String? works;
   final String? coincidentFederal;
@@ -51,18 +52,24 @@ class ActiveRoadsData {
   final String? regional;
   final String? previousNumber;
   final String? revestmentType;
+
   final int? tmd;
   final int? tracksNumber;
   final int? maximumSpeed;
+
   final String? conservationCondition;
   final String? drainage;
+
   final int? vsa;
+
   final String? roadName;
   final String? state;
   final String? direction;
   final String? managingAgency;
   final String? description;
+
   final Map<String, dynamic>? metadata;
+
   final DateTime? createdAt;
   final String? createdBy;
   final DateTime? updatedAt;
@@ -139,55 +146,53 @@ class ActiveRoadsData {
 
   factory ActiveRoadsData.fromMap(Map<String, dynamic> map, {String? id}) {
     return ActiveRoadsData(
-      id: id ?? map['id']?.toString(),
-      acronym: map['acronym']?.toString(),
-      uf: map['uf']?.toString(),
-      segmentType: map['segmentType']?.toString(),
-      descCoin: map['descCoin']?.toString(),
-      roadCode: map['roadCode']?.toString(),
-      initialSegment: map['initialSegment']?.toString(),
-      finalSegment: map['finalSegment']?.toString(),
+      id: id ?? _toStringValue(map['id']),
+      acronym: _toStringValue(map['acronym']),
+      uf: _toStringValue(map['uf']),
+      segmentType: _toStringValue(map['segmentType']),
+      descCoin: _toStringValue(map['descCoin']),
+      roadCode: _toStringValue(map['roadCode']),
+      initialSegment: _toStringValue(map['initialSegment']),
+      finalSegment: _toStringValue(map['finalSegment']),
       initialKm: _toDouble(map['initialKm']),
       finalKm: _toDouble(map['finalKm']),
       extension: _toDouble(map['extension']),
-      stateSurface: map['stateSurface']?.toString(),
-      works: map['works']?.toString(),
-      coincidentFederal: map['coincidentFederal']?.toString(),
-      administration: map['administration']?.toString(),
-      legalAct: map['legalAct']?.toString(),
-      coincidentState: map['coincidentState']?.toString(),
-      coincidentStateSurface: map['coincidentStateSurface']?.toString(),
-      jurisdiction: map['jurisdiction']?.toString(),
-      surface: map['surface']?.toString(),
-      unitLocal: map['unitLocal']?.toString(),
-      coincident: map['coincident']?.toString(),
-      initialLatSegment: map['initialLatSegment']?.toString(),
-      initialLongSegment: map['initialLongSegment']?.toString(),
-      finalLatSegment: map['finalLatSegment']?.toString(),
-      finalLongSegment: map['finalLongSegment']?.toString(),
-      regional: map['regional']?.toString(),
-      previousNumber: map['previousNumber']?.toString(),
-      revestmentType: map['revestmentType']?.toString(),
+      stateSurface: _toStringValue(map['stateSurface']),
+      works: _toStringValue(map['works']),
+      coincidentFederal: _toStringValue(map['coincidentFederal']),
+      administration: _toStringValue(map['administration']),
+      legalAct: _toStringValue(map['legalAct']),
+      coincidentState: _toStringValue(map['coincidentState']),
+      coincidentStateSurface: _toStringValue(map['coincidentStateSurface']),
+      jurisdiction: _toStringValue(map['jurisdiction']),
+      surface: _toStringValue(map['surface']),
+      unitLocal: _toStringValue(map['unitLocal']),
+      coincident: _toStringValue(map['coincident']),
+      initialLatSegment: _toStringValue(map['initialLatSegment']),
+      initialLongSegment: _toStringValue(map['initialLongSegment']),
+      finalLatSegment: _toStringValue(map['finalLatSegment']),
+      finalLongSegment: _toStringValue(map['finalLongSegment']),
+      regional: _toStringValue(map['regional']),
+      previousNumber: _toStringValue(map['previousNumber']),
+      revestmentType: _toStringValue(map['revestmentType']),
       tmd: _toInt(map['tmd']),
       tracksNumber: _toInt(map['tracksNumber']),
       maximumSpeed: _toInt(map['maximumSpeed']),
-      conservationCondition: map['conservationCondition']?.toString(),
-      drainage: map['drainage']?.toString(),
+      conservationCondition: _toStringValue(map['conservationCondition']),
+      drainage: _toStringValue(map['drainage']),
       vsa: _toInt(map['vsa']),
-      roadName: map['roadName']?.toString(),
-      state: map['state']?.toString(),
-      direction: map['direction']?.toString(),
-      managingAgency: map['managingAgency']?.toString(),
-      description: map['description']?.toString(),
-      metadata: map['metadata'] is Map<String, dynamic>
-          ? map['metadata'] as Map<String, dynamic>
-          : null,
+      roadName: _toStringValue(map['roadName']),
+      state: _toStringValue(map['state']),
+      direction: _toStringValue(map['direction']),
+      managingAgency: _toStringValue(map['managingAgency']),
+      description: _toStringValue(map['description']),
+      metadata: _toStringDynamicMap(map['metadata']),
       createdAt: _parseDate(map['createdAt']),
-      createdBy: map['createdBy']?.toString(),
+      createdBy: _toStringValue(map['createdBy']),
       updatedAt: _parseDate(map['updatedAt']),
-      updatedBy: map['updatedBy']?.toString(),
+      updatedBy: _toStringValue(map['updatedBy']),
       deletedAt: _parseDate(map['deletedAt']),
-      deletedBy: map['deletedBy']?.toString(),
+      deletedBy: _toStringValue(map['deletedBy']),
       points: _parsePoints(map['points']),
     );
   }
@@ -356,7 +361,9 @@ class ActiveRoadsData {
       return regional!.trim();
     }
 
-    return metadata?['regional']?.toString().trim() ?? '';
+    final metaRegion = metadata?['regional']?.toString().trim();
+
+    return metaRegion ?? '';
   }
 
   String get surfaceCode {
@@ -374,8 +381,8 @@ class ActiveRoadsData {
   }
 
   LatLng? get startLatLng {
-    final lat = double.tryParse((initialLatSegment ?? '').replaceAll(',', '.'));
-    final lng = double.tryParse((initialLongSegment ?? '').replaceAll(',', '.'));
+    final lat = _toDouble(initialLatSegment);
+    final lng = _toDouble(initialLongSegment);
 
     if (lat != null && lng != null) return LatLng(lat, lng);
 
@@ -387,8 +394,8 @@ class ActiveRoadsData {
   }
 
   LatLng? get endLatLng {
-    final lat = double.tryParse((finalLatSegment ?? '').replaceAll(',', '.'));
-    final lng = double.tryParse((finalLongSegment ?? '').replaceAll(',', '.'));
+    final lat = _toDouble(finalLatSegment);
+    final lng = _toDouble(finalLongSegment);
 
     if (lat != null && lng != null) return LatLng(lat, lng);
 
@@ -533,7 +540,7 @@ class ActiveRoadsData {
         value: coincidentState ?? '',
       ),
       RoadViewField(
-        label: 'Coincident State Surface',
+        label: 'Pavimento Estadual Coincidente',
         value: coincidentStateSurface ?? '',
       ),
       RoadViewField(label: 'Superfície', value: surface ?? ''),
@@ -571,6 +578,8 @@ class ActiveRoadsData {
       RoadViewField(label: 'Drenagem', value: drainage ?? ''),
       RoadViewField(label: 'Nome da Rodovia', value: roadName ?? ''),
       RoadViewField(label: 'Estado', value: state ?? ''),
+      RoadViewField(label: 'Sentido', value: direction ?? ''),
+      RoadViewField(label: 'Órgão gestor', value: managingAgency ?? ''),
       RoadViewField(label: 'Descrição', value: description ?? ''),
       RoadViewField(label: 'Metadata', value: metadata?.toString() ?? ''),
     ];
@@ -622,13 +631,24 @@ class ActiveRoadsData {
 
     for (final r in list) {
       final key = (r.acronym ?? 'SEM SIGLA').trim().toUpperCase();
+
       map.putIfAbsent(key, () => <ActiveRoadsData>[]).add(r);
     }
 
     for (final entry in map.entries) {
       entry.value.sort((a, b) {
-        final aKey = '${a.uf ?? ''}${a.roadCode ?? ''}'.toUpperCase();
-        final bKey = '${b.uf ?? ''}${b.roadCode ?? ''}'.toUpperCase();
+        final aKm = a.initialKm ?? 0;
+        final bKm = b.initialKm ?? 0;
+
+        final byKm = aKm.compareTo(bKm);
+        if (byKm != 0) return byKm;
+
+        final aKey =
+        '${a.uf ?? ''}${a.roadCode ?? ''}${a.initialSegment ?? ''}'
+            .toUpperCase();
+        final bKey =
+        '${b.uf ?? ''}${b.roadCode ?? ''}${b.initialSegment ?? ''}'
+            .toUpperCase();
 
         return aKey.compareTo(bKey);
       });
@@ -637,10 +657,10 @@ class ActiveRoadsData {
     return map;
   }
 
-  static num sumExtension(Iterable<ActiveRoadsData> items) {
-    return items.fold<num>(
-      0,
-          (soma, r) => soma + (r.extension ?? 0),
+  static double sumExtension(Iterable<ActiveRoadsData> items) {
+    return items.fold<double>(
+      0.0,
+          (soma, r) => soma + (r.extension ?? 0.0),
     );
   }
 
@@ -675,21 +695,25 @@ class ActiveRoadsData {
 
   static bool isDupla(String? code) {
     final c = (code ?? '').toUpperCase().trim();
+
     return c == 'DUP' || c == 'EOD';
   }
 
   static bool isTracejada(String? code) {
     final c = (code ?? '').toUpperCase().trim();
+
     return c == 'EOD' || c == 'EOP';
   }
 
   static double laneWidthForZoom(double zoom) {
     final w = 1.00 * math.pow(1.24, zoom - 8.0);
+
     return w.clamp(1.0, 4.2).toDouble();
   }
 
   static double laneSeparationPxForZoom(double zoom) {
     final s = 1.60 * math.pow(1.45, zoom - 8.0);
+
     return s.clamp(1.8, 13.0).toDouble();
   }
 
@@ -897,31 +921,101 @@ class _PointM {
       );
 }
 
+String? _toStringValue(dynamic value) {
+  if (value == null) return null;
+
+  final text = value.toString().trim();
+
+  if (text.isEmpty || text.toLowerCase() == 'null') return null;
+
+  return text;
+}
+
+Map<String, dynamic>? _toStringDynamicMap(dynamic value) {
+  if (value == null) return null;
+
+  if (value is Map<String, dynamic>) {
+    return Map<String, dynamic>.from(value);
+  }
+
+  if (value is Map) {
+    return value.map<String, dynamic>(
+          (key, val) => MapEntry(key.toString(), val),
+    );
+  }
+
+  return null;
+}
+
 double? _toDouble(dynamic value) {
+  if (value == null) return null;
+
+  if (value is bool) return null;
+
   if (value is num) return value.toDouble();
 
   if (value is String) {
-    return double.tryParse(value.replaceAll(',', '.'));
+    final raw = value.trim();
+
+    if (raw.isEmpty || raw.toLowerCase() == 'null') return null;
+
+    var clean = raw
+        .replaceAll('km', '')
+        .replaceAll('KM', '')
+        .replaceAll(RegExp(r'[^\d,.\-]'), '');
+
+    if (clean.isEmpty) return null;
+
+    final hasComma = clean.contains(',');
+    final hasDot = clean.contains('.');
+
+    if (hasComma && hasDot) {
+      clean = clean.replaceAll('.', '').replaceAll(',', '.');
+    } else if (hasComma) {
+      clean = clean.replaceAll(',', '.');
+    }
+
+    return double.tryParse(clean);
   }
 
   return null;
 }
 
 int? _toInt(dynamic value) {
+  if (value == null) return null;
+
+  if (value is bool) return null;
+
+  if (value is int) return value;
+
   if (value is num) return value.toInt();
 
   if (value is String) {
-    return int.tryParse(value);
+    final raw = value.trim();
+
+    if (raw.isEmpty || raw.toLowerCase() == 'null') return null;
+
+    final asDouble = _toDouble(raw);
+
+    return asDouble?.toInt();
   }
 
   return null;
 }
 
 DateTime? _parseDate(dynamic value) {
+  if (value == null) return null;
+
   if (value is Timestamp) return value.toDate();
 
+  if (value is DateTime) return value;
+
   if (value is String) {
-    return DateTime.tryParse(value);
+    final raw = value.trim();
+
+    if (raw.isEmpty || raw.toLowerCase() == 'null') return null;
+
+    return DateTime.tryParse(raw);
   }
 
   return null;
@@ -930,7 +1024,7 @@ DateTime? _parseDate(dynamic value) {
 List<LatLng>? _parsePoints(dynamic value) {
   if (value is! List) return null;
 
-  return value
+  final points = value
       .map<LatLng?>((e) {
     if (e is GeoPoint) {
       return LatLng(
@@ -939,24 +1033,33 @@ List<LatLng>? _parsePoints(dynamic value) {
       );
     }
 
-    if (e is Map && e['lat'] != null && e['lng'] != null) {
-      return LatLng(
-        (e['lat'] as num).toDouble(),
-        (e['lng'] as num).toDouble(),
-      );
+    if (e is Map) {
+      final latValue = e['lat'] ?? e['latitude'];
+      final lngValue = e['lng'] ?? e['lon'] ?? e['longitude'];
+
+      final lat = _toDouble(latValue);
+      final lng = _toDouble(lngValue);
+
+      if (lat == null || lng == null) return null;
+
+      return LatLng(lat, lng);
     }
 
-    if (e is Map && e['latitude'] != null && e['longitude'] != null) {
-      return LatLng(
-        (e['latitude'] as num).toDouble(),
-        (e['longitude'] as num).toDouble(),
-      );
+    if (e is List && e.length >= 2) {
+      final lng = _toDouble(e[0]);
+      final lat = _toDouble(e[1]);
+
+      if (lat == null || lng == null) return null;
+
+      return LatLng(lat, lng);
     }
 
     return null;
   })
       .whereType<LatLng>()
       .toList(growable: false);
+
+  return points.isEmpty ? null : points;
 }
 
 Offset _projectPointOnSegment(

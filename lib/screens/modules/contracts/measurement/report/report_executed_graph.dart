@@ -1,5 +1,3 @@
-// lib/screens/modules/contracts/measurement/report/report_executed_graph.dart
-
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';

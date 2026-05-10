@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_data.dart';
 import 'package:sipged/_widgets/DataTime/selector/selector_dates.dart';
 
@@ -20,7 +21,7 @@ class InfractionsSelectorDatesSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return SelectorDates<InfractionsData>(
       items: allInfractions,
-      getDate: (item) => item.dateInfraction, // DateTime? em InfractionsData
+      getDate: (item) => item.dateInfraction,
       initialYear: initialYear,
       initialMonth: initialMonth,
       onSelectionChanged: ({
@@ -31,7 +32,7 @@ class InfractionsSelectorDatesSection extends StatelessWidget {
       }) {
         onSelectionChanged(
           InfractionsSelectorDatesResult(
-            filteredItems: filteredItems ?? [],
+            filteredItems: filteredItems ?? const <InfractionsData>[],
             selectedYear: selectedYear,
             selectedMonth: selectedMonth,
           ),
@@ -46,7 +47,7 @@ class InfractionsSelectorDatesResult {
   final int? selectedYear;
   final int? selectedMonth;
 
-  InfractionsSelectorDatesResult({
+  const InfractionsSelectorDatesResult({
     required this.filteredItems,
     required this.selectedYear,
     required this.selectedMonth,

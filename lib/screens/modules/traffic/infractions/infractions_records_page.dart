@@ -1,4 +1,4 @@
-// lib/screens/modules/transit/infractions/infractions_records_page.dart
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,6 +10,10 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_cubit.dart';
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_repository.dart';
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_state.dart';
+
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
@@ -27,14 +31,19 @@ class InfractionsRecordsPage extends StatefulWidget {
   const InfractionsRecordsPage({super.key});
 
   @override
-  State<InfractionsRecordsPage> createState() =>
-      _InfractionsRecordsPageState();
+  State<InfractionsRecordsPage> createState() => _InfractionsRecordsPageState();
 }
 
 class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
   late final InfractionsCubit _cubit;
 
   double? _formHeight;
+
+  bool _firedUserWarmup = false;
+  bool _didScheduleInitialLoad = false;
+
+  String? _lastTenantId;
+  String? _lastFailureMessage;
 
   static const double _minDeskHeight = 420;
 
@@ -45,17 +54,150 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
     _cubit = InfractionsCubit(
       repository: InfractionsRepository(),
     );
+  }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _cubit.postFrameInit();
-    });
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (!_firedUserWarmup) {
+      _firedUserWarmup = true;
+
+      context.read<UserCubit>().warmup(
+        listenRealtime: true,
+        bindCurrentUser: true,
+      );
+    }
+
+    final tenantState = context.read<TenantCubit>().state;
+    final tenantId = _tenantIdFromTenantState(tenantState);
+
+    _syncTenant(tenantId);
   }
 
   @override
   void dispose() {
     _cubit.close();
     super.dispose();
+  }
+
+  String? _cleanId(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+    if (text.toLowerCase() == 'null') return null;
+
+    return text;
+  }
+
+  String? _idFromObject(dynamic object) {
+    if (object == null) return null;
+
+    try {
+      final clean = _cleanId(object.id);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.tenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.companyId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(object.uid);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    return null;
+  }
+
+  String? _tenantIdFromTenantState(TenantState state) {
+    final dynamic s = state;
+
+    try {
+      final clean = _cleanId(s.activeTenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.currentTenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.tenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.companyId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.current);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.tenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.currentTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.activeTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.selectedTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.company);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.selectedCompany);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    return null;
+  }
+
+  void _syncTenant(String? tenantId) {
+    final cleanTenantId = tenantId?.trim();
+
+    if (_lastTenantId == cleanTenantId) return;
+
+    _lastTenantId = cleanTenantId;
+    _lastFailureMessage = null;
+    _didScheduleInitialLoad = false;
+    _formHeight = null;
+
+    _cubit.setActiveTenantId(cleanTenantId);
+
+    if (cleanTenantId == null || cleanTenantId.isEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      unawaited(_cubit.postFrameInit(forceReload: true));
+    });
   }
 
   Future<void> _handleSave(InfractionsCubit cubit) async {
@@ -96,251 +238,395 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
     );
   }
 
+  Widget _emptyState({
+    required String title,
+    required String subtitle,
+    IconData icon = Icons.warning_amber_rounded,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 42,
+              color: Colors.grey.shade500,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoTenantScaffold() {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          const BackgroundChange(),
+          Column(
+            children: [
+              const UpBar(),
+              Expanded(
+                child: _emptyState(
+                  title: 'Nenhuma empresa selecionada',
+                  subtitle:
+                  'Selecione uma empresa para visualizar as infrações.',
+                  icon: Icons.business_outlined,
+                ),
+              ),
+              const FootBar(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<InfractionsCubit>.value(
       value: _cubit,
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: Stack(
-          children: [
-            const BackgroundChange(),
-            Column(
-              children: [
-                Expanded(
-                  child: BlocBuilder<InfractionsCubit, InfractionsState>(
-                    builder: (context, state) {
-                      final cubit = context.read<InfractionsCubit>();
+      child: BlocListener<TenantCubit, TenantState>(
+        listener: (context, tenantState) {
+          final tenantId = _tenantIdFromTenantState(tenantState);
+          _syncTenant(tenantId);
+        },
+        child: Builder(
+          builder: (context) {
+            final tenantState = context.watch<TenantCubit>().state;
+            final tenantId = _tenantIdFromTenantState(tenantState);
 
-                      return SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const UpBar(),
-                            const SectionTitle(
-                              text: 'Cadastrar infrações de trânsito no sistema',
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 9.0,
+            if (tenantId == null || tenantId.isEmpty) {
+              return _buildNoTenantScaffold();
+            }
+
+            return Scaffold(
+              backgroundColor: Colors.white,
+              body: Stack(
+                children: [
+                  const BackgroundChange(),
+                  Column(
+                    children: [
+                      Expanded(
+                        child: BlocConsumer<InfractionsCubit, InfractionsState>(
+                          listenWhen: (previous, current) {
+                            return previous.errorMessage !=
+                                current.errorMessage;
+                          },
+                          listener: (context, state) {
+                            final msg = state.errorMessage?.trim();
+
+                            if (msg == null || msg.isEmpty) {
+                              _lastFailureMessage = null;
+                              return;
+                            }
+
+                            if (_lastFailureMessage == msg) return;
+
+                            _lastFailureMessage = msg;
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(msg),
+                                backgroundColor: Colors.red.shade700,
                               ),
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final double maxW = constraints.maxWidth;
-                                  final bool isSmall = maxW <= 900;
+                            );
+                          },
+                          builder: (context, state) {
+                            final cubit = context.read<InfractionsCubit>();
 
-                                  final double leftWidth =
-                                  isSmall ? maxW : (maxW - 12) / 2;
+                            if (!_didScheduleInitialLoad &&
+                                !state.initRan &&
+                                !state.loading) {
+                              _didScheduleInitialLoad = true;
 
-                                  final double rightWidth =
-                                  isSmall ? maxW : (maxW - 12) / 2;
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!mounted) return;
 
-                                  if (isSmall) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                      children: [
-                                        InfractionsFormSection(
-                                          itemsPerLineOverride: 1,
-                                          isEditable: state.isEditable,
-                                          formValidated: state.formValidated,
-                                          currentInfractionId:
-                                          state.currentInfractionId,
-                                          orderCtrl: cubit.orderCtrl,
-                                          aitNumberCtrl: cubit.aitNumberCtrl,
-                                          dateCtrl: cubit.dateCtrl,
-                                          timeCtrl: cubit.timeCtrl,
-                                          codeCtrl: cubit.codeCtrl,
-                                          descriptionCtrl:
-                                          cubit.descriptionCtrl,
-                                          organCodeCtrl: cubit.organCodeCtrl,
-                                          organAuthorityCtrl:
-                                          cubit.organAuthorityCtrl,
-                                          addressCtrl: cubit.addressCtrl,
-                                          bairroCtrl: cubit.bairroCtrl,
-                                          latitudeCtrl: cubit.latitudeCtrl,
-                                          longitudeCtrl: cubit.longitudeCtrl,
-                                          onSave: () => _handleSave(cubit),
-                                          onClear: cubit.createNew,
-                                          onGetLocation:
-                                          cubit.fillFromUserLocation,
-                                        ),
-                                        const SizedBox(height: 12),
-                                        SizedBox(
-                                          width: double.infinity,
-                                          height: 380,
-                                          child: Card(
-                                            elevation: 6,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                              BorderRadius.circular(16),
+                                unawaited(
+                                  cubit.postFrameInit(forceReload: true),
+                                );
+                              });
+                            }
+
+                            return SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const UpBar(),
+                                  const SectionTitle(
+                                    text:
+                                    'Cadastrar infrações de trânsito no sistema',
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 9.0,
+                                    ),
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final double maxW =
+                                            constraints.maxWidth;
+                                        final bool isSmall = maxW <= 900;
+
+                                        final double leftWidth =
+                                        isSmall ? maxW : (maxW - 12) / 2;
+
+                                        final double rightWidth =
+                                        isSmall ? maxW : (maxW - 12) / 2;
+
+                                        if (isSmall) {
+                                          return Column(
+                                            crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                            children: [
+                                              InfractionsFormSection(
+                                                itemsPerLineOverride: 1,
+                                                isEditable: state.isEditable,
+                                                formValidated:
+                                                state.formValidated,
+                                                currentInfractionId:
+                                                state.currentInfractionId,
+                                                orderCtrl: cubit.orderCtrl,
+                                                aitNumberCtrl:
+                                                cubit.aitNumberCtrl,
+                                                dateCtrl: cubit.dateCtrl,
+                                                timeCtrl: cubit.timeCtrl,
+                                                codeCtrl: cubit.codeCtrl,
+                                                descriptionCtrl:
+                                                cubit.descriptionCtrl,
+                                                organCodeCtrl:
+                                                cubit.organCodeCtrl,
+                                                organAuthorityCtrl:
+                                                cubit.organAuthorityCtrl,
+                                                addressCtrl: cubit.addressCtrl,
+                                                bairroCtrl: cubit.bairroCtrl,
+                                                latitudeCtrl:
+                                                cubit.latitudeCtrl,
+                                                longitudeCtrl:
+                                                cubit.longitudeCtrl,
+                                                onSave: () =>
+                                                    _handleSave(cubit),
+                                                onClear: cubit.createNew,
+                                                onGetLocation:
+                                                cubit.fillFromUserLocation,
+                                              ),
+                                              const SizedBox(height: 12),
+                                              SizedBox(
+                                                width: double.infinity,
+                                                height: 380,
+                                                child: Card(
+                                                  elevation: 6,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                    BorderRadius.circular(
+                                                      16,
+                                                    ),
+                                                  ),
+                                                  clipBehavior: Clip.antiAlias,
+                                                  child:
+                                                  const _InfractionsMapPreview(),
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }
+
+                                        final double mapH =
+                                            _formHeight ?? _minDeskHeight;
+
+                                        return Row(
+                                          crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                          children: [
+                                            SizedBox(
+                                              width: leftWidth,
+                                              child: _SizeReporter(
+                                                onSize: (size) {
+                                                  final double height =
+                                                      size.height;
+
+                                                  if (_formHeight != height &&
+                                                      mounted) {
+                                                    setState(() {
+                                                      _formHeight = height;
+                                                    });
+                                                  }
+                                                },
+                                                child: ClipRRect(
+                                                  borderRadius:
+                                                  BorderRadius.circular(8),
+                                                  child: InfractionsFormSection(
+                                                    itemsPerLineOverride: 2,
+                                                    isEditable:
+                                                    state.isEditable,
+                                                    formValidated:
+                                                    state.formValidated,
+                                                    currentInfractionId: state
+                                                        .currentInfractionId,
+                                                    orderCtrl: cubit.orderCtrl,
+                                                    aitNumberCtrl:
+                                                    cubit.aitNumberCtrl,
+                                                    dateCtrl: cubit.dateCtrl,
+                                                    timeCtrl: cubit.timeCtrl,
+                                                    codeCtrl: cubit.codeCtrl,
+                                                    descriptionCtrl: cubit
+                                                        .descriptionCtrl,
+                                                    organCodeCtrl:
+                                                    cubit.organCodeCtrl,
+                                                    organAuthorityCtrl: cubit
+                                                        .organAuthorityCtrl,
+                                                    addressCtrl:
+                                                    cubit.addressCtrl,
+                                                    bairroCtrl:
+                                                    cubit.bairroCtrl,
+                                                    latitudeCtrl:
+                                                    cubit.latitudeCtrl,
+                                                    longitudeCtrl:
+                                                    cubit.longitudeCtrl,
+                                                    onSave: () =>
+                                                        _handleSave(cubit),
+                                                    onClear: cubit.createNew,
+                                                    onGetLocation: cubit
+                                                        .fillFromUserLocation,
+                                                  ),
+                                                ),
+                                              ),
                                             ),
-                                            clipBehavior: Clip.antiAlias,
-                                            child:
-                                            const _InfractionsMapPreview(),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  }
-
-                                  final double mapH =
-                                      _formHeight ?? _minDeskHeight;
-
-                                  return Row(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                    children: [
-                                      SizedBox(
-                                        width: leftWidth,
-                                        child: _SizeReporter(
-                                          onSize: (size) {
-                                            final double height = size.height;
-
-                                            if (_formHeight != height &&
-                                                mounted) {
-                                              setState(() {
-                                                _formHeight = height;
-                                              });
-                                            }
-                                          },
-                                          child: ClipRRect(
-                                            borderRadius:
-                                            BorderRadius.circular(8),
-                                            child: InfractionsFormSection(
-                                              itemsPerLineOverride: 2,
-                                              isEditable: state.isEditable,
-                                              formValidated:
-                                              state.formValidated,
-                                              currentInfractionId:
-                                              state.currentInfractionId,
-                                              orderCtrl: cubit.orderCtrl,
-                                              aitNumberCtrl:
-                                              cubit.aitNumberCtrl,
-                                              dateCtrl: cubit.dateCtrl,
-                                              timeCtrl: cubit.timeCtrl,
-                                              codeCtrl: cubit.codeCtrl,
-                                              descriptionCtrl:
-                                              cubit.descriptionCtrl,
-                                              organCodeCtrl:
-                                              cubit.organCodeCtrl,
-                                              organAuthorityCtrl:
-                                              cubit.organAuthorityCtrl,
-                                              addressCtrl: cubit.addressCtrl,
-                                              bairroCtrl: cubit.bairroCtrl,
-                                              latitudeCtrl:
-                                              cubit.latitudeCtrl,
-                                              longitudeCtrl:
-                                              cubit.longitudeCtrl,
-                                              onSave: () =>
-                                                  _handleSave(cubit),
-                                              onClear: cubit.createNew,
-                                              onGetLocation:
-                                              cubit.fillFromUserLocation,
+                                            const SizedBox(width: 12),
+                                            SizedBox(
+                                              width: rightWidth,
+                                              height: mapH < _minDeskHeight
+                                                  ? _minDeskHeight
+                                                  : mapH,
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                BorderRadius.circular(8),
+                                                child:
+                                                const _InfractionsMapPreview(),
+                                              ),
                                             ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      SizedBox(
-                                        width: rightWidth,
-                                        height: mapH < _minDeskHeight
-                                            ? _minDeskHeight
-                                            : mapH,
-                                        child: ClipRRect(
-                                          borderRadius:
-                                          BorderRadius.circular(8),
-                                          child:
-                                          const _InfractionsMapPreview(),
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ),
-                            const SectionTitle(
-                              text: 'Filtrar por data infrações de trânsito',
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12.0,
-                              ),
-                              child: InfractionsSelectorDatesSection(
-                                allInfractions: state.selectorUniverseAll,
-                                initialYear: state.selectedYear,
-                                initialMonth: state.selectedMonth,
-                                onSelectionChanged: (res) async {
-                                  final int? year = res.selectedYear;
-                                  final int? month = res.selectedMonth;
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SectionTitle(
+                                    text:
+                                    'Filtrar por data infrações de trânsito',
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12.0,
+                                    ),
+                                    child: InfractionsSelectorDatesSection(
+                                      allInfractions:
+                                      state.selectorUniverseAll,
+                                      initialYear: state.selectedYear,
+                                      initialMonth: state.selectedMonth,
+                                      onSelectionChanged: (res) async {
+                                        final int? year = res.selectedYear;
+                                        final int? month = res.selectedMonth;
 
-                                  if (year == state.selectedYear &&
-                                      month == state.selectedMonth) {
-                                    return;
-                                  }
+                                        if (year == state.selectedYear &&
+                                            month == state.selectedMonth) {
+                                          return;
+                                        }
 
-                                  await _handleApplyDateFilter(
-                                    cubit,
-                                    year: year,
-                                    month: month,
-                                  );
-                                },
+                                        await _handleApplyDateFilter(
+                                          cubit,
+                                          year: year,
+                                          month: month,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  if (state.pageItems.isEmpty)
+                                    const Padding(
+                                      padding: EdgeInsets.all(16.0),
+                                      child:
+                                      Text('Nenhuma infração encontrada'),
+                                    )
+                                  else ...[
+                                    const SectionTitle(
+                                      text:
+                                      'Infrações cadastradas no sistema',
+                                    ),
+                                    InfractionsTableSection(
+                                      listData: state.pageItems,
+                                      selectedItem: state.selectedInfraction,
+                                      currentPage: state.currentPage,
+                                      totalPages: state.totalPages,
+                                      onPageChanged: cubit.loadPage,
+                                      onTapItem: cubit.selectFromTable,
+                                      onDelete: (id) {
+                                        unawaited(
+                                          _handleDelete(cubit, id),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                  const SizedBox(height: 12),
+                                ],
                               ),
-                            ),
-                            if (state.pageItems.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.all(16.0),
-                                child: Text('Nenhuma infração encontrada'),
-                              )
-                            else ...[
-                              const SectionTitle(
-                                text: 'Infrações cadastradas no sistema',
-                              ),
-                              InfractionsTableSection(
-                                listData: state.pageItems,
-                                selectedItem: state.selectedInfraction,
-                                onTapItem: (item) {
-                                  cubit.selectFromTable(item);
-                                },
-                                onDelete: (id) {
-                                  _handleDelete(cubit, id);
-                                },
-                              ),
-                            ],
-                            const SizedBox(height: 12),
-                          ],
+                            );
+                          },
                         ),
+                      ),
+                      const FootBar(),
+                    ],
+                  ),
+                  BlocBuilder<InfractionsCubit, InfractionsState>(
+                    buildWhen: (previous, current) {
+                      return previous.isSaving != current.isSaving ||
+                          previous.loading != current.loading ||
+                          previous.isFiltering != current.isFiltering;
+                    },
+                    builder: (context, state) {
+                      if (!state.isSaving &&
+                          !state.loading &&
+                          !state.isFiltering) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return Stack(
+                        children: [
+                          ModalBarrier(
+                            dismissible: false,
+                            color: Colors.black.withValues(alpha: 0.4),
+                          ),
+                          const Center(
+                            child: LoadingTreeDots(size: 120),
+                          ),
+                        ],
                       );
                     },
                   ),
-                ),
-                const FootBar(),
-              ],
-            ),
-            BlocBuilder<InfractionsCubit, InfractionsState>(
-              buildWhen: (previous, current) {
-                return previous.isSaving != current.isSaving ||
-                    previous.loading != current.loading;
-              },
-              builder: (context, state) {
-                if (!state.isSaving && !state.loading) {
-                  return const SizedBox.shrink();
-                }
-
-                return Stack(
-                  children: [
-                    ModalBarrier(
-                      dismissible: false,
-                      color: Colors.black.withValues(alpha: 0.4),
-                    ),
-                    const Center(
-                      child: LoadingTreeDots(size: 120),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

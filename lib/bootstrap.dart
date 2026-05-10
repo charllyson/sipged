@@ -39,9 +39,6 @@ import 'package:sipged/_blocs/system/login/login_repository.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
-import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
-import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
-
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
@@ -262,13 +259,6 @@ Future<void> bootstrapAndRunApp() async {
                 listenRealtime: true,
                 bindCurrentUser: true,
               ),
-            ),
-
-            BlocProvider<ActiveOaesCubit>(
-              create: (_) => ActiveOaesCubit()..warmup(),
-            ),
-            BlocProvider<ActiveRoadsCubit>(
-              create: (_) => ActiveRoadsCubit()..warmup(),
             ),
             BlocProvider<AccidentsCubit>(
               create: (_) => AccidentsCubit(),

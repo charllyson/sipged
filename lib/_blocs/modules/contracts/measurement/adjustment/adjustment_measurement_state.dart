@@ -20,10 +20,8 @@ class AdjustmentMeasurementState extends Equatable {
   final String? errorMessage;
   final String? contractId;
 
-  /// Loading geral: salvar, excluir, atualizar anexos etc.
   final bool isSaving;
 
-  /// Upload de anexos.
   final bool uploading;
   final double? uploadProgress;
 
@@ -35,7 +33,7 @@ class AdjustmentMeasurementState extends Equatable {
 
   const AdjustmentMeasurementState({
     this.status = AdjustmentMeasurementStatus.initial,
-    this.adjustments = const [],
+    this.adjustments = const <AdjustmentMeasurementData>[],
     this.errorMessage,
     this.contractId,
     this.isSaving = false,
@@ -43,9 +41,25 @@ class AdjustmentMeasurementState extends Equatable {
     this.uploadProgress,
     this.selected,
     this.selectedIndex,
-    this.attachments = const [],
+    this.attachments = const <Attachment>[],
     this.selectedAttachmentIndex,
   });
+
+  factory AdjustmentMeasurementState.initial() {
+    return const AdjustmentMeasurementState(
+      status: AdjustmentMeasurementStatus.initial,
+      adjustments: <AdjustmentMeasurementData>[],
+      errorMessage: null,
+      contractId: null,
+      isSaving: false,
+      uploading: false,
+      uploadProgress: null,
+      selected: null,
+      selectedIndex: null,
+      attachments: <Attachment>[],
+      selectedAttachmentIndex: null,
+    );
+  }
 
   AdjustmentMeasurementState copyWith({
     AdjustmentMeasurementStatus? status,
@@ -66,8 +80,9 @@ class AdjustmentMeasurementState extends Equatable {
       errorMessage: identical(errorMessage, _unset)
           ? this.errorMessage
           : errorMessage as String?,
-      contractId:
-      identical(contractId, _unset) ? this.contractId : contractId as String?,
+      contractId: identical(contractId, _unset)
+          ? this.contractId
+          : contractId as String?,
       isSaving: isSaving ?? this.isSaving,
       uploading: uploading ?? this.uploading,
       uploadProgress: identical(uploadProgress, _unset)
@@ -86,24 +101,8 @@ class AdjustmentMeasurementState extends Equatable {
     );
   }
 
-  factory AdjustmentMeasurementState.initial() {
-    return const AdjustmentMeasurementState(
-      status: AdjustmentMeasurementStatus.initial,
-      adjustments: [],
-      errorMessage: null,
-      contractId: null,
-      isSaving: false,
-      uploading: false,
-      uploadProgress: null,
-      selected: null,
-      selectedIndex: null,
-      attachments: [],
-      selectedAttachmentIndex: null,
-    );
-  }
-
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     status,
     adjustments,
     errorMessage,

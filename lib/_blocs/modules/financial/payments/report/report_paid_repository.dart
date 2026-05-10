@@ -1,5 +1,3 @@
-// lib/_blocs/modules/financial/payments/report_paid_repository.dart
-
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -20,28 +18,60 @@ class ReportPaidRepository {
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
         _storage = storage ?? FirebaseStorage.instance,
-        _tenantId = tenantId ?? _fixedTenantId;
-
-  static const String _fixedTenantId = 'SZQmefRUqdtLB14ahcuh';
+        _tenantId = _cleanTenantId(tenantId);
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final FirebaseStorage _storage;
-  final String _tenantId;
+
+  String? _tenantId;
+
+  static String? _cleanTenantId(String? value) {
+    final clean = value?.trim();
+    return clean == null || clean.isEmpty ? null : clean;
+  }
+
+  String get tenantId {
+    final clean = _tenantId?.trim();
+
+    if (clean == null || clean.isEmpty) {
+      throw StateError(
+        'tenantId não definido em ReportPaidRepository. '
+            'Selecione uma empresa antes de acessar pagamentos.',
+      );
+    }
+
+    return clean;
+  }
+
+  String? get currentTenantId => _cleanTenantId(_tenantId);
+
+  bool get hasTenant => currentTenantId != null;
+
+  void setActiveTenantId(String? value) {
+    final next = _cleanTenantId(value);
+
+    if (_tenantId == next) return;
+
+    _tenantId = next;
+  }
+
+  String get paymentsCollectionPath {
+    return 'tenants/$tenantId/financial/payments/report';
+  }
+
+  String _uid() {
+    return _auth.currentUser?.uid ?? '';
+  }
 
   CollectionReference<Map<String, dynamic>> _paymentsCol() {
-    return _db
-        .collection('tenants')
-        .doc(_tenantId)
-        .collection('financial')
-        .doc('payments')
-        .collection('report');
+    return _db.collection(paymentsCollectionPath);
   }
 
   DocumentReference<Map<String, dynamic>> _paymentDoc({
     required String paymentId,
   }) {
-    return _paymentsCol().doc(paymentId);
+    return _paymentsCol().doc(paymentId.trim());
   }
 
   double _safePositive(double? value) {
@@ -104,7 +134,7 @@ class ReportPaidRepository {
   }) {
     final cleanExt = ext.startsWith('.') ? ext : '.$ext';
 
-    return 'tenants/$_tenantId/'
+    return 'tenants/$tenantId/'
         'financial/payments/report/$paymentId/files/'
         '$attachmentId$cleanExt';
   }
@@ -176,6 +206,8 @@ class ReportPaidRepository {
     required String contractId,
     required String measurementId,
   }) async {
+    if (!hasTenant) return const <ReportPaidData>[];
+
     final cleanContractId = contractId.trim();
     final cleanMeasurementId = measurementId.trim();
 
@@ -191,14 +223,14 @@ class ReportPaidRepository {
           .where('measurementId', isEqualTo: cleanMeasurementId)
           .orderBy('paymentDate')
           .get();
-    } catch (_) {
-      try {
+    } on FirebaseException catch (e) {
+      if (e.code == 'failed-precondition' || e.code == 'not-found') {
         snapshot = await _paymentsCol()
             .where('contractId', isEqualTo: cleanContractId)
             .where('measurementId', isEqualTo: cleanMeasurementId)
             .get();
-      } catch (_) {
-        snapshot = await _paymentsCol().get();
+      } else {
+        rethrow;
       }
     }
 
@@ -227,6 +259,8 @@ class ReportPaidRepository {
   Future<List<ReportPaidData>> getPaymentsByContract({
     required String contractId,
   }) async {
+    if (!hasTenant) return const <ReportPaidData>[];
+
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) {
@@ -241,13 +275,13 @@ class ReportPaidRepository {
           .orderBy('measurementOrder')
           .orderBy('paymentDate')
           .get();
-    } catch (_) {
-      try {
+    } on FirebaseException catch (e) {
+      if (e.code == 'failed-precondition' || e.code == 'not-found') {
         snapshot = await _paymentsCol()
             .where('contractId', isEqualTo: cleanContractId)
             .get();
-      } catch (_) {
-        snapshot = await _paymentsCol().get();
+      } else {
+        rethrow;
       }
     }
 
@@ -275,7 +309,9 @@ class ReportPaidRepository {
       ReportPaidData data, {
         required double measurementValue,
       }) async {
-    final user = _auth.currentUser;
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para salvar pagamento.');
+    }
 
     final contractId = data.contractId?.trim() ?? '';
     final measurementId = data.measurementId?.trim() ?? '';
@@ -311,11 +347,14 @@ class ReportPaidRepository {
     final payload = data.toFirestore()
       ..addAll({
         'id': docRef.id,
-        'tenantId': _tenantId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'contractId': contractId,
         'measurementId': measurementId,
+        'recordPath': docRef.path,
+        'sourceCollectionModel': 'tenant_financial_payments_report',
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': user?.uid ?? '',
+        'updatedBy': _uid(),
       });
 
     final hasCreatedAt =
@@ -323,7 +362,7 @@ class ReportPaidRepository {
 
     if (!hasCreatedAt) {
       payload['createdAt'] = FieldValue.serverTimestamp();
-      payload['createdBy'] = user?.uid ?? '';
+      payload['createdBy'] = _uid();
     } else {
       payload.remove('createdAt');
       payload.remove('createdBy');
@@ -337,6 +376,8 @@ class ReportPaidRepository {
     required String measurementId,
     required String paymentId,
   }) async {
+    if (!hasTenant) return;
+
     final cleanPaymentId = paymentId.trim();
 
     if (cleanPaymentId.isEmpty) {
@@ -345,7 +386,7 @@ class ReportPaidRepository {
 
     try {
       final folder = _storage.ref(
-        'tenants/$_tenantId/financial/payments/report/$cleanPaymentId/files',
+        'tenants/$tenantId/financial/payments/report/$cleanPaymentId/files',
       );
 
       final list = await folder.listAll();
@@ -423,6 +464,10 @@ class ReportPaidRepository {
     void Function(double progress)? onProgress,
     String? forcedLabel,
   }) async {
+    if (!hasTenant) {
+      throw Exception('tenantId é obrigatório para anexar arquivo.');
+    }
+
     final cleanContractId = contractId.trim();
     final cleanMeasurementId = measurementId.trim();
     final cleanPaymentId = paymentId.trim();
@@ -479,7 +524,8 @@ class ReportPaidRepository {
       SettableMetadata(
         contentType: 'application/pdf',
         customMetadata: {
-          'tenantId': _tenantId,
+          'tenantId': tenantId,
+          'companyId': tenantId,
           'contractId': cleanContractId,
           'measurementId': cleanMeasurementId,
           'paymentId': cleanPaymentId,
@@ -508,6 +554,8 @@ class ReportPaidRepository {
       url: url,
       path: path,
       ext: ext,
+      createdAt: DateTime.now(),
+      createdBy: _uid(),
     );
 
     await _addAttachmentToPaymentDoc(
@@ -526,19 +574,26 @@ class ReportPaidRepository {
     required String paymentId,
     required Attachment attachment,
   }) async {
+    if (!hasTenant) return;
+
     final cleanPaymentId = paymentId.trim();
 
     if (cleanPaymentId.isEmpty) return;
 
     final docRef = _paymentDoc(paymentId: cleanPaymentId);
 
-    await docRef.set({
-      'tenantId': _tenantId,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _auth.currentUser?.uid ?? '',
-      'contractId': contractId,
-      'measurementId': measurementId,
-    }, SetOptions(merge: true));
+    await docRef.set(
+      {
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': contractId,
+        'measurementId': measurementId,
+        'recordPath': docRef.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
 
     final snap = await docRef.get();
     final data = snap.data() ?? <String, dynamic>{};
@@ -560,11 +615,14 @@ class ReportPaidRepository {
 
     list.add(attachment.toMap());
 
-    await docRef.set({
-      'attachments': list,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _auth.currentUser?.uid ?? '',
-    }, SetOptions(merge: true));
+    await docRef.set(
+      {
+        'attachments': list,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   Future<void> deleteAttachment({
@@ -573,6 +631,8 @@ class ReportPaidRepository {
     required String paymentId,
     required Attachment attachment,
   }) async {
+    if (!hasTenant) return;
+
     final cleanPaymentId = paymentId.trim();
 
     if (cleanPaymentId.isEmpty) {
@@ -599,11 +659,19 @@ class ReportPaidRepository {
       return item['id']?.toString() == attachment.id;
     });
 
-    await docRef.set({
-      'attachments': list.isEmpty ? FieldValue.delete() : list,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _auth.currentUser?.uid ?? '',
-    }, SetOptions(merge: true));
+    await docRef.set(
+      {
+        'attachments': list.isEmpty ? FieldValue.delete() : list,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': contractId,
+        'measurementId': measurementId,
+        'recordPath': docRef.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
 
     final path = attachment.path.trim();
 
@@ -621,6 +689,8 @@ class ReportPaidRepository {
     required Attachment oldItem,
     required Attachment newItem,
   }) async {
+    if (!hasTenant) return;
+
     final cleanPaymentId = paymentId.trim();
 
     if (cleanPaymentId.isEmpty) {
@@ -643,19 +713,27 @@ class ReportPaidRepository {
       }
     }
 
-    for (int i = 0; i < list.length; i++) {
-      final id = list[i]['id']?.toString() ?? '';
+    for (int index = 0; index < list.length; index++) {
+      final id = list[index]['id']?.toString() ?? '';
 
       if (id == oldItem.id) {
-        list[i] = newItem.toMap();
+        list[index] = newItem.toMap();
         break;
       }
     }
 
-    await docRef.set({
-      'attachments': list,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': _auth.currentUser?.uid ?? '',
-    }, SetOptions(merge: true));
+    await docRef.set(
+      {
+        'attachments': list,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': contractId,
+        'measurementId': measurementId,
+        'recordPath': docRef.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
+      },
+      SetOptions(merge: true),
+    );
   }
 }

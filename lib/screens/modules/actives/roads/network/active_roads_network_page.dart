@@ -1,8 +1,15 @@
+// lib/screens/modules/actives/roads/network/active_roads_network_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_repository.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
+
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
+
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
@@ -13,24 +20,157 @@ class ActiveRoadsNetworkPage extends StatefulWidget {
   const ActiveRoadsNetworkPage({super.key});
 
   @override
-  State<ActiveRoadsNetworkPage> createState() =>
-      _ActiveRoadsNetworkPageState();
+  State<ActiveRoadsNetworkPage> createState() => _ActiveRoadsNetworkPageState();
 }
 
 class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
   late final ActiveRoadsCubit _cubit;
+
+  String? _lastTenantId;
   bool _showPanel = true;
 
   @override
   void initState() {
     super.initState();
-    _cubit = ActiveRoadsCubit()..warmup();
+
+    _cubit = ActiveRoadsCubit(
+      repository: ActiveRoadsRepository(),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final tenantState = context.read<TenantCubit>().state;
+    final tenantId = _tenantIdFromTenantState(tenantState);
+
+    _syncTenantAndWarmup(tenantId);
   }
 
   @override
   void dispose() {
     _cubit.close();
     super.dispose();
+  }
+
+  String? _cleanId(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+    if (text == 'null') return null;
+
+    return text;
+  }
+
+  String? _idFromObject(dynamic object) {
+    if (object == null) return null;
+
+    try {
+      final value = object.id;
+      final clean = _cleanId(value);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final value = object.tenantId;
+      final clean = _cleanId(value);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final value = object.companyId;
+      final clean = _cleanId(value);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final value = object.uid;
+      final clean = _cleanId(value);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    return null;
+  }
+
+  String? _tenantIdFromTenantState(TenantState state) {
+    final dynamic s = state;
+
+    try {
+      final clean = _cleanId(s.activeTenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.currentTenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.tenantId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _cleanId(s.companyId);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.current);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.tenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.currentTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.activeTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.selectedTenant);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.company);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    try {
+      final clean = _idFromObject(s.selectedCompany);
+      if (clean != null) return clean;
+    } catch (_) {}
+
+    return null;
+  }
+
+  void _syncTenantAndWarmup(String? tenantId) {
+    final cleanTenantId = tenantId?.trim();
+
+    if (_lastTenantId == cleanTenantId) return;
+
+    _lastTenantId = cleanTenantId;
+
+    _cubit.setActiveTenantId(cleanTenantId);
+
+    if (cleanTenantId == null || cleanTenantId.isEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _cubit.warmup();
+    });
   }
 
   void _clearFilters() {
@@ -45,37 +185,64 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _cubit,
-      child: Scaffold(
-        appBar: UpBar(
-          showPhotoMenu: true,
-          actions: [
-            IconButton(
-              tooltip: 'Limpar filtros',
-              icon: const Icon(Icons.filter_alt_off, color: Colors.white),
-              onPressed: _clearFilters,
-            ),
-            IconButton(
-              tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
-              icon: Icon(
-                _showPanel
-                    ? Icons.view_sidebar
-                    : Icons.view_sidebar_outlined,
-                color: Colors.white,
+      child: BlocListener<TenantCubit, TenantState>(
+        listener: (context, tenantState) {
+          final tenantId = _tenantIdFromTenantState(tenantState);
+          _syncTenantAndWarmup(tenantId);
+        },
+        child: Builder(
+          builder: (context) {
+            final tenantState = context.watch<TenantCubit>().state;
+            final tenantId = _tenantIdFromTenantState(tenantState);
+
+            if (tenantId == null || tenantId.isEmpty) {
+              return Scaffold(
+                appBar: const UpBar(showPhotoMenu: true),
+                body: const Center(
+                  child: Text(
+                    'Selecione uma empresa para visualizar as rodovias.',
+                  ),
+                ),
+              );
+            }
+
+            return Scaffold(
+              appBar: UpBar(
+                showPhotoMenu: true,
+                actions: [
+                  IconButton(
+                    tooltip: 'Limpar filtros',
+                    icon: const Icon(
+                      Icons.filter_alt_off,
+                      color: Colors.white,
+                    ),
+                    onPressed: _clearFilters,
+                  ),
+                  IconButton(
+                    tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
+                    icon: Icon(
+                      _showPanel
+                          ? Icons.view_sidebar
+                          : Icons.view_sidebar_outlined,
+                      color: Colors.white,
+                    ),
+                    onPressed: _togglePanel,
+                  ),
+                ],
               ),
-              onPressed: _togglePanel,
-            ),
-          ],
-        ),
-        body: BlocBuilder<ActiveRoadsCubit, ActiveRoadsState>(
-          builder: (context, state) {
-            return SplitLayout(
-              left: const ActiveRoadsMap(),
-              right: const ActiveRoadsPanel(),
-              showRightPanel: _showPanel,
-              breakpoint: 980.0,
-              rightPanelWidth: 580.0,
-              bottomPanelHeight: 420.0,
-              showDividers: true,
+              body: BlocBuilder<ActiveRoadsCubit, ActiveRoadsState>(
+                builder: (context, state) {
+                  return SplitLayout(
+                    left: const ActiveRoadsMap(),
+                    right: const ActiveRoadsPanel(),
+                    showRightPanel: _showPanel,
+                    breakpoint: 980.0,
+                    rightPanelWidth: 580.0,
+                    bottomPanelHeight: 420.0,
+                    showDividers: true,
+                  );
+                },
+              ),
             );
           },
         ),

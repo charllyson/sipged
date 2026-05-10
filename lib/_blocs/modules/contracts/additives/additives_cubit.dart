@@ -1,3 +1,6 @@
+// lib/_blocs/modules/contracts/additives/additives_cubit.dart
+
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -100,17 +103,23 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     this.moduleId = 'contracts_additives',
   })  : _currentUser = initialUser,
         _currentPermissions = initialPermissions,
-        _tenantId = tenantId,
+        _tenantId = _resolveInitialTenantId(
+          tenantId: tenantId,
+          permissions: initialPermissions,
+          user: initialUser,
+        ),
         super(AdditivesState.initial()) {
-    _init();
+    _syncRepositoryTenant();
 
     if (initialUser != null || initialPermissions != null) {
       updateUser(
         initialUser,
         permissions: initialPermissions,
-        tenantId: tenantId,
+        tenantId: _tenantId,
       );
     }
+
+    _init();
   }
 
   final ContractData contract;
@@ -120,6 +129,50 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   UserData? _currentUser;
   UserPermissionData? _currentPermissions;
   String? _tenantId;
+
+  static String? _resolveInitialTenantId({
+    required String? tenantId,
+    required UserPermissionData? permissions,
+    required UserData? user,
+  }) {
+    final direct = tenantId?.trim();
+
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+
+    final permissionTenant = permissions?.activeTenantId?.trim();
+
+    if (permissionTenant != null && permissionTenant.isNotEmpty) {
+      return permissionTenant;
+    }
+
+    final userTenant = user?.effectiveTenantId?.trim();
+
+    if (userTenant != null && userTenant.isNotEmpty) {
+      return userTenant;
+    }
+
+    return null;
+  }
+
+  void _syncRepositoryTenant() {
+    repository.setActiveTenantId(_tenantId);
+  }
+
+  String _requireTenantId() {
+    final id = _tenantId?.trim();
+
+    if (id == null || id.isEmpty) {
+      throw Exception(
+        'Nenhuma empresa ativa foi selecionada para acessar aditivos.',
+      );
+    }
+
+    repository.setActiveTenantId(id);
+
+    return id;
+  }
 
   Future<void> _init() async {
     if (contract.id == null || contract.id!.isEmpty) {
@@ -149,12 +202,33 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         String? tenantId,
       }) {
     _currentUser = user ?? _currentUser;
-    _currentPermissions = permissions ?? _permissionsFromUser(user) ?? _currentPermissions;
-    _tenantId = tenantId ?? _tenantId;
+    _currentPermissions =
+        permissions ?? _permissionsFromUser(user) ?? _currentPermissions;
+
+    final resolvedTenantId = _resolveInitialTenantId(
+      tenantId: tenantId,
+      permissions: _currentPermissions,
+      user: _currentUser,
+    );
+
+    final previousTenantId = _tenantId;
+    _tenantId = resolvedTenantId ?? _tenantId;
+
+    _syncRepositoryTenant();
 
     final editable = _canWrite();
 
-    emit(state.copyWith(isEditable: editable));
+    emit(
+      state.copyWith(
+        isEditable: editable,
+      ),
+    );
+
+    if (previousTenantId != _tenantId &&
+        contract.id != null &&
+        contract.id!.trim().isNotEmpty) {
+      unawaited(loadAdditives());
+    }
   }
 
   UserPermissionData? _permissionsFromUser(UserData? user) {
@@ -221,6 +295,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   void _assertCanWrite() {
+    _requireTenantId();
+
     if (_canWrite()) return;
 
     throw Exception(
@@ -230,6 +306,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   void _assertCanDelete() {
+    _requireTenantId();
+
     if (_canDelete()) return;
 
     throw Exception(
@@ -239,6 +317,27 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   Future<void> loadAdditives() async {
+    _syncRepositoryTenant();
+
+    if (_tenantId == null || _tenantId!.trim().isEmpty) {
+      emit(
+        state.copyWith(
+          status: AdditivesStatus.error,
+          additives: const <AdditivesData>[],
+          existingOrders: <int>{},
+          nextAvailableOrder: 1,
+          clearSelected: true,
+          clearSelectedIndex: true,
+          editingMode: false,
+          sideAttachments: <Attachment>[],
+          sideLoading: false,
+          clearUploadProgress: true,
+          errorMessage: 'Nenhuma empresa ativa foi selecionada.',
+        ),
+      );
+      return;
+    }
+
     if (contract.id == null || contract.id!.isEmpty) {
       emit(
         state.copyWith(
@@ -257,7 +356,12 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       return;
     }
 
-    emit(state.copyWith(status: AdditivesStatus.loading));
+    emit(
+      state.copyWith(
+        status: AdditivesStatus.loading,
+        clearError: true,
+      ),
+    );
 
     try {
       final list = await repository.ensureForContract(contract.id!);
@@ -271,6 +375,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           existingOrders: orders,
           nextAvailableOrder: next,
           isEditable: _canWrite(),
+          clearError: true,
         ),
       );
     } catch (e) {
@@ -474,7 +579,12 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       throw Exception('Contrato não informado para salvar o aditivo.');
     }
 
-    emit(state.copyWith(isSaving: true, clearError: true));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        clearError: true,
+      ),
+    );
 
     try {
       final int ord = int.tryParse(orderText.trim()) ?? 0;
@@ -484,6 +594,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
       final additive = AdditivesData(
         id: resolvedId,
+        contractId: contract.id,
         additiveNumberProcess: processText.trim(),
         additiveOrder: ord > 0 ? ord : null,
         additiveDate: SipGedFormatDates.ddMMyyyyToDate(dateText),
@@ -549,7 +660,12 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       throw Exception('Nenhum aditivo selecionado para exclusão.');
     }
 
-    emit(state.copyWith(isSaving: true, clearError: true));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        clearError: true,
+      ),
+    );
 
     try {
       final result = AdditiveDeleteResult(
@@ -588,6 +704,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   Future<void> reloadAttachments() async {
+    _syncRepositoryTenant();
+
     final selected = state.selected;
 
     if (selected == null || contract.id == null || selected.id == null) {
@@ -601,7 +719,12 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       return;
     }
 
-    emit(state.copyWith(sideLoading: true, clearUploadProgress: true));
+    emit(
+      state.copyWith(
+        sideLoading: true,
+        clearUploadProgress: true,
+      ),
+    );
 
     try {
       if ((selected.attachments ?? const <Attachment>[]).isNotEmpty) {
@@ -642,12 +765,14 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         return;
       }
 
+      final tenantId = _requireTenantId();
+
       final List<Attachment> list = files.map((f) {
         return Attachment(
           id: f.name,
           label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
           url: f.url,
-          path: 'contracts/${contract.id}/additives/${selected.id}/${f.name}',
+          path: 'tenants/$tenantId/contracts/${contract.id}/additives/${selected.id}/${f.name}',
           ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
               .firstMatch(f.name)
               ?.group(0) ??
@@ -677,7 +802,13 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         ),
       );
     } catch (_) {
-      emit(state.copyWith(sideLoading: false, clearUploadProgress: true));
+      emit(
+        state.copyWith(
+          sideLoading: false,
+          clearUploadProgress: true,
+        ),
+      );
+
       rethrow;
     }
   }
@@ -734,8 +865,14 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         originalName: originalName,
         label: label,
         onProgress: (p) {
-          final v = p.isNaN ? 0.0 : p.clamp(0.0, 1.0);
-          emit(state.copyWith(uploadProgress: v, sideLoading: true));
+          final v = (p.isNaN ? 0.0 : p.clamp(0.0, 1.0)).toDouble();
+
+          emit(
+            state.copyWith(
+              uploadProgress: v,
+              sideLoading: true,
+            ),
+          );
         },
       );
 

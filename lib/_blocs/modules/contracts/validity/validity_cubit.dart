@@ -1,3 +1,5 @@
+// lib/_blocs/modules/contracts/validity/validity_cubit.dart
+
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -26,6 +28,7 @@ class ValidityCubit extends Cubit<ValidityState> {
     UserPermissionData? initialPermissions,
     String? initialTenantId,
     this.moduleId = 'contracts_validity',
+    this.enforcePermissions = true,
     PublicacaoExtratoRepository? publicacaoRepository,
     TrRepository? trRepository,
   })  : _repository = repository,
@@ -33,14 +36,17 @@ class ValidityCubit extends Cubit<ValidityState> {
             publicacaoRepository ?? PublicacaoExtratoRepository(),
         _trRepository = trRepository ?? TrRepository(),
         _currentPermissions = initialPermissions,
-        _tenantId = initialTenantId,
-        super(ValidityState.initial());
+        _tenantId = _cleanNullable(initialTenantId),
+        super(ValidityState.initial()) {
+    _syncRepositoryTenant();
+  }
 
   final ValidityRepository _repository;
   final PublicacaoExtratoRepository _publicacaoRepository;
   final TrRepository _trRepository;
 
   final String moduleId;
+  final bool enforcePermissions;
 
   UserPermissionData? _currentPermissions;
   String? _tenantId;
@@ -51,12 +57,40 @@ class ValidityCubit extends Cubit<ValidityState> {
   PublicacaoExtratoData? get publicacaoExtrato => _publicacaoExtrato;
   TrData? get trData => _trData;
 
+  static String? _cleanNullable(String? value) {
+    final clean = value?.trim();
+    return clean == null || clean.isEmpty ? null : clean;
+  }
+
+  void _syncRepositoryTenant() {
+    _repository.setActiveTenantId(_tenantId);
+  }
+
+  String _requireTenantId() {
+    final tenantId = _cleanNullable(_tenantId);
+
+    if (tenantId == null) {
+      throw Exception(
+        'Nenhuma empresa ativa foi selecionada para acessar vigências.',
+      );
+    }
+
+    _tenantId = tenantId;
+    _syncRepositoryTenant();
+
+    return tenantId;
+  }
+
   void updatePermissions({
     UserPermissionData? permissions,
     String? tenantId,
   }) {
     _currentPermissions = permissions ?? _currentPermissions;
-    _tenantId = tenantId ?? _tenantId;
+    _tenantId = _cleanNullable(tenantId) ?? _tenantId;
+
+    _syncRepositoryTenant();
+
+    emit(state.copyWith(isEditable: _canWrite()));
   }
 
   bool get isEditable => _canWrite();
@@ -64,7 +98,7 @@ class ValidityCubit extends Cubit<ValidityState> {
   bool _canWrite() {
     final permissions = _currentPermissions;
 
-    if (permissions == null) return false;
+    if (permissions == null) return !enforcePermissions;
 
     if (permissions.isGlobalSuperUser ||
         permissions.isSuperUserForTenant(_tenantId)) {
@@ -85,13 +119,28 @@ class ValidityCubit extends Cubit<ValidityState> {
           module: moduleId,
           action: 'delete',
           tenantId: _tenantId,
+        ) ||
+        permissions.canModuleString(
+          module: 'validity',
+          action: 'create',
+          tenantId: _tenantId,
+        ) ||
+        permissions.canModuleString(
+          module: 'validity',
+          action: 'edit',
+          tenantId: _tenantId,
+        ) ||
+        permissions.canModuleString(
+          module: 'validity',
+          action: 'delete',
+          tenantId: _tenantId,
         );
   }
 
   bool _canDelete() {
     final permissions = _currentPermissions;
 
-    if (permissions == null) return false;
+    if (permissions == null) return !enforcePermissions;
 
     if (permissions.isGlobalSuperUser ||
         permissions.isSuperUserForTenant(_tenantId)) {
@@ -102,10 +151,17 @@ class ValidityCubit extends Cubit<ValidityState> {
       module: moduleId,
       action: 'delete',
       tenantId: _tenantId,
-    );
+    ) ||
+        permissions.canModuleString(
+          module: 'validity',
+          action: 'delete',
+          tenantId: _tenantId,
+        );
   }
 
   void _assertCanWrite() {
+    _requireTenantId();
+
     if (_canWrite()) return;
 
     throw Exception(
@@ -115,6 +171,8 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   void _assertCanDelete() {
+    _requireTenantId();
+
     if (_canDelete()) return;
 
     throw Exception(
@@ -207,13 +265,20 @@ class ValidityCubit extends Cubit<ValidityState> {
       greyOrderItems: existingSet.map((e) => e.toString()).toSet(),
       availableOrderTypes: _rulesOrderTypes(sorted),
       clearError: true,
+      isEditable: _canWrite(),
     );
   }
 
   List<ValidityData> _replaceValidityInList(ValidityData updated) {
     final list = List<ValidityData>.from(state.validities);
 
-    final index = list.indexWhere((item) => item.id == updated.id);
+    final id = updated.id?.trim();
+    final order = updated.orderNumber;
+
+    final index = list.indexWhere((item) {
+      if (id != null && id.isNotEmpty) return item.id == id;
+      return item.orderNumber == order;
+    });
 
     if (index >= 0) {
       list[index] = updated;
@@ -225,14 +290,28 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   Future<void> loadForContract(String contractId) async {
+    _syncRepositoryTenant();
+
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) return;
+
+    if (_tenantId == null || _tenantId!.trim().isEmpty) {
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: 'Nenhuma empresa ativa foi selecionada.',
+          isEditable: _canWrite(),
+        ),
+      );
+      return;
+    }
 
     emit(
       state.copyWith(
         isLoading: true,
         clearError: true,
+        isEditable: _canWrite(),
       ),
     );
 
@@ -261,6 +340,7 @@ class ValidityCubit extends Cubit<ValidityState> {
             isLoading: false,
             contract: effectiveContract,
             errorMessage: 'Erro ao carregar ordens/vigências: $e',
+            isEditable: _canWrite(),
           ),
         );
         return;
@@ -303,6 +383,7 @@ class ValidityCubit extends Cubit<ValidityState> {
           clearSelectedValidity: true,
           clearAttachments: true,
           clearError: true,
+          isEditable: _canWrite(),
         ),
       );
     } catch (e) {
@@ -310,6 +391,7 @@ class ValidityCubit extends Cubit<ValidityState> {
         state.copyWith(
           isLoading: false,
           errorMessage: 'Erro ao carregar validades: $e',
+          isEditable: _canWrite(),
         ),
       );
     }
@@ -380,7 +462,9 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   Future<void> createNewValidity() async {
-    _assertCanWrite();
+    if (enforcePermissions) {
+      _assertCanWrite();
+    }
 
     final contract = state.contract;
 
