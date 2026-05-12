@@ -17,58 +17,72 @@ class RevisionMeasurementRepository {
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
     FirebaseStorage? storage,
-    String? tenantId,
+    required String tenantId,
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
         _storage = storage ?? FirebaseStorage.instance,
-        _tenantId = _cleanTenantId(tenantId);
+        _tenantId = _cleanRequiredTenantId(
+          tenantId,
+          context: 'RevisionMeasurementRepository.constructor',
+        );
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final FirebaseStorage _storage;
 
-  String? _tenantId;
+  String _tenantId;
 
-  static String? _cleanTenantId(String? value) {
-    final clean = value?.trim();
-    return clean == null || clean.isEmpty ? null : clean;
-  }
+  static String _cleanRequiredTenantId(
+      String value, {
+        required String context,
+      }) {
+    final clean = value.trim();
 
-  String get tenantId {
-    final clean = _tenantId?.trim();
-
-    if (clean == null || clean.isEmpty) {
-      throw StateError(
-        'tenantId não definido em RevisionMeasurementRepository. '
-            'Selecione uma empresa antes de acessar revisões.',
-      );
+    if (clean.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório em $context.');
     }
 
     return clean;
   }
 
-  String? get currentTenantId => _cleanTenantId(_tenantId);
+  String get tenantId => _tenantId;
 
-  bool get hasTenant => currentTenantId != null;
+  String get currentTenantId => _tenantId;
 
-  void setActiveTenantId(String? value) {
-    final next = _cleanTenantId(value);
+  void setActiveTenantId(String value) {
+    _tenantId = _cleanRequiredTenantId(
+      value,
+      context: 'RevisionMeasurementRepository.setActiveTenantId',
+    );
+  }
 
-    if (_tenantId == next) return;
-
-    _tenantId = next;
+  void _requireTenant() {
+    _cleanRequiredTenantId(
+      _tenantId,
+      context: 'RevisionMeasurementRepository._requireTenant',
+    );
   }
 
   String get tenantContractsCollectionPath {
+    _requireTenant();
     return 'tenants/$tenantId/contracts';
   }
 
   CollectionReference<Map<String, dynamic>> _contractsCol() {
+    _requireTenant();
     return _db.collection(tenantContractsCollectionPath);
   }
 
   DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
-    return _contractsCol().doc(contractId.trim());
+    _requireTenant();
+
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId é obrigatório.');
+    }
+
+    return _contractsCol().doc(cleanContractId);
   }
 
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
@@ -81,7 +95,13 @@ class RevisionMeasurementRepository {
     required String contractId,
     required String revisionId,
   }) {
-    return _col(contractId).doc(revisionId.trim());
+    final cleanRevisionId = revisionId.trim();
+
+    if (cleanRevisionId.isEmpty) {
+      throw Exception('revisionId é obrigatório.');
+    }
+
+    return _col(contractId).doc(cleanRevisionId);
   }
 
   String _uid() {
@@ -89,6 +109,8 @@ class RevisionMeasurementRepository {
   }
 
   bool _isTenantRevisionPath(String path) {
+    _requireTenant();
+
     final parts = path
         .split('/')
         .map((part) => part.trim())
@@ -106,23 +128,15 @@ class RevisionMeasurementRepository {
   Future<List<RevisionMeasurementData>> getAllRevisionsOfContract({
     required String uidContract,
   }) async {
-    if (!hasTenant) return const <RevisionMeasurementData>[];
+    _requireTenant();
 
     final contractId = uidContract.trim();
 
-    if (contractId.isEmpty) return const <RevisionMeasurementData>[];
-
-    QuerySnapshot<Map<String, dynamic>> query;
-
-    try {
-      query = await _col(contractId).orderBy('order').get();
-    } on FirebaseException catch (e) {
-      if (e.code == 'failed-precondition' || e.code == 'not-found') {
-        query = await _col(contractId).get();
-      } else {
-        rethrow;
-      }
+    if (contractId.isEmpty) {
+      throw Exception('contractId é obrigatório para carregar revisões.');
     }
+
+    final query = await _col(contractId).orderBy('order').get();
 
     final list = query.docs.map(RevisionMeasurementData.fromDocument).toList();
 
@@ -132,24 +146,12 @@ class RevisionMeasurementRepository {
   }
 
   Future<List<RevisionMeasurementData>> getAllRevisionsCollectionGroup() async {
-    if (!hasTenant) return const <RevisionMeasurementData>[];
+    _requireTenant();
 
-    QuerySnapshot<Map<String, dynamic>> query;
-
-    try {
-      query = await _db
-          .collectionGroup(RevisionMeasurementData.collectionName)
-          .where('tenantId', isEqualTo: tenantId)
-          .get();
-    } on FirebaseException catch (e) {
-      if (e.code == 'failed-precondition' || e.code == 'not-found') {
-        query = await _db
-            .collectionGroup(RevisionMeasurementData.collectionName)
-            .get();
-      } else {
-        rethrow;
-      }
-    }
+    final query = await _db
+        .collectionGroup(RevisionMeasurementData.collectionName)
+        .where('tenantId', isEqualTo: tenantId)
+        .get();
 
     final list = query.docs
         .where((doc) => _isTenantRevisionPath(doc.reference.path))
@@ -166,9 +168,7 @@ class RevisionMeasurementRepository {
     required String? revisionMeasurementId,
     required RevisionMeasurementData rev,
   }) async {
-    if (!hasTenant) {
-      throw Exception('tenantId é obrigatório para salvar revisão.');
-    }
+    _requireTenant();
 
     final cleanContractId = contractId.trim();
 
@@ -177,6 +177,7 @@ class RevisionMeasurementRepository {
     }
 
     final cleanRevisionId = revisionMeasurementId?.trim();
+
     final docRef = cleanRevisionId == null || cleanRevisionId.isEmpty
         ? _col(cleanContractId).doc()
         : _doc(
@@ -185,7 +186,6 @@ class RevisionMeasurementRepository {
     );
 
     final revisionId = docRef.id;
-
     final existing = await docRef.get();
 
     final data = rev
@@ -229,12 +229,14 @@ class RevisionMeasurementRepository {
     required String contractId,
     required String revisionId,
   }) async {
-    if (!hasTenant) return;
+    _requireTenant();
 
     final cleanContractId = contractId.trim();
     final cleanRevisionId = revisionId.trim();
 
-    if (cleanContractId.isEmpty || cleanRevisionId.isEmpty) return;
+    if (cleanContractId.isEmpty || cleanRevisionId.isEmpty) {
+      throw Exception('contractId e revisionId são obrigatórios.');
+    }
 
     final docRef = _doc(
       contractId: cleanContractId,
@@ -287,15 +289,15 @@ class RevisionMeasurementRepository {
     required String revisionMeasurementId,
     required String url,
   }) async {
-    if (!hasTenant) {
-      throw Exception('tenantId é obrigatório para salvar PDF da revisão.');
-    }
+    _requireTenant();
 
     final cleanContractId = contractId.trim();
     final cleanRevisionId = revisionMeasurementId.trim();
     final cleanUrl = url.trim();
 
-    if (cleanContractId.isEmpty || cleanRevisionId.isEmpty) return;
+    if (cleanContractId.isEmpty || cleanRevisionId.isEmpty) {
+      throw Exception('contractId e revisionMeasurementId são obrigatórios.');
+    }
 
     final docRef = _doc(
       contractId: cleanContractId,
@@ -323,9 +325,7 @@ class RevisionMeasurementRepository {
     required String revisionId,
     required List<Attachment> attachments,
   }) async {
-    if (!hasTenant) {
-      throw Exception('tenantId é obrigatório para salvar anexos da revisão.');
-    }
+    _requireTenant();
 
     final cleanContractId = contractId.trim();
     final cleanRevisionId = revisionId.trim();
@@ -402,6 +402,8 @@ class RevisionMeasurementRepository {
       ContractData contract,
       RevisionMeasurementData revision,
       ) {
+    _requireTenant();
+
     final contractId = contract.id?.trim();
     final revisionId = revision.id?.trim();
 
@@ -435,9 +437,7 @@ class RevisionMeasurementRepository {
     required String label,
     void Function(double progress)? onProgress,
   }) async {
-    if (!hasTenant) {
-      throw Exception('tenantId é obrigatório para enviar anexo da revisão.');
-    }
+    _requireTenant();
 
     final dir = attachmentsDir(contract, revision);
     final name = storedFileName(originalName);
@@ -495,11 +495,13 @@ class RevisionMeasurementRepository {
   }
 
   Future<void> _recalcularFinancialPercentage(String contractId) async {
-    if (!hasTenant) return;
+    _requireTenant();
 
     final cleanContractId = contractId.trim();
 
-    if (cleanContractId.isEmpty) return;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId é obrigatório para recalcular percentual.');
+    }
 
     double total = 0.0;
 

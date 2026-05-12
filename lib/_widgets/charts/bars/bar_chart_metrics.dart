@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 class BarChartMetrics {
@@ -79,17 +80,20 @@ class BarChartMetrics {
         ? const EdgeInsets.symmetric(horizontal: 12, vertical: 12)
         : const EdgeInsets.symmetric(horizontal: 14, vertical: 14);
 
-    final double innerWidth = math.max(120.0, maxWidth - cardPadding.horizontal);
-    final double innerHeight = math.max(120.0, maxHeight - cardPadding.vertical);
+    final double innerWidth =
+    math.max(120.0, maxWidth - cardPadding.horizontal);
+
+    final double innerHeight =
+    math.max(120.0, maxHeight - cardPadding.vertical);
 
     final double titleHeight = hasTitle
-        ? (ultraCompact
+        ? ultraCompact
         ? 18.0
         : veryCompact
         ? 20.0
         : compact
         ? 22.0
-        : 24.0)
+        : 24.0
         : 0.0;
 
     final double titleFontSize = ultraCompact
@@ -101,11 +105,11 @@ class BarChartMetrics {
         : 16.0;
 
     final double titleBottomGap = hasTitle
-        ? (ultraCompact
+        ? ultraCompact
         ? 6.0
         : veryCompact
         ? 8.0
-        : 10.0)
+        : 10.0
         : 0.0;
 
     final double bottomReservedSize = ultraCompact
@@ -180,13 +184,20 @@ class BarChartMetrics {
         return baseBarWidth.clamp(_minBarWidth, _maxBarWidth).toDouble();
       }
 
-      final double usableWidth =
-      math.max(40.0, innerWidth - leftReservedSize);
+      final double usableWidth = math.max(
+        40.0,
+        innerWidth - leftReservedSize,
+      );
 
-      final double totalGap = math.max(0.0, (barsCount - 1) * groupsSpace);
+      final double totalGap = math.max(
+        0.0,
+        (barsCount - 1) * groupsSpace,
+      );
 
-      final double widthPerBarSlot =
-      math.max(8.0, (usableWidth - totalGap) / barsCount);
+      final double widthPerBarSlot = math.max(
+        8.0,
+        (usableWidth - totalGap) / barsCount,
+      );
 
       final double fillFactor = ultraCompact
           ? 0.72
@@ -274,7 +285,9 @@ class BarChartMetrics {
 
     final double minWidthNeeded = count <= 0
         ? leftReservedSize
-        : leftReservedSize + (count * slotWidth) + ((count - 1) * groupsSpace);
+        : leftReservedSize +
+        (count * slotWidth) +
+        ((count - 1) * groupsSpace);
 
     return math.max(availableInnerWidth, minWidthNeeded);
   }

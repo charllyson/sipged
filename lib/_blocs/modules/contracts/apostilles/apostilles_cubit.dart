@@ -92,18 +92,14 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   ApostillesCubit({
     required this.contract,
     required this.repository,
+    required String tenantId,
     UserData? initialUser,
     UserPermissionData? initialPermissions,
-    String? tenantId,
     this.moduleId = 'contracts_apostilles',
     this.enforcePermissions = false,
   })  : _currentUser = initialUser,
         _currentPermissions = initialPermissions,
-        _tenantId = _resolveInitialTenantId(
-          tenantId: tenantId,
-          permissions: initialPermissions,
-          user: initialUser,
-        ),
+        _tenantId = _cleanRequiredTenantId(tenantId),
         super(ApostillesState.initial()) {
     _syncRepositoryTenant();
 
@@ -115,7 +111,12 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         reload: false,
       );
     } else {
-      emit(state.copyWith(isEditable: !enforcePermissions));
+      emit(
+        state.copyWith(
+          isEditable: !enforcePermissions,
+          clearError: true,
+        ),
+      );
     }
 
     final contractId = contract.id?.trim();
@@ -125,26 +126,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       return;
     }
 
-    if (_hasTenantId) {
-      unawaited(loadApostilles());
-    } else {
-      emit(
-        state.copyWith(
-          status: ApostillesStatus.initial,
-          apostilles: const <ApostillesData>[],
-          existingOrders: <int>{},
-          nextAvailableOrder: 1,
-          clearSelected: true,
-          clearSelectedIndex: true,
-          editingMode: false,
-          sideAttachments: const <Attachment>[],
-          sideLoading: false,
-          clearUploadProgress: true,
-          clearError: true,
-          isEditable: _canWrite(),
-        ),
-      );
-    }
+    unawaited(loadApostilles());
   }
 
   final ContractData contract;
@@ -157,49 +139,32 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
   UserData? _currentUser;
   UserPermissionData? _currentPermissions;
-  String? _tenantId;
+  String _tenantId;
 
-  bool get _hasTenantId {
-    final value = _tenantId?.trim();
-    return value != null && value.isNotEmpty;
+  static String _cleanRequiredTenantId(String tenantId) {
+    final clean = tenantId.trim();
+
+    if (clean.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para criar ApostillesCubit.',
+      );
+    }
+
+    return clean;
   }
+
+  String get tenantId => _tenantId;
 
   bool get isEditable => _canWrite();
-
-  static String? _resolveInitialTenantId({
-    required String? tenantId,
-    required UserPermissionData? permissions,
-    required UserData? user,
-  }) {
-    final direct = tenantId?.trim();
-
-    if (direct != null && direct.isNotEmpty) {
-      return direct;
-    }
-
-    final permissionTenant = permissions?.activeTenantId?.trim();
-
-    if (permissionTenant != null && permissionTenant.isNotEmpty) {
-      return permissionTenant;
-    }
-
-    final userTenant = user?.effectiveTenantId?.trim();
-
-    if (userTenant != null && userTenant.isNotEmpty) {
-      return userTenant;
-    }
-
-    return null;
-  }
 
   void _syncRepositoryTenant() {
     repository.setActiveTenantId(_tenantId);
   }
 
   String _requireTenantId() {
-    final id = _tenantId?.trim();
+    final id = _tenantId.trim();
 
-    if (id == null || id.isEmpty) {
+    if (id.isEmpty) {
       throw Exception(
         'Nenhuma empresa ativa foi selecionada para acessar apostilamentos.',
       );
@@ -241,14 +206,10 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     _currentPermissions =
         permissions ?? _permissionsFromUser(user) ?? _currentPermissions;
 
-    final resolvedTenantId = _resolveInitialTenantId(
-      tenantId: tenantId,
-      permissions: _currentPermissions,
-      user: _currentUser,
-    );
+    final cleanTenantId = tenantId?.trim();
 
-    if (resolvedTenantId != null && resolvedTenantId.trim().isNotEmpty) {
-      _tenantId = resolvedTenantId.trim();
+    if (cleanTenantId != null && cleanTenantId.isNotEmpty) {
+      _tenantId = cleanTenantId;
     }
 
     _syncRepositoryTenant();
@@ -265,10 +226,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     final shouldReload = reload &&
         contractId != null &&
         contractId.isNotEmpty &&
-        _hasTenantId &&
-        (previousTenantId != _tenantId ||
-            state.status == ApostillesStatus.initial ||
-            state.status == ApostillesStatus.error);
+        previousTenantId != _tenantId;
 
     if (shouldReload) {
       unawaited(loadApostilles());
@@ -283,14 +241,10 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
     _currentPermissions = permissions ?? _currentPermissions;
 
-    final resolvedTenantId = _resolveInitialTenantId(
-      tenantId: tenantId,
-      permissions: _currentPermissions,
-      user: _currentUser,
-    );
+    final cleanTenantId = tenantId?.trim();
 
-    if (resolvedTenantId != null && resolvedTenantId.trim().isNotEmpty) {
-      _tenantId = resolvedTenantId.trim();
+    if (cleanTenantId != null && cleanTenantId.isNotEmpty) {
+      _tenantId = cleanTenantId;
     }
 
     _syncRepositoryTenant();
@@ -306,10 +260,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
     final shouldReload = contractId != null &&
         contractId.isNotEmpty &&
-        _hasTenantId &&
-        (previousTenantId != _tenantId ||
-            state.status == ApostillesStatus.initial ||
-            state.status == ApostillesStatus.error);
+        previousTenantId != _tenantId;
 
     if (shouldReload) {
       unawaited(loadApostilles());
@@ -410,7 +361,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
     throw Exception(
       'Usuário sem permissão para alterar apostilamentos. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
@@ -421,7 +372,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
     throw Exception(
       'Usuário sem permissão para apagar apostilamentos. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
@@ -429,26 +380,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     _syncRepositoryTenant();
 
     final cId = contract.id?.trim();
-
-    if (!_hasTenantId) {
-      emit(
-        state.copyWith(
-          status: ApostillesStatus.error,
-          apostilles: const <ApostillesData>[],
-          existingOrders: <int>{},
-          nextAvailableOrder: 1,
-          clearSelected: true,
-          clearSelectedIndex: true,
-          editingMode: false,
-          sideAttachments: const <Attachment>[],
-          sideLoading: false,
-          clearUploadProgress: true,
-          errorMessage: 'Nenhuma empresa ativa foi selecionada.',
-          isEditable: _canWrite(),
-        ),
-      );
-      return;
-    }
 
     if (cId == null || cId.isEmpty) {
       _emitEmptyLoaded();
@@ -593,6 +524,8 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   void createNewApostille({int? keepOrder}) {
     if (enforcePermissions) {
       _assertCanWrite();
+    } else {
+      _requireTenantId();
     }
 
     final next = keepOrder ?? _computeNextOrder(state.existingOrders);
@@ -859,7 +792,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         return;
       }
 
-      final tenantId = _requireTenantId();
+      final activeTenantId = _requireTenantId();
 
       final list = files.map((file) {
         final ext = RegExp(
@@ -873,7 +806,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           label: file.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
           url: file.url,
           path:
-          'tenants/$tenantId/contracts/$cId/apostilles/${selected.id}/${file.name}',
+          'tenants/$activeTenantId/contracts/$cId/apostilles/${selected.id}/${file.name}',
           ext: ext,
           createdAt: DateTime.now(),
           createdBy: _currentUser?.uid ?? _currentPermissions?.uid,
@@ -968,8 +901,8 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         originalName: originalName,
         label: label,
         onProgress: (progress) {
-          final value = (progress.isNaN ? 0.0 : progress.clamp(0.0, 1.0))
-              .toDouble();
+          final value =
+          (progress.isNaN ? 0.0 : progress.clamp(0.0, 1.0)).toDouble();
 
           emit(
             state.copyWith(

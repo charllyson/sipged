@@ -1,5 +1,3 @@
-// lib/_blocs/system/adm/firebase_admin_state.dart
-
 import 'package:sipged/_blocs/system/adm/firebase_admin_data.dart';
 
 class FirebaseAdminState {

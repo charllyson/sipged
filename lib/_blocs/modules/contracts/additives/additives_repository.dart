@@ -17,17 +17,17 @@ class AdditivesRepository {
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
     FirebaseAuth? auth,
-    String? tenantId,
+    required String tenantId,
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _storage = storage ?? FirebaseStorage.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        _tenantId = tenantId?.trim();
+        _tenantId = _cleanRequiredTenantId(tenantId);
 
   final FirebaseFirestore _db;
   final FirebaseStorage _storage;
   final FirebaseAuth _auth;
 
-  String? _tenantId;
+  String _tenantId;
 
   final Map<String, List<AdditivesData>> _byContract =
   <String, List<AdditivesData>>{};
@@ -38,14 +38,22 @@ class AdditivesRepository {
 
   final Map<String, String> _statusByContract = <String, String>{};
 
-  // ---------------------------------------------------------------------------
-  // Tenant dinâmico
-  // ---------------------------------------------------------------------------
+  static String _cleanRequiredTenantId(String tenantId) {
+    final clean = tenantId.trim();
+
+    if (clean.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para criar AdditivesRepository.',
+      );
+    }
+
+    return clean;
+  }
 
   String get tenantId {
-    final id = _tenantId?.trim();
+    final id = _tenantId.trim();
 
-    if (id == null || id.isEmpty) {
+    if (id.isEmpty) {
       throw StateError(
         'tenantId não definido em AdditivesRepository. '
             'Selecione uma empresa antes de acessar aditivos.',
@@ -55,23 +63,26 @@ class AdditivesRepository {
     return id;
   }
 
-  String? get currentTenantId {
-    final id = _tenantId?.trim();
-    return id == null || id.isEmpty ? null : id;
+  String get currentTenantId {
+    return tenantId;
   }
 
   bool get hasTenant {
-    final id = _tenantId?.trim();
-    return id != null && id.isNotEmpty;
+    return tenantId.trim().isNotEmpty;
   }
 
   void setActiveTenantId(String? value) {
-    final next = value?.trim();
-    final cleanNext = next == null || next.isEmpty ? null : next;
+    final clean = value?.trim();
 
-    if (_tenantId == cleanNext) return;
+    if (clean == null || clean.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório em AdditivesRepository.setActiveTenantId.',
+      );
+    }
 
-    _tenantId = cleanNext;
+    if (_tenantId == clean) return;
+
+    _tenantId = clean;
     clearCache();
   }
 
@@ -86,31 +97,35 @@ class AdditivesRepository {
     return 'tenants/$tenantId/contracts';
   }
 
-  // ---------------------------------------------------------------------------
-  // References
-  // ---------------------------------------------------------------------------
-
   CollectionReference<Map<String, dynamic>> _contractsCol() {
     return _db.collection(tenantContractsCollectionPath);
   }
 
   DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
-    return _contractsCol().doc(contractId.trim());
-  }
+    final cleanContractId = contractId.trim();
 
-  CollectionReference<Map<String, dynamic>> _tenantCol(String contractId) {
-    return _contractDoc(contractId).collection('additives');
-  }
+    if (cleanContractId.isEmpty) {
+      throw ArgumentError('contractId é obrigatório.');
+    }
 
-  DocumentReference<Map<String, dynamic>> _tenantDoc({
-    required String contractId,
-    required String additiveId,
-  }) {
-    return _tenantCol(contractId).doc(additiveId.trim());
+    return _contractsCol().doc(cleanContractId);
   }
 
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
-    return _tenantCol(contractId);
+    return _contractDoc(contractId).collection('additives');
+  }
+
+  DocumentReference<Map<String, dynamic>> _doc({
+    required String contractId,
+    required String additiveId,
+  }) {
+    final cleanAdditiveId = additiveId.trim();
+
+    if (cleanAdditiveId.isEmpty) {
+      throw ArgumentError('additiveId é obrigatório.');
+    }
+
+    return _col(contractId).doc(cleanAdditiveId);
   }
 
   String? _idToString(String? id) {
@@ -162,12 +177,14 @@ class AdditivesRepository {
 
     if (value is String) {
       final text = value.trim();
+
       if (text.isEmpty) return null;
 
       final iso = DateTime.tryParse(text);
       if (iso != null) return iso;
 
       final parts = text.split('/');
+
       if (parts.length == 3) {
         final day = int.tryParse(parts[0]);
         final month = int.tryParse(parts[1]);
@@ -204,10 +221,6 @@ class AdditivesRepository {
         parts[2] == 'contracts' &&
         parts[4] == 'additives';
   }
-
-  // ---------------------------------------------------------------------------
-  // Status via DFD
-  // ---------------------------------------------------------------------------
 
   Future<String?> _loadStatusContratoFromDfd(String contractId) async {
     try {
@@ -271,12 +284,7 @@ class AdditivesRepository {
     return value == null || value.trim().isEmpty ? null : value.trim();
   }
 
-  // ---------------------------------------------------------------------------
-  // Listagens
-  // ---------------------------------------------------------------------------
-
   Future<List<AdditivesData>> _loadAllAdditivesOnce() async {
-    if (!hasTenant) return const <AdditivesData>[];
     if (_allAdditivesCache != null) return _allAdditivesCache!;
 
     QuerySnapshot<Map<String, dynamic>> snap;
@@ -321,18 +329,20 @@ class AdditivesRepository {
     }).toList();
   }
 
-  Future<List<AdditivesData>> _getTenantAdditivesOfContract({
-    required String contractId,
+  Future<List<AdditivesData>> getAllAdditivesOfContract({
+    required String uidContract,
   }) async {
-    if (!hasTenant) return const <AdditivesData>[];
+    final contractId = uidContract.trim();
+
+    if (contractId.isEmpty) return const <AdditivesData>[];
 
     QuerySnapshot<Map<String, dynamic>> snap;
 
     try {
-      snap = await _tenantCol(contractId).orderBy('additiveorder').get();
+      snap = await _col(contractId).orderBy('additiveorder').get();
     } on FirebaseException catch (e) {
       if (e.code == 'failed-precondition' || e.code == 'not-found') {
-        snap = await _tenantCol(contractId).get();
+        snap = await _col(contractId).get();
       } else {
         rethrow;
       }
@@ -345,20 +355,9 @@ class AdditivesRepository {
     );
   }
 
-  Future<List<AdditivesData>> getAllAdditivesOfContract({
-    required String uidContract,
-  }) async {
-    final contractId = uidContract.trim();
-
-    if (contractId.isEmpty) return const <AdditivesData>[];
-
-    return _getTenantAdditivesOfContract(contractId: contractId);
-  }
-
   Future<List<AdditivesData>> ensureForContract(String contractId) async {
     final cleanContractId = contractId.trim();
 
-    if (!hasTenant) return const <AdditivesData>[];
     if (cleanContractId.isEmpty) return const <AdditivesData>[];
 
     if (_byContract.containsKey(cleanContractId)) {
@@ -383,7 +382,6 @@ class AdditivesRepository {
   Future<List<AdditivesData>> refreshForContract(String contractId) async {
     final cleanContractId = contractId.trim();
 
-    if (!hasTenant) return const <AdditivesData>[];
     if (cleanContractId.isEmpty) return const <AdditivesData>[];
 
     _loading[cleanContractId] = true;
@@ -403,18 +401,17 @@ class AdditivesRepository {
   }
 
   List<AdditivesData> listCachedFor(String contractId) {
-    return _byContract[contractId] ?? const <AdditivesData>[];
-  }
+    final cleanContractId = contractId.trim();
 
-  // ---------------------------------------------------------------------------
-  // Agregações
-  // ---------------------------------------------------------------------------
+    if (cleanContractId.isEmpty) return const <AdditivesData>[];
+
+    return _byContract[cleanContractId] ?? const <AdditivesData>[];
+  }
 
   Future<double> getValorPorStatus(
       List<ContractData> contratos,
       String statusDesejado,
       ) async {
-    if (!hasTenant) return 0.0;
     if (contratos.isEmpty) return 0.0;
 
     await _ensureStatusesForContracts(contratos);
@@ -456,7 +453,6 @@ class AdditivesRepository {
     required List<ContractData> contratos,
     required String status,
   }) async {
-    if (!hasTenant) return 0.0;
     if (contratos.isEmpty) return 0.0;
 
     await _ensureStatusesForContracts(contratos);
@@ -489,7 +485,6 @@ class AdditivesRepository {
   Future<double> getAllAdditivesValue(String contractId) async {
     final cleanContractId = contractId.trim();
 
-    if (!hasTenant) return 0.0;
     if (cleanContractId.isEmpty) return 0.0;
 
     final snap = await _col(cleanContractId).get();
@@ -500,19 +495,11 @@ class AdditivesRepository {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // CRUD
-  // ---------------------------------------------------------------------------
-
   Future<void> saveOrUpdateAdditive({
     required String contractId,
     required AdditivesData data,
   }) async {
     final cleanContractId = contractId.trim();
-
-    if (!hasTenant) {
-      throw Exception('tenantId é obrigatório para salvar aditivo.');
-    }
 
     if (cleanContractId.isEmpty) {
       throw Exception('contractId é obrigatório para salvar aditivo.');
@@ -521,11 +508,11 @@ class AdditivesRepository {
     final firebaseUser = _auth.currentUser;
 
     final docRef = data.id != null && data.id!.trim().isNotEmpty
-        ? _tenantDoc(
+        ? _doc(
       contractId: cleanContractId,
       additiveId: data.id!.trim(),
     )
-        : _tenantCol(cleanContractId).doc();
+        : _col(cleanContractId).doc();
 
     final additiveId = docRef.id;
 
@@ -572,10 +559,11 @@ class AdditivesRepository {
     final cleanContractId = contractId.trim();
     final cleanAdditiveId = additiveId.trim();
 
-    if (!hasTenant) return;
-    if (cleanContractId.isEmpty || cleanAdditiveId.isEmpty) return;
+    if (cleanContractId.isEmpty || cleanAdditiveId.isEmpty) {
+      throw Exception('contractId e additiveId são obrigatórios para excluir.');
+    }
 
-    final docRef = _tenantDoc(
+    final docRef = _doc(
       contractId: cleanContractId,
       additiveId: cleanAdditiveId,
     );
@@ -603,13 +591,13 @@ class AdditivesRepository {
     }
 
     try {
-      final tenantFolder = _storage.ref(
+      final folder = _storage.ref(
         'tenants/$tenantId/contracts/$cleanContractId/additives/$cleanAdditiveId/',
       );
 
-      final tenantResult = await tenantFolder.listAll();
+      final result = await folder.listAll();
 
-      for (final item in tenantResult.items) {
+      for (final item in result.items) {
         try {
           await item.delete();
         } catch (_) {}
@@ -627,17 +615,13 @@ class AdditivesRepository {
     _invalidateAllAdditivesCache();
   }
 
-  // ---------------------------------------------------------------------------
-  // Notificações
-  // ---------------------------------------------------------------------------
-
   Future<void> _notificarUsuariosSobreAditivo(
       AdditivesData aditivo,
       String contractId,
       ) async {
     final uid = _auth.currentUser?.uid;
 
-    if (uid == null || !hasTenant) return;
+    if (uid == null || uid.trim().isEmpty) return;
 
     final ref = _db.collection('users').doc(uid).collection('notifications').doc();
 
@@ -653,13 +637,15 @@ class AdditivesRepository {
   }
 
   Stream<List<Registro>> getNotificacoesRecentesStream(String uid) {
-    if (!hasTenant) {
+    final cleanUid = uid.trim();
+
+    if (cleanUid.isEmpty) {
       return Stream<List<Registro>>.value(const <Registro>[]);
     }
 
     return _db
         .collection('users')
-        .doc(uid)
+        .doc(cleanUid)
         .collection('notifications')
         .where('tenantId', isEqualTo: tenantId)
         .orderBy('createdAt', descending: true)
@@ -673,12 +659,17 @@ class AdditivesRepository {
 
         if (data['tipo'] != 'aditivo') continue;
 
-        final contractId = data['contractId']?.toString();
-        final additiveId = data['additiveId']?.toString();
+        final contractId = data['contractId']?.toString().trim();
+        final additiveId = data['additiveId']?.toString().trim();
 
-        if (contractId == null || additiveId == null) continue;
+        if (contractId == null ||
+            contractId.isEmpty ||
+            additiveId == null ||
+            additiveId.isEmpty) {
+          continue;
+        }
 
-        final originalSnap = await _tenantDoc(
+        final originalSnap = await _doc(
           contractId: contractId,
           additiveId: additiveId,
         ).get();
@@ -705,21 +696,14 @@ class AdditivesRepository {
   Future<ContractData?> buscarContrato(String contractId) async {
     final cleanContractId = contractId.trim();
 
-    if (!hasTenant) return null;
     if (cleanContractId.isEmpty) return null;
 
     final snap = await _contractDoc(cleanContractId).get();
 
-    if (snap.exists) {
-      return ContractData.fromDocument(snapshot: snap);
-    }
+    if (!snap.exists) return null;
 
-    return null;
+    return ContractData.fromDocument(snapshot: snap);
   }
-
-  // ---------------------------------------------------------------------------
-  // Attachments + Storage
-  // ---------------------------------------------------------------------------
 
   String _sanitize(String value) {
     return value.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
@@ -738,11 +722,13 @@ class AdditivesRepository {
     var value = name.trim();
 
     final queryIndex = value.indexOf('?');
+
     if (queryIndex != -1) {
       value = value.substring(0, queryIndex);
     }
 
     final hashIndex = value.indexOf('#');
+
     if (hashIndex != -1) {
       value = value.substring(0, hashIndex);
     }
@@ -765,10 +751,6 @@ class AdditivesRepository {
   String folderFor(ContractData contract, AdditivesData additive) {
     final contractId = contract.id?.trim();
     final additiveId = additive.id?.trim();
-
-    if (!hasTenant) {
-      throw Exception('tenantId é obrigatório para anexos de aditivo.');
-    }
 
     if (contractId == null || contractId.isEmpty) {
       throw Exception('contract.id é obrigatório para anexos de aditivo.');
@@ -851,8 +833,6 @@ class AdditivesRepository {
     final cleanContractId = contractId.trim();
     final cleanAdditiveId = additiveId.trim();
 
-    if (!hasTenant) return const <({String name, String url})>[];
-
     if (cleanContractId.isEmpty || cleanAdditiveId.isEmpty) {
       return const <({String name, String url})>[];
     }
@@ -892,6 +872,15 @@ class AdditivesRepository {
 
     if (cleanPath.isEmpty) return;
 
+    final expectedPrefix = 'tenants/$tenantId/';
+
+    if (!cleanPath.startsWith(expectedPrefix)) {
+      throw Exception(
+        'Caminho de storage fora do tenant ativo. '
+            'tenantId: $tenantId | path: $cleanPath',
+      );
+    }
+
     try {
       await _storage.ref(cleanPath).delete();
     } catch (_) {}
@@ -905,15 +894,11 @@ class AdditivesRepository {
     final cleanContractId = contractId.trim();
     final cleanAdditiveId = additiveId.trim();
 
-    if (!hasTenant) {
-      throw Exception('tenantId é obrigatório para salvar anexos.');
-    }
-
     if (cleanContractId.isEmpty || cleanAdditiveId.isEmpty) {
       throw Exception('contractId e additiveId são obrigatórios.');
     }
 
-    final docRef = _tenantDoc(
+    final docRef = _doc(
       contractId: cleanContractId,
       additiveId: cleanAdditiveId,
     );
@@ -950,10 +935,6 @@ class AdditivesRepository {
 
     _invalidateAllAdditivesCache();
   }
-
-  // ---------------------------------------------------------------------------
-  // PDF antigo / compatibilidade de tela
-  // ---------------------------------------------------------------------------
 
   String legacyFileName(ContractData contract, AdditivesData additive) {
     final contrato = _sanitize('contrato');
@@ -1039,11 +1020,10 @@ class AdditivesRepository {
     final contractId = contract.id?.trim();
     final additiveId = additive.id?.trim();
 
-    if (!hasTenant) return null;
     if (contractId == null || contractId.isEmpty) return null;
     if (additiveId == null || additiveId.isEmpty) return null;
 
-    final snap = await _tenantDoc(
+    final snap = await _doc(
       contractId: contractId,
       additiveId: additiveId,
     ).get();
@@ -1062,15 +1042,11 @@ class AdditivesRepository {
     final cleanAdditiveId = additiveId.trim();
     final cleanUrl = url.trim();
 
-    if (!hasTenant) {
-      throw Exception('tenantId é obrigatório para salvar PDF.');
-    }
-
     if (cleanContractId.isEmpty || cleanAdditiveId.isEmpty) {
       throw Exception('contractId e additiveId são obrigatórios.');
     }
 
-    final docRef = _tenantDoc(
+    final docRef = _doc(
       contractId: cleanContractId,
       additiveId: cleanAdditiveId,
     );

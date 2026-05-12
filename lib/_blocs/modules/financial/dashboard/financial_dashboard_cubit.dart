@@ -1,8 +1,10 @@
+// lib/_blocs/modules/financial/dashboard/financial_dashboard_cubit.dart
+
 import 'dart:math';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/financial/budget/budget_repository.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_repository.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_repository.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 
@@ -33,25 +35,61 @@ class FinancialDashboardTotals {
 }
 
 class FinancialDashboardCubit extends Cubit<FinancialDashboardState> {
-  final BudgetRepository _budgetRepo;
-  final EmpenhoRepository _empenhoRepo;
-
-  final DfdCubit _dfdCubit;
-  final AdditivesRepository _additivesRepo;
-  final ApostillesRepository _apostillesRepo;
-
   FinancialDashboardCubit({
-    BudgetRepository? budgetRepository,
+    required String tenantId,
+    LOARepository? budgetRepository,
     EmpenhoRepository? empenhoRepository,
     DfdCubit? dfdCubit,
     AdditivesRepository? additivesRepository,
     ApostillesRepository? apostillesRepository,
-  })  : _budgetRepo = budgetRepository ?? BudgetRepository(),
-        _empenhoRepo = empenhoRepository ?? EmpenhoRepository(),
-        _dfdCubit = dfdCubit ?? DfdCubit(),
-        _additivesRepo = additivesRepository ?? AdditivesRepository(),
-        _apostillesRepo = apostillesRepository ?? ApostillesRepository(),
+  })  : _tenantId = _validateTenantId(tenantId),
+        _budgetRepo = budgetRepository ??
+            LOARepository(
+              //tenantId: _validateTenantId(tenantId),
+            ),
+        _empenhoRepo = empenhoRepository ??
+            EmpenhoRepository(
+              tenantId: _validateTenantId(tenantId),
+            ),
+        _dfdCubit = dfdCubit ??
+            DfdCubit(
+              tenantId: _validateTenantId(tenantId),
+            ),
+        _ownsDfdCubit = dfdCubit == null,
+        _additivesRepo = additivesRepository ??
+            AdditivesRepository(
+              tenantId: _validateTenantId(tenantId),
+            ),
+        _apostillesRepo = apostillesRepository ??
+            ApostillesRepository(
+              tenantId: _validateTenantId(tenantId),
+            ),
         super(FinancialDashboardState.initial());
+
+  final String _tenantId;
+
+  final LOARepository _budgetRepo;
+  final EmpenhoRepository _empenhoRepo;
+
+  final DfdCubit _dfdCubit;
+  final bool _ownsDfdCubit;
+
+  final AdditivesRepository _additivesRepo;
+  final ApostillesRepository _apostillesRepo;
+
+  String get tenantId => _tenantId;
+
+  static String _validateTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para FinancialDashboardCubit.',
+      );
+    }
+
+    return cleanTenantId;
+  }
 
   String? _idToString(Object? id) {
     if (id == null) return null;
@@ -76,7 +114,7 @@ class FinancialDashboardCubit extends Cubit<FinancialDashboardState> {
 
   /// Para total da demanda, prioriza o DFD selecionado no empenho.
   ///
-  /// Fallback para contractId só existe para compatibilidade.
+  /// Mantém compatibilidade com contractId quando o demandContractId não existir.
   String? _demandContractIdFromEmpenho(EmpenhoData e) {
     final demandContractId = _idToString(e.demandContractId);
 
@@ -224,11 +262,13 @@ class FinancialDashboardCubit extends Cubit<FinancialDashboardState> {
       }),
     );
 
-    final allAdditives =
-    await _additivesRepo.getAdditivesByContractIds(demandContractIds);
+    final allAdditives = await _additivesRepo.getAdditivesByContractIds(
+      demandContractIds,
+    );
 
-    final allApostilles =
-    await _apostillesRepo.getApostillesByContractIds(demandContractIds);
+    final allApostilles = await _apostillesRepo.getApostillesByContractIds(
+      demandContractIds,
+    );
 
     final addByContract = <String, double>{};
 
@@ -288,7 +328,7 @@ class FinancialDashboardCubit extends Cubit<FinancialDashboardState> {
     final ordered = demandTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    final demandTotalsSorted = {
+    final demandTotalsSorted = <String, double>{
       for (final e in ordered) e.key: e.value,
     };
 
@@ -388,7 +428,7 @@ class FinancialDashboardCubit extends Cubit<FinancialDashboardState> {
     final entries = map.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    return {
+    return <String, double>{
       for (final e in entries) e.key: e.value,
     };
   }
@@ -443,7 +483,7 @@ class FinancialDashboardCubit extends Cubit<FinancialDashboardState> {
         return a.key.toLowerCase().compareTo(b.key.toLowerCase());
       });
 
-    return {
+    return <String, Map<String, double>>{
       for (final e in entries) e.key: e.value,
     };
   }
@@ -456,5 +496,14 @@ class FinancialDashboardCubit extends Cubit<FinancialDashboardState> {
     }
 
     return state.demandTotals[k] ?? 0.0;
+  }
+
+  @override
+  Future<void> close() async {
+    if (_ownsDfdCubit) {
+      await _dfdCubit.close();
+    }
+
+    return super.close();
   }
 }

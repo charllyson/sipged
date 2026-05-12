@@ -1,23 +1,39 @@
+// lib/screens/menus/menu_list_page.dart
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
+import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
+
 import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_repository.dart';
+
+import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
 
 import 'package:sipged/_blocs/modules/operation/schedule/vertical/civil_schedule_bloc.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/vertical/civil_schedule_event.dart';
 
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
+
+import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
 
 import 'package:sipged/_blocs/system/module/module_access_guard.dart';
 import 'package:sipged/_blocs/system/module/module_catalog.dart';
@@ -91,9 +107,40 @@ class _MenuListPageState extends State<MenuListPage> {
   ModuleEnum? _selectedItem;
 
   bool _didWarmupUserCubit = false;
-  bool _didWarmupProcessCubit = false;
 
   String? _lastPermissionUid;
+  String? _lastProcessWarmupSignature;
+
+  String? _requireActiveTenantId(PermissionState permissionState) {
+    final tenantId = PermissionResolver.cleanTenantId(
+      permissionState.activeTenantId,
+    );
+
+    if (tenantId == null || tenantId.trim().isEmpty) {
+      return null;
+    }
+
+    return tenantId.trim();
+  }
+
+  Widget _missingTenantPage() {
+    return const Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Empresa/tenant não selecionado.\nSelecione uma empresa para acessar os módulos.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showNotification({
     required String title,
@@ -132,9 +179,19 @@ class _MenuListPageState extends State<MenuListPage> {
       permissionState: permissionState,
     );
 
-    final tenantId = PermissionResolver.cleanTenantId(
-      permissionState.activeTenantId,
-    );
+    final tenantId = _requireActiveTenantId(permissionState);
+
+    if (tenantId == null) {
+      _showNotification(
+        title: 'Empresa não selecionada',
+        subtitle: 'Selecione uma empresa antes de abrir os módulos.',
+        leadingLabel: 'Tenant',
+        status: NotificationStatus.warning,
+      );
+
+      Navigator.of(context).maybePop();
+      return;
+    }
 
     final canRead = ModuleAccessGuard.canRead(
       item: item,
@@ -219,6 +276,19 @@ class _MenuListPageState extends State<MenuListPage> {
     final navigator = Navigator.of(context);
     final dfdCubit = context.read<DfdCubit>();
 
+    final permissionState = context.read<PermissionCubit>().state;
+    final tenantId = _requireActiveTenantId(permissionState);
+
+    if (tenantId == null) {
+      _showNotification(
+        title: 'Empresa não selecionada',
+        subtitle: 'Não foi possível abrir o cronograma sem tenant ativo.',
+        leadingLabel: 'Tenant',
+        status: NotificationStatus.warning,
+      );
+      return;
+    }
+
     final contractId = (contract.id ?? '').trim();
 
     if (contractId.isEmpty) {
@@ -264,7 +334,9 @@ class _MenuListPageState extends State<MenuListPage> {
       navigator.push(
         MaterialPageRoute(
           builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
-            create: (_) => ScheduleRoadRepository(),
+            create: (_) => ScheduleRoadRepository(
+              //tenantId: tenantId,
+            ),
             child: BlocProvider<ScheduleRoadCubit>(
               create: (ctx) => ScheduleRoadCubit(
                 repository: ctx.read<ScheduleRoadRepository>(),
@@ -338,11 +410,50 @@ class _MenuListPageState extends State<MenuListPage> {
       DemandNavigationCallback onTap, {
         required String pageTitle,
         required ModuleEnum moduleItem,
+        required String tenantId,
       }) {
-    return ListDemandPage(
-      pageTitle: pageTitle,
-      permissionModule: ModuleCatalog.permissionModuleOf(moduleItem),
-      onTapItem: onTap,
+    final cleanTenantId = PermissionResolver.cleanTenantId(tenantId);
+
+    if (cleanTenantId == null || cleanTenantId.isEmpty) {
+      return _missingTenantPage();
+    }
+
+    final permissionModule = ModuleCatalog.permissionModuleOf(moduleItem);
+
+    return MultiBlocProvider(
+      key: ValueKey<String>(
+        'list_demand_${permissionModule}_$cleanTenantId',
+      ),
+      providers: [
+        BlocProvider<DfdCubit>(
+          create: (_) => DfdCubit(
+            tenantId: cleanTenantId,
+            repository: DfdRepository(
+              tenantId: cleanTenantId,
+            ),
+          ),
+        ),
+        BlocProvider<EditalCubit>(
+          create: (_) => EditalCubit(
+            tenantId: cleanTenantId,
+            repository: EditalRepository(
+              tenantId: cleanTenantId,
+            ),
+          ),
+        ),
+        BlocProvider<PublicacaoExtratoCubit>(
+          create: (_) => PublicacaoExtratoCubit(
+            tenantId: cleanTenantId,
+            repository: PublicacaoExtratoRepository(
+              tenantId: cleanTenantId,
+            ),
+          ),
+        ),
+      ],
+      child: ListDemandPage(
+        permissionModule: permissionModule,
+        onTapItem: onTap,
+      ),
     );
   }
 
@@ -355,6 +466,19 @@ class _MenuListPageState extends State<MenuListPage> {
     final navigator = Navigator.of(context);
     final processCubit = context.read<ContractCubit>();
     final dfdCubit = context.read<DfdCubit>();
+
+    final permissionState = context.read<PermissionCubit>().state;
+    final tenantId = _requireActiveTenantId(permissionState);
+
+    if (tenantId == null) {
+      _showNotification(
+        title: 'Empresa não selecionada',
+        subtitle: 'Não foi possível abrir o módulo sem tenant ativo.',
+        leadingLabel: 'Tenant',
+        status: NotificationStatus.warning,
+      );
+      return;
+    }
 
     processCubit.select(contract);
 
@@ -388,7 +512,9 @@ class _MenuListPageState extends State<MenuListPage> {
     navigator.push(
       MaterialPageRoute(
         builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
-          create: (_) => ScheduleRoadRepository(),
+          create: (_) => ScheduleRoadRepository(
+            //tenantId: tenantId,
+          ),
           child: BlocProvider<ScheduleRoadCubit>(
             create: (ctx) => ScheduleRoadCubit(
               repository: ctx.read<ScheduleRoadRepository>(),
@@ -409,7 +535,7 @@ class _MenuListPageState extends State<MenuListPage> {
     required ModuleEnum item,
     required UserData currentUser,
     required UserPermissionData? permissions,
-    required String? tenantId,
+    required String tenantId,
   }) {
     final canReadCurrentModule = ModuleAccessGuard.canRead(
       item: item,
@@ -425,7 +551,87 @@ class _MenuListPageState extends State<MenuListPage> {
 
     switch (item) {
       case ModuleEnum.overviewDashboard:
-        return const GeneralDashboardPage();
+        return MultiRepositoryProvider(
+          key: ValueKey<String>('overview_dashboard_repositories_$tenantId'),
+          providers: [
+            RepositoryProvider<AdditivesRepository>(
+              create: (_) => AdditivesRepository(
+                tenantId: tenantId,
+              ),
+            ),
+            RepositoryProvider<ApostillesRepository>(
+              create: (_) => ApostillesRepository(
+                tenantId: tenantId,
+              ),
+            ),
+            RepositoryProvider<DfdRepository>(
+              create: (_) => DfdRepository(
+                tenantId: tenantId,
+              ),
+            ),
+            RepositoryProvider<EditalRepository>(
+              create: (_) => EditalRepository(
+                tenantId: tenantId,
+              ),
+            ),
+          ],
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<DfdCubit>(
+                create: (ctx) => DfdCubit(
+                  tenantId: tenantId,
+                  repository: ctx.read<DfdRepository>(),
+                ),
+              ),
+              BlocProvider<EditalCubit>(
+                create: (ctx) => EditalCubit(
+                  tenantId: tenantId,
+                  repository: ctx.read<EditalRepository>(),
+                ),
+              ),
+              BlocProvider<ReportExecutedCubit>(
+                create: (_) => ReportExecutedCubit(
+                  initialTenantId: tenantId,
+                ),
+              ),
+              BlocProvider<AdjustmentMeasurementCubit>(
+                create: (_) => AdjustmentMeasurementCubit(
+                  initialTenantId: tenantId,
+                ),
+              ),
+              BlocProvider<RevisionMeasurementCubit>(
+                create: (_) => RevisionMeasurementCubit(
+                  initialTenantId: tenantId,
+                ),
+              ),
+              BlocProvider<GeneralDashboardCubit>(
+                create: (ctx) {
+                  final cubit = GeneralDashboardCubit(
+                    processCubit: ctx.read<ContractCubit>(),
+                    reportMeasurementCubit: ctx.read<ReportExecutedCubit>(),
+                    adjustmentMeasurementCubit:
+                    ctx.read<AdjustmentMeasurementCubit>(),
+                    revisionMeasurementCubit:
+                    ctx.read<RevisionMeasurementCubit>(),
+                    additivesRepository: ctx.read<AdditivesRepository>(),
+                    apostillesRepository: ctx.read<ApostillesRepository>(),
+                    dfdCubit: ctx.read<DfdCubit>(),
+                    editalCubit: ctx.read<EditalCubit>(),
+                  );
+
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!cubit.isClosed) {
+                      cubit.initialize();
+                    }
+                  });
+
+                  return cubit;
+                },
+              ),
+            ],
+            child: const GeneralDashboardPage(),
+          ),
+        );
 
       case ModuleEnum.specificDashboard:
         return _buildContractsListPage(
@@ -442,6 +648,7 @@ class _MenuListPageState extends State<MenuListPage> {
           },
           pageTitle: 'Planejamento específico',
           moduleItem: item,
+          tenantId: tenantId,
         );
 
       case ModuleEnum.processHiringRecords:
@@ -460,16 +667,26 @@ class _MenuListPageState extends State<MenuListPage> {
                 .then((_) async {
               if (!storesCtx.mounted) return;
 
+              final activeTenantId = PermissionResolver.cleanTenantId(
+                storesCtx.read<PermissionCubit>().state.activeTenantId,
+              );
+
+              if (activeTenantId == null || activeTenantId.isEmpty) {
+                return;
+              }
+
               await storesCtx.read<ContractCubit>().refresh(
                 currentUser: currentUser,
                 currentPermissions: permissions,
-                tenantId: tenantId,
+                tenantId: activeTenantId,
                 permissionModule: ModuleCatalog.permissionModuleOf(item),
+                force: true,
               );
             });
           },
           pageTitle: 'Contratos',
           moduleItem: item,
+          tenantId: tenantId,
         );
 
       case ModuleEnum.processValidityRecords:
@@ -487,6 +704,7 @@ class _MenuListPageState extends State<MenuListPage> {
           },
           pageTitle: 'Ordens e Vigência',
           moduleItem: item,
+          tenantId: tenantId,
         );
 
       case ModuleEnum.processAdditiveRecords:
@@ -504,6 +722,7 @@ class _MenuListPageState extends State<MenuListPage> {
           },
           pageTitle: 'Aditivos',
           moduleItem: item,
+          tenantId: tenantId,
         );
 
       case ModuleEnum.processApostillesRecords:
@@ -521,6 +740,7 @@ class _MenuListPageState extends State<MenuListPage> {
           },
           pageTitle: 'Apostilamentos',
           moduleItem: item,
+          tenantId: tenantId,
         );
 
       case ModuleEnum.processHiringBudget:
@@ -538,6 +758,7 @@ class _MenuListPageState extends State<MenuListPage> {
           },
           pageTitle: 'Orçamento',
           moduleItem: item,
+          tenantId: tenantId,
         );
 
       case ModuleEnum.processMeasurementsRecords:
@@ -555,6 +776,7 @@ class _MenuListPageState extends State<MenuListPage> {
           },
           pageTitle: 'Medições',
           moduleItem: item,
+          tenantId: tenantId,
         );
 
       case ModuleEnum.operationMonitoringWork:
@@ -569,6 +791,7 @@ class _MenuListPageState extends State<MenuListPage> {
           },
           pageTitle: 'Diário de Obra',
           moduleItem: item,
+          tenantId: tenantId,
         );
 
       case ModuleEnum.planningProjectRegistration:
@@ -589,6 +812,7 @@ class _MenuListPageState extends State<MenuListPage> {
           },
           pageTitle: 'Faixa de Domínio',
           moduleItem: item,
+          tenantId: tenantId,
         );
 
       case ModuleEnum.trafficAccidentsDashboard:
@@ -621,6 +845,7 @@ class _MenuListPageState extends State<MenuListPage> {
           },
           pageTitle: 'Pagamentos',
           moduleItem: item,
+          tenantId: tenantId,
         );
 
       case ModuleEnum.activeRoadNetwork:
@@ -672,17 +897,27 @@ class _MenuListPageState extends State<MenuListPage> {
   void _warmupProcessCubitOnce({
     required UserData currentUser,
     required UserPermissionData? permissions,
-    required String? tenantId,
+    required String tenantId,
   }) {
-    if (_didWarmupProcessCubit) return;
-
     final cleanUid = permissions?.uid.trim();
+    final cleanTenantId = PermissionResolver.cleanTenantId(tenantId);
 
     if (cleanUid == null || cleanUid.isEmpty) {
       return;
     }
 
-    _didWarmupProcessCubit = true;
+    if (cleanTenantId == null || cleanTenantId.isEmpty) {
+      return;
+    }
+
+    final signature =
+        '$cleanUid|$cleanTenantId|${ModuleCatalog.modContractsList}';
+
+    if (_lastProcessWarmupSignature == signature) {
+      return;
+    }
+
+    _lastProcessWarmupSignature = signature;
 
     final processCubit = context.read<ContractCubit>();
 
@@ -692,8 +927,9 @@ class _MenuListPageState extends State<MenuListPage> {
       processCubit.warmup(
         currentUser: currentUser,
         currentPermissions: permissions,
-        tenantId: tenantId,
+        tenantId: cleanTenantId,
         permissionModule: ModuleCatalog.modContractsList,
+        force: true,
       );
     });
   }
@@ -731,9 +967,7 @@ class _MenuListPageState extends State<MenuListPage> {
               permissionState: permissionState,
             );
 
-            final tenantId = PermissionResolver.cleanTenantId(
-              permissionState.activeTenantId,
-            );
+            final tenantId = _requireActiveTenantId(permissionState);
 
             if (permissionState.isLoading && permissions == null) {
               return const Scaffold(
@@ -759,6 +993,10 @@ class _MenuListPageState extends State<MenuListPage> {
                   ),
                 ),
               );
+            }
+
+            if (tenantId == null) {
+              return _missingTenantPage();
             }
 
             _warmupProcessCubitOnce(

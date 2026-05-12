@@ -1,4 +1,4 @@
-// lib/_blocs/modules/contracts/budget/budget_cubit.dart
+// lib/_blocs/modules/contracts/budget/loa_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'budget_data.dart';

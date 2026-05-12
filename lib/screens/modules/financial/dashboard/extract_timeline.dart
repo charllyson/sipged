@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:sipged/_blocs/modules/financial/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_data.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
@@ -9,7 +9,7 @@ class ExtractTimeline extends StatelessWidget {
   final NumberFormat currency;
   final ThemeData theme;
 
-  final List<BudgetData> budgets;
+  final List<LOAData> budgets;
   final List<EmpenhoData> empenhos;
 
   const ExtractTimeline({
@@ -20,7 +20,7 @@ class ExtractTimeline extends StatelessWidget {
     required this.empenhos,
   });
 
-  DateTime _budgetSortDate(BudgetData b) {
+  DateTime _budgetSortDate(LOAData b) {
     return b.updatedAt ?? b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
   }
 

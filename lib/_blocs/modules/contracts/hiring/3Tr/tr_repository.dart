@@ -14,14 +14,53 @@ class TrRepository {
   TrRepository({
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
+    required String tenantId,
   })  : _db = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _storage = storage ?? FirebaseStorage.instance,
+        _tenantId = _validateTenantId(tenantId);
 
   final FirebaseFirestore _db;
   final FirebaseStorage _storage;
+  final String _tenantId;
+
+  String get tenantId => _tenantId;
+
+  static String _validateTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório para TrRepository.');
+    }
+
+    return cleanTenantId;
+  }
+
+  CollectionReference<Map<String, dynamic>> _contractsCol() {
+    return _db.collection('tenants').doc(tenantId).collection('contracts');
+  }
+
+  DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw ArgumentError('contractId não informado.');
+    }
+
+    return _contractsCol().doc(cleanContractId);
+  }
+
+  DocumentReference<Map<String, dynamic>> _hiringMainDoc(String contractId) {
+    return _contractDoc(contractId).collection('hiring').doc('main');
+  }
 
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
-    return _db.collection('contracts').doc(contractId).collection('tr');
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw ArgumentError('contractId não informado.');
+    }
+
+    return _hiringMainDoc(cleanContractId).collection('tr');
   }
 
   String _filesPath({
@@ -29,7 +68,23 @@ class TrRepository {
     required String trId,
     required String documentosId,
   }) {
-    return 'contracts/$contractId/tr/$trId/documentosReferencias/$documentosId/files';
+    final cleanContractId = contractId.trim();
+    final cleanTrId = trId.trim();
+    final cleanDocumentosId = documentosId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw ArgumentError('contractId não informado.');
+    }
+
+    if (cleanTrId.isEmpty) {
+      throw ArgumentError('trId não informado.');
+    }
+
+    if (cleanDocumentosId.isEmpty) {
+      throw ArgumentError('documentosId não informado.');
+    }
+
+    return 'tenants/$tenantId/contracts/$cleanContractId/hiring/main/tr/$cleanTrId/documentosReferencias/$cleanDocumentosId/files';
   }
 
   String _extractExt(String nameOrUrl) {
@@ -58,6 +113,48 @@ class TrRepository {
     }
   }
 
+  Future<void> _ensureContractParent(String contractId) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    await _contractDoc(cleanContractId).set(
+      <String, dynamic>{
+        'id': cleanContractId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> _ensureHiringMain(String contractId) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    await _ensureContractParent(cleanContractId);
+
+    await _hiringMainDoc(cleanContractId).set(
+      <String, dynamic>{
+        'id': 'main',
+        'module': 'hiring',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
   Future<({String trId, Map<String, String> sectionIds})> ensureStructure(
       String contractId,
       ) async {
@@ -66,6 +163,8 @@ class TrRepository {
     if (id.isEmpty) {
       throw Exception('contractId não informado.');
     }
+
+    await _ensureHiringMain(id);
 
     final sectionIds = <String, String>{
       for (final section in TrData.sectionKeys) section: 'main',
@@ -104,17 +203,13 @@ class TrRepository {
           );
         }
 
-        final snap =
-        await trRef.collection(sectionName).doc(sectionDocId).get();
+        final snap = await trRef.collection(sectionName).doc(sectionDocId).get();
 
         final data = Map<String, dynamic>.from(
           snap.data() ?? const <String, dynamic>{},
         );
 
-        data.remove('createdAt');
-        data.remove('updatedAt');
-        data.remove('createdBy');
-        data.remove('updatedBy');
+        _removeSystemFields(data);
 
         return MapEntry<String, Map<String, dynamic>>(
           sectionName,
@@ -148,26 +243,75 @@ class TrRepository {
 
     if (sectionsData.isEmpty) return;
 
-    final batch = _db.batch();
+    await _ensureHiringMain(cleanContractId);
+
     final trRef = _col(cleanContractId).doc(cleanTrId);
+    final batch = _db.batch();
+
+    batch.set(
+      _contractDoc(cleanContractId),
+      <String, dynamic>{
+        'id': cleanContractId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      _hiringMainDoc(cleanContractId),
+      <String, dynamic>{
+        'id': 'main',
+        'module': 'hiring',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      trRef,
+      <String, dynamic>{
+        'id': cleanTrId,
+        'module': 'hiring',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
 
     for (final entry in sectionsData.entries) {
       final sectionKey = entry.key.trim();
+      final sectionData = Map<String, dynamic>.from(entry.value);
       final sectionDocId = sectionIds[sectionKey]?.trim();
 
       if (sectionKey.isEmpty) continue;
       if (sectionDocId == null || sectionDocId.isEmpty) continue;
 
-      final sectionData = Map<String, dynamic>.from(entry.value)
-        ..remove('createdAt')
-        ..remove('updatedAt')
-        ..remove('createdBy')
-        ..remove('updatedBy');
+      _removeWriteProtectedFields(sectionData);
+
+      final ref = trRef.collection(sectionKey).doc(sectionDocId);
 
       batch.set(
-        trRef.collection(sectionKey).doc(sectionDocId),
+        ref,
         <String, dynamic>{
           ...sectionData,
+          'id': sectionDocId,
+          'module': 'hiring',
+          'tenantId': tenantId,
+          'companyId': tenantId,
+          'contractId': cleanContractId,
+          'uidContract': cleanContractId,
+          'uidcontract': cleanContractId,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -205,24 +349,74 @@ class TrRepository {
       throw Exception('sectionDocId não informado.');
     }
 
-    final cleanData = Map<String, dynamic>.from(data)
-      ..remove('createdAt')
-      ..remove('updatedAt')
-      ..remove('createdBy')
-      ..remove('updatedBy');
+    await _ensureHiringMain(cleanContractId);
 
-    final ref = _col(cleanContractId)
-        .doc(cleanTrId)
-        .collection(cleanSectionKey)
-        .doc(cleanSectionDocId);
+    final cleanData = Map<String, dynamic>.from(data);
+    _removeWriteProtectedFields(cleanData);
 
-    await ref.set(
+    final trRef = _col(cleanContractId).doc(cleanTrId);
+    final batch = _db.batch();
+
+    batch.set(
+      _contractDoc(cleanContractId),
       <String, dynamic>{
-        ...cleanData,
+        'id': cleanContractId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
     );
+
+    batch.set(
+      _hiringMainDoc(cleanContractId),
+      <String, dynamic>{
+        'id': 'main',
+        'module': 'hiring',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      trRef,
+      <String, dynamic>{
+        'id': cleanTrId,
+        'module': 'hiring',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    final ref = trRef.collection(cleanSectionKey).doc(cleanSectionDocId);
+
+    batch.set(
+      ref,
+      <String, dynamic>{
+        ...cleanData,
+        'id': cleanSectionDocId,
+        'module': 'hiring',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
   }
 
   Future<TrData?> readDataForContract(String contractId) async {
@@ -315,6 +509,8 @@ class TrRepository {
       throw Exception('Caminho inválido para upload do TR.');
     }
 
+    await _ensureHiringMain(cleanContractId);
+
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
@@ -354,9 +550,12 @@ class TrRepository {
         contentType: _contentTypeForExt(ext),
         customMetadata: <String, String>{
           'originalName': name,
+          'tenantId': tenantId,
+          'companyId': tenantId,
           'contractId': cleanContractId,
           'trId': cleanTrId,
           'documentosId': cleanDocumentosId,
+          'module': 'hiring',
         },
       ),
     );
@@ -425,5 +624,32 @@ class TrRepository {
     } catch (_) {
       return false;
     }
+  }
+
+  void _removeWriteProtectedFields(Map<String, dynamic> data) {
+    data.remove('createdAt');
+    data.remove('updatedAt');
+    data.remove('createdBy');
+    data.remove('updatedBy');
+  }
+
+  void _removeSystemFields(Map<String, dynamic> data) {
+    _removeWriteProtectedFields(data);
+    data.remove('migratedAt');
+    data.remove('migrationSourcePath');
+    data.remove('migrationSourceDocId');
+    data.remove('migrationTargetPath');
+    data.remove('legacySourceId');
+    data.remove('legacySourcePath');
+    data.remove('recordPath');
+    data.remove('sourcePath');
+    data.remove('path');
+    data.remove('sourceCollectionModel');
+    data.remove('tenantId');
+    data.remove('companyId');
+    data.remove('uidContract');
+    data.remove('uidcontract');
+    data.remove('contractId');
+    data.remove('module');
   }
 }

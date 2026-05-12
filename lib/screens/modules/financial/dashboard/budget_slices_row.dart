@@ -3,14 +3,14 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:sipged/_blocs/modules/financial/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_data.dart';
 import 'package:sipged/_widgets/charts/legend/chart_legend.dart';
 import 'package:sipged/_widgets/charts/linear_bar/horizontal_bar_chart_changed.dart';
 import 'package:sipged/_widgets/charts/linear_bar/types.dart';
 
 class BudgetSlicesRow extends StatefulWidget {
   final NumberFormat currency;
-  final List<BudgetData> budgets;
+  final List<LOAData> budgets;
 
   const BudgetSlicesRow({
     super.key,

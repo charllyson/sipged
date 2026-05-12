@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';

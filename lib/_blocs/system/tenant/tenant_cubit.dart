@@ -3,7 +3,6 @@
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'tenant_data.dart';
@@ -118,13 +117,7 @@ class TenantCubit extends Cubit<TenantState> {
           persistSelection: false,
         );
       }
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'TenantCubit.loadAvailableTenants FirebaseException: '
-            '${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
-
+    } on FirebaseException catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -132,10 +125,7 @@ class TenantCubit extends Cubit<TenantState> {
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e, s) {
-      debugPrint('TenantCubit.loadAvailableTenants error: $e');
-      debugPrintStack(stackTrace: s);
-
+    } catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -219,22 +209,14 @@ class TenantCubit extends Cubit<TenantState> {
           clearError: true,
         ),
       );
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'TenantCubit.selectTenant FirebaseException: ${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
-
+    } on FirebaseException catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e, s) {
-      debugPrint('TenantCubit.selectTenant error: $e');
-      debugPrintStack(stackTrace: s);
-
+    } catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -314,23 +296,14 @@ class TenantCubit extends Cubit<TenantState> {
           clearError: true,
         ),
       );
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'TenantCubit.clearSelectedTenant FirebaseException: '
-            '${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
-
+    } on FirebaseException catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e, s) {
-      debugPrint('TenantCubit.clearSelectedTenant error: $e');
-      debugPrintStack(stackTrace: s);
-
+    } catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -375,13 +348,7 @@ class TenantCubit extends Cubit<TenantState> {
           tenantProfile: profile,
         ),
       );
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'TenantCubit.loadTenantProfile FirebaseException: '
-            '${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
-
+    } on FirebaseException catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -389,10 +356,7 @@ class TenantCubit extends Cubit<TenantState> {
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e, s) {
-      debugPrint('TenantCubit.loadTenantProfile error: $e');
-      debugPrintStack(stackTrace: s);
-
+    } catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -447,13 +411,7 @@ class TenantCubit extends Cubit<TenantState> {
           companyBodies: result.companyBodies,
         ),
       );
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'TenantCubit.loadTenantItems FirebaseException: '
-            '${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
-
+    } on FirebaseException catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -461,10 +419,7 @@ class TenantCubit extends Cubit<TenantState> {
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e, s) {
-      debugPrint('TenantCubit.loadTenantItems error: $e');
-      debugPrintStack(stackTrace: s);
-
+    } catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -520,13 +475,7 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return created;
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'TenantCubit.createTenantForCurrentUser FirebaseException: '
-            '${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
-
+    } on FirebaseException catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -535,10 +484,7 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return null;
-    } catch (e, s) {
-      debugPrint('TenantCubit.createTenantForCurrentUser error: $e');
-      debugPrintStack(stackTrace: s);
-
+    } catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -621,13 +567,7 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return saved;
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'TenantCubit.saveTenantProfile FirebaseException: '
-            '${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
-
+    } on FirebaseException catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -636,10 +576,7 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return null;
-    } catch (e, s) {
-      debugPrint('TenantCubit.saveTenantProfile error: $e');
-      debugPrintStack(stackTrace: s);
-
+    } catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -719,13 +656,7 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'TenantCubit.updateTenantName FirebaseException: '
-            '${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
-
+    } on FirebaseException catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -734,10 +665,7 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return null;
-    } catch (e, s) {
-      debugPrint('TenantCubit.updateTenantName error: $e');
-      debugPrintStack(stackTrace: s);
-
+    } catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -794,13 +722,7 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'TenantCubit.updateTenantLogo FirebaseException: '
-            '${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
-
+    } on FirebaseException catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -809,10 +731,7 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return null;
-    } catch (e, s) {
-      debugPrint('TenantCubit.updateTenantLogo error: $e');
-      debugPrintStack(stackTrace: s);
-
+    } catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -854,23 +773,14 @@ class TenantCubit extends Cubit<TenantState> {
           clearTenantProfile: true,
         ),
       );
-    } on FirebaseException catch (e, s) {
-      debugPrint(
-        'TenantCubit.deleteTenantProfile FirebaseException: '
-            '${e.code} - ${e.message}',
-      );
-      debugPrintStack(stackTrace: s);
-
+    } on FirebaseException catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
           error: 'Firebase (${e.code}): ${e.message}',
         ),
       );
-    } catch (e, s) {
-      debugPrint('TenantCubit.deleteTenantProfile error: $e');
-      debugPrintStack(stackTrace: s);
-
+    } catch (e) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -1011,8 +921,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return created;
-    } catch (e, s) {
-      _handleItemError('createUnit', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1034,8 +944,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } catch (e, s) {
-      _handleItemError('updateUnitName', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1051,8 +961,8 @@ class TenantCubit extends Cubit<TenantState> {
           clearError: true,
         ),
       );
-    } catch (e, s) {
-      _handleItemError('deleteUnit', e, s);
+    } catch (e) {
+      _handleItemError(e);
     }
   }
 
@@ -1069,8 +979,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return created;
-    } catch (e, s) {
-      _handleItemError('createRoad', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1092,8 +1002,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } catch (e, s) {
-      _handleItemError('updateRoadName', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1109,8 +1019,8 @@ class TenantCubit extends Cubit<TenantState> {
           clearError: true,
         ),
       );
-    } catch (e, s) {
-      _handleItemError('deleteRoad', e, s);
+    } catch (e) {
+      _handleItemError(e);
     }
   }
 
@@ -1133,8 +1043,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return created;
-    } catch (e, s) {
-      _handleItemError('createRegion', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1156,8 +1066,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } catch (e, s) {
-      _handleItemError('updateRegionName', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1173,8 +1083,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } catch (e, s) {
-      _handleItemError('updateRegionMunicipios', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1190,8 +1100,8 @@ class TenantCubit extends Cubit<TenantState> {
           clearError: true,
         ),
       );
-    } catch (e, s) {
-      _handleItemError('deleteRegion', e, s);
+    } catch (e) {
+      _handleItemError(e);
     }
   }
 
@@ -1211,8 +1121,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return created;
-    } catch (e, s) {
-      _handleItemError('createFundingSource', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1240,8 +1150,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } catch (e, s) {
-      _handleItemError('updateFundingSourceName', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1257,8 +1167,8 @@ class TenantCubit extends Cubit<TenantState> {
           clearError: true,
         ),
       );
-    } catch (e, s) {
-      _handleItemError('deleteFundingSource', e, s);
+    } catch (e) {
+      _handleItemError(e);
     }
   }
 
@@ -1275,8 +1185,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return created;
-    } catch (e, s) {
-      _handleItemError('createProgram', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1301,8 +1211,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } catch (e, s) {
-      _handleItemError('updateProgramName', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1318,8 +1228,8 @@ class TenantCubit extends Cubit<TenantState> {
           clearError: true,
         ),
       );
-    } catch (e, s) {
-      _handleItemError('deleteProgram', e, s);
+    } catch (e) {
+      _handleItemError(e);
     }
   }
 
@@ -1339,8 +1249,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return created;
-    } catch (e, s) {
-      _handleItemError('createExpenseNature', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1368,8 +1278,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } catch (e, s) {
-      _handleItemError('updateExpenseNatureName', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1385,8 +1295,8 @@ class TenantCubit extends Cubit<TenantState> {
           clearError: true,
         ),
       );
-    } catch (e, s) {
-      _handleItemError('deleteExpenseNature', e, s);
+    } catch (e) {
+      _handleItemError(e);
     }
   }
 
@@ -1412,8 +1322,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return created;
-    } catch (e, s) {
-      _handleItemError('createCompanyBody', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1451,8 +1361,8 @@ class TenantCubit extends Cubit<TenantState> {
       );
 
       return updated;
-    } catch (e, s) {
-      _handleItemError('updateCompanyBodyName', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1496,8 +1406,8 @@ class TenantCubit extends Cubit<TenantState> {
       }
 
       return updated;
-    } catch (e, s) {
-      _handleItemError('updateCompanyBodyData', e, s);
+    } catch (e) {
+      _handleItemError(e);
       return null;
     }
   }
@@ -1525,8 +1435,8 @@ class TenantCubit extends Cubit<TenantState> {
           clearError: true,
         ),
       );
-    } catch (e, s) {
-      _handleItemError('deleteCompanyBody', e, s);
+    } catch (e) {
+      _handleItemError(e);
     }
   }
 
@@ -1534,14 +1444,7 @@ class TenantCubit extends Cubit<TenantState> {
     return deleteCompanyBody(label);
   }
 
-  void _handleItemError(
-      String method,
-      Object e,
-      StackTrace s,
-      ) {
-    debugPrint('TenantCubit.$method error: $e');
-    debugPrintStack(stackTrace: s);
-
+  void _handleItemError(Object e) {
     if (e is FirebaseException) {
       emit(
         state.copyWith(

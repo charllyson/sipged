@@ -12,19 +12,81 @@ import 'physics_finance_state.dart';
 class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
   PhysicsFinanceCubit({
     required PhysicsFinanceRepository repository,
+    required String tenantId,
     AdditivesRepository? additivesRepository,
   })  : _repository = repository,
-        _additivesRepository = additivesRepository ?? AdditivesRepository(),
-        super(PhysicsFinanceState.initial());
+        _additivesRepository = additivesRepository ??
+            AdditivesRepository(
+              tenantId: tenantId.trim(),
+            ),
+        _tenantId = tenantId.trim(),
+        super(PhysicsFinanceState.initial()) {
+    _syncRepositoriesTenant();
+  }
 
   final PhysicsFinanceRepository _repository;
   final AdditivesRepository _additivesRepository;
+
+  String _tenantId;
+
+  bool get hasTenantId {
+    return _tenantId.trim().isNotEmpty;
+  }
+
+  String get tenantId {
+    return _requireTenantId();
+  }
+
+  String _requireTenantId() {
+    final cleanTenantId = _tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw Exception(
+        'tenantId é obrigatório para acessar o planejamento físico-financeiro.',
+      );
+    }
+
+    return cleanTenantId;
+  }
+
+  void _syncRepositoriesTenant() {
+    final cleanTenantId = _tenantId.trim();
+
+    _repository.setActiveTenantId(
+      cleanTenantId.isEmpty ? null : cleanTenantId,
+    );
+
+    _additivesRepository.setActiveTenantId(
+      cleanTenantId.isEmpty ? null : cleanTenantId,
+    );
+  }
+
+  void updateTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw Exception(
+        'tenantId é obrigatório para atualizar o planejamento físico-financeiro.',
+      );
+    }
+
+    if (_tenantId == cleanTenantId) return;
+
+    _tenantId = cleanTenantId;
+    _syncRepositoriesTenant();
+
+    emit(PhysicsFinanceState.initial());
+  }
 
   List<double> _normalizeList(
       List<double> source,
       int periods,
       ) {
-    if (source.length == periods) return List<double>.from(source);
+    if (periods <= 0) return const <double>[];
+
+    if (source.length == periods) {
+      return List<double>.from(source);
+    }
 
     if (source.length > periods) {
       return List<double>.from(source.take(periods));
@@ -42,8 +104,14 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
       ) {
     final Map<String, List<double>> output = <String, List<double>>{};
 
+    if (periods <= 0) return output;
+
     source.forEach((key, value) {
-      output[key] = _normalizeList(value, periods);
+      final cleanKey = key.trim();
+
+      if (cleanKey.isEmpty) return;
+
+      output[cleanKey] = _normalizeList(value, periods);
     });
 
     return output;
@@ -54,7 +122,57 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     required int periods,
     bool forceReload = false,
   }) async {
-    if (contractId.isEmpty) return;
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      emit(
+        state.copyWith(
+          isLoading: false,
+          termsLoaded: true,
+          additives: const <AdditivesData>[],
+          termAdditiveId: const <int, String>{},
+          schedulesByTerm: const <int, PhysicsFinanceData>{},
+          gridByTerm: const <int, Map<String, List<double>>>{},
+          errorMessage:
+          'contractId é obrigatório para carregar o planejamento físico-financeiro.',
+        ),
+      );
+      return;
+    }
+
+    if (periods <= 0) {
+      emit(
+        state.copyWith(
+          isLoading: false,
+          termsLoaded: true,
+          additives: const <AdditivesData>[],
+          termAdditiveId: const <int, String>{},
+          schedulesByTerm: const <int, PhysicsFinanceData>{},
+          gridByTerm: const <int, Map<String, List<double>>>{},
+          errorMessage:
+          'Quantidade de períodos inválida para o planejamento físico-financeiro.',
+        ),
+      );
+      return;
+    }
+
+    try {
+      _requireTenantId();
+      _syncRepositoriesTenant();
+    } catch (e) {
+      emit(
+        state.copyWith(
+          isLoading: false,
+          termsLoaded: true,
+          additives: const <AdditivesData>[],
+          termAdditiveId: const <int, String>{},
+          schedulesByTerm: const <int, PhysicsFinanceData>{},
+          gridByTerm: const <int, Map<String, List<double>>>{},
+          errorMessage: e.toString(),
+        ),
+      );
+      return;
+    }
 
     if (state.termsLoaded && !forceReload) return;
 
@@ -66,18 +184,22 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     );
 
     try {
-      final additives = await _additivesRepository.ensureForContract(contractId);
+      final additives = await _additivesRepository.ensureForContract(
+        cleanContractId,
+      );
 
       final orderedAdditives = List<AdditivesData>.from(additives)
         ..sort(
-              (a, b) => (a.additiveOrder ?? 0).compareTo(b.additiveOrder ?? 0),
+              (a, b) => (a.additiveOrder ?? 0).compareTo(
+            b.additiveOrder ?? 0,
+          ),
         );
 
       final Map<int, String> termAdditiveId = <int, String>{};
 
       for (final additive in orderedAdditives) {
-        final int order = additive.additiveOrder ?? 0;
-        final String? id = additive.id;
+        final order = additive.additiveOrder ?? 0;
+        final id = additive.id?.trim();
 
         if (order > 0 && id != null && id.isNotEmpty) {
           termAdditiveId[order] = id;
@@ -91,18 +213,23 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
       <int, Map<String, List<double>>>{};
 
       for (final entry in termAdditiveId.entries) {
-        final int termOrder = entry.key;
-        final String additiveId = entry.value;
+        final termOrder = entry.key;
+        final additiveId = entry.value.trim();
+
+        if (termOrder <= 0 || additiveId.isEmpty) continue;
 
         final schedule = await _repository.get(
-          contractId: contractId,
+          contractId: cleanContractId,
           additiveId: additiveId,
           termOrder: termOrder,
         );
 
         if (schedule != null) {
           schedulesByTerm[termOrder] = schedule;
-          gridByTerm[termOrder] = _normalizeGrid(schedule.grid, periods);
+          gridByTerm[termOrder] = _normalizeGrid(
+            schedule.grid,
+            periods,
+          );
         } else {
           gridByTerm[termOrder] = <String, List<double>>{};
         }
@@ -139,6 +266,9 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     required Iterable<String> itemIds,
     required int periods,
   }) {
+    if (termOrder <= 0) return;
+    if (periods <= 0) return;
+
     final Map<int, Map<String, List<double>>> gridByTerm =
     Map<int, Map<String, List<double>>>.from(state.gridByTerm);
 
@@ -149,8 +279,12 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
 
     bool changed = false;
 
-    for (final itemId in itemIds) {
-      final List<double>? current = termGrid[itemId];
+    for (final itemIdRaw in itemIds) {
+      final itemId = itemIdRaw.trim();
+
+      if (itemId.isEmpty) continue;
+
+      final current = termGrid[itemId];
 
       if (current == null) {
         termGrid[itemId] = List<double>.filled(periods, 0.0);
@@ -176,7 +310,13 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     required String itemId,
     required int termOrder,
   }) {
-    return state.gridByTerm[termOrder]?[itemId] ?? const <double>[];
+    final cleanItemId = itemId.trim();
+
+    if (cleanItemId.isEmpty || termOrder <= 0) {
+      return const <double>[];
+    }
+
+    return state.gridByTerm[termOrder]?[cleanItemId] ?? const <double>[];
   }
 
   Future<void> updatePercentForTerm({
@@ -187,9 +327,66 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     required double value,
     required List<int> periods,
   }) async {
-    final String? additiveId = state.termAdditiveId[termOrder];
+    final cleanContractId = contractId.trim();
+    final cleanItemId = itemId.trim();
 
-    if (contractId.isEmpty || additiveId == null || additiveId.isEmpty) {
+    if (cleanContractId.isEmpty) {
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage:
+          'contractId é obrigatório para salvar o planejamento físico-financeiro.',
+        ),
+      );
+      return;
+    }
+
+    if (cleanItemId.isEmpty) return;
+
+    if (termOrder <= 0) {
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: 'Termo inválido para salvar o planejamento.',
+        ),
+      );
+      return;
+    }
+
+    if (periods.isEmpty) {
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage:
+          'Nenhum período informado para salvar o planejamento físico-financeiro.',
+        ),
+      );
+      return;
+    }
+
+    try {
+      _requireTenantId();
+      _syncRepositoriesTenant();
+    } catch (e) {
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: e.toString(),
+        ),
+      );
+      return;
+    }
+
+    final additiveId = state.termAdditiveId[termOrder]?.trim();
+
+    if (additiveId == null || additiveId.isEmpty) {
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage:
+          'Aditivo não encontrado para o termo $termOrder no contrato informado.',
+        ),
+      );
       return;
     }
 
@@ -202,15 +399,15 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     );
 
     final List<double> row = List<double>.from(
-      termGrid[itemId] ?? List<double>.filled(periods.length, 0.0),
+      termGrid[cleanItemId] ?? List<double>.filled(periods.length, 0.0),
     );
 
-    final List<double> normalized = _normalizeList(row, periods.length);
+    final normalized = _normalizeList(row, periods.length);
 
     if (colIndex < 0 || colIndex >= normalized.length) return;
 
     normalized[colIndex] = value;
-    termGrid[itemId] = normalized;
+    termGrid[cleanItemId] = normalized;
     gridByTerm[termOrder] = termGrid;
 
     emit(
@@ -224,7 +421,7 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     try {
       final schedule = PhysicsFinanceData(
         id: PhysicsFinanceData.docIdForTerm(termOrder),
-        contractId: contractId,
+        contractId: cleanContractId,
         additiveId: additiveId,
         termOrder: termOrder,
         periods: periods,
@@ -232,7 +429,7 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
       );
 
       await _repository.upsert(
-        contractId: contractId,
+        contractId: cleanContractId,
         additiveId: additiveId,
         schedule: schedule,
       );

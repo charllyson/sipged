@@ -20,9 +20,8 @@ class DonutChartShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = isDark ? Colors.white24 : Colors.grey.shade300;
-    final highlightColor = isDark ? Colors.white10 : Colors.grey.shade100;
-    final centerBg = isDark ? const Color(0xFF11131E) : Colors.white;
+    final baseColor = isDark ? Colors.grey.shade300 : Colors.grey.shade300;
+    final highlightColor = isDark ? Colors.grey.shade100 : Colors.grey.shade100;
 
     final base = largura < altura ? largura : altura;
     final outer = (base * outerScale).clamp(64.0, base);
@@ -50,8 +49,8 @@ class DonutChartShimmer extends StatelessWidget {
             Container(
               width: hole,
               height: hole,
-              decoration: BoxDecoration(
-                color: centerBg,
+              decoration: const BoxDecoration(
+                color: Colors.white,
                 shape: BoxShape.circle,
               ),
             ),

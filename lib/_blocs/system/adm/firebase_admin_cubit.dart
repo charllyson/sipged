@@ -1,5 +1,3 @@
-// lib/_blocs/system/adm/firebase_admin_cubit.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -27,87 +25,19 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
   }
 
   // ---------------------------------------------------------------------------
-  // Migrações oficiais para:
+  // Migração oficial das coleções finais de contratação para tenant:
   //
-  // tenants/{tenantId}/contracts/{contractId}/{collectionId}/{docId}
+  // Origem:
+  // contracts/{contractId}/publicacao/{docId}/...
+  // contracts/{contractId}/arquivamento/{docId}/...
+  //
+  // Destino:
+  // tenants/{tenantId}/contracts/{contractId}/hiring/main/publicacao/main/...
+  // tenants/{tenantId}/contracts/{contractId}/hiring/main/arquivamento/main/...
   // ---------------------------------------------------------------------------
 
-  Future<FirebaseCopyCollectionGroupResultData>
-  migrateLegacyOrdersToFixedTenant() async {
-    return copyCollectionGroupToFixedTenantContracts(
-      collectionId: 'orders',
-      successLabel: 'vigências / ordens',
-      successTitle: 'Migração collectionGroup(orders)',
-    );
-  }
-
-  Future<FirebaseCopyCollectionGroupResultData>
-  migrateLegacyValiditiesToFixedTenant() async {
-    return migrateLegacyOrdersToFixedTenant();
-  }
-
-  Future<FirebaseCopyCollectionGroupResultData>
-  migrateLegacyReportsMeasurementToFixedTenant() async {
-    return copyCollectionGroupToFixedTenantContracts(
-      collectionId: 'reportsMeasurement',
-      successLabel: 'medições executadas',
-      successTitle: 'Migração collectionGroup(reportsMeasurement)',
-    );
-  }
-
-  Future<FirebaseCopyCollectionGroupResultData>
-  migrateLegacyAdjustmentsMeasurementToFixedTenant() async {
-    return copyCollectionGroupToFixedTenantContracts(
-      collectionId: 'adjustmentsMeasurement',
-      successLabel: 'reajustes de medições',
-      successTitle: 'Migração collectionGroup(adjustmentsMeasurement)',
-    );
-  }
-
-  Future<FirebaseCopyCollectionGroupResultData>
-  migrateLegacyRevisionsMeasurementToFixedTenant() async {
-    return copyCollectionGroupToFixedTenantContracts(
-      collectionId: 'revisionsMeasurement',
-      successLabel: 'revisões de medições',
-      successTitle: 'Migração collectionGroup(revisionsMeasurement)',
-    );
-  }
-
-  Future<List<FirebaseCopyCollectionGroupResultData>>
-  migrateAllMeasurementCollectionsToFixedTenant() async {
-    final results = <FirebaseCopyCollectionGroupResultData>[];
-
-    results.add(await migrateLegacyReportsMeasurementToFixedTenant());
-    results.add(await migrateLegacyAdjustmentsMeasurementToFixedTenant());
-    results.add(await migrateLegacyRevisionsMeasurementToFixedTenant());
-
-    return results;
-  }
-
-  Future<List<FirebaseCopyCollectionGroupResultData>>
-  migrateAllContractOperationalCollectionsToFixedTenant() async {
-    final results = <FirebaseCopyCollectionGroupResultData>[];
-
-    results.add(await migrateLegacyOrdersToFixedTenant());
-    results.add(await migrateLegacyReportsMeasurementToFixedTenant());
-    results.add(await migrateLegacyAdjustmentsMeasurementToFixedTenant());
-    results.add(await migrateLegacyRevisionsMeasurementToFixedTenant());
-
-    return results;
-  }
-
-  Future<FirebaseCopyCollectionGroupResultData>
-  copyCollectionGroupToFixedTenantContracts({
-    required String collectionId,
-    String? successTitle,
-    String? successLabel,
-  }) async {
-    final cleanCollectionId = collectionId.trim();
-
-    if (cleanCollectionId.isEmpty) {
-      throw ArgumentError('Informe o nome da collectionGroup.');
-    }
-
+  Future<FirebaseCopyContractModulesResultData>
+  migrateLegacyPublicationAndArchiveToFixedTenant() async {
     emit(
       state.copyWith(
         status: FirebaseAdminStatus.loading,
@@ -119,26 +49,22 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
 
     try {
       final tenantId = FirebaseAdminTenantPaths.fixedMigrationTenantId;
-      final targetPath = FirebaseAdminTenantPaths.contractsRootPath(tenantId);
 
-      final result = await _repository.copyCollectionGroupToCollection(
-        params: FirebaseCopyCollectionGroupParams(
-          collectionId: cleanCollectionId,
-          targetPath: targetPath,
+      final result =
+      await _repository.copyLegacyContractModulesToTenantHiringMain(
+        params: FirebaseCopyContractModulesParams(
           tenantId: tenantId,
+          sourceContractsPath: FirebaseAdminTenantPaths.legacyContractsRootPath,
+          targetContractsPath: FirebaseAdminTenantPaths.contractsRootPath(
+            tenantId,
+          ),
+          modules: FirebaseAdminContractModulePaths.officialModules,
           merge: true,
           skipExisting: true,
           addMigrationMetadata: true,
           rewriteDocumentPathFields: true,
           pageSize: 100,
           batchSize: 50,
-          targetPlacementMode:
-          FirebaseCollectionGroupTargetPlacementMode
-              .tenantContractSubcollection,
-          targetDocIdMode: FirebaseCollectionGroupTargetDocIdMode.originalId,
-          excludePathPrefixes: const <String>[
-            'tenants/',
-          ],
         ),
         onProgress: (current, total, label, detail) {
           emit(
@@ -153,20 +79,19 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
         },
       );
 
-      final label = successLabel ?? cleanCollectionId;
-
       emit(
         state.copyWith(
           status: FirebaseAdminStatus.success,
-          message: 'Migração de $label concluída: '
-              '${result.totalCopied} copiado(s), '
+          message: 'Migração de Publicação/Arquivamento concluída: '
+              '${result.totalCopied} documento(s) copiado(s), '
               '${result.totalAlreadyExists} já existente(s), '
-              '${result.totalExcludedByPath} ignorado(s) por já estarem em tenants/, '
-              '${result.totalMissingContractId} sem contractId, '
-              '${result.totalSkipped} ignorado(s) no total.',
+              '${result.totalEmpty} vazio(s), '
+              '${result.totalSkipped} ignorado(s), '
+              '${result.totalContractsWithoutModules} contrato(s) sem '
+              'Publicação/Arquivamento.',
           result: FirebaseOperationResultData(
-            title: successTitle ??
-                'Migração collectionGroup($cleanCollectionId) para contratos do tenant',
+            title:
+            'Migração Publicação/Arquivamento para hiring/main do tenant',
             total: result.totalCopied,
             details: result.toMap(),
           ),
@@ -179,8 +104,7 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
       emit(
         state.copyWith(
           status: FirebaseAdminStatus.failure,
-          message:
-          'Erro ao migrar collectionGroup($cleanCollectionId) para contratos do tenant: $e',
+          message: 'Erro ao migrar Publicação/Arquivamento: $e',
           clearResult: true,
           clearProgress: true,
         ),
@@ -188,6 +112,19 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
 
       rethrow;
     }
+  }
+
+  /// Mantido apenas para não quebrar chamadas antigas da tela enquanto ela
+  /// estiver sendo ajustada.
+  Future<FirebaseCopyContractModulesResultData>
+  migrateLegacyHiringStagesToFixedTenant() {
+    return migrateLegacyPublicationAndArchiveToFixedTenant();
+  }
+
+  /// Alias semântico.
+  Future<FirebaseCopyContractModulesResultData>
+  migrateLegacyFinalHiringStagesToFixedTenant() {
+    return migrateLegacyPublicationAndArchiveToFixedTenant();
   }
 
   // ---------------------------------------------------------------------------

@@ -12,8 +12,10 @@ import 'dotacao_repository.dart';
 import 'dotacao_state.dart';
 
 class DotacaoCubit extends Cubit<DotacaoState> {
-  DotacaoCubit([DotacaoRepository? repository])
-      : repo = repository ?? DotacaoRepository(),
+  DotacaoCubit({
+    required String tenantId,
+    DotacaoRepository? repository,
+  })  : repo = repository ?? DotacaoRepository(tenantId: tenantId),
         super(DotacaoState.initial());
 
   final DotacaoRepository repo;

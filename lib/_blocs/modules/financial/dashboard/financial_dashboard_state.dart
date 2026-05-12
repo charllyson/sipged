@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import 'package:sipged/_blocs/modules/financial/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_data.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 
 // ✅ novos
@@ -13,7 +13,7 @@ class FinancialDashboardState extends Equatable {
   final FinancialDashboardStatus status;
   final String? error;
 
-  final List<BudgetData> budgets;
+  final List<LOAData> budgets;
   final List<EmpenhoData> empenhos;
 
   // ✅ carregados uma vez (para reuso)
@@ -34,7 +34,7 @@ class FinancialDashboardState extends Equatable {
   const FinancialDashboardState({
     this.status = FinancialDashboardStatus.initial,
     this.error,
-    this.budgets = const <BudgetData>[],
+    this.budgets = const <LOAData>[],
     this.empenhos = const <EmpenhoData>[],
     this.allAdditives = const <AdditivesData>[],
     this.allApostilles = const <ApostillesData>[],
@@ -52,7 +52,7 @@ class FinancialDashboardState extends Equatable {
     String? error,
     bool clearError = false,
 
-    List<BudgetData>? budgets,
+    List<LOAData>? budgets,
     List<EmpenhoData>? empenhos,
 
     List<AdditivesData>? allAdditives,

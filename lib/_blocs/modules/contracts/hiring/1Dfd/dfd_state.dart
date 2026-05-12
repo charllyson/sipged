@@ -10,6 +10,7 @@ class DfdState extends Equatable {
   final bool saveSuccess;
   final String? error;
 
+  final String tenantId;
   final String? contractId;
   final String? dfdId;
 
@@ -21,16 +22,34 @@ class DfdState extends Equatable {
     this.saving = false,
     this.saveSuccess = false,
     this.error,
+    required this.tenantId,
     this.contractId,
     this.dfdId,
     this.sectionIds = const <String, String>{},
     this.sectionsData = const <String, Map<String, dynamic>>{},
   });
 
-  factory DfdState.initial() => const DfdState();
+  factory DfdState.initial({
+    required String tenantId,
+  }) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório para DfdState.');
+    }
+
+    return DfdState(
+      tenantId: cleanTenantId,
+    );
+  }
+
+  bool get hasValidTenant {
+    return tenantId.trim().isNotEmpty;
+  }
 
   bool get hasValidPath {
-    return contractId != null &&
+    return tenantId.trim().isNotEmpty &&
+        contractId != null &&
         contractId!.trim().isNotEmpty &&
         dfdId != null &&
         dfdId!.trim().isNotEmpty &&
@@ -46,6 +65,7 @@ class DfdState extends Equatable {
     bool? saving,
     bool? saveSuccess,
     String? error,
+    String? tenantId,
     String? contractId,
     String? dfdId,
     Map<String, String>? sectionIds,
@@ -54,11 +74,18 @@ class DfdState extends Equatable {
     bool clearContractId = false,
     bool clearDfdId = false,
   }) {
+    final cleanTenantId = (tenantId ?? this.tenantId).trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId não pode ficar vazio em DfdState.');
+    }
+
     return DfdState(
       loading: loading ?? this.loading,
       saving: saving ?? this.saving,
       saveSuccess: saveSuccess ?? this.saveSuccess,
       error: clearError ? null : (error ?? this.error),
+      tenantId: cleanTenantId,
       contractId: clearContractId ? null : (contractId ?? this.contractId),
       dfdId: clearDfdId ? null : (dfdId ?? this.dfdId),
       sectionIds: sectionIds ?? this.sectionIds,
@@ -72,6 +99,7 @@ class DfdState extends Equatable {
     saving,
     saveSuccess,
     error,
+    tenantId,
     contractId,
     dfdId,
     sectionIds,

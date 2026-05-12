@@ -1,3 +1,5 @@
+// lib/screens/modules/contracts/measurement/adjustment/adjustment_measurement_page.dart
+
 import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -41,6 +43,18 @@ class AdjustmentMeasurement extends StatelessWidget {
 
   final ContractData contractData;
 
+  String _resolveRequiredTenantId(PermissionState permissionState) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para AdjustmentMeasurement.',
+      );
+    }
+
+    return tenantId;
+  }
+
   @override
   Widget build(BuildContext context) {
     final contractId = contractData.id?.toString().trim();
@@ -51,42 +65,48 @@ class AdjustmentMeasurement extends StatelessWidget {
       );
     }
 
-    return BlocProvider(
-      create: (context) {
-        final permissionState = context.read<PermissionCubit>().state;
-
-        return AdjustmentMeasurementCubit(
-          repository: AdjustmentMeasurementRepository(
-            tenantId: permissionState.activeTenantId,
-          ),
-          initialPermissions: permissionState.current,
-          initialTenantId: permissionState.activeTenantId,
-          moduleId: 'operation_measurements_adjustments',
-        )..loadByContract(contractId);
+    return BlocBuilder<PermissionCubit, PermissionState>(
+      buildWhen: (previous, current) {
+        return previous.activeTenantId != current.activeTenantId ||
+            previous.current != current.current;
       },
-      child: BlocListener<PermissionCubit, PermissionState>(
-        listenWhen: (previous, current) {
-          return previous.current != current.current ||
-              previous.activeTenantId != current.activeTenantId;
-        },
-        listener: (context, permissionState) {
-          final cubit = context.read<AdjustmentMeasurementCubit>();
+      builder: (context, permissionState) {
+        final tenantId = _resolveRequiredTenantId(permissionState);
 
-          cubit.updatePermissions(
-            permissions: permissionState.current,
-            tenantId: permissionState.activeTenantId,
-          );
+        return BlocProvider<AdjustmentMeasurementCubit>(
+          key: ValueKey<String>(
+            'adjustment-measurement-$tenantId-$contractId',
+          ),
+          create: (context) {
+            return AdjustmentMeasurementCubit(
+              repository: AdjustmentMeasurementRepository(
+                tenantId: tenantId,
+              ),
+              initialPermissions: permissionState.current,
+              initialTenantId: tenantId,
+              moduleId: 'operation_measurements_adjustments',
+            )..loadByContract(contractId);
+          },
+          child: BlocListener<PermissionCubit, PermissionState>(
+            listenWhen: (previous, current) {
+              return previous.current != current.current ||
+                  previous.activeTenantId != current.activeTenantId;
+            },
+            listener: (context, permissionState) {
+              final nextTenantId = _resolveRequiredTenantId(permissionState);
 
-          cubit.setTenantId(permissionState.activeTenantId);
-
-          final activeTenantId = permissionState.activeTenantId?.trim();
-
-          if (activeTenantId != null && activeTenantId.isNotEmpty) {
-            cubit.loadByContract(contractId);
-          }
-        },
-        child: _AdjustmentMeasurementView(contractData: contractData),
-      ),
+              context.read<AdjustmentMeasurementCubit>().updatePermissions(
+                permissions: permissionState.current,
+                tenantId: nextTenantId,
+              );
+            },
+            child: _AdjustmentMeasurementView(
+              contractData: contractData,
+              tenantId: tenantId,
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -94,9 +114,11 @@ class AdjustmentMeasurement extends StatelessWidget {
 class _AdjustmentMeasurementView extends StatefulWidget {
   const _AdjustmentMeasurementView({
     required this.contractData,
+    required this.tenantId,
   });
 
   final ContractData contractData;
+  final String tenantId;
 
   @override
   State<_AdjustmentMeasurementView> createState() {
@@ -110,7 +132,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
   final valueCtrl = TextEditingController();
   final dateCtrl = TextEditingController();
 
-  final DfdRepository _dfdRepository = DfdRepository();
+  late DfdRepository _dfdRepository;
 
   DfdData? _dfdData;
 
@@ -148,12 +170,36 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
   void initState() {
     super.initState();
 
+    _dfdRepository = DfdRepository(
+      tenantId: widget.tenantId,
+    );
+
     _loadDfdDisplayData();
 
     orderCtrl.addListener(_validateForm);
     processCtrl.addListener(_validateForm);
     valueCtrl.addListener(_validateForm);
     dateCtrl.addListener(_validateForm);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AdjustmentMeasurementView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final oldContractId = oldWidget.contractData.id?.trim() ?? '';
+    final newContractId = widget.contractData.id?.trim() ?? '';
+
+    if (oldWidget.tenantId != widget.tenantId || oldContractId != newContractId) {
+      _dfdRepository = DfdRepository(
+        tenantId: widget.tenantId,
+      );
+
+      setState(() {
+        _dfdData = null;
+      });
+
+      _loadDfdDisplayData();
+    }
   }
 
   @override
@@ -378,6 +424,8 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
       measurementDate: _parseDateTimeFromExtra(extra['adjustmentDate']),
       adjustmentValue: _parseNumFromExtra(extra['adjustmentValue']),
       extra: <String, dynamic>{
+        'tenantId': widget.tenantId,
+        'companyId': widget.tenantId,
         'route': route,
         'module': route,
         'source': 'adjustment_measurement_notification',
@@ -738,9 +786,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 setState(() {
                                   _selectedSideIndex =
                                   cubit.state.attachments.isNotEmpty
-                                      ? cubit
-                                      .state
-                                      .attachments
+                                      ? cubit.state.attachments
                                       .length -
                                       1
                                       : null;

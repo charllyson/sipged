@@ -1,4 +1,4 @@
-// lib/admPanel/firebase/firebase_toolkit.dart
+// lib/screens/common/adm/firebase_toolkit.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -45,7 +45,8 @@ class _FirebaseToolkitView extends StatefulWidget {
 
 class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
   late final TextEditingController _tenantIdCtrl;
-  late final TextEditingController _collectionGroupCtrl;
+  late final TextEditingController _sourcePathCtrl;
+  late final TextEditingController _targetPathCtrl;
   late final TextEditingController _previewPathCtrl;
   late final TextEditingController _previewLimitCtrl;
 
@@ -56,26 +57,27 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
 
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _docs = [];
 
-  static const List<String> _allowedCollections = <String>[
-    'orders',
-    'reportsMeasurement',
-    'adjustmentsMeasurement',
-    'revisionsMeasurement',
-  ];
-
   @override
   void initState() {
     super.initState();
 
+    final tenantId = FirebaseAdminTenantPaths.fixedMigrationTenantId;
+
     _tenantIdCtrl = TextEditingController(
-      text: FirebaseAdminTenantPaths.fixedMigrationTenantId,
+      text: tenantId,
     );
 
-    _collectionGroupCtrl = TextEditingController(text: 'orders');
+    _sourcePathCtrl = TextEditingController(
+      text: FirebaseAdminTenantPaths.legacyContractsRootPath,
+    );
+
+    _targetPathCtrl = TextEditingController(
+      text:
+      'tenants/$tenantId/contracts/{contractId}/hiring/main/{publicacao|arquivamento}/main',
+    );
 
     _previewPathCtrl = TextEditingController(
-      text:
-      'tenants/${FirebaseAdminTenantPaths.fixedMigrationTenantId}/contracts',
+      text: 'tenants/$tenantId/contracts/{contractId}/hiring/main/publicacao',
     );
 
     _previewLimitCtrl = TextEditingController(text: '50');
@@ -84,7 +86,8 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
   @override
   void dispose() {
     _tenantIdCtrl.dispose();
-    _collectionGroupCtrl.dispose();
+    _sourcePathCtrl.dispose();
+    _targetPathCtrl.dispose();
     _previewPathCtrl.dispose();
     _previewLimitCtrl.dispose();
 
@@ -123,6 +126,10 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
     return parts.isNotEmpty && parts.length.isOdd;
   }
 
+  bool _containsTemplateValue(String path) {
+    return path.contains('{') || path.contains('}');
+  }
+
   int _intFromController(
       TextEditingController controller, {
         required int fallback,
@@ -137,58 +144,24 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
     return parsed.clamp(min, max);
   }
 
-  String _selectedCollectionId() {
-    final raw = _collectionGroupCtrl.text.trim();
-
-    if (raw.isEmpty) return 'orders';
-
-    return raw;
-  }
-
-  String _labelForCollection(String collectionId) {
-    switch (collectionId) {
-      case 'orders':
-        return 'vigências / ordens';
-
-      case 'reportsMeasurement':
-        return 'medições executadas';
-
-      case 'adjustmentsMeasurement':
-        return 'reajustes de medições';
-
-      case 'revisionsMeasurement':
-        return 'revisões de medições';
-
-      default:
-        return collectionId;
-    }
-  }
-
-  String _titleForCollection(String collectionId) {
-    switch (collectionId) {
-      case 'orders':
-        return 'Migrar vigências / ordens';
-
-      case 'reportsMeasurement':
-        return 'Migrar medições executadas';
-
-      case 'adjustmentsMeasurement':
-        return 'Migrar reajustes de medições';
-
-      case 'revisionsMeasurement':
-        return 'Migrar revisões de medições';
-
-      default:
-        return 'Migrar collectionGroup($collectionId)';
-    }
-  }
-
   Future<void> _loadPreview() async {
+    final adminCubit = context.read<FirebaseAdminCubit>();
+
     final path = _previewPathCtrl.text.trim();
 
     if (path.isEmpty) {
       setState(() {
         _errorMessage = 'Informe o caminho da coleção para prévia.';
+        _docs = [];
+        _hasLoadedPreview = false;
+      });
+      return;
+    }
+
+    if (_containsTemplateValue(path)) {
+      setState(() {
+        _errorMessage =
+        'Substitua os valores entre chaves, como {contractId}, por IDs reais antes de carregar a prévia.';
         _docs = [];
         _hasLoadedPreview = false;
       });
@@ -220,7 +193,7 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
     });
 
     try {
-      final docs = await context.read<FirebaseAdminCubit>().previewCollection(
+      final docs = await adminCubit.previewCollection(
         path: path,
         limit: previewLimit,
       );
@@ -292,122 +265,59 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
     return mounted && confirmed == true;
   }
 
-  Future<void> _migrateSelectedCollectionToFixedTenant() async {
+  Future<void> _migratePublicationAndArchiveToFixedTenant() async {
+    final adminCubit = context.read<FirebaseAdminCubit>();
+
     final tenantId = FirebaseAdminTenantPaths.fixedMigrationTenantId;
-    final collectionId = _selectedCollectionId();
 
-    if (!_allowedCollections.contains(collectionId)) {
-      _showMessage(
-        'CollectionGroup não permitida nesta tela: "$collectionId".',
-        backgroundColor: Colors.red.shade700,
-      );
-      return;
-    }
+    const sourceRootPath = FirebaseAdminTenantPaths.legacyContractsRootPath;
 
-    final targetRootPath = FirebaseAdminTenantPaths.contractsRootPath(tenantId);
-    final label = _labelForCollection(collectionId);
+    final targetRootPath =
+        'tenants/$tenantId/contracts/{contractId}/hiring/main';
 
     final confirmed = await _confirmMigration(
-      title: _titleForCollection(collectionId),
-      buttonLabel: 'Migrar',
+      title: 'Migrar Publicação e Arquivamento',
+      buttonLabel: 'Migrar Publicação/Arquivamento',
       icon: Icons.account_tree_outlined,
       content: 'Origem:\n\n'
-          'collectionGroup("$collectionId")\n\n'
-          'Destino final:\n\n'
-          'tenants/$tenantId/contracts/{contractId}/$collectionId/{docId}\n\n'
-          'Raiz usada na operação:\n\n'
-          '$targetRootPath\n\n'
+          '$sourceRootPath/{contractId}/publicacao/{docId}/...\n'
+          '$sourceRootPath/{contractId}/arquivamento/{docId}/...\n\n'
+          'Destino:\n\n'
+          '$targetRootPath/publicacao/main/...\n'
+          '$targetRootPath/arquivamento/main/...\n\n'
+          'Estrutura final esperada:\n\n'
+          '$targetRootPath/publicacao/main/metadados/main\n'
+          '$targetRootPath/publicacao/main/partes/main\n'
+          '$targetRootPath/publicacao/main/veiculo/main\n'
+          '$targetRootPath/publicacao/main/status/main\n'
+          '$targetRootPath/publicacao/main/responsavel/main\n\n'
+          '$targetRootPath/arquivamento/main/metadados/main\n'
+          '$targetRootPath/arquivamento/main/motivo/main\n'
+          '$targetRootPath/arquivamento/main/fundamentacao/main\n'
+          '$targetRootPath/arquivamento/main/pecas/main\n'
+          '$targetRootPath/arquivamento/main/decisao/main\n'
+          '$targetRootPath/arquivamento/main/reabertura/main\n\n'
+          'Tenant usado:\n\n'
+          '$tenantId\n\n'
           'Regras aplicadas:\n\n'
-          '- Busca documentos em qualquer profundidade pelo collectionGroup("$collectionId")\n'
-          '- Ignora documentos que já estão dentro de tenants/\n'
-          '- Preserva o ID original do documento\n'
-          '- Identifica o contractId pelo campo ou pelo caminho legado\n'
+          '- Copia Publicação do Extrato e Termo de Arquivamento\n'
+          '- Copia o documento principal para o doc main\n'
+          '- Copia as seções oficiais para docs main\n'
+          '- Usa merge no destino\n'
+          '- Ignora documentos já existentes no destino\n'
           '- Grava tenantId e companyId como $tenantId\n'
-          '- Usa merge\n'
-          '- Ignora documentos já existentes\n'
+          '- Grava contractId, uidContract e uidcontract\n'
           '- Adiciona metadados de migração\n'
           '- Atualiza recordPath/sourcePath/path quando existirem\n\n'
           'Essa operação apenas copia. Ela não apaga dados da origem.\n\n'
-          'Deseja continuar a migração de $label?',
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await context.read<FirebaseAdminCubit>().copyCollectionGroupToFixedTenantContracts(
-        collectionId: collectionId,
-        successLabel: label,
-        successTitle: 'Migração collectionGroup($collectionId)',
-      );
-    } catch (_) {
-      // O Cubit já emite a mensagem de erro.
-    }
-  }
-
-  Future<void> _migrateAllMeasurementsToFixedTenant() async {
-    final tenantId = FirebaseAdminTenantPaths.fixedMigrationTenantId;
-
-    final confirmed = await _confirmMigration(
-      title: 'Migrar todas as coleções de medições',
-      buttonLabel: 'Migrar medições',
-      icon: Icons.stacked_bar_chart_outlined,
-      content: 'Serão copiadas as seguintes collectionGroups:\n\n'
-          '- reportsMeasurement\n'
-          '- adjustmentsMeasurement\n'
-          '- revisionsMeasurement\n\n'
-          'Destino:\n\n'
-          'tenants/$tenantId/contracts/{contractId}/{collectionId}/{docId}\n\n'
-          'Regras aplicadas:\n\n'
-          '- Ignora documentos já existentes\n'
-          '- Ignora documentos dentro de tenants/\n'
-          '- Preserva o ID original\n'
-          '- Grava tenantId e companyId como $tenantId\n'
-          '- Usa merge\n'
-          '- Não apaga dados legados\n\n'
+          'Depois de validar a cópia no novo caminho, os dados antigos poderão ser removidos com mais segurança.\n\n'
           'Deseja continuar?',
     );
 
-    if (!confirmed) return;
+    if (!mounted || !confirmed) return;
 
     try {
-      await context
-          .read<FirebaseAdminCubit>()
-          .migrateAllMeasurementCollectionsToFixedTenant();
-    } catch (_) {
-      // O Cubit já emite a mensagem de erro.
-    }
-  }
-
-  Future<void> _migrateAllOperationalToFixedTenant() async {
-    final tenantId = FirebaseAdminTenantPaths.fixedMigrationTenantId;
-
-    final confirmed = await _confirmMigration(
-      title: 'Migrar coleções operacionais do contrato',
-      buttonLabel: 'Migrar tudo',
-      icon: Icons.hub_outlined,
-      content: 'Serão copiadas as seguintes collectionGroups:\n\n'
-          '- orders\n'
-          '- reportsMeasurement\n'
-          '- adjustmentsMeasurement\n'
-          '- revisionsMeasurement\n\n'
-          'Destino:\n\n'
-          'tenants/$tenantId/contracts/{contractId}/{collectionId}/{docId}\n\n'
-          'Regras aplicadas:\n\n'
-          '- Ignora documentos já existentes\n'
-          '- Ignora documentos dentro de tenants/\n'
-          '- Preserva o ID original\n'
-          '- Grava tenantId e companyId como $tenantId\n'
-          '- Usa merge\n'
-          '- Não apaga dados legados\n\n'
-          'Deseja continuar?',
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await context
-          .read<FirebaseAdminCubit>()
-          .migrateAllContractOperationalCollectionsToFixedTenant();
+      await adminCubit.migrateLegacyPublicationAndArchiveToFixedTenant();
     } catch (_) {
       // O Cubit já emite a mensagem de erro.
     }
@@ -441,10 +351,10 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
         ),
       ),
       child: Text(
-        'Migração ativa: collectionGroup("{collectionId}") → '
-            'tenants/$tenantId/contracts/{contractId}/{collectionId}/{docId}. '
+        'Migração ativa: contracts/{contractId}/{publicacao|arquivamento}/* → '
+            'tenants/$tenantId/contracts/{contractId}/hiring/main/{publicacao|arquivamento}/main/*. '
             'Os documentos já existentes no destino são ignorados. '
-            'Documentos dentro de tenants/ também são ignorados para evitar duplicação.',
+            'A operação copia Publicação do Extrato, Termo de Arquivamento e suas seções conhecidas, sem apagar a origem.',
         style: const TextStyle(
           fontSize: 12,
           color: Colors.black87,
@@ -454,38 +364,14 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
     );
   }
 
-  Widget _buildCollectionSelector({
-    required bool isLoading,
-  }) {
-    return DropdownButtonFormField<String>(
-      initialValue: _allowedCollections.contains(_collectionGroupCtrl.text.trim())
-          ? _collectionGroupCtrl.text.trim()
-          : 'orders',
-      decoration: const InputDecoration(
-        labelText: 'CollectionGroup para copiar',
-        border: OutlineInputBorder(),
-        isDense: true,
-      ),
-      items: _allowedCollections.map((collectionId) {
-        return DropdownMenuItem<String>(
-          value: collectionId,
-          child: Text(
-            '$collectionId — ${_labelForCollection(collectionId)}',
-            overflow: TextOverflow.ellipsis,
-          ),
-        );
-      }).toList(),
-      onChanged: isLoading
-          ? null
-          : (value) {
-        if (value == null) return;
+  void _setPreviewPathWithContractWarning(String path) {
+    setState(() {
+      _previewPathCtrl.text = path;
+    });
 
-        setState(() {
-          _collectionGroupCtrl.text = value;
-          _previewPathCtrl.text =
-          'tenants/${FirebaseAdminTenantPaths.fixedMigrationTenantId}/contracts';
-        });
-      },
+    _showMessage(
+      'Substitua {contractId} pelo ID real do contrato antes de carregar a prévia.',
+      backgroundColor: Colors.orange.shade700,
     );
   }
 
@@ -499,28 +385,191 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
         OutlinedButton.icon(
           onPressed: () {
             setState(() {
-              _previewPathCtrl.text = 'tenants/$tenantId/contracts';
+              _previewPathCtrl.text = 'contracts';
             });
           },
           icon: const Icon(Icons.folder_outlined, size: 16),
-          label: const Text('contracts'),
+          label: const Text('contracts legado'),
         ),
         OutlinedButton.icon(
           onPressed: () {
-            final collectionId = _selectedCollectionId();
-
-            setState(() {
-              _previewPathCtrl.text =
-              'tenants/$tenantId/contracts/{contractId}/$collectionId';
-            });
-
-            _showMessage(
-              'Substitua {contractId} pelo ID real do contrato antes de carregar a prévia.',
-              backgroundColor: Colors.orange.shade700,
+            _setPreviewPathWithContractWarning(
+              'contracts/{contractId}/publicacao',
             );
           },
-          icon: const Icon(Icons.account_tree_outlined, size: 16),
-          label: const Text('subcoleção do contrato'),
+          icon: const Icon(Icons.article_outlined, size: 16),
+          label: const Text('Publicação legado'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'contracts/{contractId}/publicacao/{pubId}/veiculo',
+            );
+          },
+          icon: const Icon(Icons.article_outlined, size: 16),
+          label: const Text('Publicação seção legado'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'contracts/{contractId}/arquivamento',
+            );
+          },
+          icon: const Icon(Icons.inventory_2_outlined, size: 16),
+          label: const Text('Arquivamento legado'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'contracts/{contractId}/arquivamento/{taId}/pecas',
+            );
+          },
+          icon: const Icon(Icons.inventory_2_outlined, size: 16),
+          label: const Text('Arquivamento seção legado'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            setState(() {
+              _previewPathCtrl.text = 'tenants/$tenantId/contracts';
+            });
+          },
+          icon: const Icon(Icons.business_outlined, size: 16),
+          label: const Text('contracts tenant'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring',
+            );
+          },
+          icon: const Icon(Icons.work_outline, size: 16),
+          label: const Text('hiring'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main',
+            );
+          },
+          icon: const Icon(Icons.work_outline, size: 16),
+          label: const Text('hiring/main'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/publicacao',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Publicação hiring'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/publicacao/main/metadados',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Publicação metadados'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/publicacao/main/partes',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Publicação partes'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/publicacao/main/veiculo',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Publicação veículo'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/publicacao/main/status',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Publicação status'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/publicacao/main/responsavel',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Publicação responsável'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/arquivamento',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Arquivamento hiring'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/arquivamento/main/metadados',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Arquivamento metadados'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/arquivamento/main/motivo',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Arquivamento motivo'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/arquivamento/main/fundamentacao',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Arquivamento fundamentação'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/arquivamento/main/pecas',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Arquivamento peças'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/arquivamento/main/decisao',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Arquivamento decisão'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _setPreviewPathWithContractWarning(
+              'tenants/$tenantId/contracts/{contractId}/hiring/main/arquivamento/main/reabertura',
+            );
+          },
+          icon: const Icon(Icons.folder_copy_outlined, size: 16),
+          label: const Text('Arquivamento reabertura'),
         ),
       ],
     );
@@ -735,6 +784,65 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
     );
   }
 
+  Widget _buildResultBox(FirebaseAdminState state) {
+    final result = state.result;
+
+    if (result == null) {
+      return const SizedBox.shrink();
+    }
+
+    final entries = result.details.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.green.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            result.title,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Total principal: ${result.total}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...entries.map(
+                (entry) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '${entry.key}: ${entry.value}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.black54,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final topSafe = MediaQuery.of(context).padding.top;
@@ -750,7 +858,8 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
 
         _showMessage(
           state.message!,
-          backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
+          backgroundColor:
+          isError ? Colors.red.shade700 : Colors.green.shade700,
           duration:
           isError ? const Duration(seconds: 6) : const Duration(seconds: 4),
         );
@@ -809,7 +918,7 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
                             ),
                           ),
                           const Text(
-                            'Use esta tela para copiar documentos legados para a estrutura multi-tenant dos contratos.',
+                            'Use esta tela para copiar Publicação do Extrato e Termo de Arquivamento legados para a estrutura hiring/main dentro do contrato multi-tenant.',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.black87,
@@ -817,16 +926,27 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
                             ),
                           ),
                           _buildMigrationInfoBox(),
-                          _sectionTitle('Destino fixo da cópia'),
+                          _sectionTitle('Destino fixo da migração'),
                           CustomTextField(
                             controller: _tenantIdCtrl,
                             enabled: false,
                             labelText: 'Tenant ID fixo',
                           ),
-                          const SizedBox(height: 16),
-                          _sectionTitle('Cópia por collectionGroup'),
-                          _buildCollectionSelector(isLoading: isLoading),
                           const SizedBox(height: 12),
+                          CustomTextField(
+                            controller: _sourcePathCtrl,
+                            enabled: false,
+                            labelText: 'Origem dos contratos legados',
+                          ),
+                          const SizedBox(height: 12),
+                          CustomTextField(
+                            controller: _targetPathCtrl,
+                            enabled: false,
+                            labelText:
+                            'Destino da Publicação e do Arquivamento',
+                          ),
+                          const SizedBox(height: 20),
+                          _sectionTitle('Migração da contratação'),
                           Wrap(
                             spacing: 12,
                             runSpacing: 10,
@@ -834,41 +954,18 @@ class _FirebaseToolkitViewState extends State<_FirebaseToolkitView> {
                               FilledButton.icon(
                                 onPressed: isLoading
                                     ? null
-                                    : _migrateSelectedCollectionToFixedTenant,
+                                    : _migratePublicationAndArchiveToFixedTenant,
                                 icon: const Icon(
                                   Icons.account_tree_outlined,
                                   size: 18,
                                 ),
                                 label: const Text(
-                                  'Copiar collectionGroup selecionada',
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: isLoading
-                                    ? null
-                                    : _migrateAllMeasurementsToFixedTenant,
-                                icon: const Icon(
-                                  Icons.stacked_bar_chart_outlined,
-                                  size: 18,
-                                ),
-                                label: const Text(
-                                  'Copiar medições, reajustes e revisões',
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: isLoading
-                                    ? null
-                                    : _migrateAllOperationalToFixedTenant,
-                                icon: const Icon(
-                                  Icons.hub_outlined,
-                                  size: 18,
-                                ),
-                                label: const Text(
-                                  'Copiar ordens + medições',
+                                  'Migrar Publicação e Arquivamento',
                                 ),
                               ),
                             ],
                           ),
+                          _buildResultBox(state),
                           const SizedBox(height: 24),
                           _sectionTitle('Prévia de coleção'),
                           CustomTextField(

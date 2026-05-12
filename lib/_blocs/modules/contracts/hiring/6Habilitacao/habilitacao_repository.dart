@@ -12,18 +12,32 @@ import 'habilitacao_data.dart';
 
 class HabilitacaoRepository {
   HabilitacaoRepository({
+    required String tenantId,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
   })  : _db = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _storage = storage ?? FirebaseStorage.instance,
+        _tenantId = tenantId.trim() {
+    if (_tenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório em HabilitacaoRepository.');
+    }
+  }
 
   final FirebaseFirestore _db;
   final FirebaseStorage _storage;
+  final String _tenantId;
+
+  String get tenantId => _tenantId;
+
+  CollectionReference<Map<String, dynamic>> _contractsCol() {
+    return _db.collection('tenants').doc(tenantId).collection('contracts');
+  }
 
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
-    return _db
-        .collection('contracts')
+    return _contractsCol()
         .doc(contractId)
+        .collection('hiring')
+        .doc('main')
         .collection('habilitacao');
   }
 
@@ -32,7 +46,7 @@ class HabilitacaoRepository {
     required String habId,
     required String licitacaoDocId,
   }) {
-    return 'contracts/$contractId/habilitacao/$habId/${HabilitacaoData.sectionLicitacaoAdesao}/$licitacaoDocId/files';
+    return 'tenants/$tenantId/contracts/$contractId/hiring/main/habilitacao/$habId/${HabilitacaoData.sectionLicitacaoAdesao}/$licitacaoDocId/files';
   }
 
   String _extractExt(String nameOrUrl) {
@@ -107,19 +121,18 @@ class HabilitacaoRepository {
           );
         }
 
-        final snap =
-        await root.collection(sectionName).doc(sectionDocId).get();
+        final snap = await root.collection(sectionName).doc(sectionDocId).get();
 
         final data = Map<String, dynamic>.from(
           snap.data() ?? const <String, dynamic>{},
         );
 
-        data.remove('createdAt');
-        data.remove('updatedAt');
-        data.remove('createdBy');
-        data.remove('updatedBy');
+        _removeSystemFields(data);
 
-        return MapEntry<String, Map<String, dynamic>>(sectionName, data);
+        return MapEntry<String, Map<String, dynamic>>(
+          sectionName,
+          data,
+        );
       }),
     );
 
@@ -148,8 +161,39 @@ class HabilitacaoRepository {
 
     if (sectionsData.isEmpty) return;
 
-    final batch = _db.batch();
     final root = _col(cleanContractId).doc(cleanHabId);
+    final hiringRef =
+    _contractsCol().doc(cleanContractId).collection('hiring').doc('main');
+
+    final batch = _db.batch();
+
+    batch.set(
+      hiringRef,
+      <String, dynamic>{
+        'id': 'main',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      root,
+      <String, dynamic>{
+        'id': cleanHabId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
 
     for (final entry in sectionsData.entries) {
       final sectionKey = entry.key.trim();
@@ -158,16 +202,19 @@ class HabilitacaoRepository {
       if (sectionKey.isEmpty) continue;
       if (sectionDocId == null || sectionDocId.isEmpty) continue;
 
-      final sectionData = Map<String, dynamic>.from(entry.value)
-        ..remove('createdAt')
-        ..remove('updatedAt')
-        ..remove('createdBy')
-        ..remove('updatedBy');
+      final sectionData = Map<String, dynamic>.from(entry.value);
+      _removeWriteProtectedFields(sectionData);
 
       batch.set(
         root.collection(sectionKey).doc(sectionDocId),
         <String, dynamic>{
           ...sectionData,
+          'id': sectionDocId,
+          'tenantId': tenantId,
+          'companyId': tenantId,
+          'contractId': cleanContractId,
+          'uidContract': cleanContractId,
+          'uidcontract': cleanContractId,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -205,24 +252,59 @@ class HabilitacaoRepository {
       throw Exception('sectionDocId não informado.');
     }
 
-    final cleanData = Map<String, dynamic>.from(data)
-      ..remove('createdAt')
-      ..remove('updatedAt')
-      ..remove('createdBy')
-      ..remove('updatedBy');
+    final cleanData = Map<String, dynamic>.from(data);
+    _removeWriteProtectedFields(cleanData);
 
-    final ref = _col(cleanContractId)
-        .doc(cleanHabId)
-        .collection(cleanSectionKey)
-        .doc(cleanSectionDocId);
+    final root = _col(cleanContractId).doc(cleanHabId);
+    final hiringRef =
+    _contractsCol().doc(cleanContractId).collection('hiring').doc('main');
 
-    await ref.set(
+    final batch = _db.batch();
+
+    batch.set(
+      hiringRef,
       <String, dynamic>{
-        ...cleanData,
+        'id': 'main',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
     );
+
+    batch.set(
+      root,
+      <String, dynamic>{
+        'id': cleanHabId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      root.collection(cleanSectionKey).doc(cleanSectionDocId),
+      <String, dynamic>{
+        ...cleanData,
+        'id': cleanSectionDocId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
   }
 
   Future<HabilitacaoData?> readDataForContract(String contractId) async {
@@ -260,15 +342,15 @@ class HabilitacaoRepository {
       return const <Attachment>[];
     }
 
-    final ref = _storage.ref(
+    final result = await _storage
+        .ref(
       _filesPath(
         contractId: cleanContractId,
         habId: cleanHabId,
         licitacaoDocId: cleanLicitacaoDocId,
       ),
-    );
-
-    final result = await ref.listAll();
+    )
+        .listAll();
 
     final attachments = await Future.wait(
       result.items.map((item) async {
@@ -354,6 +436,8 @@ class HabilitacaoRepository {
         contentType: _contentTypeForExt(ext),
         customMetadata: <String, String>{
           'originalName': name,
+          'tenantId': tenantId,
+          'companyId': tenantId,
           'contractId': cleanContractId,
           'habId': cleanHabId,
           'licitacaoDocId': cleanLicitacaoDocId,
@@ -399,15 +483,16 @@ class HabilitacaoRepository {
     }
 
     try {
-      final ref = _storage.ref(
+      await _storage
+          .ref(
         '${_filesPath(
           contractId: cleanContractId,
           habId: cleanHabId,
           licitacaoDocId: cleanLicitacaoDocId,
         )}/$cleanFileName',
-      );
+      )
+          .delete();
 
-      await ref.delete();
       return true;
     } catch (_) {
       return false;
@@ -425,5 +510,31 @@ class HabilitacaoRepository {
     } catch (_) {
       return false;
     }
+  }
+
+  void _removeWriteProtectedFields(Map<String, dynamic> data) {
+    data.remove('createdAt');
+    data.remove('updatedAt');
+    data.remove('createdBy');
+    data.remove('updatedBy');
+  }
+
+  void _removeSystemFields(Map<String, dynamic> data) {
+    _removeWriteProtectedFields(data);
+    data.remove('migratedAt');
+    data.remove('migrationSourcePath');
+    data.remove('migrationSourceDocId');
+    data.remove('migrationTargetPath');
+    data.remove('legacySourceId');
+    data.remove('legacySourcePath');
+    data.remove('recordPath');
+    data.remove('sourcePath');
+    data.remove('path');
+    data.remove('sourceCollectionModel');
+    data.remove('tenantId');
+    data.remove('companyId');
+    data.remove('uidContract');
+    data.remove('uidcontract');
+    data.remove('contractId');
   }
 }

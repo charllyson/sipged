@@ -1,5 +1,4 @@
-// lib/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
@@ -9,10 +8,17 @@ import 'edital_repository.dart';
 import 'edital_state.dart';
 
 class EditalCubit extends Cubit<EditalState> {
-  EditalCubit([EditalRepository? repository])
-      : repo = repository ?? EditalRepository(),
+  EditalCubit({
+    required String tenantId,
+    EditalRepository? repository,
+  })  : _tenantId = _requireTenantId(tenantId),
+        repo = repository ??
+            EditalRepository(
+              tenantId: _requireTenantId(tenantId),
+            ),
         super(EditalState.initial());
 
+  final String _tenantId;
   final EditalRepository repo;
 
   int _loadSeq = 0;
@@ -20,11 +26,80 @@ class EditalCubit extends Cubit<EditalState> {
 
   bool get _alive => !isClosed;
 
+  String get tenantId => _tenantId;
+
+  static String _requireTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório em EditalCubit.');
+    }
+
+    return cleanTenantId;
+  }
+
   Future<EditalData?> getDataForContract(String contractId) {
     final id = contractId.trim();
-    if (id.isEmpty) return Future<EditalData?>.value(null);
+
+    if (id.isEmpty) {
+      return Future<EditalData?>.value(null);
+    }
 
     return repo.readDataForContract(id);
+  }
+
+  Future<Map<String, EditalData?>> getSummaryForContracts(
+      Iterable<String> contractIds, {
+        bool debug = false,
+      }) async {
+    final ids = contractIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+
+    final initial = <String, EditalData?>{
+      for (final id in ids) id: null,
+    };
+
+    if (ids.isEmpty) {
+      return initial;
+    }
+
+    final sw = Stopwatch()..start();
+
+    try {
+      final result = await repo.getSummaryForContracts(
+        ids,
+        debug: debug,
+      );
+
+      sw.stop();
+
+      if (debug) {
+        debugPrint(
+          '[EditalCubit] getSummaryForContracts '
+              'tenantId=$tenantId contratos=${ids.length} '
+              'em ${sw.elapsedMilliseconds}ms',
+        );
+      }
+
+      return <String, EditalData?>{
+        ...initial,
+        ...result,
+      };
+    } catch (error, stack) {
+      sw.stop();
+
+      debugPrint(
+        '[EditalCubit] Erro getSummaryForContracts '
+            'tenantId=$tenantId contratos=${ids.length} '
+            'em ${sw.elapsedMilliseconds}ms: $error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      return initial;
+    }
   }
 
   Future<void> load(String contractId) async {

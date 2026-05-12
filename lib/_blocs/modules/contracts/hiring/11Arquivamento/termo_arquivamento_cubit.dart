@@ -12,16 +12,35 @@ import 'termo_arquivamento_repository.dart';
 import 'termo_arquivamento_state.dart';
 
 class TermoArquivamentoCubit extends Cubit<TermoArquivamentoState> {
-  TermoArquivamentoCubit([TermoArquivamentoRepository? repository])
-      : repo = repository ?? TermoArquivamentoRepository(),
+  TermoArquivamentoCubit({
+    required String tenantId,
+    TermoArquivamentoRepository? repository,
+  })  : _tenantId = _requireTenantId(tenantId),
+        repo = repository ??
+            TermoArquivamentoRepository(
+              tenantId: tenantId,
+            ),
         super(TermoArquivamentoState.initial());
 
+  final String _tenantId;
   final TermoArquivamentoRepository repo;
 
   int _loadSeq = 0;
   int _saveSeq = 0;
 
   bool get _alive => !isClosed;
+
+  static String _requireTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório em TermoArquivamentoCubit.');
+    }
+
+    return cleanTenantId;
+  }
+
+  String get tenantId => _tenantId;
 
   Future<TermoArquivamentoData?> getDataForContract(String contractId) {
     final cleanContractId = contractId.trim();

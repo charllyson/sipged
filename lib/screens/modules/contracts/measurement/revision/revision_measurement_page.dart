@@ -1,4 +1,4 @@
-// lib/screens/modules/contracts/measurement/revision/revision_measurement.dart
+// lib/screens/modules/contracts/measurement/revision/revision_measurement_page.dart
 
 import 'dart:math' as math;
 
@@ -45,6 +45,18 @@ class RevisionMeasurement extends StatelessWidget {
 
   final ContractData contractData;
 
+  String _resolveRequiredTenantId(PermissionState permissionState) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para RevisionMeasurement.',
+      );
+    }
+
+    return tenantId;
+  }
+
   @override
   Widget build(BuildContext context) {
     final contractId = contractData.id?.toString().trim();
@@ -55,30 +67,48 @@ class RevisionMeasurement extends StatelessWidget {
       );
     }
 
-    return BlocProvider(
-      create: (context) {
-        final permissionState = context.read<PermissionCubit>().state;
-
-        return RevisionMeasurementCubit(
-          repository: RevisionMeasurementRepository(),
-          initialPermissions: permissionState.current,
-          initialTenantId: permissionState.activeTenantId,
-          moduleId: 'operation_measurements_revisions',
-        )..loadByContract(contractId);
+    return BlocBuilder<PermissionCubit, PermissionState>(
+      buildWhen: (previous, current) {
+        return previous.activeTenantId != current.activeTenantId ||
+            previous.current != current.current;
       },
-      child: BlocListener<PermissionCubit, PermissionState>(
-        listenWhen: (previous, current) {
-          return previous.current != current.current ||
-              previous.activeTenantId != current.activeTenantId;
-        },
-        listener: (context, permissionState) {
-          context.read<RevisionMeasurementCubit>().updatePermissions(
-            permissions: permissionState.current,
-            tenantId: permissionState.activeTenantId,
-          );
-        },
-        child: _RevisionMeasurementView(contractData: contractData),
-      ),
+      builder: (context, permissionState) {
+        final tenantId = _resolveRequiredTenantId(permissionState);
+
+        return BlocProvider<RevisionMeasurementCubit>(
+          key: ValueKey<String>(
+            'revision-measurement-$tenantId-$contractId',
+          ),
+          create: (context) {
+            return RevisionMeasurementCubit(
+              repository: RevisionMeasurementRepository(
+                tenantId: tenantId,
+              ),
+              initialPermissions: permissionState.current,
+              initialTenantId: tenantId,
+              moduleId: 'operation_measurements_revisions',
+            )..loadByContract(contractId);
+          },
+          child: BlocListener<PermissionCubit, PermissionState>(
+            listenWhen: (previous, current) {
+              return previous.current != current.current ||
+                  previous.activeTenantId != current.activeTenantId;
+            },
+            listener: (context, permissionState) {
+              final nextTenantId = _resolveRequiredTenantId(permissionState);
+
+              context.read<RevisionMeasurementCubit>().updatePermissions(
+                permissions: permissionState.current,
+                tenantId: nextTenantId,
+              );
+            },
+            child: _RevisionMeasurementView(
+              contractData: contractData,
+              tenantId: tenantId,
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -86,9 +116,11 @@ class RevisionMeasurement extends StatelessWidget {
 class _RevisionMeasurementView extends StatefulWidget {
   const _RevisionMeasurementView({
     required this.contractData,
+    required this.tenantId,
   });
 
   final ContractData contractData;
+  final String tenantId;
 
   @override
   State<_RevisionMeasurementView> createState() =>
@@ -101,7 +133,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   final valueCtrl = TextEditingController();
   final dateCtrl = TextEditingController();
 
-  final DfdRepository _dfdRepository = DfdRepository();
+  late DfdRepository _dfdRepository;
 
   DfdData? _dfdData;
 
@@ -136,12 +168,36 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   void initState() {
     super.initState();
 
+    _dfdRepository = DfdRepository(
+      tenantId: widget.tenantId,
+    );
+
     _loadDfdDisplayData();
 
     orderCtrl.addListener(_validateForm);
     processCtrl.addListener(_validateForm);
     valueCtrl.addListener(_validateForm);
     dateCtrl.addListener(_validateForm);
+  }
+
+  @override
+  void didUpdateWidget(covariant _RevisionMeasurementView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final oldContractId = oldWidget.contractData.id?.trim() ?? '';
+    final newContractId = widget.contractData.id?.trim() ?? '';
+
+    if (oldWidget.tenantId != widget.tenantId || oldContractId != newContractId) {
+      _dfdRepository = DfdRepository(
+        tenantId: widget.tenantId,
+      );
+
+      setState(() {
+        _dfdData = null;
+      });
+
+      _loadDfdDisplayData();
+    }
   }
 
   @override
@@ -362,6 +418,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
       measurementDate: _parseDateTimeFromExtra(extra['revisionDate']),
       revisionValue: _parseNumFromExtra(extra['revisionValue']),
       extra: <String, dynamic>{
+        'tenantId': widget.tenantId,
+        'companyId': widget.tenantId,
         'route': route,
         'module': route,
         'source': 'revision_measurement_notification',
@@ -775,8 +833,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 });
 
                                 final actorName = _resolveActorName(
-                                  FirebaseAuth
-                                      .instance.currentUser?.uid,
+                                  FirebaseAuth.instance.currentUser?.uid,
                                 );
 
                                 await _safeNotify(

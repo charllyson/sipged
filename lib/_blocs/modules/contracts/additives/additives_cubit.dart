@@ -97,17 +97,13 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   AdditivesCubit({
     required this.contract,
     required this.repository,
+    required String tenantId,
     UserData? initialUser,
     UserPermissionData? initialPermissions,
-    String? tenantId,
     this.moduleId = 'contracts_additives',
   })  : _currentUser = initialUser,
         _currentPermissions = initialPermissions,
-        _tenantId = _resolveInitialTenantId(
-          tenantId: tenantId,
-          permissions: initialPermissions,
-          user: initialUser,
-        ),
+        _tenantId = _cleanRequiredTenantId(tenantId),
         super(AdditivesState.initial()) {
     _syncRepositoryTenant();
 
@@ -117,9 +113,15 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         permissions: initialPermissions,
         tenantId: _tenantId,
       );
+    } else {
+      emit(
+        state.copyWith(
+          isEditable: false,
+        ),
+      );
     }
 
-    _init();
+    unawaited(_init());
   }
 
   final ContractData contract;
@@ -128,32 +130,26 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   UserData? _currentUser;
   UserPermissionData? _currentPermissions;
-  String? _tenantId;
+  String _tenantId;
 
-  static String? _resolveInitialTenantId({
-    required String? tenantId,
-    required UserPermissionData? permissions,
-    required UserData? user,
-  }) {
-    final direct = tenantId?.trim();
+  static String _cleanRequiredTenantId(String tenantId) {
+    final clean = tenantId.trim();
 
-    if (direct != null && direct.isNotEmpty) {
-      return direct;
+    if (clean.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para criar AdditivesCubit.',
+      );
     }
 
-    final permissionTenant = permissions?.activeTenantId?.trim();
+    return clean;
+  }
 
-    if (permissionTenant != null && permissionTenant.isNotEmpty) {
-      return permissionTenant;
-    }
+  static String? _cleanOptionalTenantId(String? tenantId) {
+    final clean = tenantId?.trim();
 
-    final userTenant = user?.effectiveTenantId?.trim();
+    if (clean == null || clean.isEmpty) return null;
 
-    if (userTenant != null && userTenant.isNotEmpty) {
-      return userTenant;
-    }
-
-    return null;
+    return clean;
   }
 
   void _syncRepositoryTenant() {
@@ -161,10 +157,10 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   String _requireTenantId() {
-    final id = _tenantId?.trim();
+    final id = _tenantId.trim();
 
-    if (id == null || id.isEmpty) {
-      throw Exception(
+    if (id.isEmpty) {
+      throw StateError(
         'Nenhuma empresa ativa foi selecionada para acessar aditivos.',
       );
     }
@@ -175,7 +171,11 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   Future<void> _init() async {
-    if (contract.id == null || contract.id!.isEmpty) {
+    _requireTenantId();
+
+    final contractId = contract.id?.trim();
+
+    if (contractId == null || contractId.isEmpty) {
       emit(
         state.copyWith(
           status: AdditivesStatus.loaded,
@@ -185,9 +185,11 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           clearSelected: true,
           clearSelectedIndex: true,
           editingMode: false,
-          sideAttachments: <Attachment>[],
+          sideAttachments: const <Attachment>[],
           sideLoading: false,
           clearUploadProgress: true,
+          clearError: true,
+          isEditable: _canWrite(),
         ),
       );
       return;
@@ -201,32 +203,32 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         UserPermissionData? permissions,
         String? tenantId,
       }) {
+    final previousTenantId = _tenantId;
+
     _currentUser = user ?? _currentUser;
     _currentPermissions =
         permissions ?? _permissionsFromUser(user) ?? _currentPermissions;
 
-    final resolvedTenantId = _resolveInitialTenantId(
-      tenantId: tenantId,
-      permissions: _currentPermissions,
-      user: _currentUser,
-    );
+    final resolvedTenantId = _cleanOptionalTenantId(tenantId);
 
-    final previousTenantId = _tenantId;
-    _tenantId = resolvedTenantId ?? _tenantId;
+    if (resolvedTenantId != null) {
+      _tenantId = resolvedTenantId;
+    }
 
     _syncRepositoryTenant();
 
-    final editable = _canWrite();
-
     emit(
       state.copyWith(
-        isEditable: editable,
+        isEditable: _canWrite(),
+        clearError: true,
       ),
     );
 
+    final contractId = contract.id?.trim();
+
     if (previousTenantId != _tenantId &&
-        contract.id != null &&
-        contract.id!.trim().isNotEmpty) {
+        contractId != null &&
+        contractId.isNotEmpty) {
       unawaited(loadAdditives());
     }
   }
@@ -257,24 +259,27 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
     if (permissions == null) return false;
 
-    if (permissions.isSuperUserForTenant(_tenantId)) {
+    final tenantId = _requireTenantId();
+
+    if (permissions.isGlobalSuperUser ||
+        permissions.isSuperUserForTenant(tenantId)) {
       return true;
     }
 
     return permissions.canModuleString(
       module: moduleId,
       action: 'create',
-      tenantId: _tenantId,
+      tenantId: tenantId,
     ) ||
         permissions.canModuleString(
           module: moduleId,
           action: 'edit',
-          tenantId: _tenantId,
+          tenantId: tenantId,
         ) ||
         permissions.canModuleString(
           module: moduleId,
           action: 'delete',
-          tenantId: _tenantId,
+          tenantId: tenantId,
         );
   }
 
@@ -283,14 +288,17 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
     if (permissions == null) return false;
 
-    if (permissions.isSuperUserForTenant(_tenantId)) {
+    final tenantId = _requireTenantId();
+
+    if (permissions.isGlobalSuperUser ||
+        permissions.isSuperUserForTenant(tenantId)) {
       return true;
     }
 
     return permissions.canModuleString(
       module: moduleId,
       action: 'delete',
-      tenantId: _tenantId,
+      tenantId: tenantId,
     );
   }
 
@@ -301,7 +309,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
     throw Exception(
       'Usuário sem permissão para alterar aditivos. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
@@ -312,33 +320,16 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
     throw Exception(
       'Usuário sem permissão para apagar aditivos. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
   Future<void> loadAdditives() async {
-    _syncRepositoryTenant();
+    _requireTenantId();
 
-    if (_tenantId == null || _tenantId!.trim().isEmpty) {
-      emit(
-        state.copyWith(
-          status: AdditivesStatus.error,
-          additives: const <AdditivesData>[],
-          existingOrders: <int>{},
-          nextAvailableOrder: 1,
-          clearSelected: true,
-          clearSelectedIndex: true,
-          editingMode: false,
-          sideAttachments: <Attachment>[],
-          sideLoading: false,
-          clearUploadProgress: true,
-          errorMessage: 'Nenhuma empresa ativa foi selecionada.',
-        ),
-      );
-      return;
-    }
+    final contractId = contract.id?.trim();
 
-    if (contract.id == null || contract.id!.isEmpty) {
+    if (contractId == null || contractId.isEmpty) {
       emit(
         state.copyWith(
           status: AdditivesStatus.loaded,
@@ -348,9 +339,11 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           clearSelected: true,
           clearSelectedIndex: true,
           editingMode: false,
-          sideAttachments: <Attachment>[],
+          sideAttachments: const <Attachment>[],
           sideLoading: false,
           clearUploadProgress: true,
+          clearError: true,
+          isEditable: _canWrite(),
         ),
       );
       return;
@@ -360,11 +353,12 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       state.copyWith(
         status: AdditivesStatus.loading,
         clearError: true,
+        isEditable: _canWrite(),
       ),
     );
 
     try {
-      final list = await repository.ensureForContract(contract.id!);
+      final list = await repository.ensureForContract(contractId);
       final orders = _extractExistingOrders(list);
       final next = _computeNextOrder(orders);
 
@@ -383,6 +377,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         state.copyWith(
           status: AdditivesStatus.error,
           errorMessage: 'Erro ao carregar aditivos: $e',
+          isEditable: _canWrite(),
         ),
       );
     }
@@ -435,7 +430,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           clearSelected: true,
           clearSelectedIndex: true,
           editingMode: false,
-          sideAttachments: <Attachment>[],
+          sideAttachments: const <Attachment>[],
           sideLoading: false,
           clearUploadProgress: true,
         ),
@@ -479,7 +474,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         clearSelected: true,
         clearSelectedIndex: true,
         editingMode: false,
-        sideAttachments: <Attachment>[],
+        sideAttachments: const <Attachment>[],
         sideLoading: false,
         clearUploadProgress: true,
       ),
@@ -494,11 +489,12 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         editingMode: false,
         clearSelected: true,
         clearSelectedIndex: true,
-        sideAttachments: <Attachment>[],
+        sideAttachments: const <Attachment>[],
         nextAvailableOrder: next,
         formValid: false,
         sideLoading: false,
         clearUploadProgress: true,
+        clearError: true,
       ),
     );
   }
@@ -529,8 +525,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     }
   }
 
-  String _onlyDigits(String s) {
-    return s.replaceAll(RegExp(r'[^\d]'), '');
+  String _onlyDigits(String value) {
+    return value.replaceAll(RegExp(r'[^\d]'), '');
   }
 
   AdditivesData? _findByOrder(int order) {
@@ -538,7 +534,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
     try {
       return state.additives.firstWhere(
-            (e) => (e.additiveOrder ?? 0) == order,
+            (item) => (item.additiveOrder ?? 0) == order,
       );
     } catch (_) {
       return null;
@@ -575,7 +571,9 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }) async {
     _assertCanWrite();
 
-    if (contract.id == null || contract.id!.trim().isEmpty) {
+    final contractId = contract.id?.trim();
+
+    if (contractId == null || contractId.isEmpty) {
       throw Exception('Contrato não informado para salvar o aditivo.');
     }
 
@@ -587,16 +585,16 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     );
 
     try {
-      final int ord = int.tryParse(orderText.trim()) ?? 0;
+      final int order = int.tryParse(orderText.trim()) ?? 0;
 
-      final AdditivesData? byOrder = _findByOrder(ord);
+      final AdditivesData? byOrder = _findByOrder(order);
       final String? resolvedId = state.selected?.id ?? byOrder?.id;
 
       final additive = AdditivesData(
         id: resolvedId,
-        contractId: contract.id,
+        contractId: contractId,
         additiveNumberProcess: processText.trim(),
-        additiveOrder: ord > 0 ? ord : null,
+        additiveOrder: order > 0 ? order : null,
         additiveDate: SipGedFormatDates.ddMMyyyyToDate(dateText),
         additiveValue: SipGedFormatNumbers.toDouble(valueText),
         additiveValidityContractDays: int.tryParse(
@@ -608,10 +606,14 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         typeOfAdditive: typeText.trim(),
         pdfUrl: state.selected?.pdfUrl ?? byOrder?.pdfUrl,
         attachments: state.selected?.attachments ?? byOrder?.attachments,
+        createdAt: state.selected?.createdAt ?? byOrder?.createdAt,
+        createdBy: state.selected?.createdBy ?? byOrder?.createdBy,
+        updatedAt: DateTime.now(),
+        updatedBy: _currentUser?.uid ?? _currentPermissions?.uid,
       );
 
       await repository.saveOrUpdateAdditive(
-        contractId: contract.id!,
+        contractId: contractId,
         data: additive,
       );
 
@@ -619,15 +621,15 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
       await loadAdditives();
 
-      if (ord > 0) {
-        selectAdditiveByOrder(ord);
+      if (order > 0) {
+        selectAdditiveByOrder(order);
       } else {
         createNewAdditive();
       }
 
       return AdditiveSaveResult(
         created: created,
-        order: ord > 0 ? ord : null,
+        order: order > 0 ? order : null,
         additiveId: _resolveSelectedIdFallback(
           selectedId: state.selected?.id,
           fallbackId: resolvedId,
@@ -650,9 +652,10 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   Future<AdditiveDeleteResult> deleteSelectedAdditive() async {
     _assertCanDelete();
 
+    final contractId = contract.id?.trim();
     final selected = state.selected;
 
-    if (contract.id == null || contract.id!.trim().isEmpty) {
+    if (contractId == null || contractId.isEmpty) {
       throw Exception('Contrato não informado para excluir o aditivo.');
     }
 
@@ -681,7 +684,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       );
 
       await repository.deleteAdditive(
-        contractId: contract.id!,
+        contractId: contractId,
         additiveId: selected.id!,
       );
 
@@ -704,14 +707,19 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   Future<void> reloadAttachments() async {
-    _syncRepositoryTenant();
+    _requireTenantId();
 
     final selected = state.selected;
+    final contractId = contract.id?.trim();
 
-    if (selected == null || contract.id == null || selected.id == null) {
+    if (selected == null ||
+        contractId == null ||
+        contractId.isEmpty ||
+        selected.id == null ||
+        selected.id!.trim().isEmpty) {
       emit(
         state.copyWith(
-          sideAttachments: <Attachment>[],
+          sideAttachments: const <Attachment>[],
           sideLoading: false,
           clearUploadProgress: true,
         ),
@@ -723,6 +731,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       state.copyWith(
         sideLoading: true,
         clearUploadProgress: true,
+        clearError: true,
       ),
     );
 
@@ -738,10 +747,10 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         return;
       }
 
-      if ((selected.pdfUrl ?? '').isNotEmpty) {
+      if ((selected.pdfUrl ?? '').trim().isNotEmpty) {
         emit(
           state.copyWith(
-            sideAttachments: <Attachment>[],
+            sideAttachments: const <Attachment>[],
             sideLoading: false,
             clearUploadProgress: true,
           ),
@@ -750,14 +759,14 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       }
 
       final files = await repository.listarArquivosDoAditivo(
-        contractId: contract.id!,
+        contractId: contractId,
         additiveId: selected.id!,
       );
 
       if (files.isEmpty) {
         emit(
           state.copyWith(
-            sideAttachments: <Attachment>[],
+            sideAttachments: const <Attachment>[],
             sideLoading: false,
             clearUploadProgress: true,
           ),
@@ -767,45 +776,48 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
       final tenantId = _requireTenantId();
 
-      final List<Attachment> list = files.map((f) {
+      final List<Attachment> list = files.map((file) {
+        final ext = RegExp(
+          r'\.([a-z0-9]+)$',
+          caseSensitive: false,
+        ).firstMatch(file.name)?.group(0) ??
+            '';
+
         return Attachment(
-          id: f.name,
-          label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
-          url: f.url,
-          path: 'tenants/$tenantId/contracts/${contract.id}/additives/${selected.id}/${f.name}',
-          ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
-              .firstMatch(f.name)
-              ?.group(0) ??
-              '',
+          id: file.name,
+          label: file.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+          url: file.url,
+          path:
+          'tenants/$tenantId/contracts/$contractId/additives/${selected.id}/${file.name}',
+          ext: ext,
           createdAt: DateTime.now(),
-          createdBy: _currentUser?.uid,
+          createdBy: _currentUser?.uid ?? _currentPermissions?.uid,
         );
       }).toList();
 
       await repository.setAttachments(
-        contractId: contract.id!,
+        contractId: contractId,
         additiveId: selected.id!,
-        attachments: list,
-      );
-
-      final updatedSelected = selected.copyWith(
-        pdfUrl: null,
         attachments: list,
       );
 
       emit(
         state.copyWith(
-          selected: updatedSelected,
+          selected: selected.copyWith(
+            pdfUrl: null,
+            attachments: list,
+          ),
           sideAttachments: list,
           sideLoading: false,
           clearUploadProgress: true,
         ),
       );
-    } catch (_) {
+    } catch (e) {
       emit(
         state.copyWith(
           sideLoading: false,
           clearUploadProgress: true,
+          errorMessage: 'Erro ao carregar anexos: $e',
         ),
       );
 
@@ -819,9 +831,9 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         .last
         .replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
 
-    final ord = additive.additiveOrder ?? 0;
+    final order = additive.additiveOrder ?? 0;
 
-    return 'Aditivo $ord - $base';
+    return 'Aditivo $order - $base';
   }
 
   Future<AttachmentAddResult> addAttachmentWithPicker(
@@ -829,14 +841,16 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       ) async {
     _assertCanWrite();
 
-    final cId = contract.id;
-    final a = state.selected;
+    final contractId = contract.id?.trim();
+    final additive = state.selected;
 
-    if (cId == null || cId.trim().isEmpty) {
+    if (contractId == null || contractId.isEmpty) {
       throw Exception('Contrato não informado para anexar arquivo.');
     }
 
-    if (a == null || a.id == null || a.id!.trim().isEmpty) {
+    if (additive == null ||
+        additive.id == null ||
+        additive.id!.trim().isEmpty) {
       throw Exception('Selecione ou salve um aditivo antes de anexar arquivos.');
     }
 
@@ -856,20 +870,21 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       final (Uint8List bytes, String originalName) =
       await repository.pickFileBytes();
 
-      final label = _suggestLabelFromName(a, originalName);
+      final label = _suggestLabelFromName(additive, originalName);
 
-      final att = await repository.uploadAttachmentBytes(
+      final attachment = await repository.uploadAttachmentBytes(
         contract: contract,
-        additive: a,
+        additive: additive,
         bytes: bytes,
         originalName: originalName,
         label: label,
-        onProgress: (p) {
-          final v = (p.isNaN ? 0.0 : p.clamp(0.0, 1.0)).toDouble();
+        onProgress: (progress) {
+          final value = (progress.isNaN ? 0.0 : progress.clamp(0.0, 1.0))
+              .toDouble();
 
           emit(
             state.copyWith(
-              uploadProgress: v,
+              uploadProgress: value,
               sideLoading: true,
             ),
           );
@@ -877,22 +892,20 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       );
 
       final current = List<Attachment>.from(
-        a.attachments ?? const <Attachment>[],
-      )..add(att);
+        additive.attachments ?? const <Attachment>[],
+      )..add(attachment);
 
       await repository.setAttachments(
-        contractId: cId,
-        additiveId: a.id!,
-        attachments: current,
-      );
-
-      final updatedSelected = a.copyWith(
+        contractId: contractId,
+        additiveId: additive.id!,
         attachments: current,
       );
 
       emit(
         state.copyWith(
-          selected: updatedSelected,
+          selected: additive.copyWith(
+            attachments: current,
+          ),
           sideAttachments: current,
           sideLoading: false,
           clearUploadProgress: true,
@@ -900,16 +913,16 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       );
 
       return AttachmentAddResult(
-        additiveId: a.id,
-        additiveOrder: a.additiveOrder,
-        attachment: att,
+        additiveId: additive.id,
+        additiveOrder: additive.additiveOrder,
+        attachment: attachment,
       );
-    } catch (_) {
+    } catch (e) {
       emit(
         state.copyWith(
           sideLoading: false,
           clearUploadProgress: true,
-          errorMessage: 'Erro ao anexar',
+          errorMessage: 'Erro ao anexar: $e',
         ),
       );
 
@@ -923,17 +936,26 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }) async {
     _assertCanWrite();
 
-    final a = state.selected;
+    final contractId = contract.id?.trim();
+    final additive = state.selected;
 
-    if (a == null || a.id == null || a.id!.trim().isEmpty) {
+    if (contractId == null || contractId.isEmpty) {
+      throw Exception('Contrato não informado para renomear anexo.');
+    }
+
+    if (additive == null ||
+        additive.id == null ||
+        additive.id!.trim().isEmpty) {
       throw Exception('Nenhum aditivo selecionado.');
     }
 
-    if (a.attachments == null) {
+    final attachments = additive.attachments ?? const <Attachment>[];
+
+    if (attachments.isEmpty) {
       throw Exception('O aditivo selecionado não possui anexos.');
     }
 
-    if (index < 0 || index >= a.attachments!.length) {
+    if (index < 0 || index >= attachments.length) {
       throw Exception('Índice de anexo inválido.');
     }
 
@@ -946,36 +968,35 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     );
 
     try {
-      final oldAtt = a.attachments![index];
+      final oldAttachment = attachments[index];
 
       final updated = Attachment(
-        id: oldAtt.id,
-        label: newLabel.trim().isEmpty ? oldAtt.label : newLabel.trim(),
-        url: oldAtt.url,
-        path: oldAtt.path,
-        ext: oldAtt.ext,
-        size: oldAtt.size,
-        createdAt: oldAtt.createdAt,
-        createdBy: oldAtt.createdBy,
+        id: oldAttachment.id,
+        label: newLabel.trim().isEmpty ? oldAttachment.label : newLabel.trim(),
+        url: oldAttachment.url,
+        path: oldAttachment.path,
+        ext: oldAttachment.ext,
+        size: oldAttachment.size,
+        createdAt: oldAttachment.createdAt,
+        createdBy: oldAttachment.createdBy,
         updatedAt: DateTime.now(),
-        updatedBy: _currentUser?.uid,
+        updatedBy: _currentUser?.uid ?? _currentPermissions?.uid,
       );
 
-      final list = List<Attachment>.from(a.attachments!)..[index] = updated;
+      final list = List<Attachment>.from(attachments);
+      list[index] = updated;
 
       await repository.setAttachments(
-        contractId: contract.id!,
-        additiveId: a.id!,
-        attachments: list,
-      );
-
-      final updatedSelected = a.copyWith(
+        contractId: contractId,
+        additiveId: additive.id!,
         attachments: list,
       );
 
       emit(
         state.copyWith(
-          selected: updatedSelected,
+          selected: additive.copyWith(
+            attachments: list,
+          ),
           sideAttachments: list,
           sideLoading: false,
           clearUploadProgress: true,
@@ -983,17 +1004,17 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       );
 
       return AttachmentRenameResult(
-        additiveId: a.id,
-        additiveOrder: a.additiveOrder,
-        oldAttachment: oldAtt,
+        additiveId: additive.id,
+        additiveOrder: additive.additiveOrder,
+        oldAttachment: oldAttachment,
         newAttachment: updated,
       );
-    } catch (_) {
+    } catch (e) {
       emit(
         state.copyWith(
           sideLoading: false,
           clearUploadProgress: true,
-          errorMessage: 'Erro ao renomear',
+          errorMessage: 'Erro ao renomear: $e',
         ),
       );
 
@@ -1004,9 +1025,16 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   Future<AttachmentDeleteResult> deleteAttachment(int index) async {
     _assertCanWrite();
 
-    final a = state.selected;
+    final contractId = contract.id?.trim();
+    final additive = state.selected;
 
-    if (a == null || a.id == null || contract.id == null) {
+    if (contractId == null || contractId.isEmpty) {
+      throw Exception('Contrato não informado para remover anexo.');
+    }
+
+    if (additive == null ||
+        additive.id == null ||
+        additive.id!.trim().isEmpty) {
       throw Exception('Nenhum aditivo selecionado para remover anexo.');
     }
 
@@ -1019,50 +1047,49 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     );
 
     try {
-      final atts = List<Attachment>.from(
-        a.attachments ?? const <Attachment>[],
+      final attachments = List<Attachment>.from(
+        additive.attachments ?? const <Attachment>[],
       );
 
-      if (index < 0 || index >= atts.length) {
+      if (index < 0 || index >= attachments.length) {
         throw Exception('Índice de anexo inválido.');
       }
 
-      final removed = atts.removeAt(index);
+      final removed = attachments.removeAt(index);
 
-      if (removed.path.isNotEmpty) {
+      if (removed.path.trim().isNotEmpty) {
         await repository.deleteStorageByPath(removed.path);
       }
 
       await repository.setAttachments(
-        contractId: contract.id!,
-        additiveId: a.id!,
-        attachments: atts,
-      );
-
-      final updatedSelected = a.copyWith(
-        attachments: atts,
+        contractId: contractId,
+        additiveId: additive.id!,
+        attachments: attachments,
       );
 
       emit(
         state.copyWith(
-          selected: updatedSelected,
-          sideAttachments: atts,
+          selected: additive.copyWith(
+            attachments: attachments,
+            clearAttachments: attachments.isEmpty,
+          ),
+          sideAttachments: attachments,
           sideLoading: false,
           clearUploadProgress: true,
         ),
       );
 
       return AttachmentDeleteResult(
-        additiveId: a.id,
-        additiveOrder: a.additiveOrder,
+        additiveId: additive.id,
+        additiveOrder: additive.additiveOrder,
         attachment: removed,
       );
-    } catch (_) {
+    } catch (e) {
       emit(
         state.copyWith(
           sideLoading: false,
           clearUploadProgress: true,
-          errorMessage: 'Erro ao remover',
+          errorMessage: 'Erro ao remover: $e',
         ),
       );
 
@@ -1072,8 +1099,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   Set<int> _extractExistingOrders(List<AdditivesData> list) {
     return list
-        .map((e) => e.additiveOrder ?? 0)
-        .where((e) => e > 0)
+        .map((item) => item.additiveOrder ?? 0)
+        .where((order) => order > 0)
         .toSet();
   }
 
@@ -1085,6 +1112,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     }
 
     final max = existing.reduce((a, b) => a > b ? a : b);
+
     return max + 1;
   }
 }

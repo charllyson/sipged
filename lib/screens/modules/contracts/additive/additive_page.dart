@@ -61,6 +61,8 @@ class _AdditivePageState extends State<AdditivePage> {
 
   late final AdditivesCubit _cubit;
 
+  String? _activeTenantId;
+
   String? _lastFilledId;
   int? _selectedAttachmentIndex;
   bool _initialNextOrderApplied = false;
@@ -94,17 +96,36 @@ class _AdditivePageState extends State<AdditivePage> {
     return _contractId;
   }
 
+  static String _requireTenantIdFromPermissionState(
+      PermissionState permissionState,
+      ) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw StateError(
+        'Nenhuma empresa ativa foi selecionada para abrir aditivos.',
+      );
+    }
+
+    return tenantId;
+  }
+
   @override
   void initState() {
     super.initState();
 
     final permissionState = context.read<PermissionCubit>().state;
+    final activeTenantId = _requireTenantIdFromPermissionState(permissionState);
+
+    _activeTenantId = activeTenantId;
 
     _cubit = AdditivesCubit(
       contract: widget.contractData,
-      repository: AdditivesRepository(),
+      repository: AdditivesRepository(
+        tenantId: activeTenantId,
+      ),
       initialPermissions: permissionState.current,
-      tenantId: permissionState.activeTenantId,
+      tenantId: activeTenantId,
       moduleId: _route,
     );
 
@@ -156,15 +177,20 @@ class _AdditivePageState extends State<AdditivePage> {
     if (_loadingContractDisplay) return;
 
     final contractId = _contractId;
+    final tenantId = _activeTenantId?.trim();
 
     if (contractId.isEmpty) return;
+    if (tenantId == null || tenantId.isEmpty) return;
 
     setState(() {
       _loadingContractDisplay = true;
     });
 
     try {
-      final dfd = await _loadDfd(contractId);
+      final dfd = await _loadDfd(
+        tenantId: tenantId,
+        contractId: contractId,
+      );
 
       if (!mounted) return;
 
@@ -181,13 +207,23 @@ class _AdditivePageState extends State<AdditivePage> {
     }
   }
 
-  Future<DfdData?> _loadDfd(String contractId) async {
+  Future<DfdData?> _loadDfd({
+    required String tenantId,
+    required String contractId,
+  }) async {
+    final cleanTenantId = tenantId.trim();
+    final cleanContractId = contractId.trim();
+
+    if (cleanTenantId.isEmpty || cleanContractId.isEmpty) {
+      return null;
+    }
+
     final candidatePaths = <String>[
-      'contracts/$contractId/hiring/00Dfd',
-      'contracts/$contractId/hiring/01Dfd',
-      'contracts/$contractId/hiring/dfd',
-      'contracts/$contractId/dfd/main',
-      'contracts/$contractId/demand/dfd',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/00Dfd',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/01Dfd',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/dfd',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/dfd/main',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/demand/dfd',
     ];
 
     for (final path in candidatePaths) {
@@ -197,7 +233,27 @@ class _AdditivePageState extends State<AdditivePage> {
 
       final parsed = _parseDfd(
         data,
-        contractId: contractId,
+        contractId: cleanContractId,
+      );
+
+      if (parsed != null) return parsed;
+    }
+
+    final collectionCandidates = <String>[
+      'tenants/$cleanTenantId/contracts/$cleanContractId/dfd',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/dfd/items',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/00Dfd/items',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/01Dfd/items',
+    ];
+
+    for (final collectionPath in collectionCandidates) {
+      final data = await _tryReadFirstDocumentFromCollection(collectionPath);
+
+      if (data == null) continue;
+
+      final parsed = _parseDfd(
+        data,
+        contractId: cleanContractId,
       );
 
       if (parsed != null) return parsed;
@@ -242,6 +298,24 @@ class _AdditivePageState extends State<AdditivePage> {
       final data = snapshot.data();
 
       if (data == null || data.isEmpty) return null;
+
+      return Map<String, dynamic>.from(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _tryReadFirstDocumentFromCollection(
+      String path,
+      ) async {
+    try {
+      final snapshot = await _firestore.collection(path).limit(1).get();
+
+      if (snapshot.docs.isEmpty) return null;
+
+      final data = snapshot.docs.first.data();
+
+      if (data.isEmpty) return null;
 
       return Map<String, dynamic>.from(data);
     } catch (_) {
@@ -308,6 +382,7 @@ class _AdditivePageState extends State<AdditivePage> {
   DateTime? _parseDateTimeFromExtra(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
 
     final text = value.toString().trim();
 
@@ -372,10 +447,7 @@ class _AdditivePageState extends State<AdditivePage> {
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -428,11 +500,10 @@ class _AdditivePageState extends State<AdditivePage> {
         'sourceKey': _notificationSource,
         'subSource': _notificationSource,
         'notificationSource': _notificationSource,
-
-        /// Mantidos para o NotificationBell identificar usuário/foto.
+        'tenantId': _activeTenantId,
+        'companyId': _activeTenantId,
         'actorId': currentUserId,
         'actorName': actorName,
-
         'contractId': _contractId,
         'contractNumber': _contractNumber,
         'processNumber': _contractNumber,
@@ -450,10 +521,7 @@ class _AdditivePageState extends State<AdditivePage> {
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -558,6 +626,8 @@ class _AdditivePageState extends State<AdditivePage> {
         sendPush: true,
         extra: <String, dynamic>{
           'action': result.created ? 'additive_created' : 'additive_updated',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'additiveId': result.additiveId,
           'additiveOrder': result.order,
           'additiveProcess': _processCtrl.text.trim(),
@@ -578,6 +648,8 @@ class _AdditivePageState extends State<AdditivePage> {
         duration: const Duration(seconds: 6),
         extra: <String, dynamic>{
           'action': 'additive_save_error',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'error': e.toString(),
         },
       );
@@ -636,6 +708,8 @@ class _AdditivePageState extends State<AdditivePage> {
         sendPush: true,
         extra: <String, dynamic>{
           'action': 'additive_attachment_added',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'additiveId': result.additiveId,
           'additiveOrder': result.additiveOrder,
           'attachmentId': result.attachment.id,
@@ -652,6 +726,8 @@ class _AdditivePageState extends State<AdditivePage> {
         duration: const Duration(seconds: 6),
         extra: <String, dynamic>{
           'action': 'additive_attachment_add_error',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'error': e.toString(),
         },
       );
@@ -682,6 +758,8 @@ class _AdditivePageState extends State<AdditivePage> {
         sendPush: true,
         extra: <String, dynamic>{
           'action': 'additive_attachment_deleted',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'additiveId': result.additiveId,
           'additiveOrder': result.additiveOrder,
           'attachmentId': result.attachment?.id,
@@ -698,6 +776,8 @@ class _AdditivePageState extends State<AdditivePage> {
         duration: const Duration(seconds: 6),
         extra: <String, dynamic>{
           'action': 'additive_attachment_delete_error',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'error': e.toString(),
         },
       );
@@ -727,6 +807,8 @@ class _AdditivePageState extends State<AdditivePage> {
         sendPush: true,
         extra: <String, dynamic>{
           'action': 'additive_attachment_renamed',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'additiveId': result.additiveId,
           'additiveOrder': result.additiveOrder,
           'oldAttachmentId': result.oldAttachment.id,
@@ -747,6 +829,8 @@ class _AdditivePageState extends State<AdditivePage> {
         duration: const Duration(seconds: 6),
         extra: <String, dynamic>{
           'action': 'additive_attachment_rename_error',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'error': e.toString(),
         },
       );
@@ -775,6 +859,8 @@ class _AdditivePageState extends State<AdditivePage> {
         sendPush: true,
         extra: <String, dynamic>{
           'action': 'additive_deleted',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'additiveId': result.additiveId,
           'additiveOrder': result.order,
           'additiveProcess': result.process,
@@ -793,6 +879,8 @@ class _AdditivePageState extends State<AdditivePage> {
         duration: const Duration(seconds: 6),
         extra: <String, dynamic>{
           'action': 'additive_delete_error',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'error': e.toString(),
         },
       );
@@ -809,11 +897,28 @@ class _AdditivePageState extends State<AdditivePage> {
               previous.activeTenantId != current.activeTenantId;
         },
         listener: (context, permissionState) {
+          final nextTenantId = permissionState.activeTenantId?.trim();
+
+          if (nextTenantId == null || nextTenantId.isEmpty) {
+            return;
+          }
+
+          final previousTenantId = _activeTenantId;
+
+          _activeTenantId = nextTenantId;
+
           _cubit.updateUser(
             null,
             permissions: permissionState.current,
-            tenantId: permissionState.activeTenantId,
+            tenantId: nextTenantId,
           );
+
+          if (previousTenantId != nextTenantId) {
+            _dfdData = null;
+            _initialNextOrderApplied = false;
+
+            _loadContractDisplayData();
+          }
         },
         child: BlocBuilder<AdditivesCubit, AdditivesState>(
           builder: (context, state) {
@@ -997,7 +1102,8 @@ class _AdditivePageState extends State<AdditivePage> {
                                       _cubit.reloadAttachments();
 
                                       if (additive.additiveOrder != null) {
-                                        _orderCtrl.text = additive.additiveOrder
+                                        _orderCtrl.text = additive
+                                            .additiveOrder
                                             .toString();
                                       }
                                     },

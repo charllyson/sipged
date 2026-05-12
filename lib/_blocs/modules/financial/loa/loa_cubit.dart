@@ -1,37 +1,37 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
-import 'budget_data.dart';
-import 'budget_repository.dart';
-import 'budget_state.dart';
+import 'loa_data.dart';
+import 'loa_repository.dart';
+import 'loa_state.dart';
 
-class BudgetCubit extends Cubit<BudgetState> {
-  final BudgetRepository _repo;
+class LOACubit extends Cubit<LOAState> {
+  final LOARepository _repo;
 
-  BudgetCubit({BudgetRepository? repository})
-      : _repo = repository ?? BudgetRepository(),
-        super(BudgetState.initial());
+  LOACubit({LOARepository? repository})
+      : _repo = repository ?? LOARepository(),
+        super(LOAState.initial());
 
   // ==================== LOAD ====================
 
   Future<void> loadAll() async {
-    emit(state.copyWith(status: BudgetStatus.loading, clearError: true));
+    emit(state.copyWith(status: LOAStatus.loading, clearError: true));
     try {
       final list = await _repo.getAll();
       emit(state.copyWith(
-        status: BudgetStatus.success,
+        status: LOAStatus.success,
         items: list,
         contractId: null,
         clearError: true,
       ));
     } catch (e) {
-      emit(state.copyWith(status: BudgetStatus.failure, error: e.toString()));
+      emit(state.copyWith(status: LOAStatus.failure, error: e.toString()));
     }
   }
 
   Future<void> loadByContract(String contractId) async {
     emit(state.copyWith(
-      status: BudgetStatus.loading,
+      status: LOAStatus.loading,
       contractId: contractId,
       clearError: true,
     ));
@@ -39,19 +39,19 @@ class BudgetCubit extends Cubit<BudgetState> {
     try {
       final list = await _repo.getAllByContract(contractId: contractId);
       emit(state.copyWith(
-        status: BudgetStatus.success,
+        status: LOAStatus.success,
         items: list,
         contractId: contractId,
         clearError: true,
       ));
     } catch (e) {
-      emit(state.copyWith(status: BudgetStatus.failure, error: e.toString()));
+      emit(state.copyWith(status: LOAStatus.failure, error: e.toString()));
     }
   }
 
   // ==================== SELECTION ====================
 
-  void select(BudgetData? e) {
+  void select(LOAData? e) {
     if (e == null) {
       emit(state.copyWith(
         selected: null,
@@ -68,7 +68,7 @@ class BudgetCubit extends Cubit<BudgetState> {
         attachments: const [],
         clearSelectedSideIndex: true,
         clearError: true,
-        status: BudgetStatus.success,
+        status: LOAStatus.success,
       ));
       return;
     }
@@ -86,7 +86,7 @@ class BudgetCubit extends Cubit<BudgetState> {
       attachments: (e.attachments ?? const <Attachment>[]),
       clearSelectedSideIndex: true,
       clearError: true,
-      status: BudgetStatus.success,
+      status: LOAStatus.success,
     ));
   }
 
@@ -197,17 +197,17 @@ class BudgetCubit extends Cubit<BudgetState> {
   Future<void> saveOrUpdate() async {
     if (!formValidated) {
       emit(state.copyWith(
-        status: BudgetStatus.failure,
+        status: LOAStatus.failure,
         error:
         'Preencha Contratante, Fonte de recurso, Exercício (ano válido) e Valor orçado (> 0).',
       ));
       return;
     }
 
-    emit(state.copyWith(status: BudgetStatus.loading, clearError: true));
+    emit(state.copyWith(status: LOAStatus.loading, clearError: true));
 
     try {
-      final payload = BudgetData(
+      final payload = LOAData(
         id: state.selected?.id,
         contractId:
         (state.contractId?.trim().isEmpty ?? true) ? null : state.contractId,
@@ -233,9 +233,9 @@ class BudgetCubit extends Cubit<BudgetState> {
         await loadAll();
       }
 
-      emit(state.copyWith(status: BudgetStatus.success, clearError: true));
+      emit(state.copyWith(status: LOAStatus.success, clearError: true));
     } catch (e) {
-      emit(state.copyWith(status: BudgetStatus.failure, error: e.toString()));
+      emit(state.copyWith(status: LOAStatus.failure, error: e.toString()));
     }
   }
 
@@ -243,7 +243,7 @@ class BudgetCubit extends Cubit<BudgetState> {
     final sel = state.selected;
     if (sel?.id == null) return;
 
-    emit(state.copyWith(status: BudgetStatus.loading, clearError: true));
+    emit(state.copyWith(status: LOAStatus.loading, clearError: true));
 
     try {
       await _repo.deleteById(sel!.id!);
@@ -256,9 +256,9 @@ class BudgetCubit extends Cubit<BudgetState> {
       }
 
       select(null);
-      emit(state.copyWith(status: BudgetStatus.success, clearError: true));
+      emit(state.copyWith(status: LOAStatus.success, clearError: true));
     } catch (e) {
-      emit(state.copyWith(status: BudgetStatus.failure, error: e.toString()));
+      emit(state.copyWith(status: LOAStatus.failure, error: e.toString()));
     }
   }
 }

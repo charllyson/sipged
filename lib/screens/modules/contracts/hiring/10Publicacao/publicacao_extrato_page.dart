@@ -1,3 +1,5 @@
+// lib/screens/modules/contracts/hiring/10Publicacao/publicacao_extrato_page.dart
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,24 +8,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_state.dart';
+
 import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/screens/modules/contracts/hiring/progress_stage.dart';
+import 'package:sipged/screens/modules/contracts/hiring/0Progress/progress_stage.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 
@@ -52,8 +57,8 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
   static const String _route = 'contracts_hiring_publicacao';
   static const String _notificationSource = 'contracts_hiring_publicacao';
 
-  final DfdRepository _dfdRepository = DfdRepository();
-
+  late final String _tenantId;
+  late final DfdRepository _dfdRepository;
   late final ProgressCubit _progressBloc;
 
   ProgressCubit? _pipelineProgressCubit;
@@ -139,7 +144,18 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
   void initState() {
     super.initState();
 
-    _progressBloc = ProgressCubit(repo: ProgressRepository());
+    final permissionState = context.read<PermissionCubit>().state;
+    _tenantId = _resolveRequiredTenantId(permissionState);
+
+    _dfdRepository = DfdRepository(
+      tenantId: _tenantId,
+    );
+
+    _progressBloc = ProgressCubit(
+      repo: ProgressRepository(
+        //tenantId: _tenantId,
+      ),
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -179,6 +195,32 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     super.dispose();
   }
 
+  String _resolveRequiredTenantId(PermissionState permissionState) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw StateError(
+        'Tenant ativo não encontrado para carregar Publicação / Extrato.',
+      );
+    }
+
+    return tenantId;
+  }
+
+  DocumentReference<Map<String, dynamic>> _contractDocRef(String contractId) {
+    final cid = contractId.trim();
+
+    if (cid.isEmpty) {
+      throw ArgumentError('contractId obrigatório para carregar contrato.');
+    }
+
+    return FirebaseFirestore.instance
+        .collection('tenants')
+        .doc(_tenantId)
+        .collection('contracts')
+        .doc(cid);
+  }
+
   Future<void> _loadContract(String contractId) async {
     final cid = contractId.trim();
     if (cid.isEmpty) return;
@@ -188,8 +230,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     }
 
     try {
-      final snapshot =
-      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
+      final snapshot = await _contractDocRef(cid).get();
 
       if (!mounted) return;
 
@@ -300,12 +341,16 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
-      delivery: NotificationDelivery.localBellAndPush,
+      delivery: saveInBell || sendPush
+          ? NotificationDelivery.localBellAndPush
+          : NotificationDelivery.localOnly,
       targetUserIds: targetUserIds,
       actorId: actorId,
       actorName: actorName,
       extra: <String, dynamic>{
         ...extra,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
         'route': extra['route'] ?? _route,
         'module': _route,
         'source': 'publicacao_notification',

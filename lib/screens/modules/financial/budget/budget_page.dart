@@ -3,8 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
-import 'package:sipged/_blocs/modules/financial/budget/budget_cubit.dart';
-import 'package:sipged/_blocs/modules/financial/budget/budget_state.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_cubit.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_state.dart';
 
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
@@ -64,7 +64,7 @@ class _BudgetPageState extends State<BudgetPage> {
 
       _initialized = true;
 
-      final cubit = context.read<BudgetCubit>();
+      final cubit = context.read<LOACubit>();
 
       if (_contractId != null) {
         await cubit.loadByContract(_contractId!);
@@ -76,10 +76,10 @@ class _BudgetPageState extends State<BudgetPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<BudgetCubit, BudgetState>(
+    return BlocBuilder<LOACubit, LOAState>(
       builder: (context, st) {
         final isInitialLoading =
-            st.status == BudgetStatus.loading && st.items.isEmpty;
+            st.status == LOAStatus.loading && st.items.isEmpty;
 
         return Stack(
           children: [
@@ -105,10 +105,10 @@ class _BudgetPageState extends State<BudgetPage> {
                             selected: st.selected,
                             currency: _currency,
                             onSelect: (e) {
-                              context.read<BudgetCubit>().select(e);
+                              context.read<LOACubit>().select(e);
                             },
                             onDelete: (e) async {
-                              final cubit = context.read<BudgetCubit>();
+                              final cubit = context.read<LOACubit>();
 
                               cubit.select(e);
                               await cubit.deleteSelected();

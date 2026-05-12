@@ -1,3 +1,5 @@
+// lib/screens/modules/contracts/hiring/2Etp/etp_page.dart
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
-import 'package:sipged/screens/modules/contracts/hiring/progress_stage.dart';
+import 'package:sipged/screens/modules/contracts/hiring/0Progress/progress_stage.dart';
 
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
@@ -16,12 +18,14 @@ import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -60,12 +64,10 @@ class _EtpPageState extends State<EtpPage>
   static const String _notificationSource = 'contracts_hiring_etp';
   static const String _route = 'contracts_hiring_etp';
 
-  final DfdRepository _dfdRepository = DfdRepository();
-
+  late final String _tenantId;
+  late final DfdRepository _dfdRepository;
   late final ProgressCubit _progressBloc;
 
-  /// Cubit pai responsável pela cadeia das etapas.
-  /// Ele vem do TabBarHiringPage.
   ProgressCubit? _pipelineProgressCubit;
 
   EtpData _formData = const EtpData.empty();
@@ -88,7 +90,11 @@ class _EtpPageState extends State<EtpPage>
 
   ContractData get _effectiveContract {
     if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
-    if (_contractId.isNotEmpty) return _contract.copyWith(id: _contractId);
+
+    if (_contractId.isNotEmpty) {
+      return _contract.copyWith(id: _contractId);
+    }
+
     return _contract;
   }
 
@@ -124,15 +130,28 @@ class _EtpPageState extends State<EtpPage>
   void initState() {
     super.initState();
 
-    _progressBloc = ProgressCubit(repo: ProgressRepository());
+    final permissionState = context.read<PermissionCubit>().state;
+    _tenantId = _resolveRequiredTenantId(permissionState);
+
+    _dfdRepository = DfdRepository(
+      tenantId: _tenantId,
+    );
+
+    _progressBloc = ProgressCubit(
+      repo: ProgressRepository(
+        //tenantId: _tenantId,
+      ),
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
       if (_contractId.isNotEmpty) {
         context.read<EtpCubit>().load(_contractId);
+
         unawaited(_loadContract(_contractId));
         unawaited(_loadDfdData(_contractId));
+
         unawaited(
           _progressBloc.bindToStage(
             contractId: _contractId,
@@ -163,6 +182,32 @@ class _EtpPageState extends State<EtpPage>
     super.dispose();
   }
 
+  String _resolveRequiredTenantId(PermissionState permissionState) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw StateError(
+        'Tenant ativo não encontrado para carregar o ETP.',
+      );
+    }
+
+    return tenantId;
+  }
+
+  DocumentReference<Map<String, dynamic>> _contractDocRef(String contractId) {
+    final cid = contractId.trim();
+
+    if (cid.isEmpty) {
+      throw ArgumentError('contractId obrigatório para carregar contrato.');
+    }
+
+    return FirebaseFirestore.instance
+        .collection('tenants')
+        .doc(_tenantId)
+        .collection('contracts')
+        .doc(cid);
+  }
+
   Future<void> _loadContract(String contractId) async {
     final cid = contractId.trim();
     if (cid.isEmpty) return;
@@ -172,20 +217,25 @@ class _EtpPageState extends State<EtpPage>
     }
 
     try {
-      final snapshot =
-      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
+      final snapshot = await _contractDocRef(cid).get();
 
       if (!mounted) return;
 
-      setState(() {
-        _contract = snapshot.exists
-            ? ContractData.fromDocument(snapshot: snapshot)
-            : ContractData.empty().copyWith(id: cid);
+      if (!snapshot.exists) {
+        setState(() {
+          _contract = ContractData.empty().copyWith(id: cid);
+          _loadingContract = false;
+        });
+        return;
+      }
 
+      setState(() {
+        _contract = ContractData.fromDocument(snapshot: snapshot);
         _loadingContract = false;
       });
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('[EtpPage] Erro ao carregar contrato $cid: $e');
+      debugPrintStack(stackTrace: stack);
 
       if (!mounted) return;
 
@@ -283,12 +333,16 @@ class _EtpPageState extends State<EtpPage>
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
-      delivery: NotificationDelivery.localBellAndPush,
+      delivery: saveInBell || sendPush
+          ? NotificationDelivery.localBellAndPush
+          : NotificationDelivery.localOnly,
       targetUserIds: targetUserIds,
       actorId: actorId,
       actorName: actorName,
       extra: <String, dynamic>{
         ...extra,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
         'route': extra['route'] ?? _route,
         'module': _route,
         'source': 'etp_notification',

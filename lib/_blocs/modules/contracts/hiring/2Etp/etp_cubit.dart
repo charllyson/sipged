@@ -9,10 +9,18 @@ import 'etp_repository.dart';
 import 'etp_state.dart';
 
 class EtpCubit extends Cubit<EtpState> {
-  EtpCubit([EtpRepository? repository])
-      : repo = repository ?? EtpRepository(),
-        super(EtpState.initial());
+  EtpCubit({
+    required String tenantId,
+    EtpRepository? repository,
+  })  : _tenantId = _validateTenantId(tenantId),
+        repo = repository ?? EtpRepository(tenantId: _validateTenantId(tenantId)),
+        super(
+        EtpState.initial(
+          tenantId: _validateTenantId(tenantId),
+        ),
+      );
 
+  final String _tenantId;
   final EtpRepository repo;
 
   int _loadSeq = 0;
@@ -20,8 +28,21 @@ class EtpCubit extends Cubit<EtpState> {
 
   bool get _alive => !isClosed;
 
+  String get tenantId => _tenantId;
+
+  static String _validateTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório para EtpCubit.');
+    }
+
+    return cleanTenantId;
+  }
+
   Future<EtpData?> getDataForContract(String contractId) {
     final id = contractId.trim();
+
     if (id.isEmpty) return Future<EtpData?>.value(null);
 
     return repo.readDataForContract(id);
@@ -53,6 +74,7 @@ class EtpCubit extends Cubit<EtpState> {
         loading: true,
         saving: false,
         saveSuccess: false,
+        tenantId: _tenantId,
         contractId: cleanContractId,
         clearError: true,
       ),
@@ -76,6 +98,7 @@ class EtpCubit extends Cubit<EtpState> {
           loading: false,
           saving: false,
           saveSuccess: false,
+          tenantId: _tenantId,
           contractId: cleanContractId,
           etpId: ids.etpId,
           sectionIds: ids.sectionIds,
@@ -121,6 +144,7 @@ class EtpCubit extends Cubit<EtpState> {
         saving: true,
         loading: false,
         saveSuccess: false,
+        tenantId: _tenantId,
         contractId: cleanContractId,
         clearError: true,
       ),
@@ -155,6 +179,7 @@ class EtpCubit extends Cubit<EtpState> {
         state.copyWith(
           saving: false,
           saveSuccess: true,
+          tenantId: _tenantId,
           contractId: cleanContractId,
           etpId: ids.etpId,
           sectionIds: ids.sectionIds,
@@ -212,6 +237,7 @@ class EtpCubit extends Cubit<EtpState> {
         saving: true,
         loading: false,
         saveSuccess: false,
+        tenantId: _tenantId,
         contractId: cleanContractId,
         clearError: true,
       ),
@@ -228,6 +254,7 @@ class EtpCubit extends Cubit<EtpState> {
           state.copyWith(
             saving: false,
             saveSuccess: false,
+            tenantId: _tenantId,
             error: 'Seção inválida: $cleanSectionKey',
             etpId: ids.etpId,
             sectionIds: ids.sectionIds,
@@ -261,6 +288,7 @@ class EtpCubit extends Cubit<EtpState> {
         state.copyWith(
           saving: false,
           saveSuccess: true,
+          tenantId: _tenantId,
           contractId: cleanContractId,
           etpId: ids.etpId,
           sectionIds: ids.sectionIds,
@@ -288,8 +316,7 @@ class EtpCubit extends Cubit<EtpState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanEtpId = (etpId ?? state.etpId ?? '').trim();
-    final cleanDocumentosId =
-    (documentosId ?? state.currentDocsId ?? '').trim();
+    final cleanDocumentosId = (documentosId ?? state.currentDocsId ?? '').trim();
 
     if (cleanContractId.isEmpty ||
         cleanEtpId.isEmpty ||
@@ -319,8 +346,7 @@ class EtpCubit extends Cubit<EtpState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanEtpId = (etpId ?? state.etpId ?? '').trim();
-    final cleanDocumentosId =
-    (documentosId ?? state.currentDocsId ?? '').trim();
+    final cleanDocumentosId = (documentosId ?? state.currentDocsId ?? '').trim();
 
     if (cleanContractId.isEmpty ||
         cleanEtpId.isEmpty ||
@@ -345,8 +371,7 @@ class EtpCubit extends Cubit<EtpState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanEtpId = (etpId ?? state.etpId ?? '').trim();
-    final cleanDocumentosId =
-    (documentosId ?? state.currentDocsId ?? '').trim();
+    final cleanDocumentosId = (documentosId ?? state.currentDocsId ?? '').trim();
     final cleanFileName = fileName.trim();
 
     if (cleanContractId.isEmpty ||

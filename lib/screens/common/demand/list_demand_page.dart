@@ -1,5 +1,3 @@
-// lib/screens/common/demand/list_demand_page.dart
-
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
@@ -72,13 +70,18 @@ class _ListDemandPageState extends State<ListDemandPage> {
   <String, PublicacaoExtratoData?>{};
 
   final Set<String> _expandedKeys = <String>{};
-
   Set<String> _preSearchExpandedSnapshot = <String>{};
 
   Timer? _debounce;
 
   bool _loading = false;
+  bool _secondaryHydrating = false;
   bool _didScheduleInitialLoad = false;
+
+  String? _lastLoadSignature;
+
+  int _applySeq = 0;
+  int _secondarySeq = 0;
 
   int? _sortColumnIndex;
   bool _isAscending = true;
@@ -101,10 +104,86 @@ class _ListDemandPageState extends State<ListDemandPage> {
     return value.trim().toUpperCase();
   }
 
+  String? _activeTenantIdFromPermissionCubit(PermissionCubit permissionCubit) {
+    final tenantId = PermissionResolver.cleanTenantId(
+      permissionCubit.state.activeTenantId,
+    );
+
+    if (tenantId == null || tenantId.trim().isEmpty) {
+      return null;
+    }
+
+    return tenantId.trim();
+  }
+
+  void _debug(String message) {
+    debugPrint('[ListDemandPage] $message');
+  }
+
+  void _assertDemandCubitsTenant({
+    required DfdCubit dfdCubit,
+    required EditalCubit editalCubit,
+    required PublicacaoExtratoCubit publicacaoCubit,
+    required String tenantId,
+  }) {
+    final cleanTenantId = tenantId.trim();
+
+    final dfdTenantId = dfdCubit.tenantId.trim();
+    final editalTenantId = editalCubit.tenantId.trim();
+    final publicacaoTenantId = publicacaoCubit.tenantId.trim();
+
+    if (dfdTenantId != cleanTenantId) {
+      throw StateError(
+        'DfdCubit está vinculado ao tenant "$dfdTenantId", '
+            'mas a página está usando o tenant "$cleanTenantId".',
+      );
+    }
+
+    if (editalTenantId != cleanTenantId) {
+      throw StateError(
+        'EditalCubit está vinculado ao tenant "$editalTenantId", '
+            'mas a página está usando o tenant "$cleanTenantId".',
+      );
+    }
+
+    if (publicacaoTenantId != cleanTenantId) {
+      throw StateError(
+        'PublicacaoExtratoCubit está vinculado ao tenant "$publicacaoTenantId", '
+            'mas a página está usando o tenant "$cleanTenantId".',
+      );
+    }
+  }
+
+  void _resetLoadIfContextChanged({
+    required UserData currentUser,
+    required PermissionCubit permissionCubit,
+  }) {
+    final uid = currentUser.uid?.trim() ?? '';
+    final tenantId = _activeTenantIdFromPermissionCubit(permissionCubit);
+    final module = _permissionModule;
+
+    final signature = '$uid|$tenantId|$module';
+
+    if (_lastLoadSignature == signature) return;
+
+    _debug('Contexto mudou: $signature');
+
+    _lastLoadSignature = signature;
+
+    _cachedByStatus.clear();
+    _clearDemandCaches();
+    _expandedKeys.clear();
+    _preSearchExpandedSnapshot.clear();
+    _didScheduleInitialLoad = false;
+    _secondaryHydrating = false;
+    _applySeq++;
+    _secondarySeq++;
+  }
+
   @override
   void initState() {
     super.initState();
-    _loadExpandedFromPrefs();
+    unawaited(_loadExpandedFromPrefs());
   }
 
   @override
@@ -117,6 +196,10 @@ class _ListDemandPageState extends State<ListDemandPage> {
       _expandedKeys.clear();
       _preSearchExpandedSnapshot.clear();
       _didScheduleInitialLoad = false;
+      _lastLoadSignature = null;
+      _secondaryHydrating = false;
+      _applySeq++;
+      _secondarySeq++;
 
       unawaited(_loadExpandedFromPrefs());
     }
@@ -127,7 +210,8 @@ class _ListDemandPageState extends State<ListDemandPage> {
     _statusCtrl.dispose();
     _searchCtrl.dispose();
     _debounce?.cancel();
-
+    _applySeq++;
+    _secondarySeq++;
     super.dispose();
   }
 
@@ -209,14 +293,18 @@ class _ListDemandPageState extends State<ListDemandPage> {
   void _onSearchChanged(ContractCubit cubit, String value) {
     _debounce?.cancel();
 
-    _debounce = Timer(const Duration(milliseconds: 400), () async {
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
       if (!mounted) return;
 
       if (_searchCtrl.text != value) {
         _searchCtrl.text = value;
       }
 
-      await _applyFilters(cubit);
+      await _applyFilters(
+        cubit,
+        reason: 'search',
+        forceSecondaryBeforeFilter: value.trim().isNotEmpty,
+      );
     });
   }
 
@@ -226,12 +314,13 @@ class _ListDemandPageState extends State<ListDemandPage> {
   }) async {
     if (!mounted) return;
 
+    final permissionCubit = context.read<PermissionCubit>();
+
     setState(() {
       _loading = true;
     });
 
     try {
-      final permissionCubit = context.read<PermissionCubit>();
       final permissionState = permissionCubit.state;
 
       final permissions = PermissionResolver.resolveForUser(
@@ -239,20 +328,28 @@ class _ListDemandPageState extends State<ListDemandPage> {
         permissionState: permissionState,
       );
 
-      final tenantId = PermissionResolver.cleanTenantId(
-        permissionState.activeTenantId,
-      );
+      final tenantId = _activeTenantIdFromPermissionCubit(permissionCubit);
+
+      if (tenantId == null || permissions == null) {
+        _cachedByStatus.clear();
+        _clearDemandCaches();
+        return;
+      }
 
       await cubit.refresh(
         currentUser: currentUser,
         currentPermissions: permissions,
         tenantId: tenantId,
         permissionModule: _permissionModule,
+        force: true,
       );
 
       _clearDemandCaches();
 
-      await _applyFilters(cubit);
+      await _applyFilters(
+        cubit,
+        reason: 'refresh',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -292,55 +389,185 @@ class _ListDemandPageState extends State<ListDemandPage> {
     await permissionCubit.loadByUid(uid);
   }
 
-  Future<void> _ensureDemandDataLoadedForContracts({
+  Future<void> _ensureDfdSummaryLoadedForContracts({
     required DfdCubit dfdCubit,
-    required EditalCubit editalCubit,
-    required PublicacaoExtratoCubit publicacaoCubit,
     required Set<String> ids,
+    bool debug = true,
   }) async {
     if (ids.isEmpty) return;
 
-    final futures = <Future<void>>[];
+    final missingIds = ids
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty && !_dfdByContractId.containsKey(id))
+        .toSet();
 
-    for (final id in ids) {
+    if (missingIds.isEmpty) return;
+
+    final stopwatch = Stopwatch()..start();
+
+    try {
+      final loaded = await dfdCubit.repo.readDataForContractsSummary(
+        missingIds,
+        debug: debug,
+      );
+
+      for (final id in missingIds) {
+        _dfdByContractId[id] = loaded[id];
+      }
+    } catch (error) {
+      _debug(
+        'Erro ao carregar DFD em lote tenantId=${dfdCubit.tenantId}: $error',
+      );
+
+      for (final id in missingIds) {
+        _dfdByContractId[id] = null;
+      }
+    } finally {
+      stopwatch.stop();
+
+      if (debug) {
+        _debug(
+          'DFD summary carregado: ${missingIds.length} contrato(s) em '
+              '${stopwatch.elapsedMilliseconds}ms',
+        );
+      }
+    }
+  }
+
+  Future<void> _ensureSecondaryDemandDataLoadedForContracts({
+    required EditalCubit editalCubit,
+    required PublicacaoExtratoCubit publicacaoCubit,
+    required Set<String> ids,
+    bool debug = true,
+  }) async {
+    if (ids.isEmpty) return;
+
+    final cleanIds = ids
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    if (cleanIds.isEmpty) return;
+
+    final missingEditalIds = cleanIds
+        .where((id) => !_editalByContractId.containsKey(id))
+        .toSet();
+
+    final missingPublicacaoIds = cleanIds
+        .where((id) => !_pubByContractId.containsKey(id))
+        .toSet();
+
+    if (missingEditalIds.isEmpty && missingPublicacaoIds.isEmpty) {
+      return;
+    }
+
+    final stopwatch = Stopwatch()..start();
+
+    try {
+      final results = await Future.wait<Object?>([
+        if (missingEditalIds.isNotEmpty)
+          editalCubit.getSummaryForContracts(missingEditalIds)
+        else
+          Future<Map<String, EditalData?>>.value(<String, EditalData?>{}),
+        if (missingPublicacaoIds.isNotEmpty)
+          publicacaoCubit.getSummaryForContracts(missingPublicacaoIds)
+        else
+          Future<Map<String, PublicacaoExtratoData?>>.value(
+            <String, PublicacaoExtratoData?>{},
+          ),
+      ]);
+
+      final editalResult = results[0] as Map<String, EditalData?>;
+      final publicacaoResult =
+      results[1] as Map<String, PublicacaoExtratoData?>;
+
+      for (final id in missingEditalIds) {
+        _editalByContractId[id] = editalResult[id];
+      }
+
+      for (final id in missingPublicacaoIds) {
+        _pubByContractId[id] = publicacaoResult[id];
+      }
+    } catch (error) {
+      _debug(
+        'Erro ao carregar Edital/Publicação em lote '
+            'tenantId=${editalCubit.tenantId}: $error',
+      );
+
+      for (final id in missingEditalIds) {
+        _editalByContractId[id] = null;
+      }
+
+      for (final id in missingPublicacaoIds) {
+        _pubByContractId[id] = null;
+      }
+    } finally {
+      stopwatch.stop();
+
+      if (debug) {
+        _debug(
+          'Edital/Publicação summary carregados em lote: '
+              '${missingEditalIds.length} edital + '
+              '${missingPublicacaoIds.length} publicação em '
+              '${stopwatch.elapsedMilliseconds}ms',
+        );
+      }
+    }
+  }
+
+  void _scheduleSecondaryHydration({
+    required Set<String> ids,
+    required EditalCubit editalCubit,
+    required PublicacaoExtratoCubit publicacaoCubit,
+  }) {
+    if (ids.isEmpty) return;
+    if (_secondaryHydrating) return;
+
+    final missingAny = ids.any((id) {
       final cleanId = id.trim();
+      if (cleanId.isEmpty) return false;
 
-      if (cleanId.isEmpty) continue;
+      return !_editalByContractId.containsKey(cleanId) ||
+          !_pubByContractId.containsKey(cleanId);
+    });
 
-      if (!_dfdByContractId.containsKey(cleanId)) {
-        futures.add(
-          dfdCubit.getDataForContract(cleanId).then((dfd) {
-            _dfdByContractId[cleanId] = dfd;
-          }).catchError((_) {
-            _dfdByContractId[cleanId] = null;
-          }),
-        );
-      }
+    if (!missingAny) return;
 
-      if (!_editalByContractId.containsKey(cleanId)) {
-        futures.add(
-          editalCubit.getDataForContract(cleanId).then((edital) {
-            _editalByContractId[cleanId] = edital;
-          }).catchError((_) {
-            _editalByContractId[cleanId] = null;
-          }),
-        );
-      }
+    _secondaryHydrating = true;
+    final seq = ++_secondarySeq;
 
-      if (!_pubByContractId.containsKey(cleanId)) {
-        futures.add(
-          publicacaoCubit.getDataForContract(cleanId).then((pub) {
-            _pubByContractId[cleanId] = pub;
-          }).catchError((_) {
-            _pubByContractId[cleanId] = null;
-          }),
-        );
-      }
-    }
+    _debug('Hidratação secundária em lote agendada: ${ids.length} contrato(s).');
 
-    if (futures.isNotEmpty) {
-      await Future.wait(futures);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || seq != _secondarySeq) return;
+
+      unawaited(
+        Future<void>(() async {
+          await _ensureSecondaryDemandDataLoadedForContracts(
+            editalCubit: editalCubit,
+            publicacaoCubit: publicacaoCubit,
+            ids: ids,
+          );
+
+          if (!mounted || seq != _secondarySeq) return;
+
+          setState(() {
+            _secondaryHydrating = false;
+            _applyLocalSortIfAny();
+          });
+
+          _debug('Hidratação secundária em lote concluída.');
+        }).catchError((Object error) {
+          if (!mounted || seq != _secondarySeq) return;
+
+          setState(() {
+            _secondaryHydrating = false;
+          });
+
+          _debug('Erro na hidratação secundária em lote: $error');
+        }),
+      );
+    });
   }
 
   void _applyLocalSortIfAny() {
@@ -356,7 +583,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
           (_pubByContractId[idA]?.numeroContrato ?? '').toUpperCase();
           final bVal =
           (_pubByContractId[idB]?.numeroContrato ?? '').toUpperCase();
-
           return aVal.compareTo(bVal);
 
         case 2:
@@ -364,13 +590,11 @@ class _ListDemandPageState extends State<ListDemandPage> {
           (_dfdByContractId[idA]?.descricaoObjeto ?? '').toUpperCase();
           final bVal =
           (_dfdByContractId[idB]?.descricaoObjeto ?? '').toUpperCase();
-
           return aVal.compareTo(bVal);
 
         case 3:
           final aVal = (_dfdByContractId[idA]?.regional ?? '').toUpperCase();
           final bVal = (_dfdByContractId[idB]?.regional ?? '').toUpperCase();
-
           return aVal.compareTo(bVal);
 
         case 4:
@@ -378,7 +602,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
           (_editalByContractId[idA]?.vencedor ?? '').toUpperCase();
           final bVal =
           (_editalByContractId[idB]?.vencedor ?? '').toUpperCase();
-
           return aVal.compareTo(bVal);
 
         case 5:
@@ -388,7 +611,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
           final bVal =
           (_dfdByContractId[idB]?.processoAdministrativo ?? '')
               .toUpperCase();
-
           return aVal.compareTo(bVal);
 
         default:
@@ -397,24 +619,25 @@ class _ListDemandPageState extends State<ListDemandPage> {
     }
 
     for (final entry in _cachedByStatus.entries) {
-      entry.value.sort(
-            (a, b) {
-          final result = compare(a, b);
-
-          return _isAscending ? result : -result;
-        },
-      );
+      entry.value.sort((a, b) {
+        final result = compare(a, b);
+        return _isAscending ? result : -result;
+      });
     }
   }
 
-  Future<void> _applyFilters(ContractCubit cubit) async {
+  Future<void> _applyFilters(
+      ContractCubit cubit, {
+        String reason = 'manual',
+        bool forceSecondaryBeforeFilter = false,
+      }) async {
     if (!mounted) return;
+
+    final seq = ++_applySeq;
+    final stopwatch = Stopwatch()..start();
 
     final userCubit = context.read<UserCubit>();
     final permissionCubit = context.read<PermissionCubit>();
-    final dfdCubit = context.read<DfdCubit>();
-    final editalCubit = context.read<EditalCubit>();
-    final publicacaoCubit = context.read<PublicacaoExtratoCubit>();
 
     setState(() {
       _loading = true;
@@ -433,7 +656,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
         currentUser: currentUser,
       );
 
-      if (!mounted) return;
+      if (!mounted || seq != _applySeq) return;
 
       final permissionState = permissionCubit.state;
 
@@ -442,11 +665,9 @@ class _ListDemandPageState extends State<ListDemandPage> {
         permissionState: permissionState,
       );
 
-      final tenantId = PermissionResolver.cleanTenantId(
-        permissionState.activeTenantId,
-      );
+      final tenantId = _activeTenantIdFromPermissionCubit(permissionCubit);
 
-      if (permissions == null) {
+      if (tenantId == null || permissions == null) {
         _cachedByStatus.clear();
         return;
       }
@@ -462,6 +683,47 @@ class _ListDemandPageState extends State<ListDemandPage> {
         return;
       }
 
+      final dfdCubit = context.read<DfdCubit>();
+      final editalCubit = context.read<EditalCubit>();
+      final publicacaoCubit = context.read<PublicacaoExtratoCubit>();
+
+      _assertDemandCubitsTenant(
+        dfdCubit: dfdCubit,
+        editalCubit: editalCubit,
+        publicacaoCubit: publicacaoCubit,
+        tenantId: tenantId,
+      );
+
+      final cubitTenantId = PermissionResolver.cleanTenantId(
+        cubit.state.activeTenantId,
+      );
+
+      final cubitModule = cubit.state.activePermissionModule?.trim();
+
+      final mustReloadContracts = cubit.state.allProcesses.isEmpty ||
+          cubitTenantId != tenantId ||
+          cubitModule != _permissionModule;
+
+      if (mustReloadContracts && !cubit.state.loading) {
+        final refreshWatch = Stopwatch()..start();
+
+        await cubit.refresh(
+          currentUser: currentUser,
+          currentPermissions: permissions,
+          tenantId: tenantId,
+          permissionModule: _permissionModule,
+          force: true,
+        );
+
+        refreshWatch.stop();
+
+        _debug(
+          'ContractCubit.refresh em ${refreshWatch.elapsedMilliseconds}ms',
+        );
+      }
+
+      if (!mounted || seq != _applySeq) return;
+
       final baseAll = cubit.state.allProcesses;
 
       final base = SystemPermission.filterVisibleContracts(
@@ -476,14 +738,32 @@ class _ListDemandPageState extends State<ListDemandPage> {
           if (_idToString(contract.id) != null) _idToString(contract.id)!,
       };
 
-      await _ensureDemandDataLoadedForContracts(
+      _debug(
+        'Contratos base=${baseAll.length}, visíveis=${base.length}, ids=${ids.length}',
+      );
+
+      await _ensureDfdSummaryLoadedForContracts(
         dfdCubit: dfdCubit,
-        editalCubit: editalCubit,
-        publicacaoCubit: publicacaoCubit,
         ids: ids,
       );
 
-      if (!mounted) return;
+      if (!mounted || seq != _applySeq) return;
+
+      if (forceSecondaryBeforeFilter) {
+        await _ensureSecondaryDemandDataLoadedForContracts(
+          editalCubit: editalCubit,
+          publicacaoCubit: publicacaoCubit,
+          ids: ids,
+        );
+
+        if (!mounted || seq != _applySeq) return;
+      } else {
+        _scheduleSecondaryHydration(
+          ids: ids,
+          editalCubit: editalCubit,
+          publicacaoCubit: publicacaoCubit,
+        );
+      }
 
       final statusFiltro =
       _statusCtrl.text.trim().isEmpty ? null : _statusCtrl.text.trim();
@@ -521,13 +801,15 @@ class _ListDemandPageState extends State<ListDemandPage> {
           final pub = _pubByContractId[id];
 
           final objeto = (dfd?.descricaoObjeto ?? '').toUpperCase();
-          final processo =
-          (dfd?.processoAdministrativo ?? '').toUpperCase();
+          final processo = (dfd?.processoAdministrativo ?? '').toUpperCase();
           final numeroContrato = (pub?.numeroContrato ?? '').toUpperCase();
           final vencedor = (edital?.vencedor ?? '').toUpperCase();
           final regional = (dfd?.regional ?? '').toUpperCase();
 
-          return objeto.contains(searchUpper) ||
+          final contractId = id.toUpperCase();
+
+          return contractId.contains(searchUpper) ||
+              objeto.contains(searchUpper) ||
               processo.contains(searchUpper) ||
               numeroContrato.contains(searchUpper) ||
               vencedor.contains(searchUpper) ||
@@ -553,8 +835,15 @@ class _ListDemandPageState extends State<ListDemandPage> {
       _applyLocalSortIfAny();
 
       await _syncExpansionAfterFilter();
+
+      stopwatch.stop();
+
+      _debug(
+        '_applyFilters reason=$reason finalizado em '
+            '${stopwatch.elapsedMilliseconds}ms',
+      );
     } finally {
-      if (mounted) {
+      if (mounted && seq == _applySeq) {
         setState(() {
           _loading = false;
         });
@@ -583,7 +872,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
           ..addAll(expandedNow);
       });
 
-      await _saveExpandedToPrefs();
       return;
     }
 
@@ -598,7 +886,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
         _preSearchExpandedSnapshot = <String>{};
       });
 
-      await _saveExpandedToPrefs();
+      return;
     }
 
     if (!mounted) return;
@@ -610,8 +898,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
             (_cachedByStatus[key]?.isEmpty ?? true),
       );
     });
-
-    await _saveExpandedToPrefs();
   }
 
   Future<void> _runInitialLoad({
@@ -620,66 +906,109 @@ class _ListDemandPageState extends State<ListDemandPage> {
     required PermissionCubit permissionCubit,
     required UserData currentUser,
   }) async {
-    await _ensurePermissionLoaded(
-      permissionCubit: permissionCubit,
-      currentUser: currentUser,
-    );
-
     if (!mounted) return;
 
-    final permissionState = permissionCubit.state;
+    final stopwatch = Stopwatch()..start();
 
-    final permissions = PermissionResolver.resolveForUser(
-      user: currentUser,
-      permissionState: permissionState,
-    );
+    setState(() {
+      _loading = true;
+    });
 
-    final tenantId = PermissionResolver.cleanTenantId(
-      permissionState.activeTenantId,
-    );
-
-    if (permissions == null) {
-      setState(() {
-        _cachedByStatus.clear();
-      });
-      return;
-    }
-
-    final canReadModule = permissions.canModuleString(
-      module: _permissionModule,
-      action: 'read',
-      tenantId: tenantId,
-    );
-
-    if (!canReadModule && !permissions.isSuperUserForTenant(tenantId)) {
-      setState(() {
-        _cachedByStatus.clear();
-      });
-      return;
-    }
-
-    if (processState.allProcesses.isEmpty && !processState.loading) {
-      await cubit.refresh(
+    try {
+      await _ensurePermissionLoaded(
+        permissionCubit: permissionCubit,
         currentUser: currentUser,
-        currentPermissions: permissions,
-        tenantId: tenantId,
-        permissionModule: _permissionModule,
       );
+
+      if (!mounted) return;
+
+      final permissionState = permissionCubit.state;
+
+      final permissions = PermissionResolver.resolveForUser(
+        user: currentUser,
+        permissionState: permissionState,
+      );
+
+      final tenantId = _activeTenantIdFromPermissionCubit(permissionCubit);
+
+      if (tenantId == null || permissions == null) {
+        _cachedByStatus.clear();
+        return;
+      }
+
+      final canReadModule = permissions.canModuleString(
+        module: _permissionModule,
+        action: 'read',
+        tenantId: tenantId,
+      );
+
+      if (!canReadModule && !permissions.isSuperUserForTenant(tenantId)) {
+        _cachedByStatus.clear();
+        return;
+      }
+
+      final cubitTenantId = PermissionResolver.cleanTenantId(
+        cubit.state.activeTenantId,
+      );
+
+      final cubitModule = cubit.state.activePermissionModule?.trim();
+
+      final mustReloadContracts = processState.allProcesses.isEmpty ||
+          cubitTenantId != tenantId ||
+          cubitModule != _permissionModule;
+
+      if (mustReloadContracts && !processState.loading) {
+        final refreshWatch = Stopwatch()..start();
+
+        await cubit.refresh(
+          currentUser: currentUser,
+          currentPermissions: permissions,
+          tenantId: tenantId,
+          permissionModule: _permissionModule,
+          force: true,
+        );
+
+        refreshWatch.stop();
+
+        _debug(
+          'Initial ContractCubit.refresh em ${refreshWatch.elapsedMilliseconds}ms',
+        );
+      }
+
+      if (!mounted) return;
+
+      await _applyFilters(
+        cubit,
+        reason: 'initial',
+      );
+    } finally {
+      stopwatch.stop();
+
+      _debug(
+        '_runInitialLoad finalizado em ${stopwatch.elapsedMilliseconds}ms',
+      );
+
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
-
-    if (!mounted) return;
-
-    await _applyFilters(cubit);
   }
 
   Future<void> _openCreateDemand({
     required NavigatorState navigator,
     required ContractCubit cubit,
     required UserData currentUser,
+    required String tenantId,
   }) async {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) return;
+
     final result = await navigator.push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => TabBarHingPage(
+        builder: (_) => TabBarHiringPage(
           key: UniqueKey(),
           contractData: ContractData.empty(),
         ),
@@ -707,11 +1036,9 @@ class _ListDemandPageState extends State<ListDemandPage> {
       permissionState: permissionState,
     );
 
-    final tenantId = PermissionResolver.cleanTenantId(
-      permissionState.activeTenantId,
-    );
+    final tenantId = _activeTenantIdFromPermissionCubit(permissionCubit);
 
-    if (permissions == null) return false;
+    if (tenantId == null || permissions == null) return false;
 
     if (permissions.isSuperUserForTenant(tenantId)) {
       return true;
@@ -736,11 +1063,9 @@ class _ListDemandPageState extends State<ListDemandPage> {
       permissionState: permissionState,
     );
 
-    final tenantId = PermissionResolver.cleanTenantId(
-      permissionState.activeTenantId,
-    );
+    final tenantId = _activeTenantIdFromPermissionCubit(permissionCubit);
 
-    if (permissions == null) return false;
+    if (tenantId == null || permissions == null) return false;
 
     return SystemPermission.canContract(
       permissions: permissions,
@@ -782,6 +1107,13 @@ class _ListDemandPageState extends State<ListDemandPage> {
       );
     }
 
+    _resetLoadIfContextChanged(
+      currentUser: currentUser,
+      permissionCubit: permissionCubit,
+    );
+
+    final activeTenantId = _activeTenantIdFromPermissionCubit(permissionCubit);
+
     final canCreateDemand = _canCreateDemand(
       permissionCubit: permissionCubit,
       currentUser: currentUser,
@@ -791,10 +1123,23 @@ class _ListDemandPageState extends State<ListDemandPage> {
       buildWhen: (previous, current) {
         return previous.loading != current.loading ||
             previous.allProcesses != current.allProcesses ||
-            previous.errorMessage != current.errorMessage;
+            previous.errorMessage != current.errorMessage ||
+            previous.activeTenantId != current.activeTenantId ||
+            previous.activePermissionModule != current.activePermissionModule;
       },
       builder: (context, processState) {
-        if (!_didScheduleInitialLoad && !_loading && _cachedByStatus.isEmpty) {
+        final permissionState = permissionCubit.state;
+
+        final tenantId = _activeTenantIdFromPermissionCubit(permissionCubit);
+
+        final canTryInitialLoad = tenantId != null &&
+            tenantId.trim().isNotEmpty &&
+            !permissionState.isLoading;
+
+        if (canTryInitialLoad &&
+            !_didScheduleInitialLoad &&
+            !_loading &&
+            _cachedByStatus.isEmpty) {
           _didScheduleInitialLoad = true;
 
           final capturedPermissionCubit = permissionCubit;
@@ -844,7 +1189,9 @@ class _ListDemandPageState extends State<ListDemandPage> {
                       ],
                     ),
                     Expanded(
-                      child: _loading && _cachedByStatus.isEmpty
+                      child: activeTenantId == null
+                          ? _buildMissingTenantView()
+                          : _loading && _cachedByStatus.isEmpty
                           ? const LoadingTreeDots(
                         color: Colors.blue,
                         message: Text('Carregando contratos ...'),
@@ -861,7 +1208,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
               ),
             ],
           ),
-          floatingActionButton: canCreateDemand
+          floatingActionButton: canCreateDemand && activeTenantId != null
               ? ExpandedButtonChange(
             icon: Icons.add,
             label: 'Nova demanda',
@@ -874,6 +1221,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
                   navigator: navigator,
                   cubit: processCubit,
                   currentUser: currentUser,
+                  tenantId: activeTenantId,
                 ),
               );
             },
@@ -881,6 +1229,43 @@ class _ListDemandPageState extends State<ListDemandPage> {
               : null,
         );
       },
+    );
+  }
+
+  Widget _buildMissingTenantView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.business_outlined,
+              size: 46,
+              color: Colors.grey.shade500,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Tenant ativo não encontrado',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Colors.grey.shade800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Selecione ou carregue uma empresa/tenant antes de listar contratos.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -941,77 +1326,130 @@ class _ListDemandPageState extends State<ListDemandPage> {
                     ),
                     textAlign: TextAlign.center,
                   ),
+                  if (_secondaryHydrating) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      'Complementando dados de edital e publicação...',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ],
               ),
             ),
           );
         }
 
-        return ListView.builder(
-          itemCount: visibleSections.length,
-          itemBuilder: (context, index) {
-            final section = visibleSections[index];
+        return Stack(
+          children: [
+            ListView.builder(
+              itemCount: visibleSections.length,
+              itemBuilder: (context, index) {
+                final section = visibleSections[index];
 
-            return ListDemandStatus(
-              title: section.label,
-              statusKey: section.normalizedKey,
-              items: section.items,
-              constraints: constraints,
-              sortColumnIndex: _sortColumnIndex,
-              isAscending: _isAscending,
-              onSort: (index, _) {
-                _handleSort(index);
-              },
-              onDelete: (item) async {
-                final id = item.id?.trim();
+                return ListDemandStatus(
+                  title: section.label,
+                  statusKey: section.normalizedKey,
+                  items: section.items,
+                  constraints: constraints,
+                  sortColumnIndex: _sortColumnIndex,
+                  isAscending: _isAscending,
+                  onSort: (index, _) {
+                    _handleSort(index);
+                  },
+                  onDelete: (item) async {
+                    final id = item.id?.trim();
 
-                if (id == null || id.isEmpty) {
-                  return;
-                }
+                    if (id == null || id.isEmpty) {
+                      return;
+                    }
 
-                final canDelete = _canDeleteDemand(
-                  permissionCubit: permissionCubit,
-                  currentUser: currentUser,
-                  item: item,
+                    final canDelete = _canDeleteDemand(
+                      permissionCubit: permissionCubit,
+                      currentUser: currentUser,
+                      item: item,
+                    );
+
+                    if (!canDelete) {
+                      return;
+                    }
+
+                    await processCubit.delete(id);
+
+                    if (!mounted) return;
+
+                    await _refresh(
+                      cubit: processCubit,
+                      currentUser: currentUser,
+                    );
+                  },
+                  onTapItem: widget.onTapItem,
+                  initiallyExpanded: _isExpanded(section.normalizedKey),
+                  onExpansionChanged: (open) {
+                    unawaited(
+                      _setExpanded(
+                        section.normalizedKey,
+                        open,
+                      ),
+                    );
+                  },
+                  dfdByContractId: _dfdByContractId,
+                  editalByContractId: _editalByContractId,
+                  pubByContractId: _pubByContractId,
                 );
-
-                if (!canDelete) {
-                  return;
-                }
-
-                await processCubit.delete(id);
-
-                if (!mounted) return;
-
-                await _refresh(
-                  cubit: processCubit,
-                  currentUser: currentUser,
-                );
               },
-              onTapItem: widget.onTapItem,
-              initiallyExpanded: _isExpanded(section.normalizedKey),
-              onExpansionChanged: (open) {
-                unawaited(
-                  _setExpanded(
-                    section.normalizedKey,
-                    open,
+            ),
+            if (_secondaryHydrating)
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: const [
+                      BoxShadow(
+                        blurRadius: 14,
+                        offset: Offset(0, 6),
+                        color: Color(0x1A000000),
+                      ),
+                    ],
                   ),
-                );
-              },
-              dfdByContractId: _dfdByContractId,
-              editalByContractId: _editalByContractId,
-              pubByContractId: _pubByContractId,
-            );
-          },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox.square(
+                          dimension: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.blue.shade600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Carregando complementos...',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
   }
-}
-
-class TabBarHingPage extends TabBarHiringPage {
-  const TabBarHingPage({
-    super.key,
-    required super.contractData,
-  });
 }

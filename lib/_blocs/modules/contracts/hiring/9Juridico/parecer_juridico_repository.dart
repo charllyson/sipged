@@ -1,5 +1,3 @@
-// lib/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_repository.dart
-
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,17 +10,36 @@ import 'parecer_juridico_data.dart';
 
 class ParecerJuridicoRepository {
   ParecerJuridicoRepository({
+    required String tenantId,
     FirebaseFirestore? db,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
   })  : _db = db ?? firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _storage = storage ?? FirebaseStorage.instance,
+        _tenantId = tenantId.trim() {
+    if (_tenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório em ParecerJuridicoRepository.',
+      );
+    }
+  }
 
   final FirebaseFirestore _db;
   final FirebaseStorage _storage;
+  final String _tenantId;
+
+  String get tenantId => _tenantId;
+
+  CollectionReference<Map<String, dynamic>> _contractsCol() {
+    return _db.collection('tenants').doc(tenantId).collection('contracts');
+  }
+
+  DocumentReference<Map<String, dynamic>> _hiringRef(String contractId) {
+    return _contractsCol().doc(contractId).collection('hiring').doc('main');
+  }
 
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
-    return _db.collection('contracts').doc(contractId).collection('parecer');
+    return _hiringRef(contractId).collection('parecer');
   }
 
   String _filesPath({
@@ -30,7 +47,7 @@ class ParecerJuridicoRepository {
     required String parecerId,
     required String documentosId,
   }) {
-    return 'contracts/$contractId/parecer/$parecerId/${ParecerJuridicoData.sectionDocumentos}/$documentosId/files';
+    return 'tenants/$tenantId/contracts/$contractId/hiring/main/parecer/$parecerId/${ParecerJuridicoData.sectionDocumentos}/$documentosId/files';
   }
 
   String _extractExt(String nameOrUrl) {
@@ -62,9 +79,7 @@ class ParecerJuridicoRepository {
   }
 
   Future<({String parecerId, Map<String, String> sectionIds})>
-  ensureStructure(
-      String contractId,
-      ) async {
+  ensureStructure(String contractId) async {
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) {
@@ -108,19 +123,18 @@ class ParecerJuridicoRepository {
           );
         }
 
-        final snap =
-        await root.collection(sectionName).doc(sectionDocId).get();
+        final snap = await root.collection(sectionName).doc(sectionDocId).get();
 
         final data = Map<String, dynamic>.from(
           snap.data() ?? const <String, dynamic>{},
         );
 
-        data.remove('createdAt');
-        data.remove('updatedAt');
-        data.remove('createdBy');
-        data.remove('updatedBy');
+        _removeSystemFields(data);
 
-        return MapEntry<String, Map<String, dynamic>>(sectionName, data);
+        return MapEntry<String, Map<String, dynamic>>(
+          sectionName,
+          data,
+        );
       }),
     );
 
@@ -149,8 +163,37 @@ class ParecerJuridicoRepository {
 
     if (sectionsData.isEmpty) return;
 
-    final batch = _db.batch();
     final root = _col(cleanContractId).doc(cleanParecerId);
+    final hiringRef = _hiringRef(cleanContractId);
+    final batch = _db.batch();
+
+    batch.set(
+      hiringRef,
+      <String, dynamic>{
+        'id': 'main',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      root,
+      <String, dynamic>{
+        'id': cleanParecerId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
 
     for (final entry in sectionsData.entries) {
       final sectionKey = entry.key.trim();
@@ -159,16 +202,19 @@ class ParecerJuridicoRepository {
       if (sectionKey.isEmpty) continue;
       if (sectionDocId == null || sectionDocId.isEmpty) continue;
 
-      final sectionData = Map<String, dynamic>.from(entry.value)
-        ..remove('createdAt')
-        ..remove('updatedAt')
-        ..remove('createdBy')
-        ..remove('updatedBy');
+      final sectionData = Map<String, dynamic>.from(entry.value);
+      _removeWriteProtectedFields(sectionData);
 
       batch.set(
         root.collection(sectionKey).doc(sectionDocId),
         <String, dynamic>{
           ...sectionData,
+          'id': sectionDocId,
+          'tenantId': tenantId,
+          'companyId': tenantId,
+          'contractId': cleanContractId,
+          'uidContract': cleanContractId,
+          'uidcontract': cleanContractId,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -206,24 +252,57 @@ class ParecerJuridicoRepository {
       throw Exception('sectionDocId não informado.');
     }
 
-    final cleanData = Map<String, dynamic>.from(data)
-      ..remove('createdAt')
-      ..remove('updatedAt')
-      ..remove('createdBy')
-      ..remove('updatedBy');
+    final cleanData = Map<String, dynamic>.from(data);
+    _removeWriteProtectedFields(cleanData);
 
-    final ref = _col(cleanContractId)
-        .doc(cleanParecerId)
-        .collection(cleanSectionKey)
-        .doc(cleanSectionDocId);
+    final root = _col(cleanContractId).doc(cleanParecerId);
+    final hiringRef = _hiringRef(cleanContractId);
+    final batch = _db.batch();
 
-    await ref.set(
+    batch.set(
+      hiringRef,
       <String, dynamic>{
-        ...cleanData,
+        'id': 'main',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
     );
+
+    batch.set(
+      root,
+      <String, dynamic>{
+        'id': cleanParecerId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      root.collection(cleanSectionKey).doc(cleanSectionDocId),
+      <String, dynamic>{
+        ...cleanData,
+        'id': cleanSectionDocId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
   }
 
   Future<ParecerJuridicoData?> readDataForContract(String contractId) async {
@@ -307,16 +386,6 @@ class ParecerJuridicoRepository {
       'docx',
     ],
   }) async {
-    final cleanContractId = contractId.trim();
-    final cleanParecerId = parecerId.trim();
-    final cleanDocumentosId = documentosId.trim();
-
-    if (cleanContractId.isEmpty ||
-        cleanParecerId.isEmpty ||
-        cleanDocumentosId.isEmpty) {
-      throw Exception('Caminho inválido para upload do parecer jurídico.');
-    }
-
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
@@ -334,18 +403,12 @@ class ParecerJuridicoRepository {
       throw Exception('Falha ao ler os bytes do arquivo.');
     }
 
-    final fileName = file.name.trim();
-
-    if (fileName.isEmpty) {
-      throw Exception('Nome do arquivo inválido.');
-    }
-
     return uploadBytes(
-      contractId: cleanContractId,
-      parecerId: cleanParecerId,
-      documentosId: cleanDocumentosId,
+      contractId: contractId,
+      parecerId: parecerId,
+      documentosId: documentosId,
       bytes: Uint8List.fromList(bytes),
-      fileName: fileName,
+      fileName: file.name,
       onProgress: onProgress,
     );
   }
@@ -392,6 +455,8 @@ class ParecerJuridicoRepository {
             contentType: _contentTypeForExt(ext),
             customMetadata: <String, String>{
               'originalName': cleanFileName,
+              'tenantId': tenantId,
+              'companyId': tenantId,
               'contractId': cleanContractId,
               'parecerId': cleanParecerId,
               'documentosId': cleanDocumentosId,
@@ -437,15 +502,16 @@ class ParecerJuridicoRepository {
     }
 
     try {
-      final ref = _storage.ref(
+      await _storage
+          .ref(
         '${_filesPath(
           contractId: cleanContractId,
           parecerId: cleanParecerId,
           documentosId: cleanDocumentosId,
         )}/$cleanFileName',
-      );
+      )
+          .delete();
 
-      await ref.delete();
       return true;
     } catch (_) {
       return false;
@@ -463,5 +529,31 @@ class ParecerJuridicoRepository {
     } catch (_) {
       return false;
     }
+  }
+
+  void _removeWriteProtectedFields(Map<String, dynamic> data) {
+    data.remove('createdAt');
+    data.remove('updatedAt');
+    data.remove('createdBy');
+    data.remove('updatedBy');
+  }
+
+  void _removeSystemFields(Map<String, dynamic> data) {
+    _removeWriteProtectedFields(data);
+    data.remove('migratedAt');
+    data.remove('migrationSourcePath');
+    data.remove('migrationSourceDocId');
+    data.remove('migrationTargetPath');
+    data.remove('legacySourceId');
+    data.remove('legacySourcePath');
+    data.remove('recordPath');
+    data.remove('sourcePath');
+    data.remove('path');
+    data.remove('sourceCollectionModel');
+    data.remove('tenantId');
+    data.remove('companyId');
+    data.remove('uidContract');
+    data.remove('uidcontract');
+    data.remove('contractId');
   }
 }

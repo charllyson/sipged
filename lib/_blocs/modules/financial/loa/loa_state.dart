@@ -1,14 +1,14 @@
 import 'package:equatable/equatable.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
-import 'budget_data.dart';
+import 'loa_data.dart';
 
-enum BudgetStatus { initial, loading, success, failure }
+enum LOAStatus { initial, loading, success, failure }
 
-class BudgetState extends Equatable {
-  final BudgetStatus status;
-  final List<BudgetData> items;
-  final BudgetData? selected;
+class LOAState extends Equatable {
+  final LOAStatus status;
+  final List<LOAData> items;
+  final LOAData? selected;
   final String? contractId;
   final String? error;
 
@@ -27,8 +27,8 @@ class BudgetState extends Equatable {
   final List<Attachment> attachments;
   final int? selectedSideIndex;
 
-  const BudgetState({
-    this.status = BudgetStatus.initial,
+  const LOAState({
+    this.status = LOAStatus.initial,
     this.items = const [],
     this.selected,
     this.contractId,
@@ -45,13 +45,13 @@ class BudgetState extends Equatable {
     this.selectedSideIndex,
   });
 
-  factory BudgetState.initial() =>
-      BudgetState(status: BudgetStatus.initial, year: DateTime.now().year);
+  factory LOAState.initial() =>
+      LOAState(status: LOAStatus.initial, year: DateTime.now().year);
 
-  BudgetState copyWith({
-    BudgetStatus? status,
-    List<BudgetData>? items,
-    BudgetData? selected,
+  LOAState copyWith({
+    LOAStatus? status,
+    List<LOAData>? items,
+    LOAData? selected,
     String? contractId,
     String? error,
     bool clearSelected = false,
@@ -74,7 +74,7 @@ class BudgetState extends Equatable {
     int? selectedSideIndex,
     bool clearSelectedSideIndex = false,
   }) {
-    return BudgetState(
+    return LOAState(
       status: status ?? this.status,
       items: items ?? this.items,
       selected: clearSelected ? null : (selected ?? this.selected),

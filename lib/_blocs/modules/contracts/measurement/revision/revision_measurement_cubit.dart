@@ -14,14 +14,20 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
   RevisionMeasurementCubit({
     RevisionMeasurementRepository? repository,
     UserPermissionData? initialPermissions,
-    String? initialTenantId,
+    required String initialTenantId,
     this.moduleId = 'operation_measurements_revisions',
-  })  : _repo = repository ?? RevisionMeasurementRepository(),
+  })  : _tenantId = _cleanRequiredTenantId(
+    initialTenantId,
+    context: 'RevisionMeasurementCubit.constructor',
+  ),
+        _repo = repository ??
+            RevisionMeasurementRepository(
+              tenantId: _cleanRequiredTenantId(
+                initialTenantId,
+                context: 'RevisionMeasurementCubit.repository',
+              ),
+            ),
         _currentPermissions = initialPermissions,
-        _tenantId = _resolveInitialTenantId(
-          tenantId: initialTenantId,
-          permissions: initialPermissions,
-        ),
         super(RevisionMeasurementState.initial()) {
     _syncRepositoryTenant();
   }
@@ -30,36 +36,33 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
   final String moduleId;
 
   UserPermissionData? _currentPermissions;
-  String? _tenantId;
+  String _tenantId;
 
-  static String? _cleanTenantId(String? value) {
-    final clean = value?.trim();
-    return clean == null || clean.isEmpty ? null : clean;
-  }
+  static String _cleanRequiredTenantId(
+      String value, {
+        required String context,
+      }) {
+    final clean = value.trim();
 
-  static String? _resolveInitialTenantId({
-    required String? tenantId,
-    required UserPermissionData? permissions,
-  }) {
-    final direct = _cleanTenantId(tenantId);
+    if (clean.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório em $context.');
+    }
 
-    if (direct != null) return direct;
-
-    final permissionTenant = _cleanTenantId(permissions?.activeTenantId);
-
-    if (permissionTenant != null) return permissionTenant;
-
-    return null;
+    return clean;
   }
 
   void _syncRepositoryTenant() {
     _repo.setActiveTenantId(_tenantId);
   }
 
-  void setTenantId(String? tenantId) {
+  void setTenantId(String tenantId) {
     final previousTenantId = _tenantId;
 
-    _tenantId = _cleanTenantId(tenantId);
+    _tenantId = _cleanRequiredTenantId(
+      tenantId,
+      context: 'RevisionMeasurementCubit.setTenantId',
+    );
+
     _syncRepositoryTenant();
 
     final currentContractId = state.contractId?.trim();
@@ -71,40 +74,30 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
     }
   }
 
-  bool get _hasTenantId {
-    final clean = _tenantId?.trim();
-    return clean != null && clean.isNotEmpty;
-  }
-
   String _requireTenantId() {
-    final clean = _tenantId?.trim();
+    final clean = _cleanRequiredTenantId(
+      _tenantId,
+      context: 'RevisionMeasurementCubit._requireTenantId',
+    );
 
-    if (clean == null || clean.isEmpty) {
-      throw Exception(
-        'Nenhuma empresa ativa foi selecionada para acessar revisões.',
-      );
-    }
-
+    _tenantId = clean;
     _repo.setActiveTenantId(clean);
+
     return clean;
   }
 
   void updatePermissions({
     UserPermissionData? permissions,
-    String? tenantId,
+    required String tenantId,
   }) {
     final previousTenantId = _tenantId;
 
     _currentPermissions = permissions ?? _currentPermissions;
 
-    final resolvedTenantId = _resolveInitialTenantId(
-      tenantId: tenantId,
-      permissions: _currentPermissions,
+    _tenantId = _cleanRequiredTenantId(
+      tenantId,
+      context: 'RevisionMeasurementCubit.updatePermissions',
     );
-
-    if (resolvedTenantId != null) {
-      _tenantId = resolvedTenantId;
-    }
 
     _syncRepositoryTenant();
 
@@ -170,7 +163,7 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
 
     throw Exception(
       'Usuário sem permissão para alterar revisões. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
@@ -181,12 +174,12 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
 
     throw Exception(
       'Usuário sem permissão para apagar revisões. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
   Future<void> loadByContract(String contractId) async {
-    _syncRepositoryTenant();
+    _requireTenantId();
 
     final cleanContractId = contractId.trim();
 
@@ -197,24 +190,6 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
           revisions: const <RevisionMeasurementData>[],
           errorMessage: null,
           contractId: null,
-          selected: null,
-          selectedIndex: null,
-          attachments: const <Attachment>[],
-          selectedAttachmentIndex: null,
-          isSaving: false,
-          uploading: false,
-          uploadProgress: null,
-        ),
-      );
-      return;
-    }
-
-    if (!_hasTenantId) {
-      emit(
-        state.copyWith(
-          status: RevisionMeasurementStatus.error,
-          errorMessage: 'Nenhuma empresa ativa foi selecionada.',
-          contractId: cleanContractId,
           selected: null,
           selectedIndex: null,
           attachments: const <Attachment>[],
@@ -272,7 +247,7 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
   }
 
   Future<List<RevisionMeasurementData>> getAllRevisionsCollectionGroup() {
-    _syncRepositoryTenant();
+    _requireTenantId();
     return _repo.getAllRevisionsCollectionGroup();
   }
 
@@ -430,8 +405,13 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
     final selected = state.selected;
     final contractId = state.contractId?.trim();
 
-    if (contractId == null || contractId.isEmpty) return;
-    if (selected?.id == null || selected!.id!.trim().isEmpty) return;
+    if (contractId == null || contractId.isEmpty) {
+      throw Exception('contractId é obrigatório para atualizar anexos.');
+    }
+
+    if (selected?.id == null || selected!.id!.trim().isEmpty) {
+      throw Exception('revisionId é obrigatório para atualizar anexos.');
+    }
 
     emit(
       state.copyWith(
@@ -489,7 +469,7 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
       throw Exception('Contrato não informado para anexar arquivo.');
     }
 
-    if (selected == null || selected.id == null || selected.id!.isEmpty) {
+    if (selected == null || selected.id == null || selected.id!.trim().isEmpty) {
       throw Exception('Selecione ou salve uma revisão antes de anexar arquivos.');
     }
 
@@ -575,9 +555,17 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
     final selected = state.selected;
     final contractId = state.contractId?.trim();
 
-    if (contractId == null || contractId.isEmpty) return;
-    if (selected?.id == null || selected!.id!.trim().isEmpty) return;
-    if (index < 0 || index >= state.attachments.length) return;
+    if (contractId == null || contractId.isEmpty) {
+      throw Exception('contractId é obrigatório para excluir anexo.');
+    }
+
+    if (selected?.id == null || selected!.id!.trim().isEmpty) {
+      throw Exception('revisionId é obrigatório para excluir anexo.');
+    }
+
+    if (index < 0 || index >= state.attachments.length) {
+      throw Exception('Índice de anexo inválido.');
+    }
 
     emit(
       state.copyWith(
@@ -637,8 +625,13 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
     final selected = state.selected;
     final contractId = state.contractId?.trim();
 
-    if (contractId == null || contractId.isEmpty) return;
-    if (selected?.id == null || selected!.id!.trim().isEmpty) return;
+    if (contractId == null || contractId.isEmpty) {
+      throw Exception('contractId é obrigatório para limpar PDF legado.');
+    }
+
+    if (selected?.id == null || selected!.id!.trim().isEmpty) {
+      throw Exception('revisionId é obrigatório para limpar PDF legado.');
+    }
 
     emit(
       state.copyWith(

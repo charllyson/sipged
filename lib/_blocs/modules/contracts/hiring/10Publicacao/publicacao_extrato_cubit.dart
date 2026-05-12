@@ -1,8 +1,5 @@
-// lib/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart
-
-import 'dart:typed_data';
-
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
@@ -12,16 +9,35 @@ import 'publicacao_extrato_repository.dart';
 import 'publicacao_extrato_state.dart';
 
 class PublicacaoExtratoCubit extends Cubit<PublicacaoExtratoState> {
-  PublicacaoExtratoCubit([PublicacaoExtratoRepository? repository])
-      : repo = repository ?? PublicacaoExtratoRepository(),
+  PublicacaoExtratoCubit({
+    required String tenantId,
+    PublicacaoExtratoRepository? repository,
+  })  : _tenantId = _requireTenantId(tenantId),
+        repo = repository ??
+            PublicacaoExtratoRepository(
+              tenantId: _requireTenantId(tenantId),
+            ),
         super(PublicacaoExtratoState.initial());
 
+  final String _tenantId;
   final PublicacaoExtratoRepository repo;
 
   int _loadSeq = 0;
   int _saveSeq = 0;
 
   bool get _alive => !isClosed;
+
+  static String _requireTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório em PublicacaoExtratoCubit.');
+    }
+
+    return cleanTenantId;
+  }
+
+  String get tenantId => _tenantId;
 
   Future<PublicacaoExtratoData?> getDataForContract(String contractId) {
     final cleanContractId = contractId.trim();
@@ -31,6 +47,60 @@ class PublicacaoExtratoCubit extends Cubit<PublicacaoExtratoState> {
     }
 
     return repo.readDataForContract(cleanContractId);
+  }
+
+  Future<Map<String, PublicacaoExtratoData?>> getSummaryForContracts(
+      Iterable<String> contractIds, {
+        bool debug = false,
+      }) async {
+    final ids = contractIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+
+    final initial = <String, PublicacaoExtratoData?>{
+      for (final id in ids) id: null,
+    };
+
+    if (ids.isEmpty) {
+      return initial;
+    }
+
+    final sw = Stopwatch()..start();
+
+    try {
+      final result = await repo.getSummaryForContracts(
+        ids,
+        debug: debug,
+      );
+
+      sw.stop();
+
+      if (debug) {
+        debugPrint(
+          '[PublicacaoExtratoCubit] getSummaryForContracts '
+              'tenantId=$tenantId contratos=${ids.length} '
+              'em ${sw.elapsedMilliseconds}ms',
+        );
+      }
+
+      return <String, PublicacaoExtratoData?>{
+        ...initial,
+        ...result,
+      };
+    } catch (error, stack) {
+      sw.stop();
+
+      debugPrint(
+        '[PublicacaoExtratoCubit] Erro getSummaryForContracts '
+            'tenantId=$tenantId contratos=${ids.length} '
+            'em ${sw.elapsedMilliseconds}ms: $error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      return initial;
+    }
   }
 
   Future<void> load(String contractId) async {

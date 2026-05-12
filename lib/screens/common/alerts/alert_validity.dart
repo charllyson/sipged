@@ -1,5 +1,4 @@
 // lib/_widgets/.../alert_validity.dart
-// ajuste o caminho conforme onde esse arquivo está no seu projeto
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,17 +27,63 @@ import 'package:sipged/_widgets/overlays/balloon/balloon_tip.dart';
 class AlertValidity extends StatefulWidget {
   final ContractData contract;
 
+  /// Opcional.
+  ///
+  /// Use para evitar nova consulta de DFD quando a tela/listagem já carregou
+  /// esse dado previamente.
+  final DfdData? dfdData;
+
+  /// Opcional.
+  ///
+  /// Use para evitar nova consulta de Publicação/Extrato quando a tela/listagem
+  /// já carregou esse dado previamente.
+  final PublicacaoExtratoData? publicacaoData;
+
   const AlertValidity({
     super.key,
     required this.contract,
+    this.dfdData,
+    this.publicacaoData,
   });
+
+  static void clearCache() {
+    _AlertValidityState.clearCache();
+  }
 
   @override
   State<AlertValidity> createState() => _AlertValidityState();
 }
 
 class _AlertValidityState extends State<AlertValidity>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  static final Map<String, Future<_ValidityAlertInfo?>> _futureCache =
+  <String, Future<_ValidityAlertInfo?>>{};
+
+  static final Map<String, _ValidityAlertInfo?> _resultCache =
+  <String, _ValidityAlertInfo?>{};
+
+  static final Map<String, DfdRepository> _dfdRepoByTenant =
+  <String, DfdRepository>{};
+
+  static final Map<String, PublicacaoExtratoRepository>
+  _publicacaoRepoByTenant = <String, PublicacaoExtratoRepository>{};
+
+  static final Map<String, TrRepository> _trRepoByTenant =
+  <String, TrRepository>{};
+
+  static final Map<String, AdditivesRepository> _additivesRepoByTenant =
+  <String, AdditivesRepository>{};
+
+  static void clearCache() {
+    _futureCache.clear();
+    _resultCache.clear();
+
+    _dfdRepoByTenant.clear();
+    _publicacaoRepoByTenant.clear();
+    _trRepoByTenant.clear();
+    _additivesRepoByTenant.clear();
+  }
+
   final GlobalKey _buttonKey = GlobalKey();
 
   late Future<_ValidityAlertInfo?> _future;
@@ -50,17 +95,30 @@ class _AlertValidityState extends State<AlertValidity>
   Offset? _initialAnchor;
 
   String? _activeTenantId;
+  String? _activeContractId;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
 
     final permissionState = context.read<PermissionCubit>().state;
-    _activeTenantId = permissionState.activeTenantId?.trim();
 
-    _future = _loadInfo(
+    _activeTenantId = _cleanNullableTenantId(
+      permissionState.activeTenantId,
+    );
+
+    _activeContractId = _cleanNullableContractId(
+      widget.contract.id,
+    );
+
+    _future = _getCachedFuture(
       contract: widget.contract,
       tenantId: _activeTenantId,
+      dfdData: widget.dfdData,
+      publicacaoData: widget.publicacaoData,
     );
 
     _positionWatcher = AnimationController(
@@ -73,14 +131,27 @@ class _AlertValidityState extends State<AlertValidity>
   void didUpdateWidget(covariant AlertValidity oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.contract.id != widget.contract.id) {
-      _removeOverlay();
+    final nextContractId = _cleanNullableContractId(widget.contract.id);
 
-      _future = _loadInfo(
-        contract: widget.contract,
-        tenantId: _activeTenantId,
-      );
+    final dfdChanged = oldWidget.dfdData != widget.dfdData;
+    final publicacaoChanged = oldWidget.publicacaoData != widget.publicacaoData;
+    final contractChanged = _activeContractId != nextContractId;
+
+    if (!contractChanged && !dfdChanged && !publicacaoChanged) {
+      return;
     }
+
+    _removeOverlay();
+
+    _activeContractId = nextContractId;
+
+    _future = _getCachedFuture(
+      contract: widget.contract,
+      tenantId: _activeTenantId,
+      dfdData: widget.dfdData,
+      publicacaoData: widget.publicacaoData,
+      preferProvidedData: true,
+    );
   }
 
   @override
@@ -95,36 +166,201 @@ class _AlertValidityState extends State<AlertValidity>
     super.dispose();
   }
 
-  Future<DfdData?> _loadDfdStatus(String contractId) async {
-    final repo = DfdRepository();
-    return repo.readDataForContract(contractId);
-  }
-
-  Future<PublicacaoExtratoData?> _loadPublicacao(String contractId) async {
-    final repo = PublicacaoExtratoRepository();
-    return repo.readDataForContract(contractId);
-  }
-
-  Future<TrData?> _loadTr(String contractId) async {
-    final repo = TrRepository();
-    return repo.readDataForContract(contractId);
-  }
-
-  Future<List<AdditivesData>> _loadAdditives({
-    required String contractId,
-    required String? tenantId,
-  }) async {
+  String? _cleanNullableTenantId(String? tenantId) {
     final cleanTenantId = tenantId?.trim();
 
     if (cleanTenantId == null || cleanTenantId.isEmpty) {
-      return const <AdditivesData>[];
+      return null;
     }
 
-    final additivesRepo = AdditivesRepository(
-      tenantId: cleanTenantId,
+    return cleanTenantId;
+  }
+
+  String? _cleanNullableContractId(String? contractId) {
+    final cleanContractId = contractId?.trim();
+
+    if (cleanContractId == null || cleanContractId.isEmpty) {
+      return null;
+    }
+
+    return cleanContractId;
+  }
+
+  String? _cacheKey({
+    required String? tenantId,
+    required String? contractId,
+  }) {
+    final cleanTenantId = _cleanNullableTenantId(tenantId);
+    final cleanContractId = _cleanNullableContractId(contractId);
+
+    if (cleanTenantId == null || cleanContractId == null) {
+      return null;
+    }
+
+    return '$cleanTenantId::$cleanContractId';
+  }
+
+  DfdRepository _dfdRepository(String tenantId) {
+    return _dfdRepoByTenant.putIfAbsent(
+      tenantId,
+          () => DfdRepository(
+        tenantId: tenantId,
+      ),
+    );
+  }
+
+  PublicacaoExtratoRepository _publicacaoRepository(String tenantId) {
+    return _publicacaoRepoByTenant.putIfAbsent(
+      tenantId,
+          () => PublicacaoExtratoRepository(
+        tenantId: tenantId,
+      ),
+    );
+  }
+
+  TrRepository _trRepository(String tenantId) {
+    return _trRepoByTenant.putIfAbsent(
+      tenantId,
+          () => TrRepository(
+        tenantId: tenantId,
+      ),
+    );
+  }
+
+  AdditivesRepository _additivesRepository(String tenantId) {
+    return _additivesRepoByTenant.putIfAbsent(
+      tenantId,
+          () => AdditivesRepository(
+        tenantId: tenantId,
+      ),
+    );
+  }
+
+  Future<_ValidityAlertInfo?> _getCachedFuture({
+    required ContractData contract,
+    required String? tenantId,
+    DfdData? dfdData,
+    PublicacaoExtratoData? publicacaoData,
+    bool preferProvidedData = false,
+  }) {
+    final key = _cacheKey(
+      tenantId: tenantId,
+      contractId: contract.id,
     );
 
-    return additivesRepo.ensureForContract(contractId);
+    if (key == null) {
+      return Future<_ValidityAlertInfo?>.value(null);
+    }
+
+    if (!preferProvidedData && _resultCache.containsKey(key)) {
+      return Future<_ValidityAlertInfo?>.value(_resultCache[key]);
+    }
+
+    if (!preferProvidedData) {
+      final cachedFuture = _futureCache[key];
+
+      if (cachedFuture != null) {
+        return cachedFuture;
+      }
+    }
+
+    final future = _loadInfo(
+      contract: contract,
+      tenantId: tenantId,
+      dfdData: dfdData,
+      publicacaoData: publicacaoData,
+    ).then((result) {
+      _resultCache[key] = result;
+      return result;
+    }).catchError((error) {
+      debugPrint(
+        '[AlertValidity] Erro ao carregar alerta '
+            'key=$key error=$error',
+      );
+
+      _futureCache.remove(key);
+      return null;
+    });
+
+    _futureCache[key] = future;
+
+    return future;
+  }
+
+  Future<DfdData?> _loadDfdStatus({
+    required String tenantId,
+    required String contractId,
+    DfdData? provided,
+  }) async {
+    if (provided != null) {
+      return provided;
+    }
+
+    try {
+      return await _dfdRepository(tenantId).readDataForContract(contractId);
+    } catch (error) {
+      debugPrint(
+        '[AlertValidity] Erro ao carregar DFD '
+            'tenantId=$tenantId contractId=$contractId error=$error',
+      );
+
+      return null;
+    }
+  }
+
+  Future<PublicacaoExtratoData?> _loadPublicacao({
+    required String tenantId,
+    required String contractId,
+    PublicacaoExtratoData? provided,
+  }) async {
+    if (provided != null) {
+      return provided;
+    }
+
+    try {
+      return await _publicacaoRepository(tenantId).readDataForContract(
+        contractId,
+      );
+    } catch (error) {
+      debugPrint(
+        '[AlertValidity] Erro ao carregar PublicacaoExtrato '
+            'tenantId=$tenantId contractId=$contractId error=$error',
+      );
+
+      return null;
+    }
+  }
+
+  Future<TrData?> _loadTr({
+    required String tenantId,
+    required String contractId,
+  }) async {
+    try {
+      return await _trRepository(tenantId).readDataForContract(contractId);
+    } catch (error) {
+      debugPrint(
+        '[AlertValidity] Erro ao carregar TR '
+            'tenantId=$tenantId contractId=$contractId error=$error',
+      );
+
+      return null;
+    }
+  }
+
+  Future<List<AdditivesData>> _loadAdditives({
+    required String tenantId,
+    required String contractId,
+  }) async {
+    try {
+      return await _additivesRepository(tenantId).ensureForContract(contractId);
+    } catch (error) {
+      debugPrint(
+        '[AlertValidity] Erro ao carregar aditivos '
+            'tenantId=$tenantId contractId=$contractId error=$error',
+      );
+
+      return const <AdditivesData>[];
+    }
   }
 
   int _toIntFromText(String? value) {
@@ -138,51 +374,64 @@ class _AlertValidityState extends State<AlertValidity>
         0;
   }
 
+  bool _isEligibleStatus(String status) {
+    final cleanStatus = status.trim().toUpperCase();
+
+    return cleanStatus == 'EM ANDAMENTO' || cleanStatus == 'A INICIAR';
+  }
+
   Future<_ValidityAlertInfo?> _loadInfo({
     required ContractData contract,
     required String? tenantId,
+    DfdData? dfdData,
+    PublicacaoExtratoData? publicacaoData,
   }) async {
-    final contractId = contract.id?.trim();
+    final cleanContractId = _cleanNullableContractId(contract.id);
+    final cleanTenantId = _cleanNullableTenantId(tenantId);
 
-    if (contractId == null || contractId.isEmpty) {
+    if (cleanContractId == null || cleanTenantId == null) {
       return null;
     }
 
-    final cleanTenantId = tenantId?.trim();
+    final dfd = await _loadDfdStatus(
+      tenantId: cleanTenantId,
+      contractId: cleanContractId,
+      provided: dfdData,
+    );
 
-    if (cleanTenantId == null || cleanTenantId.isEmpty) {
+    final status = (dfd?.statusDemanda ?? '').trim().toUpperCase();
+
+    if (!_isEligibleStatus(status)) {
       return null;
     }
 
     final results = await Future.wait<dynamic>([
-      _loadDfdStatus(contractId),
-      _loadPublicacao(contractId),
-      _loadTr(contractId),
-      _loadAdditives(
-        contractId: contractId,
+      _loadPublicacao(
         tenantId: cleanTenantId,
+        contractId: cleanContractId,
+        provided: publicacaoData,
+      ),
+      _loadTr(
+        tenantId: cleanTenantId,
+        contractId: cleanContractId,
+      ),
+      _loadAdditives(
+        tenantId: cleanTenantId,
+        contractId: cleanContractId,
       ),
     ]);
 
-    final dfdData = results[0] as DfdData?;
-    final publicacao = results[1] as PublicacaoExtratoData?;
-    final tr = results[2] as TrData?;
-    final aditivos = results[3] as List<AdditivesData>;
-
-    final status = (dfdData?.statusDemanda ?? '').trim().toUpperCase();
-
-    final elegivel = status == 'EM ANDAMENTO' || status == 'A INICIAR';
-
-    if (!elegivel) {
-      return null;
-    }
+    final publicacao = results[0] as PublicacaoExtratoData?;
+    final tr = results[1] as TrData?;
+    final aditivos = results[2] as List<AdditivesData>;
 
     final dataPublicacao = publicacao?.dataPublicacao;
     final int vigenciaDias = _toIntFromText(tr?.vigenciaDias);
 
     if (dataPublicacao == null) {
       return _ValidityAlertInfo(
-        contractId: contractId,
+        contractId: cleanContractId,
+        tenantId: cleanTenantId,
         status: status,
         dataPublicacao: null,
         vigenciaDias: vigenciaDias,
@@ -206,10 +455,29 @@ class _AlertValidityState extends State<AlertValidity>
       Duration(days: totalDiasContrato),
     );
 
-    final int diasRestantes = dataFinal.difference(DateTime.now()).inDays;
+    final DateTime today = DateTime.now();
+
+    final DateTime normalizedToday = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    );
+
+    final DateTime normalizedFinalDate = DateTime(
+      dataFinal.year,
+      dataFinal.month,
+      dataFinal.day,
+    );
+
+    final int diasRestantes = normalizedFinalDate
+        .difference(
+      normalizedToday,
+    )
+        .inDays;
 
     return _ValidityAlertInfo(
-      contractId: contractId,
+      contractId: cleanContractId,
+      tenantId: cleanTenantId,
       status: status,
       dataPublicacao: dataPublicacao,
       vigenciaDias: vigenciaDias,
@@ -446,7 +714,6 @@ class _AlertValidityState extends State<AlertValidity>
 
   void _showOverlay(_ValidityAlertInfo info) {
     final overlay = Overlay.of(context);
-
     final overlayRender = overlay.context.findRenderObject();
 
     if (overlayRender is! RenderBox) {
@@ -512,7 +779,7 @@ class _AlertValidityState extends State<AlertValidity>
     return Tooltip(
       message: _tooltipMessage(info),
       child: SizedBox.square(
-        dimension: 34,
+        dimension: 23,
         child: IconButton(
           key: _buttonKey,
           padding: EdgeInsets.zero,
@@ -531,8 +798,23 @@ class _AlertValidityState extends State<AlertValidity>
     );
   }
 
+  Widget _buildEmptySpace() {
+    return const SizedBox.square(
+      dimension: 23,
+    );
+  }
+
+  Widget _buildLoadingShimmer() {
+    return const SizedBox.square(
+      dimension: 23,
+      child: Center(
+        child: _AlertValidityShimmer(),
+      ),
+    );
+  }
+
   void _reloadForPermissionState(PermissionState permissionState) {
-    final nextTenantId = permissionState.activeTenantId?.trim();
+    final nextTenantId = _cleanNullableTenantId(permissionState.activeTenantId);
 
     if (_activeTenantId == nextTenantId) return;
 
@@ -540,19 +822,24 @@ class _AlertValidityState extends State<AlertValidity>
 
     setState(() {
       _activeTenantId = nextTenantId;
-      _future = _loadInfo(
+
+      _future = _getCachedFuture(
         contract: widget.contract,
         tenantId: _activeTenantId,
+        dfdData: widget.dfdData,
+        publicacaoData: widget.publicacaoData,
       );
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final contractId = widget.contract.id?.trim();
+    super.build(context);
 
-    if (contractId == null || contractId.isEmpty) {
-      return const SizedBox.shrink();
+    final contractId = _cleanNullableContractId(widget.contract.id);
+
+    if (contractId == null) {
+      return _buildEmptySpace();
     }
 
     return BlocListener<PermissionCubit, PermissionState>(
@@ -566,18 +853,13 @@ class _AlertValidityState extends State<AlertValidity>
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-              ),
-            );
+            return _buildLoadingShimmer();
           }
 
           final info = snapshot.data;
 
           if (info == null) {
-            return const SizedBox.shrink();
+            return _buildEmptySpace();
           }
 
           return _buildButton(info);
@@ -587,8 +869,91 @@ class _AlertValidityState extends State<AlertValidity>
   }
 }
 
+class _AlertValidityShimmer extends StatefulWidget {
+  const _AlertValidityShimmer();
+
+  @override
+  State<_AlertValidityShimmer> createState() => _AlertValidityShimmerState();
+}
+
+class _AlertValidityShimmerState extends State<_AlertValidityShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 950),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final baseColor = isDark
+        ? Colors.white.withValues(alpha: 0.10)
+        : Colors.grey.shade300;
+
+    final highlightColor = isDark
+        ? Colors.white.withValues(alpha: 0.24)
+        : Colors.grey.shade100;
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final value = _controller.value;
+
+        return ShaderMask(
+          shaderCallback: (bounds) {
+            return LinearGradient(
+              begin: Alignment(-1.0 + (value * 2), 0),
+              end: Alignment(1.0 + (value * 2), 0),
+              colors: [
+                baseColor,
+                highlightColor,
+                baseColor,
+              ],
+              stops: const [
+                0.20,
+                0.50,
+                0.80,
+              ],
+            ).createShader(bounds);
+          },
+          blendMode: BlendMode.srcATop,
+          child: child,
+        );
+      },
+      child: Container(
+        width: 19,
+        height: 19,
+        decoration: BoxDecoration(
+          color: baseColor,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          Icons.notifications_none_outlined,
+          size: 15,
+          color: Colors.white.withValues(alpha: 0.36),
+        ),
+      ),
+    );
+  }
+}
+
 class _ValidityAlertInfo {
   final String contractId;
+  final String tenantId;
   final String status;
 
   final DateTime? dataPublicacao;
@@ -601,6 +966,7 @@ class _ValidityAlertInfo {
 
   const _ValidityAlertInfo({
     required this.contractId,
+    required this.tenantId,
     required this.status,
     required this.dataPublicacao,
     required this.vigenciaDias,

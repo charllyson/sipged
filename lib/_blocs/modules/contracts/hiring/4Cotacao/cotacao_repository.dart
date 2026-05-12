@@ -12,16 +12,33 @@ import 'cotacao_data.dart';
 
 class CotacaoRepository {
   CotacaoRepository({
+    required String tenantId,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
   })  : _db = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _storage = storage ?? FirebaseStorage.instance,
+        _tenantId = tenantId.trim() {
+    if (_tenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório em CotacaoRepository.');
+    }
+  }
 
   final FirebaseFirestore _db;
   final FirebaseStorage _storage;
+  final String _tenantId;
+
+  String get tenantId => _tenantId;
+
+  CollectionReference<Map<String, dynamic>> _contractsCol() {
+    return _db.collection('tenants').doc(tenantId).collection('contracts');
+  }
 
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
-    return _db.collection('contracts').doc(contractId).collection('cotacao');
+    return _contractsCol()
+        .doc(contractId)
+        .collection('hiring')
+        .doc('main')
+        .collection('cotacao');
   }
 
   String _filesPath({
@@ -29,7 +46,7 @@ class CotacaoRepository {
     required String cotacaoId,
     required String anexosId,
   }) {
-    return 'contracts/$contractId/cotacao/$cotacaoId/anexosEvidencias/$anexosId/files';
+    return 'tenants/$tenantId/contracts/$contractId/hiring/main/cotacao/$cotacaoId/anexosEvidencias/$anexosId/files';
   }
 
   String _extractExt(String nameOrUrl) {
@@ -104,17 +121,13 @@ class CotacaoRepository {
           );
         }
 
-        final snap =
-        await root.collection(sectionName).doc(sectionDocId).get();
+        final snap = await root.collection(sectionName).doc(sectionDocId).get();
 
         final data = Map<String, dynamic>.from(
           snap.data() ?? const <String, dynamic>{},
         );
 
-        data.remove('createdAt');
-        data.remove('updatedAt');
-        data.remove('createdBy');
-        data.remove('updatedBy');
+        _removeSystemFields(data);
 
         return MapEntry<String, Map<String, dynamic>>(
           sectionName,
@@ -148,8 +161,39 @@ class CotacaoRepository {
 
     if (sectionsData.isEmpty) return;
 
-    final batch = _db.batch();
     final root = _col(cleanContractId).doc(cleanCotacaoId);
+    final hiringRef =
+    _contractsCol().doc(cleanContractId).collection('hiring').doc('main');
+
+    final batch = _db.batch();
+
+    batch.set(
+      hiringRef,
+      <String, dynamic>{
+        'id': 'main',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      root,
+      <String, dynamic>{
+        'id': cleanCotacaoId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
 
     for (final entry in sectionsData.entries) {
       final sectionKey = entry.key.trim();
@@ -158,16 +202,19 @@ class CotacaoRepository {
       if (sectionKey.isEmpty) continue;
       if (sectionDocId == null || sectionDocId.isEmpty) continue;
 
-      final sectionData = Map<String, dynamic>.from(entry.value)
-        ..remove('createdAt')
-        ..remove('updatedAt')
-        ..remove('createdBy')
-        ..remove('updatedBy');
+      final sectionData = Map<String, dynamic>.from(entry.value);
+      _removeWriteProtectedFields(sectionData);
 
       batch.set(
         root.collection(sectionKey).doc(sectionDocId),
         <String, dynamic>{
           ...sectionData,
+          'id': sectionDocId,
+          'tenantId': tenantId,
+          'companyId': tenantId,
+          'contractId': cleanContractId,
+          'uidContract': cleanContractId,
+          'uidcontract': cleanContractId,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -189,40 +236,66 @@ class CotacaoRepository {
     final cleanSectionKey = sectionKey.trim();
     final cleanSectionDocId = sectionDocId.trim();
 
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
-
-    if (cleanCotacaoId.isEmpty) {
-      throw Exception('cotacaoId não informado.');
-    }
-
-    if (cleanSectionKey.isEmpty) {
-      throw Exception('sectionKey não informado.');
-    }
-
+    if (cleanContractId.isEmpty) throw Exception('contractId não informado.');
+    if (cleanCotacaoId.isEmpty) throw Exception('cotacaoId não informado.');
+    if (cleanSectionKey.isEmpty) throw Exception('sectionKey não informado.');
     if (cleanSectionDocId.isEmpty) {
       throw Exception('sectionDocId não informado.');
     }
 
-    final cleanData = Map<String, dynamic>.from(data)
-      ..remove('createdAt')
-      ..remove('updatedAt')
-      ..remove('createdBy')
-      ..remove('updatedBy');
+    final cleanData = Map<String, dynamic>.from(data);
+    _removeWriteProtectedFields(cleanData);
 
-    final ref = _col(cleanContractId)
-        .doc(cleanCotacaoId)
-        .collection(cleanSectionKey)
-        .doc(cleanSectionDocId);
+    final root = _col(cleanContractId).doc(cleanCotacaoId);
+    final hiringRef =
+    _contractsCol().doc(cleanContractId).collection('hiring').doc('main');
 
-    await ref.set(
+    final batch = _db.batch();
+
+    batch.set(
+      hiringRef,
       <String, dynamic>{
-        ...cleanData,
+        'id': 'main',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
     );
+
+    batch.set(
+      root,
+      <String, dynamic>{
+        'id': cleanCotacaoId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      root.collection(cleanSectionKey).doc(cleanSectionDocId),
+      <String, dynamic>{
+        ...cleanData,
+        'id': cleanSectionDocId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
   }
 
   Future<CotacaoData?> readDataForContract(String contractId) async {
@@ -260,15 +333,15 @@ class CotacaoRepository {
       return const <Attachment>[];
     }
 
-    final ref = _storage.ref(
+    final result = await _storage
+        .ref(
       _filesPath(
         contractId: cleanContractId,
         cotacaoId: cleanCotacaoId,
         anexosId: cleanAnexosId,
       ),
-    );
-
-    final result = await ref.listAll();
+    )
+        .listAll();
 
     final attachments = await Future.wait(
       result.items.map((item) async {
@@ -288,7 +361,6 @@ class CotacaoRepository {
     );
 
     attachments.sort((a, b) => a.label.compareTo(b.label));
-
     return attachments;
   }
 
@@ -354,6 +426,8 @@ class CotacaoRepository {
         contentType: _contentTypeForExt(ext),
         customMetadata: <String, String>{
           'originalName': name,
+          'tenantId': tenantId,
+          'companyId': tenantId,
           'contractId': cleanContractId,
           'cotacaoId': cleanCotacaoId,
           'anexosId': cleanAnexosId,
@@ -399,15 +473,16 @@ class CotacaoRepository {
     }
 
     try {
-      final ref = _storage.ref(
+      await _storage
+          .ref(
         '${_filesPath(
           contractId: cleanContractId,
           cotacaoId: cleanCotacaoId,
           anexosId: cleanAnexosId,
         )}/$cleanFileName',
-      );
+      )
+          .delete();
 
-      await ref.delete();
       return true;
     } catch (_) {
       return false;
@@ -425,5 +500,31 @@ class CotacaoRepository {
     } catch (_) {
       return false;
     }
+  }
+
+  void _removeWriteProtectedFields(Map<String, dynamic> data) {
+    data.remove('createdAt');
+    data.remove('updatedAt');
+    data.remove('createdBy');
+    data.remove('updatedBy');
+  }
+
+  void _removeSystemFields(Map<String, dynamic> data) {
+    _removeWriteProtectedFields(data);
+    data.remove('migratedAt');
+    data.remove('migrationSourcePath');
+    data.remove('migrationSourceDocId');
+    data.remove('migrationTargetPath');
+    data.remove('legacySourceId');
+    data.remove('legacySourcePath');
+    data.remove('recordPath');
+    data.remove('sourcePath');
+    data.remove('path');
+    data.remove('sourceCollectionModel');
+    data.remove('tenantId');
+    data.remove('companyId');
+    data.remove('uidContract');
+    data.remove('uidcontract');
+    data.remove('contractId');
   }
 }

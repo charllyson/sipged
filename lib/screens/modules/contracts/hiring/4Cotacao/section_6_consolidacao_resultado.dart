@@ -1,6 +1,6 @@
 // lib/screens/modules/contracts/hiring/4Cotacao/section_6_consolidacao_resultado.dart
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';

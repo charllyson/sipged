@@ -26,30 +26,37 @@ class ValidityCubit extends Cubit<ValidityState> {
   ValidityCubit({
     required ValidityRepository repository,
     UserPermissionData? initialPermissions,
-    String? initialTenantId,
+    required String initialTenantId,
     this.moduleId = 'contracts_validity',
     this.enforcePermissions = true,
     PublicacaoExtratoRepository? publicacaoRepository,
     TrRepository? trRepository,
   })  : _repository = repository,
-        _publicacaoRepository =
-            publicacaoRepository ?? PublicacaoExtratoRepository(),
-        _trRepository = trRepository ?? TrRepository(),
+        _publicacaoRepository = publicacaoRepository,
+        _trRepository = trRepository,
         _currentPermissions = initialPermissions,
-        _tenantId = _cleanNullable(initialTenantId),
+        _tenantId = _cleanRequiredTenantId(
+          initialTenantId,
+          context: 'ValidityCubit.constructor',
+        ),
         super(ValidityState.initial()) {
     _syncRepositoryTenant();
   }
 
   final ValidityRepository _repository;
-  final PublicacaoExtratoRepository _publicacaoRepository;
-  final TrRepository _trRepository;
+
+  /// Repositórios auxiliares opcionais.
+  ///
+  /// Se forem injetados, o Cubit usa a instância recebida.
+  /// Se não forem injetados, o Cubit cria instâncias novas usando o tenant ativo.
+  final PublicacaoExtratoRepository? _publicacaoRepository;
+  final TrRepository? _trRepository;
 
   final String moduleId;
   final bool enforcePermissions;
 
   UserPermissionData? _currentPermissions;
-  String? _tenantId;
+  String _tenantId;
 
   PublicacaoExtratoData? _publicacaoExtrato;
   TrData? _trData;
@@ -57,9 +64,19 @@ class ValidityCubit extends Cubit<ValidityState> {
   PublicacaoExtratoData? get publicacaoExtrato => _publicacaoExtrato;
   TrData? get trData => _trData;
 
-  static String? _cleanNullable(String? value) {
-    final clean = value?.trim();
-    return clean == null || clean.isEmpty ? null : clean;
+  String get tenantId => _tenantId;
+
+  static String _cleanRequiredTenantId(
+      String value, {
+        required String context,
+      }) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório em $context.');
+    }
+
+    return clean;
   }
 
   void _syncRepositoryTenant() {
@@ -67,13 +84,10 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   String _requireTenantId() {
-    final tenantId = _cleanNullable(_tenantId);
-
-    if (tenantId == null) {
-      throw Exception(
-        'Nenhuma empresa ativa foi selecionada para acessar vigências.',
-      );
-    }
+    final tenantId = _cleanRequiredTenantId(
+      _tenantId,
+      context: 'ValidityCubit._requireTenantId',
+    );
 
     _tenantId = tenantId;
     _syncRepositoryTenant();
@@ -81,16 +95,57 @@ class ValidityCubit extends Cubit<ValidityState> {
     return tenantId;
   }
 
-  void updatePermissions({
-    UserPermissionData? permissions,
-    String? tenantId,
-  }) {
-    _currentPermissions = permissions ?? _currentPermissions;
-    _tenantId = _cleanNullable(tenantId) ?? _tenantId;
+  PublicacaoExtratoRepository get _publicacaoRepo {
+    final tenantId = _requireTenantId();
+
+    return _publicacaoRepository ??
+        PublicacaoExtratoRepository(
+          tenantId: tenantId,
+        );
+  }
+
+  TrRepository get _trRepo {
+    final tenantId = _requireTenantId();
+
+    return _trRepository ??
+        TrRepository(
+          tenantId: tenantId,
+        );
+  }
+
+  void setTenantId(String tenantId) {
+    _tenantId = _cleanRequiredTenantId(
+      tenantId,
+      context: 'ValidityCubit.setTenantId',
+    );
 
     _syncRepositoryTenant();
 
-    emit(state.copyWith(isEditable: _canWrite()));
+    emit(
+      state.copyWith(
+        isEditable: _canWrite(),
+      ),
+    );
+  }
+
+  void updatePermissions({
+    UserPermissionData? permissions,
+    required String tenantId,
+  }) {
+    _currentPermissions = permissions ?? _currentPermissions;
+
+    _tenantId = _cleanRequiredTenantId(
+      tenantId,
+      context: 'ValidityCubit.updatePermissions',
+    );
+
+    _syncRepositoryTenant();
+
+    emit(
+      state.copyWith(
+        isEditable: _canWrite(),
+      ),
+    );
   }
 
   bool get isEditable => _canWrite();
@@ -166,7 +221,7 @@ class ValidityCubit extends Cubit<ValidityState> {
 
     throw Exception(
       'Usuário sem permissão para alterar vigências. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
@@ -177,15 +232,12 @@ class ValidityCubit extends Cubit<ValidityState> {
 
     throw Exception(
       'Usuário sem permissão para apagar vigências. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
   Set<int> _existingOrders(List<ValidityData> list) {
-    return list
-        .map((v) => v.orderNumber ?? 0)
-        .where((n) => n > 0)
-        .toSet();
+    return list.map((v) => v.orderNumber ?? 0).where((n) => n > 0).toSet();
   }
 
   int _nextAvailableOrder(Set<int> set) {
@@ -290,21 +342,12 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   Future<void> loadForContract(String contractId) async {
-    _syncRepositoryTenant();
+    _requireTenantId();
 
     final cleanContractId = contractId.trim();
 
-    if (cleanContractId.isEmpty) return;
-
-    if (_tenantId == null || _tenantId!.trim().isEmpty) {
-      emit(
-        state.copyWith(
-          isLoading: false,
-          errorMessage: 'Nenhuma empresa ativa foi selecionada.',
-          isEditable: _canWrite(),
-        ),
-      );
-      return;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId é obrigatório para carregar vigências.');
     }
 
     emit(
@@ -327,24 +370,11 @@ class ValidityCubit extends Cubit<ValidityState> {
             participantsInfo: const <String, Map<String, dynamic>>{},
           );
 
-      List<ValidityData> validities = const <ValidityData>[];
-      List<AdditivesData> additives = const <AdditivesData>[];
+      final validities = await _repository.getAllValidityOfContract(
+        uidContract: cleanContractId,
+      );
 
-      try {
-        validities = await _repository.getAllValidityOfContract(
-          uidContract: cleanContractId,
-        );
-      } catch (e) {
-        emit(
-          state.copyWith(
-            isLoading: false,
-            contract: effectiveContract,
-            errorMessage: 'Erro ao carregar ordens/vigências: $e',
-            isEditable: _canWrite(),
-          ),
-        );
-        return;
-      }
+      List<AdditivesData> additives = const <AdditivesData>[];
 
       try {
         additives = await _repository.buscarAditivos(cleanContractId);
@@ -353,7 +383,7 @@ class ValidityCubit extends Cubit<ValidityState> {
       }
 
       try {
-        _publicacaoExtrato = await _publicacaoRepository.readDataForContract(
+        _publicacaoExtrato = await _publicacaoRepo.readDataForContract(
           cleanContractId,
         );
       } catch (_) {
@@ -361,7 +391,7 @@ class ValidityCubit extends Cubit<ValidityState> {
       }
 
       try {
-        _trData = await _trRepository.readDataForContract(cleanContractId);
+        _trData = await _trRepo.readDataForContract(cleanContractId);
       } catch (_) {
         _trData = null;
       }
@@ -398,6 +428,8 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   Future<void> selectOrderNumber(String? value) async {
+    _requireTenantId();
+
     final picked = int.tryParse(value ?? '');
 
     if (picked == null || picked <= 0) return;
@@ -411,8 +443,14 @@ class ValidityCubit extends Cubit<ValidityState> {
       return;
     }
 
+    final contractId = state.contract?.id?.trim();
+
+    if (contractId == null || contractId.isEmpty) {
+      throw Exception('Contrato não carregado para criar vigência.');
+    }
+
     final draft = ValidityData(
-      uidContract: state.contract?.id,
+      uidContract: contractId,
       orderNumber: picked,
     );
 
@@ -426,6 +464,8 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   Future<void> selectValidity(ValidityData data) async {
+    _requireTenantId();
+
     final contract = state.contract;
 
     if (contract == null) return;
@@ -464,11 +504,15 @@ class ValidityCubit extends Cubit<ValidityState> {
   Future<void> createNewValidity() async {
     if (enforcePermissions) {
       _assertCanWrite();
+    } else {
+      _requireTenantId();
     }
 
     final contract = state.contract;
 
-    if (contract == null) return;
+    if (contract == null || contract.id == null || contract.id!.trim().isEmpty) {
+      throw Exception('Contrato não carregado para criar vigência.');
+    }
 
     final existingSet = _existingOrders(state.validities);
     final nextOrder = _nextAvailableOrder(existingSet);
@@ -505,13 +549,15 @@ class ValidityCubit extends Cubit<ValidityState> {
 
     if (current == null) return;
 
+    final cleanDate = ddMMyyyy?.trim() ?? '';
+
     emit(
       state.copyWith(
         selectedValidity: current.copyWith(
-          orderdate: ddMMyyyy != null && ddMMyyyy.trim().isNotEmpty
-              ? SipGedFormatDates.ddMMyyyyToDate(ddMMyyyy)
+          orderdate: cleanDate.isNotEmpty
+              ? SipGedFormatDates.ddMMyyyyToDate(cleanDate)
               : null,
-          clearOrderDate: ddMMyyyy == null || ddMMyyyy.trim().isEmpty,
+          clearOrderDate: cleanDate.isEmpty,
         ),
       ),
     );
@@ -523,7 +569,9 @@ class ValidityCubit extends Cubit<ValidityState> {
     final contract = state.contract;
     final current = state.selectedValidity;
 
-    if (contract == null || current == null) return;
+    if (contract == null || current == null) {
+      throw Exception('Contrato e vigência selecionada são obrigatórios.');
+    }
 
     if (contract.id == null || contract.id!.trim().isEmpty) {
       throw Exception('Contrato sem ID para salvar vigência.');
@@ -553,7 +601,9 @@ class ValidityCubit extends Cubit<ValidityState> {
           validities: list,
           selected: saved,
           attachments: saved.attachments ?? state.attachments,
-        ).copyWith(isSaving: false),
+        ).copyWith(
+          isSaving: false,
+        ),
       );
     } catch (e) {
       emit(
@@ -572,7 +622,15 @@ class ValidityCubit extends Cubit<ValidityState> {
 
     final contract = state.contract;
 
-    if (contract == null || contract.id == null) return;
+    if (contract == null || contract.id == null || contract.id!.trim().isEmpty) {
+      throw Exception('Contrato é obrigatório para apagar vigência.');
+    }
+
+    final cleanValidityId = validityId.trim();
+
+    if (cleanValidityId.isEmpty) {
+      throw Exception('validityId é obrigatório para apagar vigência.');
+    }
 
     emit(
       state.copyWith(
@@ -584,11 +642,11 @@ class ValidityCubit extends Cubit<ValidityState> {
     try {
       await _repository.deletarValidade(
         contract.id!,
-        validityId,
+        cleanValidityId,
       );
 
       final list = List<ValidityData>.from(state.validities)
-        ..removeWhere((e) => e.id == validityId);
+        ..removeWhere((e) => e.id == cleanValidityId);
 
       emit(
         _stateWithListMetadata(
@@ -636,7 +694,9 @@ class ValidityCubit extends Cubit<ValidityState> {
         validity == null ||
         contract.id == null ||
         validity.id == null) {
-      return null;
+      throw Exception(
+        'Contrato e vigência salva são obrigatórios para adicionar anexo.',
+      );
     }
 
     emit(
@@ -680,7 +740,9 @@ class ValidityCubit extends Cubit<ValidityState> {
           validities: list,
           selected: updatedValidity,
           attachments: current,
-        ).copyWith(isSaving: false),
+        ).copyWith(
+          isSaving: false,
+        ),
       );
 
       return attachment;
@@ -702,9 +764,17 @@ class ValidityCubit extends Cubit<ValidityState> {
     final contract = state.contract;
     final validity = state.selectedValidity;
 
-    if (contract == null || validity == null || validity.id == null) return;
-    if (contract.id == null || contract.id!.trim().isEmpty) return;
-    if (index < 0 || index >= state.attachments.length) return;
+    if (contract == null || validity == null || validity.id == null) {
+      throw Exception('Contrato e vigência são obrigatórios.');
+    }
+
+    if (contract.id == null || contract.id!.trim().isEmpty) {
+      throw Exception('contractId é obrigatório.');
+    }
+
+    if (index < 0 || index >= state.attachments.length) {
+      throw Exception('Índice de anexo inválido.');
+    }
 
     emit(
       state.copyWith(
@@ -749,7 +819,9 @@ class ValidityCubit extends Cubit<ValidityState> {
           validities: list,
           selected: updatedValidity,
           attachments: listAttachments,
-        ).copyWith(isSaving: false),
+        ).copyWith(
+          isSaving: false,
+        ),
       );
     } catch (e) {
       emit(
@@ -769,9 +841,17 @@ class ValidityCubit extends Cubit<ValidityState> {
     final contract = state.contract;
     final validity = state.selectedValidity;
 
-    if (contract == null || validity == null || validity.id == null) return;
-    if (contract.id == null || contract.id!.trim().isEmpty) return;
-    if (index < 0 || index >= state.attachments.length) return;
+    if (contract == null || validity == null || validity.id == null) {
+      throw Exception('Contrato e vigência são obrigatórios.');
+    }
+
+    if (contract.id == null || contract.id!.trim().isEmpty) {
+      throw Exception('contractId é obrigatório.');
+    }
+
+    if (index < 0 || index >= state.attachments.length) {
+      throw Exception('Índice de anexo inválido.');
+    }
 
     emit(
       state.copyWith(
@@ -806,7 +886,9 @@ class ValidityCubit extends Cubit<ValidityState> {
           validities: list,
           selected: updatedValidity,
           attachments: attachments,
-        ).copyWith(isSaving: false),
+        ).copyWith(
+          isSaving: false,
+        ),
       );
     } catch (e) {
       emit(
@@ -821,6 +903,8 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   DateTime? get dataFinalContrato {
+    _requireTenantId();
+
     return _repository.calcularDataFinalContratoLocal(
       publicacao: _publicacaoExtrato,
       tr: _trData,
@@ -829,6 +913,8 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   DateTime? get dataFinalExecucao {
+    _requireTenantId();
+
     return _repository.calcularDataFinalExecucaoLocal(
       tr: _trData,
       validities: state.validities,

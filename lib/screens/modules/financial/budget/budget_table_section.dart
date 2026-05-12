@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:sipged/_blocs/modules/financial/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_data.dart';
 import 'package:sipged/_widgets/table/paged/paged_colum.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 
 class BudgetTableSection extends StatelessWidget {
-  final List<BudgetData> items;
-  final BudgetData? selected;
+  final List<LOAData> items;
+  final LOAData? selected;
   final NumberFormat currency;
-  final void Function(BudgetData e) onSelect;
-  final Future<void> Function(BudgetData e)? onDelete;
+  final void Function(LOAData e) onSelect;
+  final Future<void> Function(LOAData e)? onDelete;
 
   const BudgetTableSection({
     super.key,
@@ -26,7 +26,7 @@ class BudgetTableSection extends StatelessWidget {
     return value;
   }
 
-  String _itemKey(BudgetData item) {
+  String _itemKey(LOAData item) {
     final id = (item.id ?? '').trim();
     if (id.isNotEmpty) return id;
 
@@ -42,7 +42,7 @@ class BudgetTableSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PagedTableChanged<BudgetData>(
+    return PagedTableChanged<LOAData>(
       listData: items,
       getKey: _itemKey,
       selectedKey: selected != null ? _itemKey(selected!) : null,
@@ -64,37 +64,37 @@ class BudgetTableSection extends StatelessWidget {
       onTapItem: onSelect,
       onDelete: onDelete == null ? null : (e) => onDelete!(e),
       columns: [
-        PagedColum<BudgetData>(
+        PagedColum<LOAData>(
           title: 'EXERCÍCIO',
           getter: (e) => e.year.toString(),
           textAlign: TextAlign.center,
           width: 110,
         ),
-        PagedColum<BudgetData>(
+        PagedColum<LOAData>(
           title: 'CONTRATANTE',
           getter: (e) => _s(e.companyLabel),
           textAlign: TextAlign.center,
           width: 260,
         ),
-        PagedColum<BudgetData>(
+        PagedColum<LOAData>(
           title: 'FONTE',
           getter: (e) => _s(e.fundingSourceLabel),
           textAlign: TextAlign.center,
           width: 220,
         ),
-        PagedColum<BudgetData>(
+        PagedColum<LOAData>(
           title: 'CÓDIGO',
           getter: (e) => _s(e.budgetCode),
           textAlign: TextAlign.center,
           width: 160,
         ),
-        PagedColum<BudgetData>(
+        PagedColum<LOAData>(
           title: 'DESCRIÇÃO',
           getter: (e) => _s(e.description),
           textAlign: TextAlign.left,
           width: 420,
         ),
-        PagedColum<BudgetData>(
+        PagedColum<LOAData>(
           title: 'VALOR',
           getter: (e) => currency.format(e.amount),
           textAlign: TextAlign.right,

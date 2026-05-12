@@ -1,4 +1,3 @@
-// lib/_widgets/table/paged/paged_table_changed.dart
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
@@ -38,16 +37,12 @@ class PagedTableChanged<T> extends StatefulWidget {
     this.initialRowsPerPage = 25,
     this.enablePagination = true,
     this.onMetricsChanged,
-
-    // EXPANSÃO EM SUB-LINHAS
     this.enableExpandableRows = false,
     this.expandColumnWidth = 56,
     this.expandableRowBuilder,
     this.canExpandRow,
     this.initialExpandedKeys = const <String>{},
     this.onExpandedChanged,
-
-    // DISTRIBUIÇÃO DAS COLUNAS
     this.distributeColumns = true,
   });
 
@@ -98,6 +93,7 @@ class PagedTableChanged<T> extends StatefulWidget {
   final bool Function(T item)? canExpandRow;
   final Set<String> initialExpandedKeys;
   final void Function(T item, bool expanded)? onExpandedChanged;
+
   final bool distributeColumns;
 
   @override
@@ -876,6 +872,9 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
           width: tableWidth,
           constraints: BoxConstraints(
             minHeight: widget.dataRowMinHeight,
+            maxHeight: widget.dataRowMaxHeight <= widget.dataRowMinHeight
+                ? double.infinity
+                : widget.dataRowMaxHeight,
           ),
           decoration: BoxDecoration(
             border: Border(
@@ -941,7 +940,15 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
   }) {
     Widget child;
 
-    if (column.cellBuilder != null) {
+    final isLoading = column.loadingWhen?.call(item) ?? false;
+
+    if (isLoading) {
+      child = column.loadingBuilder?.call(context, item) ??
+          _PagedCellShimmer(
+            textAlign: column.textAlign,
+            maxWidth: column.maxWidth ?? width,
+          );
+    } else if (column.cellBuilder != null) {
       child = column.cellBuilder!(item);
     } else if (column.getter != null) {
       child = _cellText(
@@ -1034,5 +1041,114 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
       child: inner,
     )
         : inner;
+  }
+}
+
+class _PagedCellShimmer extends StatefulWidget {
+  const _PagedCellShimmer({
+    required this.textAlign,
+    required this.maxWidth,
+  });
+
+  final TextAlign textAlign;
+  final double maxWidth;
+
+  @override
+  State<_PagedCellShimmer> createState() => _PagedCellShimmerState();
+}
+
+class _PagedCellShimmerState extends State<_PagedCellShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Alignment _alignment() {
+    switch (widget.textAlign) {
+      case TextAlign.center:
+        return Alignment.center;
+      case TextAlign.right:
+        return Alignment.centerRight;
+      case TextAlign.left:
+      case TextAlign.start:
+      default:
+        return Alignment.centerLeft;
+    }
+  }
+
+  double _resolvedWidth() {
+    final maxWidth = widget.maxWidth;
+
+    if (!maxWidth.isFinite || maxWidth.isNaN || maxWidth <= 0) {
+      return 80;
+    }
+
+    return maxWidth.clamp(46.0, 160.0).toDouble();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final baseColor = isDark
+        ? Colors.white.withValues(alpha: 0.10)
+        : Colors.grey.shade300;
+
+    final highlightColor = isDark
+        ? Colors.white.withValues(alpha: 0.24)
+        : Colors.grey.shade100;
+
+    return Align(
+      alignment: _alignment(),
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final value = _controller.value;
+
+          return ShaderMask(
+            shaderCallback: (bounds) {
+              return LinearGradient(
+                begin: Alignment(-1.0 + (value * 2), 0),
+                end: Alignment(1.0 + (value * 2), 0),
+                colors: [
+                  baseColor,
+                  highlightColor,
+                  baseColor,
+                ],
+                stops: const [
+                  0.25,
+                  0.50,
+                  0.75,
+                ],
+              ).createShader(bounds);
+            },
+            blendMode: BlendMode.srcATop,
+            child: child,
+          );
+        },
+        child: Container(
+          width: _resolvedWidth(),
+          height: 13,
+          decoration: BoxDecoration(
+            color: baseColor,
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+      ),
+    );
   }
 }

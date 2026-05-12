@@ -31,6 +31,7 @@ class BalloonChange extends StatefulWidget {
     required this.width,
     required this.maxHeight,
     this.title,
+    this.showHeader = true,
     required this.items,
     this.tipSide = BalloonTipSide.top,
     this.headerIcon,
@@ -68,6 +69,10 @@ class BalloonChange extends StatefulWidget {
   final double maxHeight;
 
   final BalloonTipSide tipSide;
+
+  /// Se false, oculta totalmente o header,
+  /// mesmo que title, headerIcon ou action estejam preenchidos.
+  final bool showHeader;
 
   /// Opcional. Se null ou vazio, o título não aparece.
   final String? title;
@@ -148,6 +153,7 @@ class _BalloonChangeState extends State<BalloonChange> {
           tipCenterX: position.tipCenterX,
           tipCenterY: position.tipCenterY,
           title: widget.title,
+          showHeader: widget.showHeader,
           headerIcon: widget.headerIcon,
           actionLabel: widget.actionLabel,
           showAction: widget.showAction,

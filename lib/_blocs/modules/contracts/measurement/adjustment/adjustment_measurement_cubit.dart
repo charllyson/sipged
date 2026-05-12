@@ -1,5 +1,3 @@
-// lib/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_cubit.dart
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
@@ -15,13 +13,16 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
   AdjustmentMeasurementCubit({
     AdjustmentMeasurementRepository? repository,
     UserPermissionData? initialPermissions,
-    String? initialTenantId,
+    required String initialTenantId,
     this.moduleId = 'operation_measurements_adjustments',
-  })  : _repo = repository ?? AdjustmentMeasurementRepository(),
+  })  : _repo = repository ??
+      AdjustmentMeasurementRepository(
+        tenantId: initialTenantId,
+      ),
         _currentPermissions = initialPermissions,
-        _tenantId = _resolveInitialTenantId(
-          tenantId: initialTenantId,
-          permissions: initialPermissions,
+        _tenantId = _cleanRequiredTenantId(
+          initialTenantId,
+          context: 'AdjustmentMeasurementCubit.initialTenantId',
         ),
         super(AdjustmentMeasurementState.initial()) {
     _syncRepositoryTenant();
@@ -31,42 +32,34 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
   final String moduleId;
 
   UserPermissionData? _currentPermissions;
-  String? _tenantId;
+  String _tenantId;
 
-  static String? _cleanTenantId(String? value) {
-    final clean = value?.trim();
-    return clean == null || clean.isEmpty ? null : clean;
-  }
+  static String _cleanRequiredTenantId(
+      String value, {
+        required String context,
+      }) {
+    final clean = value.trim();
 
-  static String? _resolveInitialTenantId({
-    required String? tenantId,
-    required UserPermissionData? permissions,
-  }) {
-    final direct = _cleanTenantId(tenantId);
-
-    if (direct != null) {
-      return direct;
+    if (clean.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório em $context.',
+      );
     }
 
-    final permissionTenant = _cleanTenantId(permissions?.activeTenantId);
-
-    if (permissionTenant != null) {
-      return permissionTenant;
-    }
-
-    return null;
+    return clean;
   }
 
   void _syncRepositoryTenant() {
     _repo.setActiveTenantId(_tenantId);
   }
 
-  /// Use este método quando a empresa ativa mudar fora do Cubit.
-  /// Exemplo: PermissionCubit / TenantCubit / troca de tenant na UI.
-  void setTenantId(String? tenantId) {
+  void setTenantId(String tenantId) {
     final previousTenantId = _tenantId;
 
-    _tenantId = _cleanTenantId(tenantId);
+    _tenantId = _cleanRequiredTenantId(
+      tenantId,
+      context: 'AdjustmentMeasurementCubit.setTenantId',
+    );
 
     _syncRepositoryTenant();
 
@@ -79,17 +72,12 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     }
   }
 
-  bool get _hasTenantId {
-    final clean = _tenantId?.trim();
-    return clean != null && clean.isNotEmpty;
-  }
-
   String _requireTenantId() {
-    final clean = _tenantId?.trim();
+    final clean = _tenantId.trim();
 
-    if (clean == null || clean.isEmpty) {
+    if (clean.isEmpty) {
       throw Exception(
-        'Nenhuma empresa ativa foi selecionada para acessar reajustes.',
+        'tenantId é obrigatório para acessar reajustes de medição.',
       );
     }
 
@@ -100,20 +88,16 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
 
   void updatePermissions({
     UserPermissionData? permissions,
-    String? tenantId,
+    required String tenantId,
   }) {
     final previousTenantId = _tenantId;
 
     _currentPermissions = permissions ?? _currentPermissions;
 
-    final resolvedTenantId = _resolveInitialTenantId(
-      tenantId: tenantId,
-      permissions: _currentPermissions,
+    _tenantId = _cleanRequiredTenantId(
+      tenantId,
+      context: 'AdjustmentMeasurementCubit.updatePermissions',
     );
-
-    if (resolvedTenantId != null) {
-      _tenantId = resolvedTenantId;
-    }
 
     _syncRepositoryTenant();
 
@@ -179,7 +163,7 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
 
     throw Exception(
       'Usuário sem permissão para alterar reajustes. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
@@ -190,51 +174,19 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
 
     throw Exception(
       'Usuário sem permissão para apagar reajustes. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
   Future<void> loadByContract(String contractId) async {
-    _syncRepositoryTenant();
+    _requireTenantId();
 
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) {
-      emit(
-        state.copyWith(
-          status: AdjustmentMeasurementStatus.loaded,
-          adjustments: const <AdjustmentMeasurementData>[],
-          errorMessage: null,
-          contractId: null,
-          selected: null,
-          selectedIndex: null,
-          attachments: const <Attachment>[],
-          selectedAttachmentIndex: null,
-          isSaving: false,
-          uploading: false,
-          uploadProgress: null,
-        ),
+      throw Exception(
+        'contractId é obrigatório para carregar reajustes de medição.',
       );
-      return;
-    }
-
-    if (!_hasTenantId) {
-      emit(
-        state.copyWith(
-          status: AdjustmentMeasurementStatus.error,
-          adjustments: const <AdjustmentMeasurementData>[],
-          errorMessage: 'Nenhuma empresa ativa foi selecionada.',
-          contractId: cleanContractId,
-          selected: null,
-          selectedIndex: null,
-          attachments: const <Attachment>[],
-          selectedAttachmentIndex: null,
-          isSaving: false,
-          uploading: false,
-          uploadProgress: null,
-        ),
-      );
-      return;
     }
 
     emit(
@@ -282,11 +234,13 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
           uploadProgress: null,
         ),
       );
+
+      rethrow;
     }
   }
 
   Future<List<AdjustmentMeasurementData>> getAllAdjustmentsCollectionGroup() {
-    _syncRepositoryTenant();
+    _requireTenantId();
     return _repo.getAllAdjustmentsCollectionGroup();
   }
 
@@ -443,8 +397,13 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     final selected = state.selected;
     final contractId = state.contractId?.trim();
 
-    if (contractId == null || contractId.isEmpty) return;
-    if (selected?.id == null || selected!.id!.trim().isEmpty) return;
+    if (contractId == null || contractId.isEmpty) {
+      throw Exception('contractId é obrigatório para atualizar anexos.');
+    }
+
+    if (selected?.id == null || selected!.id!.trim().isEmpty) {
+      throw Exception('Selecione/salve o reajuste antes de atualizar anexos.');
+    }
 
     emit(
       state.copyWith(
@@ -602,12 +561,16 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
 
     final selected = state.selected;
 
-    if (selected == null) return;
+    if (selected == null) {
+      throw Exception('Nenhum reajuste selecionado para remover anexo.');
+    }
 
     final cleanContractId = contractId.trim();
     final cleanAdjustmentId = adjustmentId.trim();
 
-    if (cleanContractId.isEmpty || cleanAdjustmentId.isEmpty) return;
+    if (cleanContractId.isEmpty || cleanAdjustmentId.isEmpty) {
+      throw Exception('contractId e adjustmentId são obrigatórios.');
+    }
 
     final next = List<Attachment>.from(state.attachments)
       ..removeWhere(
@@ -670,12 +633,16 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
 
     final selected = state.selected;
 
-    if (selected == null) return;
+    if (selected == null) {
+      throw Exception('Nenhum reajuste selecionado para renomear anexo.');
+    }
 
     final cleanContractId = contractId.trim();
     final cleanAdjustmentId = adjustmentId.trim();
 
-    if (cleanContractId.isEmpty || cleanAdjustmentId.isEmpty) return;
+    if (cleanContractId.isEmpty || cleanAdjustmentId.isEmpty) {
+      throw Exception('contractId e adjustmentId são obrigatórios.');
+    }
 
     final next = List<Attachment>.from(state.attachments);
 
@@ -683,7 +650,9 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
           (item) => item.id == oldItem.id && item.url == oldItem.url,
     );
 
-    if (index < 0) return;
+    if (index < 0) {
+      throw Exception('Anexo não encontrado para renomear.');
+    }
 
     next[index] = newItem;
 
@@ -737,8 +706,13 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     final selected = state.selected;
     final contractId = state.contractId?.trim();
 
-    if (contractId == null || contractId.isEmpty) return;
-    if (selected?.id == null || selected!.id!.trim().isEmpty) return;
+    if (contractId == null || contractId.isEmpty) {
+      throw Exception('contractId é obrigatório para limpar PDF legado.');
+    }
+
+    if (selected?.id == null || selected!.id!.trim().isEmpty) {
+      throw Exception('Selecione/salve o reajuste antes de limpar PDF legado.');
+    }
 
     emit(
       state.copyWith(

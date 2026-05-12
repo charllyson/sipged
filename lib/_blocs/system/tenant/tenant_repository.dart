@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/material.dart';
 
 import 'tenant_data.dart';
 
@@ -577,19 +576,8 @@ class TenantRepository {
     final isSuper = _isSuperUserMap(userData);
     final allowedTenantIds = _tenantIdsFromCurrentUserMap(userData);
 
-    debugPrint(
-      '[TenantRepository] loadAvailableTenants | '
-          'isSuper=$isSuper | '
-          'allowedTenantIds=$allowedTenantIds | '
-          'collection=$collectionName',
-    );
-
     if (isSuper) {
       final snap = await _tenantsRef.get();
-
-      debugPrint(
-        '[TenantRepository] tenants encontrados=${snap.docs.length}',
-      );
 
       final tenants = snap.docs
           .where((doc) => doc.id.trim().isNotEmpty)
@@ -605,10 +593,6 @@ class TenantRepository {
     }
 
     if (allowedTenantIds.isEmpty) {
-      debugPrint(
-        '[TenantRepository] Usuário comum sem vínculos com tenants.',
-      );
-
       return const <TenantData>[];
     }
 
@@ -622,9 +606,6 @@ class TenantRepository {
       final snap = await _tenantRefById(cleanTenantId).get();
 
       if (!snap.exists || snap.data() == null) {
-        debugPrint(
-          '[TenantRepository] Tenant vinculado não encontrado: $cleanTenantId',
-        );
         continue;
       }
 
@@ -633,10 +614,6 @@ class TenantRepository {
 
     tenants.sort(
           (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
-    );
-
-    debugPrint(
-      '[TenantRepository] tenants liberados para usuário comum=${tenants.length}',
     );
 
     return tenants;
@@ -829,9 +806,7 @@ class TenantRepository {
 
     try {
       await _storage.ref(clean).delete();
-    } catch (_) {
-      // Ignora arquivo inexistente.
-    }
+    } catch (_) {}
   }
 
   Future<TenantData> saveCompanyProfile({

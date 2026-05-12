@@ -1,3 +1,6 @@
+// lib/screens/modules/contracts/measurement/tab_bar_measurement_page.dart
+// ajuste o caminho conforme onde esse arquivo está no seu projeto
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -9,6 +12,9 @@ import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart'
 
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
 
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
@@ -35,7 +41,8 @@ class TabBarMeasurementPage extends StatefulWidget {
 }
 
 class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
-  final DfdRepository _dfdRepository = DfdRepository();
+  late String _activeTenantId;
+  late DfdRepository _dfdRepository;
 
   DfdData? _dfdData;
 
@@ -58,6 +65,15 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
   @override
   void initState() {
     super.initState();
+
+    _activeTenantId = _resolveRequiredTenantId(
+      context.read<PermissionCubit>().state,
+    );
+
+    _dfdRepository = DfdRepository(
+      tenantId: _activeTenantId,
+    );
+
     _loadDfdDisplayData();
   }
 
@@ -69,9 +85,40 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
     final newId = widget.contractData?.id?.trim() ?? '';
 
     if (oldId != newId) {
-      _dfdData = null;
+      setState(() {
+        _dfdData = null;
+      });
+
       _loadDfdDisplayData();
     }
+  }
+
+  String _resolveRequiredTenantId(PermissionState permissionState) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para TabBarMeasurementPage.',
+      );
+    }
+
+    return tenantId;
+  }
+
+  void _handlePermissionStateChanged(PermissionState permissionState) {
+    final nextTenantId = _resolveRequiredTenantId(permissionState);
+
+    if (nextTenantId == _activeTenantId) return;
+
+    setState(() {
+      _activeTenantId = nextTenantId;
+      _dfdRepository = DfdRepository(
+        tenantId: _activeTenantId,
+      );
+      _dfdData = null;
+    });
+
+    _loadDfdDisplayData();
   }
 
   Future<void> _loadDfdDisplayData() async {
@@ -122,13 +169,19 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
     }
 
     return BlocProvider<ScheduleRoadCubit>(
-      key: ValueKey('measurement-chronogram-$contractId'),
-      create: (_) => ScheduleRoadCubit(
-        repository: ScheduleRoadRepository(),
-      )..warmup(
-        contractId: contractId,
-        initialServiceKey: 'geral',
+      key: ValueKey<String>(
+        'measurement-chronogram-$_activeTenantId-$contractId',
       ),
+      create: (_) {
+        return ScheduleRoadCubit(
+          repository: ScheduleRoadRepository(
+            //tenantId: _activeTenantId,
+          ),
+        )..warmup(
+          contractId: contractId,
+          initialServiceKey: 'geral',
+        );
+      },
       child: PhysFinWidget(
         contractData: contract,
         chronogramMode: true,
@@ -138,44 +191,56 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
 
   @override
   Widget build(BuildContext context) {
-    return TabChanged(
-      contractData: widget.contractData,
-      contractsCubit: widget.contractsCubit,
-      initialTabIndex: widget.initialTabIndex,
-      textBanner: _textBanner,
-      contractNumberBuilder: _buildContractNumber,
-      tabs: [
-        ContractTabDescriptor(
-          label: 'Boletim',
-          requireSavedContract: false,
-          builder: (c) => ReportExecutedPage(
-            contractData: c!,
+    return BlocListener<PermissionCubit, PermissionState>(
+      listenWhen: (previous, current) {
+        return previous.activeTenantId != current.activeTenantId;
+      },
+      listener: (context, permissionState) {
+        _handlePermissionStateChanged(permissionState);
+      },
+      child: TabChanged(
+        contractData: widget.contractData,
+        contractsCubit: widget.contractsCubit,
+        initialTabIndex: widget.initialTabIndex,
+        textBanner: _textBanner,
+        contractNumberBuilder: _buildContractNumber,
+        tabs: [
+          ContractTabDescriptor(
+            label: 'Boletim',
+            requireSavedContract: false,
+            builder: (contract) {
+              return ReportExecutedPage(
+                contractData: contract!,
+              );
+            },
           ),
-        ),
-        ContractTabDescriptor(
-          label: 'Reajustamento',
-          requireSavedContract: true,
-          builder: (c) => AdjustmentMeasurement(
-            contractData: c!,
+          ContractTabDescriptor(
+            label: 'Reajustamento',
+            requireSavedContract: true,
+            builder: (contract) {
+              return AdjustmentMeasurement(
+                contractData: contract!,
+              );
+            },
           ),
-        ),
-        ContractTabDescriptor(
-          label: 'Revisões',
-          requireSavedContract: true,
-          builder: (c) => RevisionMeasurement(
-            contractData: c!,
+          ContractTabDescriptor(
+            label: 'Revisões',
+            requireSavedContract: true,
+            builder: (contract) {
+              return RevisionMeasurement(
+                contractData: contract!,
+              );
+            },
           ),
-        ),
-        ContractTabDescriptor(
-          label: 'Cronograma',
-          requireSavedContract: true,
-          builder: (c) {
-            final contract = c!;
-
-            return _buildChronogramTab(contract);
-          },
-        ),
-      ],
+          ContractTabDescriptor(
+            label: 'Cronograma',
+            requireSavedContract: true,
+            builder: (contract) {
+              return _buildChronogramTab(contract!);
+            },
+          ),
+        ],
+      ),
     );
   }
 }

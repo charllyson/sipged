@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
-import 'package:sipged/_blocs/modules/financial/budget/budget_cubit.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_cubit.dart';
 
 import 'budget_page.dart';
 
@@ -16,8 +16,8 @@ class BudgetNetworkPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<BudgetCubit>(
-      create: (_) => BudgetCubit(),
+    return BlocProvider<LOACubit>(
+      create: (_) => LOACubit(),
       child: Scaffold(
         body: BudgetPage(contractData: contractData),
       ),

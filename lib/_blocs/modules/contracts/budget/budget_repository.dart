@@ -1,4 +1,4 @@
-// lib/_blocs/modules/contracts/budget/budget_repository.dart
+// lib/_blocs/modules/contracts/budget/loa_repository.dart
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 

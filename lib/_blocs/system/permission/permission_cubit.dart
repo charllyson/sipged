@@ -1,3 +1,5 @@
+// lib/_blocs/system/permission/permission_cubit.dart
+
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,7 +25,6 @@ class PermissionCubit extends Cubit<PermissionState> {
   @override
   Future<void> close() async {
     await _sub?.cancel();
-
     return super.close();
   }
 
@@ -35,6 +36,7 @@ class PermissionCubit extends Cubit<PermissionState> {
         state.copyWith(
           hasLoaded: true,
           clearCurrent: true,
+          clearActiveTenantId: true,
           error: 'UID do usuário não informado.',
         ),
       );
@@ -53,12 +55,18 @@ class PermissionCubit extends Cubit<PermissionState> {
 
       if (isClosed) return;
 
+      final resolvedTenantId = _resolveActiveTenantId(
+        data: data,
+        preferredTenantId: state.activeTenantId,
+      );
+
       emit(
         state.copyWith(
           isLoading: false,
           hasLoaded: true,
           current: data,
-          activeTenantId: data?.activeTenantId ?? state.activeTenantId,
+          activeTenantId: resolvedTenantId,
+          clearActiveTenantId: resolvedTenantId == null,
           clearError: true,
         ),
       );
@@ -83,6 +91,7 @@ class PermissionCubit extends Cubit<PermissionState> {
         state.copyWith(
           hasLoaded: true,
           clearCurrent: true,
+          clearActiveTenantId: true,
           error: 'Usuário não informado.',
         ),
       );
@@ -100,6 +109,7 @@ class PermissionCubit extends Cubit<PermissionState> {
         state.copyWith(
           realtimeEnabled: false,
           clearCurrent: true,
+          clearActiveTenantId: true,
           error: 'UID do usuário não informado.',
         ),
       );
@@ -120,13 +130,19 @@ class PermissionCubit extends Cubit<PermissionState> {
           (data) {
         if (isClosed) return;
 
+        final resolvedTenantId = _resolveActiveTenantId(
+          data: data,
+          preferredTenantId: state.activeTenantId,
+        );
+
         emit(
           state.copyWith(
             isLoading: false,
             hasLoaded: true,
             realtimeEnabled: true,
             current: data,
-            activeTenantId: state.activeTenantId ?? data?.activeTenantId,
+            activeTenantId: resolvedTenantId,
+            clearActiveTenantId: resolvedTenantId == null,
             clearError: true,
           ),
         );
@@ -178,6 +194,7 @@ class PermissionCubit extends Cubit<PermissionState> {
       emit(
         state.copyWith(
           clearActiveTenantId: true,
+          clearError: true,
         ),
       );
       return;
@@ -577,6 +594,35 @@ class PermissionCubit extends Cubit<PermissionState> {
     );
   }
 
+  String? _resolveActiveTenantId({
+    required UserPermissionData? data,
+    required String? preferredTenantId,
+  }) {
+    if (data == null || data.uid.trim().isEmpty) {
+      return null;
+    }
+
+    final preferred = _cleanTenantId(preferredTenantId);
+
+    if (preferred != null && data.canAccessTenant(preferred)) {
+      return preferred;
+    }
+
+    final fromData = _cleanTenantId(data.activeTenantId);
+
+    if (fromData != null && data.canAccessTenant(fromData)) {
+      return fromData;
+    }
+
+    final enabled = data.enabledTenantIds;
+
+    if (enabled.isNotEmpty) {
+      return enabled.first.trim();
+    }
+
+    return null;
+  }
+
   String? _cleanTenantId(String? tenantId) {
     final id = tenantId?.trim();
 
@@ -652,6 +698,10 @@ class SystemPermission {
       }
     }
 
+    if (permissions.isSuperUserForTenant(cleanTenantId)) {
+      return true;
+    }
+
     final canModule = permissions.canModuleString(
       module: cleanModule,
       action: cleanAction,
@@ -660,10 +710,6 @@ class SystemPermission {
 
     if (!canModule) {
       return false;
-    }
-
-    if (permissions.isSuperUserForTenant(cleanTenantId)) {
-      return true;
     }
 
     return canContractDocOnly(
@@ -693,6 +739,10 @@ class SystemPermission {
       }
     }
 
+    if (permissions.isSuperUserForTenant(cleanTenantId)) {
+      return contracts.toList(growable: false);
+    }
+
     final canReadModule = permissions.canModuleString(
       module: cleanModule,
       action: 'read',
@@ -701,10 +751,6 @@ class SystemPermission {
 
     if (!canReadModule) {
       return const <ContractData>[];
-    }
-
-    if (permissions.isSuperUserForTenant(cleanTenantId)) {
-      return contracts.toList(growable: false);
     }
 
     return contracts

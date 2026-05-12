@@ -1,7 +1,10 @@
+// lib/_widgets/charts/donut/donut_chart_changed.dart
+
 import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_widgets/charts/donut/donut_chart_legend_list.dart';
 import 'package:sipged/_widgets/charts/donut/donut_chart_metrics.dart';
 import 'package:sipged/_widgets/charts/donut/donut_legend_shimmer_list.dart';
@@ -96,8 +99,7 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
       return;
     }
 
-    if (widget.colorsSlices != null &&
-        widget.colorsSlices!.length >= length) {
+    if (widget.colorsSlices != null && widget.colorsSlices!.length >= length) {
       _cores = widget.colorsSlices!.take(length).toList();
       return;
     }
@@ -130,10 +132,7 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
   DonutLegendPosition _resolveEffectiveLegendPosition(double maxWidth) {
     if (!_useLegend) return DonutLegendPosition.hidden;
 
-    // Em telas mais estreitas, força a legenda para baixo,
-    // evitando disputa de espaço com o gráfico.
-    if (widget.legendPosition == DonutLegendPosition.right &&
-        maxWidth < 620) {
+    if (widget.legendPosition == DonutLegendPosition.right && maxWidth < 620) {
       return DonutLegendPosition.bottom;
     }
 
@@ -145,17 +144,7 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final Gradient gradient = isDark
-        ? const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF101018), Color(0xFF171924)],
-    )
-        : const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Colors.white, Color(0xFFF5F7FB)],
-    );
+    final Color cardBackgroundColor = widget.colorCard ?? Colors.white;
 
     final bool hasBasicsInvalid = widget.labels.isEmpty ||
         widget.values.isEmpty ||
@@ -266,8 +255,7 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
             )
                 : const SizedBox.shrink();
 
-            final content =
-            effectiveLegendPosition == DonutLegendPosition.right
+            final content = effectiveLegendPosition == DonutLegendPosition.right
                 ? Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -290,8 +278,7 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
                     child: Center(child: chartShimmer),
                   ),
                 ),
-                if (_useLegend)
-                  SizedBox(height: metrics.chartLegendGap),
+                if (_useLegend) SizedBox(height: metrics.chartLegendGap),
                 if (_useLegend) legendShimmerBottom,
               ],
             );
@@ -300,7 +287,7 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
               isDark: isDark,
               width: double.infinity,
               padding: metrics.cardPadding,
-              gradient: gradient,
+              backgroundColor: cardBackgroundColor,
               enableShadow: true,
               child: SizedBox.expand(child: content),
             );
@@ -318,6 +305,7 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
 
           final bool hasFilteredSeries =
               widget.filteredValues != null && widget.filteredValues!.isNotEmpty;
+
           final bool hasAnyFilteredValue =
               hasFilteredSeries && widget.filteredValues!.any((v) => v > 0);
 
@@ -334,12 +322,14 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
                     if (event is! FlTapUpEvent) return;
 
                     final touched = response?.touchedSection;
+
                     if (touched == null) {
                       _updateSelection(null);
                       return;
                     }
 
                     final index = touched.touchedSectionIndex;
+
                     if (index < 0 || index >= widget.labels.length) return;
 
                     if (_touchedIndex == index) {
@@ -354,6 +344,7 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
                   final isHighlighted = _isHighlighted(i, safeSelectedIndex);
 
                   double filteredValue;
+
                   if (widget.filteredValues != null &&
                       i < widget.filteredValues!.length) {
                     filteredValue = widget.filteredValues![i];
@@ -363,20 +354,24 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
 
                   final bool hasSomeFilter =
                       hasFilteredSeries && hasAnyFilteredValue;
+
                   final bool isInFilter = filteredValue > 0.0;
 
                   final percentual = total == 0 ? 0.0 : (value / total) * 100;
-                  final showInside = percentual >= widget.minPercentForLabel;
+
+                  final showInside =
+                      percentual >= widget.minPercentForLabel;
 
                   final titleText = showInside
-                      ? (widget.showPercentageOutside
+                      ? widget.showPercentageOutside
                       ? '${percentual.toStringAsFixed(1)}%'
-                      : '${percentual.toStringAsFixed(0)}%')
+                      : '${percentual.toStringAsFixed(0)}%'
                       : '';
 
                   final Color baseColor = _cores[i];
 
                   Color color;
+
                   if (value == 0) {
                     color = baseColor.withValues(alpha: 0.15);
                   } else if (isHighlighted) {
@@ -514,7 +509,7 @@ class _DonutChartChangedState extends State<DonutChartChanged> {
             isDark: isDark,
             width: double.infinity,
             padding: metrics.cardPadding,
-            gradient: gradient,
+            backgroundColor: cardBackgroundColor,
             enableShadow: true,
             child: SizedBox.expand(child: content),
           );

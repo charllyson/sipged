@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
@@ -78,29 +79,23 @@ class BarChartChanged extends StatefulWidget {
 }
 
 class _BarChartChangedState extends State<BarChartChanged> {
+  static const double _defaultCardHeight = 295.0;
+
   @override
   Widget build(BuildContext context) {
-    final hasLengthMismatch = widget.labels.length != widget.values.length;
-    final allNull =
-        widget.values.isEmpty || widget.values.every((v) => v == null);
+    final bool hasLengthMismatch = widget.labels.length != widget.values.length;
+
+    final bool allNull =
+        widget.values.isEmpty || widget.values.every((value) => value == null);
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final Gradient gradient = isDark
-        ? const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF101018), Color(0xFF171924)],
-    )
-        : const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Colors.white, Color(0xFFF5F7FB)],
-    );
+    final Color cardBackgroundColor = widget.colorCard ?? Colors.white;
 
     final double resolvedCardWidth = widget.widthGraphic ?? double.infinity;
-    final double resolvedCardHeight = widget.heightGraphic ?? 280.0;
+    final double resolvedCardHeight =
+        widget.heightGraphic ?? _defaultCardHeight;
 
     return SizedBox(
       width: resolvedCardWidth,
@@ -113,7 +108,7 @@ class _BarChartChangedState extends State<BarChartChanged> {
 
           final double maxHeight = constraints.maxHeight.isFinite
               ? constraints.maxHeight
-              : (widget.heightGraphic ?? 280.0);
+              : resolvedCardHeight;
 
           final int barsCount = widget.labels.isNotEmpty
               ? widget.labels.length
@@ -122,7 +117,7 @@ class _BarChartChangedState extends State<BarChartChanged> {
           final metrics = BarChartMetrics.resolve(
             maxWidth: maxWidth,
             maxHeight: maxHeight,
-            hasTitle: (widget.chartTitle?.trim().isNotEmpty ?? false),
+            hasTitle: widget.chartTitle?.trim().isNotEmpty ?? false,
             barsCount: barsCount,
             expandToMaxWidth: widget.expandToMaxWidth,
             baseBarWidth: widget.widthBar ?? 60,
@@ -143,13 +138,15 @@ class _BarChartChangedState extends State<BarChartChanged> {
             return BasicCard(
               isDark: isDark,
               width: double.infinity,
+              height: double.infinity,
               padding: metrics.cardPadding,
-              gradient: gradient,
+              backgroundColor: cardBackgroundColor,
+              gradient: null,
               enableShadow: true,
               child: SizedBox.expand(
                 child: BarChartShimmerWidget(
                   barsCount: count,
-                  isDark: isDark,
+                  isDark: false,
                   barWidth: metrics.barWidth,
                   titleWidth: metrics.titleWidth,
                   height: metrics.chartHeight,
@@ -170,69 +167,76 @@ class _BarChartChangedState extends State<BarChartChanged> {
             );
           }
 
-          final totalBars = widget.values.length;
-          final List<int> indices = List.generate(totalBars, (i) => i);
+          final int totalBars = widget.values.length;
+          final List<int> indices = List.generate(totalBars, (index) => index);
 
           int compareValues(int a, int b) {
-            final va = widget.values[a] ?? 0.0;
-            final vb = widget.values[b] ?? 0.0;
-            return va.compareTo(vb);
+            final double valueA = widget.values[a] ?? 0.0;
+            final double valueB = widget.values[b] ?? 0.0;
+
+            return valueA.compareTo(valueB);
           }
 
           int compareLabels(int a, int b) {
-            final la = widget.labels[a];
-            final lb = widget.labels[b];
-            return la.toUpperCase().compareTo(lb.toUpperCase());
+            final String labelA = widget.labels[a];
+            final String labelB = widget.labels[b];
+
+            return labelA.toUpperCase().compareTo(labelB.toUpperCase());
           }
 
           switch (widget.sortType) {
             case BarChartSortType.ascending:
               indices.sort(compareValues);
               break;
+
             case BarChartSortType.descending:
               indices.sort((a, b) => compareValues(b, a));
               break;
+
             case BarChartSortType.labelAZ:
               indices.sort(compareLabels);
               break;
+
             case BarChartSortType.labelZA:
               indices.sort((a, b) => compareLabels(b, a));
               break;
+
             case BarChartSortType.none:
               break;
           }
 
           final Map<int, int> origToSorted = {
-            for (int pos = 0; pos < indices.length; pos++) indices[pos]: pos,
+            for (int position = 0; position < indices.length; position++)
+              indices[position]: position,
           };
 
           final List<String> labelsSorted = [
-            for (final i in indices) widget.labels[i],
+            for (final index in indices) widget.labels[index],
           ];
 
           final List<double?> valuesSorted = [
-            for (final i in indices) widget.values[i],
+            for (final index in indices) widget.values[index],
           ];
 
           final List<double?>? filteredSorted = widget.filteredValues == null
               ? null
               : [
-            for (final i in indices)
-              (i < widget.filteredValues!.length
-                  ? widget.filteredValues![i]
-                  : null),
+            for (final index in indices)
+              index < widget.filteredValues!.length
+                  ? widget.filteredValues![index]
+                  : null,
           ];
 
           final List<Color>? colorsSorted = widget.barColors == null
               ? null
               : [
-            for (final i in indices)
-              (i < widget.barColors!.length
-                  ? widget.barColors![i]
-                  : Colors.cyan),
+            for (final index in indices)
+              index < widget.barColors!.length
+                  ? widget.barColors![index]
+                  : Colors.cyan,
           ];
 
-          final nonNullValues = valuesSorted.whereType<double>().toList();
+          final List<double> nonNullValues = valuesSorted.whereType<double>().toList();
 
           if (nonNullValues.isEmpty) {
             final int count =
@@ -241,13 +245,15 @@ class _BarChartChangedState extends State<BarChartChanged> {
             return BasicCard(
               isDark: isDark,
               width: double.infinity,
+              height: double.infinity,
               padding: metrics.cardPadding,
-              gradient: gradient,
+              backgroundColor: cardBackgroundColor,
+              gradient: null,
               enableShadow: true,
               child: SizedBox.expand(
                 child: BarChartShimmerWidget(
                   barsCount: count,
-                  isDark: isDark,
+                  isDark: false,
                   barWidth: metrics.barWidth,
                   titleWidth: metrics.titleWidth,
                   height: metrics.chartHeight,
@@ -271,8 +277,8 @@ class _BarChartChangedState extends State<BarChartChanged> {
           final bool hasFilteredSeries =
               filteredSorted != null && filteredSorted.isNotEmpty;
 
-          final bool hasAnyFilteredValue =
-              hasFilteredSeries && filteredSorted.whereType<double>().any((v) => v > 0);
+          final bool hasAnyFilteredValue = hasFilteredSeries &&
+              filteredSorted.whereType<double>().any((value) => value > 0);
 
           final int? externalSelectedOriginal = widget.selectedIndex;
           int? effectiveSelectedSorted;
@@ -282,10 +288,11 @@ class _BarChartChangedState extends State<BarChartChanged> {
           }
 
           final List<int>? highlightedSorted =
-          widget.highlightedIndexes == null || widget.highlightedIndexes!.isEmpty
+          widget.highlightedIndexes == null ||
+              widget.highlightedIndexes!.isEmpty
               ? null
               : widget.highlightedIndexes!
-              .map((orig) => origToSorted[orig])
+              .map((originalIndex) => origToSorted[originalIndex])
               .whereType<int>()
               .toList();
 
@@ -294,22 +301,25 @@ class _BarChartChangedState extends State<BarChartChanged> {
           final String Function(double) fmt =
               widget.valueFormatter ?? SipGedFormatMoney.doubleToText;
 
-          final double maxCalculado =
+          final double maxCalculated =
           (nonNullValues.reduce(math.max) * 1.2).ceilToDouble();
 
-          final double maxY = math.max(maxCalculado, 10);
+          final double maxY = math.max(maxCalculated, 10.0);
 
           return BasicCard(
             isDark: isDark,
             width: double.infinity,
+            height: double.infinity,
             padding: metrics.cardPadding,
-            gradient: gradient,
+            backgroundColor: cardBackgroundColor,
+            gradient: null,
             enableShadow: true,
             child: SizedBox.expand(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.chartTitle != null) ...[
+                  if (widget.chartTitle != null &&
+                      widget.chartTitle!.trim().isNotEmpty) ...[
                     SizedBox(
                       height: metrics.titleHeight,
                       child: Center(
@@ -320,6 +330,7 @@ class _BarChartChangedState extends State<BarChartChanged> {
                           style: TextStyle(
                             fontSize: metrics.titleFontSize,
                             fontWeight: FontWeight.bold,
+                            color: Colors.black87,
                           ),
                         ),
                       ),
@@ -343,17 +354,14 @@ class _BarChartChangedState extends State<BarChartChanged> {
                               show: true,
                               drawVerticalLine: true,
                               drawHorizontalLine: true,
-                              horizontalInterval: math.max(1, (maxY / 5)).toDouble(),
+                              horizontalInterval:
+                              math.max(1.0, maxY / 5).toDouble(),
                               getDrawingHorizontalLine: (value) => FlLine(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.10)
-                                    : Colors.grey.shade300,
+                                color: Colors.grey.shade300,
                                 strokeWidth: 1,
                               ),
                               getDrawingVerticalLine: (value) => FlLine(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.06)
-                                    : Colors.grey.withValues(alpha: 0.12),
+                                color: Colors.grey.withValues(alpha: 0.12),
                                 strokeWidth: 1,
                               ),
                             ),
@@ -363,7 +371,12 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                 tooltipMargin: 2,
                                 fitInsideVertically: true,
                                 fitInsideHorizontally: true,
-                                getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                                getTooltipItem: (
+                                    group,
+                                    groupIndex,
+                                    rod,
+                                    rodIndex,
+                                    ) {
                                   return BarTooltipItem(
                                     fmt(rod.toY),
                                     const TextStyle(
@@ -380,7 +393,8 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                 final spot = response?.spot;
                                 if (spot == null) return;
 
-                                final sortedIndex = spot.touchedBarGroupIndex;
+                                final int sortedIndex =
+                                    spot.touchedBarGroupIndex;
 
                                 if (sortedIndex < 0 ||
                                     sortedIndex >= labelsSorted.length ||
@@ -388,12 +402,16 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                   return;
                                 }
 
-                                final tappedLabel = labelsSorted[sortedIndex];
-                                final tappedOriginalIndex = indices[sortedIndex];
+                                final String tappedLabel =
+                                labelsSorted[sortedIndex];
+
+                                final int tappedOriginalIndex =
+                                indices[sortedIndex];
 
                                 final bool tappedSameSelected =
                                     widget.selectedIndex != null &&
-                                        widget.selectedIndex == tappedOriginalIndex;
+                                        widget.selectedIndex ==
+                                            tappedOriginalIndex;
 
                                 if (tappedSameSelected) {
                                   widget.onBarSelectionChanged?.call(null);
@@ -410,23 +428,28 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                   showTitles: true,
                                   reservedSize: metrics.bottomReservedSize,
                                   getTitlesWidget: (value, meta) {
-                                    final idx = value.toInt();
-                                    if (idx < 0 || idx >= labelsSorted.length) {
+                                    final int index = value.toInt();
+
+                                    if (index < 0 ||
+                                        index >= labelsSorted.length) {
                                       return const SizedBox.shrink();
                                     }
 
                                     return SizedBox(
                                       width: metrics.titleWidth,
                                       child: Text(
-                                        labelsSorted[idx],
+                                        labelsSorted[index],
                                         textAlign: TextAlign.center,
-                                        maxLines: metrics.bottomLabelMaxLines,
+                                        maxLines:
+                                        metrics.bottomLabelMaxLines,
                                         overflow: TextOverflow.ellipsis,
                                         softWrap: true,
                                         style: TextStyle(
-                                          fontSize: metrics.bottomLabelFontSize,
-                                          color: isDark ? Colors.white : Colors.black,
+                                          fontSize:
+                                          metrics.bottomLabelFontSize,
+                                          color: Colors.black87,
                                           height: 1.05,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                     );
@@ -437,19 +460,27 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                 sideTitles: SideTitles(
                                   showTitles: true,
                                   reservedSize: metrics.leftReservedSize,
-                                  getTitlesWidget: (value, meta) => Padding(
-                                    padding: EdgeInsets.only(right: metrics.axisGap),
-                                    child: Text(
-                                      widget.valueFormatter != null
-                                          ? widget.valueFormatter!(value)
-                                          : SipGedFormatMoney.compactSimple(value),
-                                      textAlign: TextAlign.right,
-                                      style: TextStyle(
-                                        fontSize: metrics.leftLabelFontSize,
-                                        color: isDark ? Colors.white70 : Colors.black87,
+                                  getTitlesWidget: (value, meta) {
+                                    return Padding(
+                                      padding: EdgeInsets.only(
+                                        right: metrics.axisGap,
                                       ),
-                                    ),
-                                  ),
+                                      child: Text(
+                                        widget.valueFormatter != null
+                                            ? widget.valueFormatter!(value)
+                                            : SipGedFormatMoney.compactSimple(
+                                          value,
+                                        ),
+                                        textAlign: TextAlign.right,
+                                        style: TextStyle(
+                                          fontSize:
+                                          metrics.leftLabelFontSize,
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                               topTitles: const AxisTitles(
@@ -460,12 +491,14 @@ class _BarChartChangedState extends State<BarChartChanged> {
                               ),
                             ),
                             borderData: FlBorderData(show: false),
-                            barGroups: valuesSorted.asMap().entries.map((entry) {
-                              final sortedIndex = entry.key;
-                              final totalValue = entry.value;
+                            barGroups:
+                            valuesSorted.asMap().entries.map((entry) {
+                              final int sortedIndex = entry.key;
+                              final double? totalValue = entry.value;
                               final double toY = totalValue ?? 0.0;
 
                               double? filteredValue;
+
                               if (filteredSorted != null &&
                                   sortedIndex < filteredSorted.length) {
                                 filteredValue = filteredSorted[sortedIndex];
@@ -477,11 +510,11 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                   effectiveSelectedSorted == sortedIndex;
 
                               final bool isHighlighted =
-                                  highlightedSorted?.contains(sortedIndex) ?? false;
+                                  highlightedSorted?.contains(sortedIndex) ??
+                                      false;
 
-                              final Color baseColor =
-                              (colorsSorted != null &&
-                                  sortedIndex < colorsSorted.length)
+                              final Color baseColor = colorsSorted != null &&
+                                  sortedIndex < colorsSorted.length
                                   ? colorsSorted[sortedIndex]
                                   : Colors.cyan;
 
@@ -492,6 +525,7 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                   (filteredValue ?? 0.0) > 0.0;
 
                               Color color;
+
                               if (toY == 0) {
                                 color = baseColor.withValues(alpha: 0.20);
                               } else if (isSelected) {
@@ -513,8 +547,9 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                   BarChartRodData(
                                     toY: toY,
                                     color: color,
-                                    borderRadius:
-                                    BorderRadius.circular(metrics.barRadius),
+                                    borderRadius: BorderRadius.circular(
+                                      metrics.barRadius,
+                                    ),
                                     width: metrics.barWidth,
                                   ),
                                 ],

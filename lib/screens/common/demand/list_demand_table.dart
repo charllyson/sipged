@@ -6,7 +6,6 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import '../alerts/alert_validity.dart';
 
-// Somente os DATA (sem BLoCs aqui)
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
@@ -57,47 +56,99 @@ class ListDemandTable extends StatefulWidget {
 class _ListDemandTableState extends State<ListDemandTable> {
   ContractData? _selected;
 
-  DfdData? _dfd(ContractData c) {
-    final id = c.id;
+  String? _contractId(ContractData contract) {
+    final id = contract.id?.trim();
+
+    if (id == null || id.isEmpty) {
+      return null;
+    }
+
+    return id;
+  }
+
+  DfdData? _dfd(ContractData contract) {
+    final id = _contractId(contract);
+
     if (id == null) return null;
+
     return widget.dfdByContractId[id];
   }
 
-  EditalData? _edital(ContractData c) {
-    final id = c.id;
+  EditalData? _edital(ContractData contract) {
+    final id = _contractId(contract);
+
     if (id == null) return null;
+
     return widget.editalByContractId[id];
   }
 
-  PublicacaoExtratoData? _pub(ContractData c) {
-    final id = c.id;
+  PublicacaoExtratoData? _pub(ContractData contract) {
+    final id = _contractId(contract);
+
     if (id == null) return null;
+
     return widget.pubByContractId[id];
   }
 
-  String _txt(String? v) {
-    final s = (v ?? '').trim();
-    return s.isEmpty ? '—' : s;
+  bool _isDfdLoading(ContractData contract) {
+    final id = _contractId(contract);
+
+    if (id == null) return false;
+
+    return !widget.dfdByContractId.containsKey(id);
   }
 
-  String _group(ContractData d) {
-    final n = _txt(_dfd(d)?.naturezaIntervencao);
-    return (n.isEmpty || n == '—') ? 'Sem natureza definida' : n;
+  bool _isEditalLoading(ContractData contract) {
+    final id = _contractId(contract);
+
+    if (id == null) return false;
+
+    return !widget.editalByContractId.containsKey(id);
   }
 
-  String? _selectedKey() => _selected?.id;
+  bool _isPublicacaoLoading(ContractData contract) {
+    final id = _contractId(contract);
+
+    if (id == null) return false;
+
+    return !widget.pubByContractId.containsKey(id);
+  }
+
+  String _txt(String? value) {
+    final text = (value ?? '').trim();
+
+    if (text.isEmpty) {
+      return '—';
+    }
+
+    return text;
+  }
+
+  String _group(ContractData contract) {
+    final natureza = _txt(_dfd(contract)?.naturezaIntervencao);
+
+    return natureza == '—' ? 'Sem natureza definida' : natureza;
+  }
 
   int? _safeSortColumnIndex() {
-    final i = widget.sortColumnIndex;
-    if (i == null) return null;
-    if (i < 0 || i > 5) return null;
-    return i;
+    final index = widget.sortColumnIndex;
+
+    if (index == null) return null;
+    if (index < 0 || index > 5) return null;
+
+    return index;
   }
 
   Widget _safeAlertCell(ContractData data) {
     try {
+      final id = _contractId(data);
+
       return Center(
-        child: AlertValidity(contract: data),
+        child: AlertValidity(
+          contract: data,
+          dfdData: id == null ? null : widget.dfdByContractId[id],
+          publicacaoData: id == null ? null : widget.pubByContractId[id],
+        ),
       );
     } catch (_) {
       return const Center(
@@ -110,44 +161,54 @@ class _ListDemandTableState extends State<ListDemandTable> {
     }
   }
 
-  String _safeNumeroContrato(ContractData d) {
+  String _safeNumeroContrato(ContractData data) {
     try {
-      return _txt(_pub(d)?.numeroContrato);
+      return _txt(_pub(data)?.numeroContrato);
     } catch (_) {
       return '—';
     }
   }
 
-  String _safeDescricaoObjeto(ContractData d) {
+  String _safeDescricaoObjeto(ContractData data) {
     try {
-      return _txt(_dfd(d)?.descricaoObjeto);
+      return _txt(_dfd(data)?.descricaoObjeto);
     } catch (_) {
       return '—';
     }
   }
 
-  String _safeRegional(ContractData d) {
+  String _safeRegional(ContractData data) {
     try {
-      return _txt(_dfd(d)?.regional);
+      return _txt(_dfd(data)?.regional);
     } catch (_) {
       return '—';
     }
   }
 
-  String _safeVencedor(ContractData d) {
+  String _safeVencedor(ContractData data) {
     try {
-      return _txt(_edital(d)?.vencedor);
+      return _txt(_edital(data)?.vencedor);
     } catch (_) {
       return '—';
     }
   }
 
-  String _safeProcessoAdministrativo(ContractData d) {
+  String _safeProcessoAdministrativo(ContractData data) {
     try {
-      return _txt(_dfd(d)?.processoAdministrativo);
+      return _txt(_dfd(data)?.processoAdministrativo);
     } catch (_) {
       return '—';
     }
+  }
+
+  String _tableKey(ContractData data) {
+    final id = _contractId(data);
+
+    if (id != null) {
+      return id;
+    }
+
+    return 'sem-id-${identityHashCode(data)}';
   }
 
   @override
@@ -157,8 +218,8 @@ class _ListDemandTableState extends State<ListDemandTable> {
 
     return PagedTableChanged<ContractData>(
       listData: contracts,
-      getKey: (d) => d.id ?? 'sem-id-${contracts.indexOf(d)}',
-      selectedKey: _selectedKey(),
+      getKey: _tableKey,
+      selectedKey: _selected == null ? null : _tableKey(_selected!),
       keepSelectionInternally: false,
       enableRowTapSelection: true,
       sortColumnIndex: safeSortIndex,
@@ -173,11 +234,20 @@ class _ListDemandTableState extends State<ListDemandTable> {
         widget.onSort(columnIndex, getter);
       },
       onTapItem: (contractData) {
-        setState(() => _selected = contractData);
-        widget.onTapItem(context, contractData);
+        setState(() {
+          _selected = contractData;
+        });
+
+        widget.onTapItem(
+          context,
+          contractData,
+        );
       },
       onDelete: (contractData) async {
-        setState(() => _selected = contractData);
+        setState(() {
+          _selected = contractData;
+        });
+
         await widget.onDelete(contractData);
       },
       groupLabel: 'SERVIÇO',
@@ -196,6 +266,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
           maxWidth: 110,
           textAlign: TextAlign.center,
           getter: _safeNumeroContrato,
+          loadingWhen: _isPublicacaoLoading,
         ),
         PagedColum<ContractData>(
           title: 'OBRA',
@@ -203,6 +274,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
           maxWidth: 300,
           textAlign: TextAlign.left,
           getter: _safeDescricaoObjeto,
+          loadingWhen: _isDfdLoading,
         ),
         PagedColum<ContractData>(
           title: 'REGIÃO',
@@ -210,6 +282,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
           maxWidth: 150,
           textAlign: TextAlign.center,
           getter: _safeRegional,
+          loadingWhen: _isDfdLoading,
         ),
         PagedColum<ContractData>(
           title: 'EMPRESA (LÍDER)',
@@ -217,6 +290,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
           maxWidth: 160,
           textAlign: TextAlign.center,
           getter: _safeVencedor,
+          loadingWhen: _isEditalLoading,
         ),
         PagedColum<ContractData>(
           title: 'Nº PROCESSO',
@@ -224,6 +298,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
           maxWidth: 200,
           textAlign: TextAlign.center,
           getter: _safeProcessoAdministrativo,
+          loadingWhen: _isDfdLoading,
         ),
       ],
     );

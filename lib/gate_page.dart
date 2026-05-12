@@ -29,6 +29,9 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+
 import 'package:sipged/_utils/theme/app_theme.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
@@ -623,11 +626,11 @@ class _GatePageState extends State<GatePage> {
                       tenantId: tenantId,
                     );
                   } finally {
-                    if (!mounted) return;
-
-                    setState(() {
-                      _isActivatingTenant = false;
-                    });
+                    if (mounted) {
+                      setState(() {
+                        _isActivatingTenant = false;
+                      });
+                    }
                   }
                 },
               );
@@ -645,7 +648,9 @@ class _GatePageState extends State<GatePage> {
               );
             }
 
-            final base = const MenuListPage();
+            final base = _TenantScopedApp(
+              tenantId: selectedTenantId,
+            );
 
             final needsSetup =
                 kForceInitialSetupOverlay || activeTenant == null;
@@ -782,6 +787,51 @@ class _GatePageState extends State<GatePage> {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class _TenantScopedApp extends StatelessWidget {
+  const _TenantScopedApp({
+    required this.tenantId,
+  });
+
+  final String tenantId;
+
+  @override
+  Widget build(BuildContext context) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: LoadingTreeDots(
+          message: Text('Empresa não selecionada...'),
+        ),
+      );
+    }
+
+    return MultiRepositoryProvider(
+      key: ValueKey<String>('tenant-repositories-$cleanTenantId'),
+      providers: [
+        RepositoryProvider<DfdRepository>(
+          create: (_) => DfdRepository(
+            tenantId: cleanTenantId,
+          ),
+        ),
+      ],
+      child: MultiBlocProvider(
+        key: ValueKey<String>('tenant-blocs-$cleanTenantId'),
+        providers: [
+          BlocProvider<DfdCubit>(
+            create: (ctx) => DfdCubit(
+              tenantId: cleanTenantId,
+              repository: ctx.read<DfdRepository>(),
+            ),
+          ),
+        ],
+        child: const MenuListPage(),
       ),
     );
   }

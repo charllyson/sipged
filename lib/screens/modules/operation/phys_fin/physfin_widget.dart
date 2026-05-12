@@ -23,6 +23,9 @@ import 'package:sipged/_blocs/system/notification/local/notification_local_cubit
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
+
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
@@ -54,21 +57,75 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
   final Map<String, List<double>> _percentGrid = <String, List<double>>{};
 
-  late final PhysicsFinanceCubit _physicsFinanceCubit;
+  PhysicsFinanceCubit? _physicsFinanceCubit;
 
+  String? _tenantId;
   TrData? _trData;
+
   bool _loadingTr = false;
   bool _saving = false;
+
+  String get _contractId => widget.contractData.id?.trim() ?? '';
+
+  String? _activeTenantIdOf(BuildContext context) {
+    final tenantId = context.read<PermissionCubit>().state.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      return null;
+    }
+
+    return tenantId;
+  }
+
+  String _requireTenantId({
+    required String contextName,
+  }) {
+    final tenantId = _tenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw Exception('tenantId é obrigatório em $contextName.');
+    }
+
+    return tenantId;
+  }
+
+  PhysicsFinanceCubit _createPhysicsFinanceCubit(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw Exception('tenantId é obrigatório para PhysicsFinanceCubit.');
+    }
+
+    return PhysicsFinanceCubit(
+      tenantId: cleanTenantId,
+      repository: PhysicsFinanceRepository(
+        tenantId: cleanTenantId,
+      ),
+    );
+  }
+
+  void _initCubitFromPermission() {
+    final tenantId = _activeTenantIdOf(context);
+
+    if (tenantId == null || tenantId.isEmpty) {
+      _tenantId = null;
+      _physicsFinanceCubit = null;
+      return;
+    }
+
+    _tenantId = tenantId;
+    _physicsFinanceCubit = _createPhysicsFinanceCubit(tenantId);
+  }
 
   @override
   void initState() {
     super.initState();
 
-    _physicsFinanceCubit = PhysicsFinanceCubit(
-      repository: PhysicsFinanceRepository(),
-    );
+    _initCubitFromPermission();
 
-    _unawaited(_loadTrData());
+    if (_physicsFinanceCubit != null) {
+      _unawaited(_loadTrData());
+    }
   }
 
   @override
@@ -77,20 +134,88 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
     if (oldWidget.contractData.id != widget.contractData.id) {
       _percentGrid.clear();
+      _physicsFinanceCubit?.clear();
       _unawaited(_loadTrData());
     }
   }
 
   @override
   void dispose() {
-    _physicsFinanceCubit.close();
+    _physicsFinanceCubit?.close();
     super.dispose();
   }
 
-  Future<void> _loadTrData() async {
-    final contractId = widget.contractData.id?.trim();
+  void _handleTenantChanged(String? tenantId) {
+    final cleanTenantId = tenantId?.trim();
 
-    if (contractId == null || contractId.isEmpty) {
+    if (cleanTenantId == null || cleanTenantId.isEmpty) {
+      _percentGrid.clear();
+
+      final oldCubit = _physicsFinanceCubit;
+
+      setState(() {
+        _tenantId = null;
+        _trData = null;
+        _loadingTr = false;
+        _physicsFinanceCubit = null;
+      });
+
+      oldCubit?.close();
+
+      _notify(
+        title: 'Empresa ativa não selecionada',
+        subtitle:
+        'Selecione uma empresa para carregar o planejamento físico-financeiro.',
+        type: NotificationStatus.warning,
+      );
+
+      return;
+    }
+
+    try {
+      final oldCubit = _physicsFinanceCubit;
+
+      _percentGrid.clear();
+
+      final newCubit = _createPhysicsFinanceCubit(cleanTenantId);
+
+      setState(() {
+        _tenantId = cleanTenantId;
+        _trData = null;
+        _loadingTr = false;
+        _physicsFinanceCubit = newCubit;
+      });
+
+      oldCubit?.close();
+
+      _unawaited(_loadTrData());
+    } catch (e) {
+      _notify(
+        title: 'Erro ao atualizar empresa ativa',
+        subtitle: e.toString(),
+        type: NotificationStatus.error,
+        duration: const Duration(seconds: 6),
+      );
+    }
+  }
+
+  Future<void> _loadTrData() async {
+    final contractId = _contractId;
+
+    if (contractId.isEmpty) {
+      if (!mounted) return;
+
+      setState(() {
+        _trData = null;
+        _loadingTr = false;
+      });
+
+      return;
+    }
+
+    final tenantId = _tenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
       if (!mounted) return;
 
       setState(() {
@@ -108,7 +233,11 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     }
 
     try {
-      final data = await TrRepository().readDataForContract(contractId);
+      final repository = TrRepository(
+        tenantId: tenantId,
+      );
+
+      final data = await repository.readDataForContract(contractId);
 
       if (!mounted) return;
 
@@ -379,7 +508,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
       final String key = _serviceKey(service);
 
       final List<double> saved = (stateGrid[key] ?? const <double>[])
-          .map((value) => (value as num).toDouble())
+          .map((value) => value.toDouble())
           .toList();
 
       final List<double> normalized = saved.length == periods
@@ -635,10 +764,16 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     required int periods,
   }) async {
     if (!widget.chronogramMode) return;
-    if (contractId.isEmpty) return;
+    if (contractId.trim().isEmpty) return;
 
-    await _physicsFinanceCubit.loadTerms(
-      contractId: contractId,
+    _requireTenantId(contextName: 'PhysFinWidget._bootstrapTerms');
+
+    final cubit = _physicsFinanceCubit;
+
+    if (cubit == null) return;
+
+    await cubit.loadTerms(
+      contractId: contractId.trim(),
       periods: periods,
     );
   }
@@ -656,7 +791,11 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     required List<PhysFinRow> rows,
     required int periods,
   }) {
-    _physicsFinanceCubit.ensureTermGridRows(
+    final cubit = _physicsFinanceCubit;
+
+    if (cubit == null) return;
+
+    cubit.ensureTermGridRows(
       termOrder: termOrder,
       itemIds: rows.map((row) => row.key),
       periods: periods,
@@ -665,8 +804,39 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocListener<PermissionCubit, PermissionState>(
+      listenWhen: (previous, current) {
+        return previous.activeTenantId != current.activeTenantId;
+      },
+      listener: (context, permissionState) {
+        _handleTenantChanged(permissionState.activeTenantId);
+      },
+      child: _buildWithTenantCubit(context),
+    );
+  }
+
+  Widget _buildWithTenantCubit(BuildContext context) {
+    final cubit = _physicsFinanceCubit;
+
+    if (cubit == null || _tenantId == null || _tenantId!.trim().isEmpty) {
+      return Scaffold(
+        body: Stack(
+          children: const [
+            BackgroundChange(),
+            Center(
+              child: Text(
+                'Empresa ativa não selecionada.\n'
+                    'Selecione uma empresa para carregar o planejamento físico-financeiro.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return BlocProvider<PhysicsFinanceCubit>.value(
-      value: _physicsFinanceCubit,
+      value: cubit,
       child: _buildContent(context),
     );
   }
@@ -681,8 +851,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
       bottom: 10,
     );
 
-    final ScheduleRoadCubit scheduleRoadCubit =
-    context.read<ScheduleRoadCubit>();
+    final ScheduleRoadCubit scheduleRoadCubit = context.read<ScheduleRoadCubit>();
 
     return Scaffold(
       body: Stack(
@@ -734,8 +903,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
                     ),
                   ];
 
-                  final List<int> baseDays =
-                  roadState.physfinPeriods.isNotEmpty
+                  final List<int> baseDays = roadState.physfinPeriods.isNotEmpty
                       ? List<int>.from(roadState.physfinPeriods)
                       : _daysFromTr(_trData);
 
@@ -770,15 +938,13 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
                   _unawaited(
                     _bootstrapTerms(
-                      contractId: widget.contractData.id ?? '',
+                      contractId: _contractId,
                       periods: dias.length,
                     ),
                   );
 
-                  final String contractId = widget.contractData.id ?? '';
-
                   final bool waitingTerms = widget.chronogramMode &&
-                      (contractId.isEmpty ||
+                      (_contractId.isEmpty ||
                           _loadingTr ||
                           !financeState.termsLoaded ||
                           financeState.isLoading);
@@ -944,8 +1110,16 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
                           if (picked == null) return;
 
-                          await _physicsFinanceCubit.updatePercentForTerm(
-                            contractId: widget.contractData.id ?? '',
+                          final cubit = _physicsFinanceCubit;
+
+                          if (cubit == null) {
+                            throw Exception(
+                              'PhysicsFinanceCubit não inicializado.',
+                            );
+                          }
+
+                          await cubit.updatePercentForTerm(
+                            contractId: _contractId,
                             termOrder: termOrder,
                             itemId: itemId,
                             colIndex: colIndex,

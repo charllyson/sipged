@@ -1,15 +1,23 @@
+// lib/screens/modules/contracts/budget/budget_page.dart
+// ajuste o caminho conforme onde esse arquivo está no seu projeto
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
 import 'package:sipged/_blocs/system/notification/helpers/notification_budget.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
@@ -33,7 +41,8 @@ class BudgetPage extends StatefulWidget {
 }
 
 class _BudgetPageState extends State<BudgetPage> {
-  final DfdRepository _dfdRepository = DfdRepository();
+  late String _activeTenantId;
+  late DfdRepository _dfdRepository;
 
   bool _saving = false;
   DfdData? _dfdData;
@@ -65,6 +74,41 @@ class _BudgetPageState extends State<BudgetPage> {
   @override
   void initState() {
     super.initState();
+
+    _activeTenantId = _resolveRequiredTenantId(
+      context.read<PermissionCubit>().state,
+    );
+
+    _dfdRepository = DfdRepository(
+      tenantId: _activeTenantId,
+    );
+
+    _loadDfdDisplayData();
+  }
+
+  String _resolveRequiredTenantId(PermissionState permissionState) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório para BudgetPage.');
+    }
+
+    return tenantId;
+  }
+
+  void _handlePermissionStateChanged(PermissionState permissionState) {
+    final nextTenantId = _resolveRequiredTenantId(permissionState);
+
+    if (nextTenantId == _activeTenantId) return;
+
+    setState(() {
+      _activeTenantId = nextTenantId;
+      _dfdRepository = DfdRepository(
+        tenantId: _activeTenantId,
+      );
+      _dfdData = null;
+    });
+
     _loadDfdDisplayData();
   }
 
@@ -157,9 +201,7 @@ class _BudgetPageState extends State<BudgetPage> {
       contract: widget.contractData,
       title: cleanTitle.isEmpty ? 'Orçamento' : cleanTitle,
       subtitle: cleanSubtitle?.isNotEmpty == true ? cleanSubtitle : null,
-      details: cleanDetails?.isNotEmpty == true
-          ? cleanDetails
-          : _contractSummary,
+      details: cleanDetails?.isNotEmpty == true ? cleanDetails : _contractSummary,
       leadingLabel: 'Orçamento',
       module: 'contracts_budget',
       type: type,
@@ -172,6 +214,8 @@ class _BudgetPageState extends State<BudgetPage> {
       includeCurrentUser: includeCurrentUser,
       delivery: NotificationDelivery.localBellAndPush,
       extra: <String, dynamic>{
+        'tenantId': _activeTenantId,
+        'companyId': _activeTenantId,
         'module': 'contracts_budget',
         'route': 'contracts_budget',
         'contractId': _contractId,
@@ -284,6 +328,8 @@ class _BudgetPageState extends State<BudgetPage> {
         sendPush: true,
         includeCurrentUser: true,
         extra: <String, dynamic>{
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'action': 'budget_updated',
           'contractId': cleanContractId,
           'route': 'contracts_budget',
@@ -305,6 +351,8 @@ class _BudgetPageState extends State<BudgetPage> {
         saveInBell: false,
         sendPush: false,
         extra: <String, dynamic>{
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'action': 'budget_update_error',
           'contractId': cleanContractId,
           'route': 'contracts_budget',
@@ -326,134 +374,144 @@ class _BudgetPageState extends State<BudgetPage> {
   Widget build(BuildContext context) {
     final contractId = _contractId;
 
-    return ChangeNotifierProvider<bc.MagicTableController>(
-      create: (_) => bc.MagicTableController(
-        cellPadHorizontal: const EdgeInsets.symmetric(horizontal: 12).horizontal,
-      ),
-      builder: (context, _) {
-        final ctrl = context.watch<bc.MagicTableController>();
-        final cubit = context.read<BudgetCubit>();
+    return BlocListener<PermissionCubit, PermissionState>(
+      listenWhen: (previous, current) {
+        return previous.activeTenantId != current.activeTenantId;
+      },
+      listener: (context, permissionState) {
+        _handlePermissionStateChanged(permissionState);
+      },
+      child: ChangeNotifierProvider<bc.MagicTableController>(
+        create: (_) => bc.MagicTableController(
+          cellPadHorizontal:
+          const EdgeInsets.symmetric(horizontal: 12).horizontal,
+        ),
+        builder: (context, _) {
+          final ctrl = context.watch<bc.MagicTableController>();
+          final cubit = context.read<BudgetCubit>();
 
-        final isLoading = context.select<BudgetCubit, bool>(
-              (c) => c.state.loadingFor(contractId),
-        );
+          final isLoading = context.select<BudgetCubit, bool>(
+                (c) => c.state.loadingFor(contractId),
+          );
 
-        final isBusy = isLoading || _saving;
+          final isBusy = isLoading || _saving;
 
-        return Scaffold(
-          appBar: UpBar(
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 12.0),
-              child: CircleButtonChange(),
+          return Scaffold(
+            appBar: UpBar(
+              leading: const Padding(
+                padding: EdgeInsets.only(left: 12.0),
+                child: CircleButtonChange(),
+              ),
             ),
-          ),
-          body: Stack(
-            children: [
-              const Positioned.fill(
-                child: BackgroundChange(),
-              ),
-              Positioned.fill(
-                child: MagicTableChanged(
-                  selectAllOnEdit: false,
-                  controller: ctrl,
-                  onInit: (c) => _load(cubit, c, contractId),
-                  allowAddColumn: false,
-                  allowRemoveColumn: false,
-                  allowAddRow: false,
-                  onRequestSaveAfterStructureChange: (c) {
-                    return _saveNow(cubit, c, contractId);
-                  },
-                  bottomScrollGap: 90,
-                  rightScrollGap: 60,
-                  floatingActionsBuilder: (ctx, c) {
-                    return [
-                      FloatingActionButton.small(
-                        backgroundColor: Colors.white,
-                        heroTag: 'pasteExcel',
-                        tooltip: 'Colar do Excel (Ctrl+V)',
-                        onPressed: isBusy ? null : () => c.pasteFromClipboard(),
-                        child: const Icon(Icons.paste),
-                      ),
-                      const SizedBox(height: 12),
-                      FloatingActionButton.small(
-                        backgroundColor: Colors.white,
-                        heroTag: 'saveBudget',
-                        tooltip: 'Salvar orçamento no Firestore',
-                        onPressed: isBusy
-                            ? null
-                            : () async {
-                          if (!c.hasData) {
-                            await _showNotification(
-                              title: 'Nada para salvar',
-                              subtitle:
-                              'Cole dados do Excel antes de salvar.',
-                              type: NotificationStatus.info,
-                              saveInBell: false,
-                              sendPush: false,
-                            );
-                            return;
-                          }
+            body: Stack(
+              children: [
+                const Positioned.fill(
+                  child: BackgroundChange(),
+                ),
+                Positioned.fill(
+                  child: MagicTableChanged(
+                    selectAllOnEdit: false,
+                    controller: ctrl,
+                    onInit: (c) => _load(cubit, c, contractId),
+                    allowAddColumn: false,
+                    allowRemoveColumn: false,
+                    allowAddRow: false,
+                    onRequestSaveAfterStructureChange: (c) {
+                      return _saveNow(cubit, c, contractId);
+                    },
+                    bottomScrollGap: 90,
+                    rightScrollGap: 60,
+                    floatingActionsBuilder: (ctx, c) {
+                      return [
+                        FloatingActionButton.small(
+                          backgroundColor: Colors.white,
+                          heroTag: 'pasteExcel',
+                          tooltip: 'Colar do Excel (Ctrl+V)',
+                          onPressed:
+                          isBusy ? null : () => c.pasteFromClipboard(),
+                          child: const Icon(Icons.paste),
+                        ),
+                        const SizedBox(height: 12),
+                        FloatingActionButton.small(
+                          backgroundColor: Colors.white,
+                          heroTag: 'saveBudget',
+                          tooltip: 'Salvar orçamento no Firestore',
+                          onPressed: isBusy
+                              ? null
+                              : () async {
+                            if (!c.hasData) {
+                              await _showNotification(
+                                title: 'Nada para salvar',
+                                subtitle:
+                                'Cole dados do Excel antes de salvar.',
+                                type: NotificationStatus.info,
+                                saveInBell: false,
+                                sendPush: false,
+                              );
+                              return;
+                            }
 
-                          await _saveNow(cubit, c, contractId);
-                        },
-                        child: const Icon(Icons.save),
-                      ),
-                    ];
-                  },
-                ),
-              ),
-              const Align(
-                alignment: Alignment.bottomCenter,
-                child: FootBar(),
-              ),
-              if (isBusy) ...[
-                const ModalBarrier(
-                  dismissible: false,
-                  color: Colors.black38,
-                ),
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
-                        BoxShadow(
-                          blurRadius: 10,
-                          spreadRadius: 1,
-                          color: Colors.black26,
+                            await _saveNow(cubit, c, contractId);
+                          },
+                          child: const Icon(Icons.save),
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const LoadingTreeDots(
-                          size: 28,
-                          centered: false,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          _saving
-                              ? 'Salvando orçamento...'
-                              : 'Carregando orçamento...',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ];
+                    },
                   ),
                 ),
+                const Align(
+                  alignment: Alignment.bottomCenter,
+                  child: FootBar(),
+                ),
+                if (isBusy) ...[
+                  const ModalBarrier(
+                    dismissible: false,
+                    color: Colors.black38,
+                  ),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                            color: Colors.black26,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const LoadingTreeDots(
+                            size: 28,
+                            centered: false,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            _saving
+                                ? 'Salvando orçamento...'
+                                : 'Carregando orçamento...',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 }

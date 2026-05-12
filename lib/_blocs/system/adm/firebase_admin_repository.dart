@@ -1,8 +1,7 @@
-// lib/_blocs/system/adm/firebase_admin_repository.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:sipged/_blocs/system/adm/firebase_admin_data.dart';
 
 class FirebaseAdminRepository {
@@ -40,11 +39,28 @@ class FirebaseAdminRepository {
   }
 
   // ===========================================================================
-  // CollectionGroup -> Collection / Contract Subcollection
+  // Migração Publicação / Arquivamento:
+  //
+  // Origem antiga:
+  //
+  // contracts/{contractId}/publicacao/{docId}
+  // contracts/{contractId}/publicacao/{docId}/{section}/{sectionDocId}
+  //
+  // contracts/{contractId}/arquivamento/{docId}
+  // contracts/{contractId}/arquivamento/{docId}/{section}/{sectionDocId}
+  //
+  // Destino novo:
+  //
+  // tenants/{tenantId}/contracts/{contractId}/hiring/main/publicacao/main
+  // tenants/{tenantId}/contracts/{contractId}/hiring/main/publicacao/main/{section}/main
+  //
+  // tenants/{tenantId}/contracts/{contractId}/hiring/main/arquivamento/main
+  // tenants/{tenantId}/contracts/{contractId}/hiring/main/arquivamento/main/{section}/main
   // ===========================================================================
 
-  Future<FirebaseCopyCollectionGroupResultData> copyCollectionGroupToCollection({
-    required FirebaseCopyCollectionGroupParams params,
+  Future<FirebaseCopyContractModulesResultData>
+  copyLegacyContractModulesToTenantHiringMain({
+    required FirebaseCopyContractModulesParams params,
     void Function(
         int current,
         int total,
@@ -52,50 +68,418 @@ class FirebaseAdminRepository {
         String? detail,
         )? onProgress,
   }) async {
-    final cleanCollectionId = params.collectionId.trim();
-    final cleanTargetPath = params.targetPath.trim();
-    final cleanTenantId = params.tenantId.trim().isEmpty
-        ? FirebaseAdminTenantPaths.fixedMigrationTenantId
-        : params.tenantId.trim();
+    final cleanTenantId = params.tenantId.trim();
+    final cleanSourceContractsPath = params.sourceContractsPath.trim();
+    final cleanTargetContractsPath = params.targetContractsPath.trim();
 
-    if (cleanCollectionId.isEmpty) {
-      throw ArgumentError('Informe o ID da collectionGroup.');
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId não informado.');
     }
 
-    _validateCollectionPath(cleanTargetPath);
+    if (params.modules.isEmpty) {
+      throw ArgumentError('Nenhum módulo de contrato informado.');
+    }
 
-    final targetRootCol = _collection(cleanTargetPath);
+    _validateCollectionPath(cleanSourceContractsPath);
+    _validateCollectionPath(cleanTargetContractsPath);
+
+    final sourceContractsCol = _collection(cleanSourceContractsPath);
+    final targetContractsCol = _collection(cleanTargetContractsPath);
+
+    final pageSize = params.pageSize.clamp(1, 200).toInt();
+    final batchSize = params.batchSize.clamp(1, 100).toInt();
+
+    int contractsScanned = 0;
+    int contractsWithoutModules = 0;
+    int rootDocsScanned = 0;
+    int sectionDocsScanned = 0;
 
     int scanned = 0;
     int copied = 0;
     int skipped = 0;
     int alreadyExists = 0;
     int empty = 0;
-    int excludedByPath = 0;
-    int missingContractId = 0;
 
-    final pageSize = params.pageSize.clamp(1, 200);
-    final batchSize = params.batchSize.clamp(1, 100);
+    final moduleTotals = <String, Map<String, int>>{
+      for (final module in params.modules)
+        module.targetCollectionId: <String, int>{
+          'rootDocsScanned': 0,
+          'sectionDocsScanned': 0,
+          'copied': 0,
+          'skipped': 0,
+          'alreadyExists': 0,
+          'empty': 0,
+        },
+    };
 
-    DocumentSnapshot<Map<String, dynamic>>? last;
+    DocumentSnapshot<Map<String, dynamic>>? lastContract;
     final pendingWrites = <_PendingWrite>[];
 
     onProgress?.call(
       0,
       1,
-      'Iniciando collectionGroup...',
-      params.targetPlacementMode ==
-          FirebaseCollectionGroupTargetPlacementMode
-              .tenantContractSubcollection
-          ? 'Origem: collectionGroup("$cleanCollectionId") → Destino: $cleanTargetPath/{contractId}/$cleanCollectionId/{docId}'
-          : 'Origem: collectionGroup("$cleanCollectionId") → Destino: $cleanTargetPath',
+      'Iniciando migração de Publicação/Arquivamento...',
+      'Origem: $cleanSourceContractsPath/{contractId}/{publicacao|arquivamento} → '
+          'Destino: $cleanTargetContractsPath/{contractId}/hiring/main/{publicacao|arquivamento}/main',
     );
 
     while (true) {
-      Query<Map<String, dynamic>> query = _db
-          .collectionGroup(cleanCollectionId)
-          .orderBy(FieldPath.documentId)
-          .limit(pageSize);
+      Query<Map<String, dynamic>> contractsQuery =
+      sourceContractsCol.orderBy(FieldPath.documentId).limit(pageSize);
+
+      if (lastContract != null) {
+        contractsQuery = contractsQuery.startAfterDocument(lastContract);
+      }
+
+      final contractsSnap = await contractsQuery.get();
+
+      if (contractsSnap.docs.isEmpty) break;
+
+      for (final contractDoc in contractsSnap.docs) {
+        contractsScanned++;
+
+        final contractId = contractDoc.id.trim();
+
+        if (contractId.isEmpty) {
+          skipped++;
+          continue;
+        }
+
+        bool foundAnyModuleForContract = false;
+
+        onProgress?.call(
+          contractsScanned,
+          1,
+          'Lendo contrato...',
+          'Contrato: $contractId',
+        );
+
+        final targetContractRef = targetContractsCol.doc(
+          _safeDocId(contractId),
+        );
+
+        final targetHiringMainRef = targetContractRef
+            .collection(FirebaseAdminTenantPaths.hiringCollectionId)
+            .doc(FirebaseAdminTenantPaths.hiringMainDocId);
+
+        pendingWrites.add(
+          _PendingWrite(
+            docId: 'hiring/main',
+            ref: targetHiringMainRef,
+            data: <String, dynamic>{
+              'id': FirebaseAdminTenantPaths.hiringMainDocId,
+              'tenantId': cleanTenantId,
+              'companyId': cleanTenantId,
+              'contractId': contractId,
+              'uidContract': contractId,
+              'uidcontract': contractId,
+              'updatedAt': FieldValue.serverTimestamp(),
+              'sourceCollectionModel': 'tenant_contract_hiring_main',
+            },
+            merge: true,
+          ),
+        );
+
+        for (final module in params.modules) {
+          final targetCollectionId = module.targetCollectionId.trim();
+          final targetRootDocId = module.targetRootDocId.trim().isEmpty
+              ? FirebaseAdminContractModulePaths.mainDocId
+              : module.targetRootDocId.trim();
+
+          if (targetCollectionId.isEmpty) {
+            skipped++;
+            continue;
+          }
+
+          final sourceCollectionIds = module.sourceCollectionIds
+              .map((value) => value.trim())
+              .where((value) => value.isNotEmpty)
+              .toSet()
+              .toList();
+
+          if (sourceCollectionIds.isEmpty) {
+            skipped++;
+            continue;
+          }
+
+          for (final sourceCollectionId in sourceCollectionIds) {
+            final sourceRootCol = contractDoc.reference.collection(
+              sourceCollectionId,
+            );
+
+            final targetRootDocRef = targetHiringMainRef
+                .collection(targetCollectionId)
+                .doc(_safeDocId(targetRootDocId));
+
+            final rootDocs = await _readCollectionPaged(
+              sourceRootCol,
+              pageSize: pageSize,
+            );
+
+            if (rootDocs.isEmpty) continue;
+
+            foundAnyModuleForContract = true;
+
+            for (final rootDoc in rootDocs) {
+              rootDocsScanned++;
+              scanned++;
+
+              moduleTotals[targetCollectionId]!['rootDocsScanned'] =
+                  moduleTotals[targetCollectionId]!['rootDocsScanned']! + 1;
+
+              final copyResult = await _queueCopyDoc(
+                pendingWrites: pendingWrites,
+                sourceDoc: rootDoc,
+                targetDocRef: targetRootDocRef,
+                tenantId: cleanTenantId,
+                contractId: contractId,
+                sourceCollectionModel:
+                'tenant_contract_hiring_$targetCollectionId',
+                merge: params.merge,
+                skipExisting: params.skipExisting,
+                addMigrationMetadata: params.addMigrationMetadata,
+                rewriteDocumentPathFields: params.rewriteDocumentPathFields,
+                extraData: <String, dynamic>{
+                  'legacySourceCollectionId': sourceCollectionId,
+                  'legacySourceRootDocId': rootDoc.id,
+                  'moduleCollectionId': targetCollectionId,
+                  'moduleDocId': targetRootDocId,
+                },
+              );
+
+              skipped += copyResult.skipped;
+              alreadyExists += copyResult.alreadyExists;
+              empty += copyResult.empty;
+
+              moduleTotals[targetCollectionId]!['skipped'] =
+                  moduleTotals[targetCollectionId]!['skipped']! +
+                      copyResult.skipped;
+
+              moduleTotals[targetCollectionId]!['alreadyExists'] =
+                  moduleTotals[targetCollectionId]!['alreadyExists']! +
+                      copyResult.alreadyExists;
+
+              moduleTotals[targetCollectionId]!['empty'] =
+                  moduleTotals[targetCollectionId]!['empty']! +
+                      copyResult.empty;
+
+              onProgress?.call(
+                scanned,
+                1,
+                'Preparando ${module.label}...',
+                '${rootDoc.reference.path} → ${targetRootDocRef.path}',
+              );
+
+              if (pendingWrites.length >= batchSize) {
+                final committed = await _commitPendingWritesSafely(
+                  writes: pendingWrites,
+                  current: scanned,
+                  total: 1,
+                  onProgress: onProgress,
+                );
+
+                copied += committed;
+
+                moduleTotals[targetCollectionId]!['copied'] =
+                    moduleTotals[targetCollectionId]!['copied']! + committed;
+
+                pendingWrites.clear();
+
+                await Future<void>.delayed(const Duration(milliseconds: 80));
+              }
+
+              for (final sectionId in module.sectionCollectionIds) {
+                final cleanSectionId = sectionId.trim();
+
+                if (cleanSectionId.isEmpty) continue;
+
+                final targetSectionDocId =
+                module.targetSectionDocId.trim().isEmpty
+                    ? FirebaseAdminContractModulePaths.mainDocId
+                    : module.targetSectionDocId.trim();
+
+                final sourceSectionCol = rootDoc.reference.collection(
+                  cleanSectionId,
+                );
+
+                final targetSectionDocRef = targetRootDocRef
+                    .collection(cleanSectionId)
+                    .doc(_safeDocId(targetSectionDocId));
+
+                final sectionDocs = await _readCollectionPaged(
+                  sourceSectionCol,
+                  pageSize: pageSize,
+                );
+
+                for (final sectionDoc in sectionDocs) {
+                  sectionDocsScanned++;
+                  scanned++;
+
+                  moduleTotals[targetCollectionId]!['sectionDocsScanned'] =
+                      moduleTotals[targetCollectionId]![
+                      'sectionDocsScanned']! +
+                          1;
+
+                  final sectionCopyResult = await _queueCopyDoc(
+                    pendingWrites: pendingWrites,
+                    sourceDoc: sectionDoc,
+                    targetDocRef: targetSectionDocRef,
+                    tenantId: cleanTenantId,
+                    contractId: contractId,
+                    sourceCollectionModel:
+                    'tenant_contract_hiring_${targetCollectionId}_$cleanSectionId',
+                    merge: params.merge,
+                    skipExisting: params.skipExisting,
+                    addMigrationMetadata: params.addMigrationMetadata,
+                    rewriteDocumentPathFields:
+                    params.rewriteDocumentPathFields,
+                    extraData: <String, dynamic>{
+                      'legacySourceCollectionId': sourceCollectionId,
+                      'legacySourceRootDocId': rootDoc.id,
+                      'legacySourceSectionId': cleanSectionId,
+                      'legacySourceSectionDocId': sectionDoc.id,
+                      'moduleCollectionId': targetCollectionId,
+                      'moduleDocId': targetRootDocId,
+                      'sectionId': cleanSectionId,
+                      'sectionDocId': targetSectionDocId,
+                    },
+                  );
+
+                  skipped += sectionCopyResult.skipped;
+                  alreadyExists += sectionCopyResult.alreadyExists;
+                  empty += sectionCopyResult.empty;
+
+                  moduleTotals[targetCollectionId]!['skipped'] =
+                      moduleTotals[targetCollectionId]!['skipped']! +
+                          sectionCopyResult.skipped;
+
+                  moduleTotals[targetCollectionId]!['alreadyExists'] =
+                      moduleTotals[targetCollectionId]!['alreadyExists']! +
+                          sectionCopyResult.alreadyExists;
+
+                  moduleTotals[targetCollectionId]!['empty'] =
+                      moduleTotals[targetCollectionId]!['empty']! +
+                          sectionCopyResult.empty;
+
+                  onProgress?.call(
+                    scanned,
+                    1,
+                    'Preparando seção de ${module.label}...',
+                    '${sectionDoc.reference.path} → ${targetSectionDocRef.path}',
+                  );
+
+                  if (pendingWrites.length >= batchSize) {
+                    final committed = await _commitPendingWritesSafely(
+                      writes: pendingWrites,
+                      current: scanned,
+                      total: 1,
+                      onProgress: onProgress,
+                    );
+
+                    copied += committed;
+
+                    moduleTotals[targetCollectionId]!['copied'] =
+                        moduleTotals[targetCollectionId]!['copied']! +
+                            committed;
+
+                    pendingWrites.clear();
+
+                    await Future<void>.delayed(
+                      const Duration(milliseconds: 80),
+                    );
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (!foundAnyModuleForContract) {
+          contractsWithoutModules++;
+        }
+      }
+
+      lastContract = contractsSnap.docs.last;
+
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+    }
+
+    if (pendingWrites.isNotEmpty) {
+      final committed = await _commitPendingWritesSafely(
+        writes: pendingWrites,
+        current: scanned,
+        total: 1,
+        onProgress: onProgress,
+      );
+
+      copied += committed;
+
+      pendingWrites.clear();
+    }
+
+    return FirebaseCopyContractModulesResultData(
+      tenantId: cleanTenantId,
+      sourceContractsPath: cleanSourceContractsPath,
+      targetContractsPath: cleanTargetContractsPath,
+      totalContractsScanned: contractsScanned,
+      totalContractsWithoutModules: contractsWithoutModules,
+      totalRootDocsScanned: rootDocsScanned,
+      totalSectionDocsScanned: sectionDocsScanned,
+      totalScanned: scanned,
+      totalCopied: copied,
+      totalSkipped: skipped,
+      totalAlreadyExists: alreadyExists,
+      totalEmpty: empty,
+      moduleTotals: moduleTotals,
+    );
+  }
+
+  /// Alias mantido para não quebrar chamadas antigas.
+  Future<FirebaseCopyContractModulesResultData>
+  copyLegacyContractModulesToTenantContracts({
+    required FirebaseCopyContractModulesParams params,
+    void Function(
+        int current,
+        int total,
+        String label,
+        String? detail,
+        )? onProgress,
+  }) {
+    return copyLegacyContractModulesToTenantHiringMain(
+      params: params,
+      onProgress: onProgress,
+    );
+  }
+
+  /// Alias mantido para não quebrar chamadas antigas.
+  Future<FirebaseCopyContractModulesResultData>
+  copyLegacyHiringStagesToTenantHiringMain({
+    required FirebaseCopyContractModulesParams params,
+    void Function(
+        int current,
+        int total,
+        String label,
+        String? detail,
+        )? onProgress,
+  }) {
+    return copyLegacyContractModulesToTenantHiringMain(
+      params: params,
+      onProgress: onProgress,
+    );
+  }
+
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  _readCollectionPaged(
+      CollectionReference<Map<String, dynamic>> col, {
+        required int pageSize,
+      }) async {
+    final out = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+
+    DocumentSnapshot<Map<String, dynamic>>? last;
+
+    while (true) {
+      Query<Map<String, dynamic>> query =
+      col.orderBy(FieldPath.documentId).limit(pageSize.clamp(1, 200));
 
       if (last != null) {
         query = query.startAfterDocument(last);
@@ -105,298 +489,94 @@ class FirebaseAdminRepository {
 
       if (snap.docs.isEmpty) break;
 
-      for (final sourceDoc in snap.docs) {
-        scanned++;
-
-        final sourcePath = sourceDoc.reference.path;
-
-        final shouldExclude = params.excludePathPrefixes.any((prefix) {
-          final cleanPrefix = prefix.trim();
-
-          if (cleanPrefix.isEmpty) return false;
-
-          return sourcePath.startsWith(cleanPrefix);
-        });
-
-        if (shouldExclude) {
-          excludedByPath++;
-          skipped++;
-          continue;
-        }
-
-        final data = sourceDoc.data();
-
-        if (data.isEmpty) {
-          empty++;
-          skipped++;
-          continue;
-        }
-
-        final parentId = _resolveContractIdForCollectionGroupDoc(
-          sourceDoc.reference,
-          collectionId: cleanCollectionId,
-          data: data,
-        );
-
-        final DocumentReference<Map<String, dynamic>> targetDocRef;
-        final String targetDocId;
-
-        switch (params.targetPlacementMode) {
-          case FirebaseCollectionGroupTargetPlacementMode.singleTargetCollection:
-            targetDocId = _targetDocIdForCollectionGroupDoc(
-              sourceDoc: sourceDoc,
-              parentId: parentId,
-              mode: params.targetDocIdMode,
-            );
-
-            targetDocRef = targetRootCol.doc(targetDocId);
-            break;
-
-          case FirebaseCollectionGroupTargetPlacementMode
-              .tenantContractSubcollection:
-            final cleanParentId = parentId?.trim();
-
-            if (cleanParentId == null || cleanParentId.isEmpty) {
-              missingContractId++;
-              skipped++;
-
-              onProgress?.call(
-                scanned,
-                1,
-                'Documento ignorado...',
-                'Não foi possível identificar contractId em: $sourcePath',
-              );
-
-              continue;
-            }
-
-            targetDocId = _safeDocId(sourceDoc.id);
-
-            targetDocRef = targetRootCol
-                .doc(_safeDocId(cleanParentId))
-                .collection(cleanCollectionId)
-                .doc(targetDocId);
-
-            break;
-        }
-
-        if (params.skipExisting) {
-          final targetSnap = await targetDocRef.get();
-
-          if (targetSnap.exists) {
-            alreadyExists++;
-            skipped++;
-            continue;
-          }
-        }
-
-        final toCopy = _buildCopyData(
-          sourcePath: sourcePath,
-          docId: sourceDoc.id,
-          data: data,
-          addMigrationMetadata: params.addMigrationMetadata,
-          targetDocPath: targetDocRef.path,
-          rewriteDocumentPathFields: params.rewriteDocumentPathFields,
-        );
-
-        if (toCopy.isEmpty) {
-          empty++;
-          skipped++;
-          continue;
-        }
-
-        toCopy['id'] = targetDocId;
-        toCopy['tenantId'] = cleanTenantId;
-        toCopy['companyId'] = cleanTenantId;
-        toCopy['legacySourceId'] = sourceDoc.id;
-        toCopy['legacySourcePath'] = sourcePath;
-        toCopy['recordPath'] = targetDocRef.path;
-        toCopy['sourceCollectionModel'] =
-        'tenant_contract_${cleanCollectionId.trim()}';
-
-        if (parentId != null && parentId.trim().isNotEmpty) {
-          toCopy['contractId'] = parentId.trim();
-          toCopy['uidContract'] = parentId.trim();
-          toCopy['uidcontract'] = parentId.trim();
-          toCopy['legacyContractId'] = parentId.trim();
-        }
-
-        pendingWrites.add(
-          _PendingWrite(
-            docId: targetDocId,
-            ref: targetDocRef,
-            data: toCopy,
-            merge: params.merge,
-          ),
-        );
-
-        onProgress?.call(
-          scanned,
-          1,
-          'Preparando documentos...',
-          'Documento: $sourcePath → ${targetDocRef.path}',
-        );
-
-        if (pendingWrites.length >= batchSize) {
-          copied += await _commitPendingWritesSafely(
-            writes: pendingWrites,
-            current: scanned,
-            total: 1,
-            onProgress: onProgress,
-          );
-
-          pendingWrites.clear();
-
-          await Future<void>.delayed(const Duration(milliseconds: 80));
-        }
-      }
-
+      out.addAll(snap.docs);
       last = snap.docs.last;
-
-      await Future<void>.delayed(const Duration(milliseconds: 40));
     }
 
-    if (pendingWrites.isNotEmpty) {
-      copied += await _commitPendingWritesSafely(
-        writes: pendingWrites,
-        current: scanned,
-        total: 1,
-        onProgress: onProgress,
-      );
-
-      pendingWrites.clear();
-    }
-
-    return FirebaseCopyCollectionGroupResultData(
-      collectionId: cleanCollectionId,
-      targetPath: cleanTargetPath,
-      totalScanned: scanned,
-      totalCopied: copied,
-      totalSkipped: skipped,
-      totalAlreadyExists: alreadyExists,
-      totalEmpty: empty,
-      totalExcludedByPath: excludedByPath,
-      totalMissingContractId: missingContractId,
-    );
+    return out;
   }
 
-  String _targetDocIdForCollectionGroupDoc({
+  Future<_QueueCopyResult> _queueCopyDoc({
+    required List<_PendingWrite> pendingWrites,
     required QueryDocumentSnapshot<Map<String, dynamic>> sourceDoc,
-    required String? parentId,
-    required FirebaseCollectionGroupTargetDocIdMode mode,
-  }) {
-    switch (mode) {
-      case FirebaseCollectionGroupTargetDocIdMode.originalId:
-        return _safeDocId(sourceDoc.id);
+    required DocumentReference<Map<String, dynamic>> targetDocRef,
+    required String tenantId,
+    required String contractId,
+    required String sourceCollectionModel,
+    required bool merge,
+    required bool skipExisting,
+    required bool addMigrationMetadata,
+    required bool rewriteDocumentPathFields,
+    Map<String, dynamic> extraData = const <String, dynamic>{},
+  }) async {
+    if (skipExisting) {
+      final targetSnap = await targetDocRef.get();
 
-      case FirebaseCollectionGroupTargetDocIdMode.parentIdAndOriginalId:
-        final cleanParent = parentId?.trim();
-
-        if (cleanParent == null || cleanParent.isEmpty) {
-          return _safeDocId(sourceDoc.id);
-        }
-
-        return '${_safeDocId(cleanParent)}_${_safeDocId(sourceDoc.id)}';
+      if (targetSnap.exists) {
+        return const _QueueCopyResult(
+          skipped: 1,
+          alreadyExists: 1,
+          empty: 0,
+        );
+      }
     }
-  }
 
-  String? _resolveContractIdForCollectionGroupDoc(
-      DocumentReference<Map<String, dynamic>> ref, {
-        required String collectionId,
-        required Map<String, dynamic> data,
-      }) {
-    final fromData = _stringFromAny(
-      data['contractId'] ??
-          data['uidContract'] ??
-          data['uidcontract'] ??
-          data['uidContrato'] ??
-          data['idContract'] ??
-          data['contract'],
+    final data = sourceDoc.data();
+
+    if (data.isEmpty) {
+      return const _QueueCopyResult(
+        skipped: 1,
+        alreadyExists: 0,
+        empty: 1,
+      );
+    }
+
+    final toCopy = _buildCopyData(
+      sourcePath: sourceDoc.reference.path,
+      docId: sourceDoc.id,
+      data: data,
+      addMigrationMetadata: addMigrationMetadata,
+      targetDocPath: targetDocRef.path,
+      rewriteDocumentPathFields: rewriteDocumentPathFields,
     );
 
-    if (fromData != null &&
-        fromData.trim().isNotEmpty &&
-        !_isKnownNonContractSegment(fromData, collectionId)) {
-      return fromData.trim();
+    if (toCopy.isEmpty) {
+      return const _QueueCopyResult(
+        skipped: 1,
+        alreadyExists: 0,
+        empty: 1,
+      );
     }
 
-    final parts = ref.path
-        .split('/')
-        .map((part) => part.trim())
-        .where((part) => part.isNotEmpty)
-        .toList();
+    toCopy['id'] = targetDocRef.id;
+    toCopy['tenantId'] = tenantId;
+    toCopy['companyId'] = tenantId;
+    toCopy['contractId'] = contractId;
+    toCopy['uidContract'] = contractId;
+    toCopy['uidcontract'] = contractId;
+    toCopy['legacySourceId'] = sourceDoc.id;
+    toCopy['legacySourcePath'] = sourceDoc.reference.path;
+    toCopy['recordPath'] = targetDocRef.path;
+    toCopy['sourceCollectionModel'] = sourceCollectionModel;
 
-    for (int i = 0; i < parts.length - 1; i++) {
-      if (parts[i] != 'contracts') continue;
-
-      final candidate = parts[i + 1].trim();
-
-      if (candidate.isEmpty) continue;
-
-      if (_isKnownNonContractSegment(candidate, collectionId)) {
-        continue;
-      }
-
-      return candidate;
+    if (extraData.isNotEmpty) {
+      toCopy.addAll(extraData);
     }
 
-    final parentParentId = ref.parent.parent?.id;
+    pendingWrites.add(
+      _PendingWrite(
+        docId: targetDocRef.id,
+        ref: targetDocRef,
+        data: toCopy,
+        merge: merge,
+      ),
+    );
 
-    if (parentParentId != null && parentParentId.trim().isNotEmpty) {
-      final clean = parentParentId.trim();
-
-      if (!_isKnownNonContractSegment(clean, collectionId)) {
-        return clean;
-      }
-    }
-
-    return null;
-  }
-
-  String? _stringFromAny(dynamic value) {
-    if (value == null) return null;
-
-    final text = value.toString().trim();
-
-    if (text.isEmpty || text.toLowerCase() == 'null') return null;
-
-    return text;
-  }
-
-  bool _isKnownNonContractSegment(String value, String collectionId) {
-    final clean = value.trim();
-
-    if (clean.isEmpty) return true;
-
-    return clean == collectionId ||
-        clean == 'items' ||
-        clean == 'orders' ||
-        clean == 'validities' ||
-        clean == 'validity' ||
-        clean == 'additives' ||
-        clean == 'apostilles' ||
-        clean == 'measurements' ||
-        clean == 'reports' ||
-        clean == 'reportsMeasurement' ||
-        clean == 'adjustmentsMeasurement' ||
-        clean == 'revisionsMeasurement' ||
-        clean == 'payments' ||
-        clean == 'breakdownMeta' ||
-        clean == 'rows' ||
-        clean == 'rows_v' ||
-        clean == 'groups';
-  }
-
-  String _safeDocId(String value) {
-    final clean = value.trim();
-
-    if (clean.isEmpty) {
-      return DateTime.now().microsecondsSinceEpoch.toString();
-    }
-
-    return clean
-        .replaceAll(RegExp(r'[/#?\[\]*]'), '_')
-        .replaceAll(RegExp(r'\s+'), '_');
+    return const _QueueCopyResult(
+      skipped: 0,
+      alreadyExists: 0,
+      empty: 0,
+    );
   }
 
   // ===========================================================================
@@ -591,6 +771,18 @@ class FirebaseAdminRepository {
         text.contains('maximum request size') ||
         text.contains('request payload size');
   }
+
+  String _safeDocId(String value) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) {
+      return DateTime.now().microsecondsSinceEpoch.toString();
+    }
+
+    return clean
+        .replaceAll(RegExp(r'[/#?\[\]*]'), '_')
+        .replaceAll(RegExp(r'\s+'), '_');
+  }
 }
 
 class _PendingWrite {
@@ -605,4 +797,16 @@ class _PendingWrite {
   final DocumentReference<Map<String, dynamic>> ref;
   final Map<String, dynamic> data;
   final bool merge;
+}
+
+class _QueueCopyResult {
+  const _QueueCopyResult({
+    required this.skipped,
+    required this.alreadyExists,
+    required this.empty,
+  });
+
+  final int skipped;
+  final int alreadyExists;
+  final int empty;
 }

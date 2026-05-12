@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:sipged/_blocs/modules/financial/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_data.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
@@ -20,7 +20,7 @@ class FinancialDashboardPage extends StatelessWidget {
   final NumberFormat currency;
   final ThemeData theme;
 
-  final List<BudgetData> budgets;
+  final List<LOAData> budgets;
   final List<EmpenhoData> empenhos;
 
   final String? selectedEmpenhoId;

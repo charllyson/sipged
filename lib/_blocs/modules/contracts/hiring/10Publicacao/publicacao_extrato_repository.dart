@@ -1,10 +1,7 @@
-// lib/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_repository.dart
-
-import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
@@ -12,16 +9,118 @@ import 'publicacao_extrato_data.dart';
 
 class PublicacaoExtratoRepository {
   PublicacaoExtratoRepository({
+    required String tenantId,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
-  })  : _db = firestore ?? FirebaseFirestore.instance,
+  })  : _tenantId = _requireTenantId(tenantId),
+        _db = firestore ?? FirebaseFirestore.instance,
         _storage = storage ?? FirebaseStorage.instance;
 
+  final String _tenantId;
   final FirebaseFirestore _db;
   final FirebaseStorage _storage;
 
+  static const String _hiringCollectionId = 'hiring';
+  static const String _mainDocId = 'main';
+  static const String _publicacaoCollectionId = 'publicacao';
+
+  static String _requireTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório em PublicacaoExtratoRepository.',
+      );
+    }
+
+    return cleanTenantId;
+  }
+
+  String get tenantId => _tenantId;
+
+  String _requireContractId(String contractId) {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    return cleanContractId;
+  }
+
+  String _requirePubId(String pubId) {
+    final cleanPubId = pubId.trim();
+
+    if (cleanPubId.isEmpty) {
+      throw Exception('pubId não informado.');
+    }
+
+    return cleanPubId;
+  }
+
+  String _requireSectionKey(String sectionKey) {
+    final cleanSectionKey = sectionKey.trim();
+
+    if (cleanSectionKey.isEmpty) {
+      throw Exception('sectionKey não informado.');
+    }
+
+    return cleanSectionKey;
+  }
+
+  String _requireSectionDocId(String sectionDocId) {
+    final cleanSectionDocId = sectionDocId.trim();
+
+    if (cleanSectionDocId.isEmpty) {
+      throw Exception('sectionDocId não informado.');
+    }
+
+    return cleanSectionDocId;
+  }
+
+  DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
+    final cleanContractId = _requireContractId(contractId);
+
+    return _db
+        .collection('tenants')
+        .doc(_tenantId)
+        .collection('contracts')
+        .doc(cleanContractId);
+  }
+
+  DocumentReference<Map<String, dynamic>> _hiringMainDoc(String contractId) {
+    return _contractDoc(contractId)
+        .collection(_hiringCollectionId)
+        .doc(_mainDocId);
+  }
+
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
-    return _db.collection('contracts').doc(contractId).collection('publicacao');
+    return _hiringMainDoc(contractId).collection(_publicacaoCollectionId);
+  }
+
+  DocumentReference<Map<String, dynamic>> _pubDoc({
+    required String contractId,
+    required String pubId,
+  }) {
+    final cleanContractId = _requireContractId(contractId);
+    final cleanPubId = _requirePubId(pubId);
+
+    return _col(cleanContractId).doc(cleanPubId);
+  }
+
+  DocumentReference<Map<String, dynamic>> _sectionDoc({
+    required String contractId,
+    required String pubId,
+    required String sectionKey,
+    required String sectionDocId,
+  }) {
+    final cleanSectionKey = _requireSectionKey(sectionKey);
+    final cleanSectionDocId = _requireSectionDocId(sectionDocId);
+
+    return _pubDoc(
+      contractId: contractId,
+      pubId: pubId,
+    ).collection(cleanSectionKey).doc(cleanSectionDocId);
   }
 
   String _filesPath({
@@ -29,7 +128,13 @@ class PublicacaoExtratoRepository {
     required String pubId,
     required String veiculoDocId,
   }) {
-    return 'contracts/$contractId/publicacao/$pubId/${PublicacaoExtratoData.sectionVeiculo}/$veiculoDocId/files';
+    final cleanContractId = _requireContractId(contractId);
+    final cleanPubId = _requirePubId(pubId);
+    final cleanVeiculoDocId = _requireSectionDocId(veiculoDocId);
+
+    return 'tenants/$_tenantId/contracts/$cleanContractId/'
+        'hiring/main/publicacao/$cleanPubId/'
+        '${PublicacaoExtratoData.sectionVeiculo}/$cleanVeiculoDocId/files';
   }
 
   String _extractExt(String nameOrUrl) {
@@ -58,20 +163,249 @@ class PublicacaoExtratoRepository {
     }
   }
 
+  Future<void> _ensureContractParent(String contractId) async {
+    final cleanContractId = _requireContractId(contractId);
+
+    await _contractDoc(cleanContractId).set(
+      <String, dynamic>{
+        'id': cleanContractId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> _ensureHiringMain(String contractId) async {
+    final cleanContractId = _requireContractId(contractId);
+
+    await _ensureContractParent(cleanContractId);
+
+    await _hiringMainDoc(cleanContractId).set(
+      <String, dynamic>{
+        'id': _mainDocId,
+        'module': _hiringCollectionId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  Map<String, dynamic> _cleanSystemFields(Map<String, dynamic> data) {
+    return Map<String, dynamic>.from(data)
+      ..remove('createdAt')
+      ..remove('updatedAt')
+      ..remove('createdBy')
+      ..remove('updatedBy')
+      ..remove('migratedAt')
+      ..remove('migrationSourcePath')
+      ..remove('migrationSourceDocId')
+      ..remove('migrationTargetPath')
+      ..remove('legacySourceId')
+      ..remove('legacySourcePath')
+      ..remove('recordPath')
+      ..remove('sourcePath')
+      ..remove('path')
+      ..remove('sourceCollectionModel')
+      ..remove('tenantId')
+      ..remove('companyId')
+      ..remove('uidContract')
+      ..remove('uidcontract')
+      ..remove('contractId')
+      ..remove('module')
+      ..remove('id')
+      ..remove('pubId')
+      ..remove('publicacaoId')
+      ..remove('sectionKey');
+  }
+
+  Map<String, dynamic> _writeCleanFields(Map<String, dynamic> data) {
+    return Map<String, dynamic>.from(data)
+      ..remove('createdAt')
+      ..remove('updatedAt')
+      ..remove('createdBy')
+      ..remove('updatedBy');
+  }
+
   Future<({String pubId, Map<String, String> sectionIds})> ensureStructure(
       String contractId,
       ) async {
-    final cleanContractId = contractId.trim();
+    final cleanContractId = _requireContractId(contractId);
 
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
+    await _ensureHiringMain(cleanContractId);
 
     final sectionIds = <String, String>{
-      for (final section in PublicacaoExtratoData.sectionKeys) section: 'main',
+      for (final section in PublicacaoExtratoData.sectionKeys) section: _mainDocId,
     };
 
-    return (pubId: 'main', sectionIds: sectionIds);
+    final root = _pubDoc(
+      contractId: cleanContractId,
+      pubId: _mainDocId,
+    );
+
+    await root.set(
+      <String, dynamic>{
+        'id': _mainDocId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'module': _publicacaoCollectionId,
+        'recordPath': root.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    return (
+    pubId: _mainDocId,
+    sectionIds: sectionIds,
+    );
+  }
+
+  Future<Map<String, PublicacaoExtratoData?>> getSummaryForContracts(
+      Iterable<String> contractIds, {
+        bool debug = false,
+      }) async {
+    final ids = contractIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+
+    final result = <String, PublicacaoExtratoData?>{
+      for (final id in ids) id: null,
+    };
+
+    if (ids.isEmpty) {
+      return result;
+    }
+
+    final sw = Stopwatch()..start();
+
+    final entries = await Future.wait(
+      ids.map((contractId) async {
+        try {
+          final data = await readSummaryForContract(contractId);
+          return MapEntry<String, PublicacaoExtratoData?>(contractId, data);
+        } catch (error) {
+          if (debug) {
+            debugPrint(
+              '[PublicacaoExtratoRepository] Erro summary '
+                  'contractId=$contractId: $error',
+            );
+          }
+
+          return MapEntry<String, PublicacaoExtratoData?>(contractId, null);
+        }
+      }),
+    );
+
+    for (final entry in entries) {
+      result[entry.key] = entry.value;
+    }
+
+    sw.stop();
+
+    if (debug) {
+      final loaded = result.values.whereType<PublicacaoExtratoData>().length;
+
+      debugPrint(
+        '[PublicacaoExtratoRepository] getSummaryForContracts '
+            'tenantId=$_tenantId contratos=${ids.length} '
+            'comDados=$loaded em ${sw.elapsedMilliseconds}ms',
+      );
+    }
+
+    return result;
+  }
+
+  Future<PublicacaoExtratoData?> readSummaryForContract(String contractId) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return null;
+
+    final rootRef = _pubDoc(
+      contractId: cleanContractId,
+      pubId: _mainDocId,
+    );
+
+    final rootSnap = await rootRef.get();
+    final rootRaw = rootSnap.data();
+
+    if (rootRaw != null && rootRaw.isNotEmpty) {
+      final rootData = _cleanSystemFields(rootRaw);
+
+      final hasFlatSummary = _hasAnyValue(
+        rootData,
+        const <String>[
+          'tipoExtrato',
+          'numeroContrato',
+          'processo',
+          'objetoResumo',
+          'contratadaRazao',
+          'contratadaCnpj',
+          'valor',
+          'vigencia',
+          'veiculo',
+          'dataPublicacao',
+          'linkPublicacao',
+          'status',
+        ],
+      );
+
+      if (hasFlatSummary) {
+        return PublicacaoExtratoData.fromFlatMap(rootData);
+      }
+    }
+
+    final sections = await _loadSummarySections(cleanContractId);
+
+    final hasAnyData = sections.values.any((map) => map.isNotEmpty);
+
+    if (!hasAnyData) return null;
+
+    return PublicacaoExtratoData.fromSectionsMap(sections);
+  }
+
+  Future<Map<String, Map<String, dynamic>>> _loadSummarySections(
+      String contractId,
+      ) async {
+    final root = _pubDoc(
+      contractId: contractId,
+      pubId: _mainDocId,
+    );
+
+    final keys = <String>[
+      PublicacaoExtratoData.sectionMetadados,
+      PublicacaoExtratoData.sectionPartes,
+      PublicacaoExtratoData.sectionVeiculo,
+      PublicacaoExtratoData.sectionStatus,
+      PublicacaoExtratoData.sectionResponsavel,
+    ];
+
+    final entries = await Future.wait(
+      keys.map((sectionKey) async {
+        final snap = await root.collection(sectionKey).doc(_mainDocId).get();
+
+        final data = _cleanSystemFields(
+          snap.data() ?? const <String, dynamic>{},
+        );
+
+        return MapEntry<String, Map<String, dynamic>>(sectionKey, data);
+      }),
+    );
+
+    return <String, Map<String, dynamic>>{
+      for (final entry in entries) entry.key: entry.value,
+    };
   }
 
   Future<Map<String, Map<String, dynamic>>> loadAllSections({
@@ -79,18 +413,13 @@ class PublicacaoExtratoRepository {
     required String pubId,
     required Map<String, String> sectionIds,
   }) async {
-    final cleanContractId = contractId.trim();
-    final cleanPubId = pubId.trim();
+    final cleanContractId = _requireContractId(contractId);
+    final cleanPubId = _requirePubId(pubId);
 
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
-
-    if (cleanPubId.isEmpty) {
-      throw Exception('pubId não informado.');
-    }
-
-    final root = _col(cleanContractId).doc(cleanPubId);
+    final root = _pubDoc(
+      contractId: cleanContractId,
+      pubId: cleanPubId,
+    );
 
     final entries = await Future.wait(
       sectionIds.entries.map((entry) async {
@@ -104,17 +433,11 @@ class PublicacaoExtratoRepository {
           );
         }
 
-        final snap =
-        await root.collection(sectionName).doc(sectionDocId).get();
+        final snap = await root.collection(sectionName).doc(sectionDocId).get();
 
-        final data = Map<String, dynamic>.from(
+        final data = _cleanSystemFields(
           snap.data() ?? const <String, dynamic>{},
         );
-
-        data.remove('createdAt');
-        data.remove('updatedAt');
-        data.remove('createdBy');
-        data.remove('updatedBy');
 
         return MapEntry<String, Map<String, dynamic>>(sectionName, data);
       }),
@@ -132,21 +455,65 @@ class PublicacaoExtratoRepository {
     required Map<String, String> sectionIds,
     required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
-    final cleanContractId = contractId.trim();
-    final cleanPubId = pubId.trim();
-
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
-
-    if (cleanPubId.isEmpty) {
-      throw Exception('pubId não informado.');
-    }
+    final cleanContractId = _requireContractId(contractId);
+    final cleanPubId = _requirePubId(pubId);
 
     if (sectionsData.isEmpty) return;
 
+    await _ensureHiringMain(cleanContractId);
+
     final batch = _db.batch();
-    final root = _col(cleanContractId).doc(cleanPubId);
+
+    final root = _pubDoc(
+      contractId: cleanContractId,
+      pubId: cleanPubId,
+    );
+
+    final summary = PublicacaoExtratoData.fromSectionsMap(sectionsData).toFlatMap()
+      ..removeWhere((_, value) => value == null);
+
+    batch.set(
+      _contractDoc(cleanContractId),
+      <String, dynamic>{
+        'id': cleanContractId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      _hiringMainDoc(cleanContractId),
+      <String, dynamic>{
+        'id': _mainDocId,
+        'module': _hiringCollectionId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      root,
+      <String, dynamic>{
+        'id': cleanPubId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'module': _publicacaoCollectionId,
+        'recordPath': root.path,
+        ...summary,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
 
     for (final entry in sectionsData.entries) {
       final sectionKey = entry.key.trim();
@@ -155,16 +522,23 @@ class PublicacaoExtratoRepository {
       if (sectionKey.isEmpty) continue;
       if (sectionDocId == null || sectionDocId.isEmpty) continue;
 
-      final sectionData = Map<String, dynamic>.from(entry.value)
-        ..remove('createdAt')
-        ..remove('updatedAt')
-        ..remove('createdBy')
-        ..remove('updatedBy');
+      final sectionRef = root.collection(sectionKey).doc(sectionDocId);
+      final sectionData = _writeCleanFields(entry.value);
 
       batch.set(
-        root.collection(sectionKey).doc(sectionDocId),
+        sectionRef,
         <String, dynamic>{
           ...sectionData,
+          'id': sectionDocId,
+          'tenantId': _tenantId,
+          'companyId': _tenantId,
+          'contractId': cleanContractId,
+          'uidContract': cleanContractId,
+          'uidcontract': cleanContractId,
+          'pubId': cleanPubId,
+          'publicacaoId': cleanPubId,
+          'sectionKey': sectionKey,
+          'recordPath': sectionRef.path,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -181,45 +555,96 @@ class PublicacaoExtratoRepository {
     required String sectionDocId,
     required Map<String, dynamic> data,
   }) async {
-    final cleanContractId = contractId.trim();
-    final cleanPubId = pubId.trim();
-    final cleanSectionKey = sectionKey.trim();
-    final cleanSectionDocId = sectionDocId.trim();
+    final cleanContractId = _requireContractId(contractId);
+    final cleanPubId = _requirePubId(pubId);
+    final cleanSectionKey = _requireSectionKey(sectionKey);
+    final cleanSectionDocId = _requireSectionDocId(sectionDocId);
 
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
+    await _ensureHiringMain(cleanContractId);
 
-    if (cleanPubId.isEmpty) {
-      throw Exception('pubId não informado.');
-    }
+    final root = _pubDoc(
+      contractId: cleanContractId,
+      pubId: cleanPubId,
+    );
 
-    if (cleanSectionKey.isEmpty) {
-      throw Exception('sectionKey não informado.');
-    }
+    final ref = _sectionDoc(
+      contractId: cleanContractId,
+      pubId: cleanPubId,
+      sectionKey: cleanSectionKey,
+      sectionDocId: cleanSectionDocId,
+    );
 
-    if (cleanSectionDocId.isEmpty) {
-      throw Exception('sectionDocId não informado.');
-    }
+    final cleanData = _writeCleanFields(data);
+    final rootSummary = _summaryRootFieldsFromSingleSection(
+      sectionKey: cleanSectionKey,
+      data: cleanData,
+    );
 
-    final cleanData = Map<String, dynamic>.from(data)
-      ..remove('createdAt')
-      ..remove('updatedAt')
-      ..remove('createdBy')
-      ..remove('updatedBy');
+    final batch = _db.batch();
 
-    final ref = _col(cleanContractId)
-        .doc(cleanPubId)
-        .collection(cleanSectionKey)
-        .doc(cleanSectionDocId);
-
-    await ref.set(
+    batch.set(
+      _contractDoc(cleanContractId),
       <String, dynamic>{
-        ...cleanData,
+        'id': cleanContractId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
     );
+
+    batch.set(
+      _hiringMainDoc(cleanContractId),
+      <String, dynamic>{
+        'id': _mainDocId,
+        'module': _hiringCollectionId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      root,
+      <String, dynamic>{
+        'id': cleanPubId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'module': _publicacaoCollectionId,
+        'recordPath': root.path,
+        ...rootSummary,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      ref,
+      <String, dynamic>{
+        ...cleanData,
+        'id': cleanSectionDocId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'pubId': cleanPubId,
+        'publicacaoId': cleanPubId,
+        'sectionKey': cleanSectionKey,
+        'recordPath': ref.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
   }
 
   Future<PublicacaoExtratoData?> readDataForContract(String contractId) async {
@@ -229,11 +654,30 @@ class PublicacaoExtratoRepository {
 
     final ids = await ensureStructure(cleanContractId);
 
+    final rootRef = _pubDoc(
+      contractId: cleanContractId,
+      pubId: ids.pubId,
+    );
+
+    final rootSnap = await rootRef.get();
+
+    final rootData = _cleanSystemFields(
+      rootSnap.data() ?? const <String, dynamic>{},
+    );
+
     final sections = await loadAllSections(
       contractId: cleanContractId,
       pubId: ids.pubId,
       sectionIds: ids.sectionIds,
     );
+
+    if (rootData.isNotEmpty) {
+      sections[PublicacaoExtratoData.sectionMetadados] = <String, dynamic>{
+        ...rootData,
+        ...(sections[PublicacaoExtratoData.sectionMetadados] ??
+            const <String, dynamic>{}),
+      };
+    }
 
     final hasAnyData = sections.values.any((map) => map.isNotEmpty);
 
@@ -312,6 +756,8 @@ class PublicacaoExtratoRepository {
       throw Exception('Caminho inválido para upload da publicação.');
     }
 
+    await _ensureHiringMain(cleanContractId);
+
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
@@ -370,6 +816,8 @@ class PublicacaoExtratoRepository {
       throw Exception('Bytes do arquivo vazios.');
     }
 
+    await _ensureHiringMain(cleanContractId);
+
     final ext = _extractExt(cleanFileName);
 
     final ref = _storage.ref(
@@ -386,10 +834,16 @@ class PublicacaoExtratoRepository {
           SettableMetadata(
             contentType: _contentTypeForExt(ext),
             customMetadata: <String, String>{
-              'originalName': cleanFileName,
+              'tenantId': _tenantId,
+              'companyId': _tenantId,
               'contractId': cleanContractId,
+              'uidContract': cleanContractId,
+              'uidcontract': cleanContractId,
               'pubId': cleanPubId,
+              'publicacaoId': cleanPubId,
               'veiculoDocId': cleanVeiculoDocId,
+              'module': _publicacaoCollectionId,
+              'originalName': cleanFileName,
             },
           ),
     );
@@ -458,5 +912,78 @@ class PublicacaoExtratoRepository {
     } catch (_) {
       return false;
     }
+  }
+
+  Map<String, dynamic> _summaryRootFieldsFromSingleSection({
+    required String sectionKey,
+    required Map<String, dynamic> data,
+  }) {
+    switch (sectionKey) {
+      case PublicacaoExtratoData.sectionMetadados:
+        return <String, dynamic>{
+          if (data.containsKey('tipoExtrato')) 'tipoExtrato': data['tipoExtrato'],
+          if (data.containsKey('numeroContrato'))
+            'numeroContrato': data['numeroContrato'],
+          if (data.containsKey('processo')) 'processo': data['processo'],
+          if (data.containsKey('objetoResumo'))
+            'objetoResumo': data['objetoResumo'],
+        };
+
+      case PublicacaoExtratoData.sectionPartes:
+        return <String, dynamic>{
+          if (data.containsKey('contratadaRazao'))
+            'contratadaRazao': data['contratadaRazao'],
+          if (data.containsKey('contratadaCnpj'))
+            'contratadaCnpj': data['contratadaCnpj'],
+          if (data.containsKey('valor')) 'valor': data['valor'],
+          if (data.containsKey('vigencia')) 'vigencia': data['vigencia'],
+          if (data.containsKey('cnoRef')) 'cnoRef': data['cnoRef'],
+        };
+
+      case PublicacaoExtratoData.sectionVeiculo:
+        return <String, dynamic>{
+          if (data.containsKey('veiculo')) 'veiculo': data['veiculo'],
+          if (data.containsKey('edicaoNumero'))
+            'edicaoNumero': data['edicaoNumero'],
+          if (data.containsKey('dataEnvio')) 'dataEnvio': data['dataEnvio'],
+          if (data.containsKey('dataPublicacao'))
+            'dataPublicacao': data['dataPublicacao'],
+          if (data.containsKey('linkPublicacao'))
+            'linkPublicacao': data['linkPublicacao'],
+        };
+
+      case PublicacaoExtratoData.sectionStatus:
+        return <String, dynamic>{
+          if (data.containsKey('status')) 'status': data['status'],
+          if (data.containsKey('prazoLegal')) 'prazoLegal': data['prazoLegal'],
+          if (data.containsKey('observacoes')) 'observacoes': data['observacoes'],
+        };
+
+      case PublicacaoExtratoData.sectionResponsavel:
+        return <String, dynamic>{
+          if (data.containsKey('responsavelUserId'))
+            'responsavelUserId': data['responsavelUserId'],
+        };
+
+      default:
+        return const <String, dynamic>{};
+    }
+  }
+
+  bool _hasAnyValue(
+      Map<String, dynamic> data,
+      List<String> keys,
+      ) {
+    for (final key in keys) {
+      final value = data[key];
+
+      if (value == null) continue;
+
+      if (value is String && value.trim().isEmpty) continue;
+
+      return true;
+    }
+
+    return false;
   }
 }

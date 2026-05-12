@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
@@ -12,7 +13,10 @@ import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row
 class GeneralDashboardStatusServicesRegion extends StatelessWidget {
   final GeneralDashboardCubit cubit;
 
-  const GeneralDashboardStatusServicesRegion({super.key, required this.cubit});
+  const GeneralDashboardStatusServicesRegion({
+    super.key,
+    required this.cubit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +24,7 @@ class GeneralDashboardStatusServicesRegion extends StatelessWidget {
     const double kRadarWidth = 360;
 
     final labels = cubit.radarServiceLabels;
+
     final datasets = cubit.radarDatasetsServices(
       primary: GeneralDashboardStyle.kPrimary,
       warning: GeneralDashboardStyle.kWarning,
@@ -30,26 +35,30 @@ class GeneralDashboardStatusServicesRegion extends StatelessWidget {
       smallBreakpoint: 900,
       sidePadding: 12,
       gap: 12,
-
-      // Desktop/Tablet: 3 na mesma linha (3º flex)
       fixedWidths: const <double?>[
         kPieWidth,
         kRadarWidth,
         null,
       ],
-
-      // Scroll no mobile apenas para as barras (índice 2) se houver muitas labels
       enableScrollOnSmall: true,
-      scrollNeededForIndex: (i) => i == 2 && cubit.labelsRegionOfMap.length > 7,
-      minScrollWidthForIndex: (i, availableWidth) => i == 2
-          ? math.max(cubit.labelsRegionOfMap.length * 80.0, availableWidth)
-          : availableWidth,
+      scrollNeededForIndex: (index) {
+        return index == 2 && cubit.labelsRegionOfMap.length > 7;
+      },
+      minScrollWidthForIndex: (index, availableWidth) {
+        if (index == 2) {
+          return math.max(
+            cubit.labelsRegionOfMap.length * 80.0,
+            availableWidth,
+          );
+        }
 
+        return availableWidth;
+      },
       children: [
-        // 0) Pizza status contratos
-            (context, m, i) {
-          final double cardW =
-          m.isSmall ? m.availableWidth : (m.currentItemWidth ?? kPieWidth);
+            (context, metrics, index) {
+          final double cardWidth = metrics.isSmall
+              ? metrics.availableWidth
+              : (metrics.currentItemWidth ?? kPieWidth);
 
           return DonutChartChanged(
             legendPosition: DonutLegendPosition.bottom,
@@ -61,13 +70,13 @@ class GeneralDashboardStatusServicesRegion extends StatelessWidget {
             values: cubit.valuesStatusGeneralContractsFull,
             filteredValues: cubit.valuesStatusGeneralContractsFiltered,
             selectedLabel: cubit.state.selectedStatus,
-            onTapLabel: (label) => cubit.onStatusSelected(label),
-            widthGraphic: cardW,
+            onTapLabel: (label) {
+              cubit.onStatusSelected(label);
+            },
+            widthGraphic: cardWidth,
           );
         },
-
-        // 1) Radar serviços
-            (context, m, i) {
+            (context, metrics, index) {
           return RadarChartChanged(
             labels: labels,
             datasets: datasets,
@@ -76,33 +85,25 @@ class GeneralDashboardStatusServicesRegion extends StatelessWidget {
             alturaCard: 290,
           );
         },
-
-        // 2) Barras regiões (map link)
-            (context, m, i) {
-          if (m.isSmall) {
-            final bool needScroll = cubit.labelsRegionOfMap.length > 7;
-            return BarChartChanged(
-              heightGraphic: 260,
-              labels: cubit.labelsRegionOfMap,
-              values: cubit.valuesRegionOfMapFull,
-              filteredValues: cubit.valuesRegionOfMapFiltered,
-              barColors: cubit.barColorsRegion,
-              selectedIndex: cubit.state.selectedRegionIndex,
-              onBarTap: (region) => cubit.onRegionSelected(region),
-              expandToMaxWidth: !needScroll,
-              shimmerBarsCount: 7,
-            );
-          }
+            (context, metrics, index) {
+          final bool needScroll =
+              metrics.isSmall && cubit.labelsRegionOfMap.length > 7;
 
           return BarChartChanged(
-            heightGraphic: 260,
             labels: cubit.labelsRegionOfMap,
             values: cubit.valuesRegionOfMapFull,
             filteredValues: cubit.valuesRegionOfMapFiltered,
             barColors: cubit.barColorsRegion,
             selectedIndex: cubit.state.selectedRegionIndex,
-            onBarTap: (region) => cubit.onRegionSelected(region),
-            expandToMaxWidth: true,
+            onBarSelectionChanged: (regionLabel) {
+              if (regionLabel == null) {
+                cubit.onRegionIndexSelected(null);
+                return;
+              }
+
+              cubit.onRegionSelected(regionLabel);
+            },
+            expandToMaxWidth: metrics.isSmall ? !needScroll : true,
             shimmerBarsCount: 7,
           );
         },

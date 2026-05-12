@@ -9,8 +9,10 @@ import 'cotacao_repository.dart';
 import 'cotacao_state.dart';
 
 class CotacaoCubit extends Cubit<CotacaoState> {
-  CotacaoCubit([CotacaoRepository? repository])
-      : repo = repository ?? CotacaoRepository(),
+  CotacaoCubit({
+    required String tenantId,
+    CotacaoRepository? repository,
+  })  : repo = repository ?? CotacaoRepository(tenantId: tenantId),
         super(CotacaoState.initial());
 
   final CotacaoRepository repo;

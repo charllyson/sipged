@@ -12,8 +12,10 @@ import 'minuta_contrato_repository.dart';
 import 'minuta_contrato_state.dart';
 
 class MinutaContratoCubit extends Cubit<MinutaState> {
-  MinutaContratoCubit([MinutaContratoRepository? repository])
-      : repo = repository ?? MinutaContratoRepository(),
+  MinutaContratoCubit({
+    required String tenantId,
+    MinutaContratoRepository? repository,
+  })  : repo = repository ?? MinutaContratoRepository(tenantId: tenantId),
         super(MinutaState.initial());
 
   final MinutaContratoRepository repo;

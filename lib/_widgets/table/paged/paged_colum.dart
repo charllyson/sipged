@@ -7,11 +7,22 @@ class PagedColum<T> {
   final Widget Function(BuildContext context)? headerBuilder;
   final TextAlign textAlign;
 
-  /// largura real da coluna
+  /// Largura real da coluna.
   final double? width;
 
-  /// limite opcional do conteúdo interno
+  /// Limite opcional do conteúdo interno.
   final double? maxWidth;
+
+  /// Define se a célula daquela linha ainda está carregando.
+  ///
+  /// Exemplo:
+  /// loadingWhen: (contract) => !dfdByContractId.containsKey(contract.id)
+  final bool Function(T item)? loadingWhen;
+
+  /// Widget customizado para exibir enquanto a célula está carregando.
+  ///
+  /// Se não informar, usa o skeleton padrão da tabela.
+  final Widget Function(BuildContext context, T item)? loadingBuilder;
 
   const PagedColum({
     required this.title,
@@ -21,5 +32,7 @@ class PagedColum<T> {
     this.textAlign = TextAlign.left,
     this.width,
     this.maxWidth,
+    this.loadingWhen,
+    this.loadingBuilder,
   });
 }

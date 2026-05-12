@@ -1,25 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
-import 'general_dashboard_state.dart';
+import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
+
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
+
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
+
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
@@ -64,13 +68,37 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
   final Set<String> _dfdCheckedContracts = {};
   final Set<String> _editalCheckedContracts = {};
 
-  List<ContractData> get _allContractsFromProcessCubit =>
-      processCubit.state.allProcesses;
+  List<ContractData> get _allContractsFromProcessCubit {
+    return processCubit.state.allProcesses;
+  }
+
+  Future<List<ContractData>> _waitContractsFromProcessCubit() async {
+    const maxAttempts = 40;
+    const delay = Duration(milliseconds: 250);
+
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      final contracts = processCubit.state.allProcesses;
+
+      if (contracts.isNotEmpty) {
+        return List<ContractData>.from(contracts);
+      }
+
+      if (isClosed) {
+        return const <ContractData>[];
+      }
+
+      await Future<void>.delayed(delay);
+    }
+
+    return List<ContractData>.from(processCubit.state.allProcesses);
+  }
 
   String? _idToString(Object? id) {
     if (id == null) return null;
+
     try {
       final dynamic dyn = id;
+
       final hasUid = (() {
         try {
           return (dyn as dynamic).uid is String;
@@ -78,24 +106,69 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
           return false;
         }
       })();
-      if (hasUid) return (dyn as dynamic).uid as String;
+
+      if (hasUid) {
+        final uid = (dyn as dynamic).uid as String;
+        final cleanUid = uid.trim();
+
+        if (cleanUid.isNotEmpty) return cleanUid;
+      }
     } catch (_) {}
-    return id.toString();
+
+    final value = id.toString().trim();
+
+    return value.isEmpty ? null : value;
   }
 
-  String? _parseContractIdFromPath(String? p) {
-    if (p == null || p.isEmpty) return null;
-    final m = RegExp(r'/contracts/([^/]+)').firstMatch(p);
-    return m?.group(1);
+  String? _parseContractIdFromPath(String? path) {
+    final cleanPath = path?.trim();
+
+    if (cleanPath == null || cleanPath.isEmpty) {
+      return null;
+    }
+
+    final parts = cleanPath
+        .split('/')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    final contractsIndex = parts.indexOf('contracts');
+
+    if (contractsIndex < 0) {
+      return null;
+    }
+
+    final contractIndex = contractsIndex + 1;
+
+    if (contractIndex >= parts.length) {
+      return null;
+    }
+
+    final contractId = parts[contractIndex].trim();
+
+    if (contractId.isEmpty) {
+      return null;
+    }
+
+    return contractId;
   }
 
-  String? _dynString(dynamic v) {
+  String? _dynString(dynamic value) {
     try {
-      if (v == null) return null;
-      if (v is String && v.trim().isNotEmpty) return v.trim();
-      final id = (v as dynamic).uid;
-      if (id is String && id.trim().isNotEmpty) return id.trim();
+      if (value == null) return null;
+
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+
+      final uid = (value as dynamic).uid;
+
+      if (uid is String && uid.trim().isNotEmpty) {
+        return uid.trim();
+      }
     } catch (_) {}
+
     return null;
   }
 
@@ -104,46 +177,60 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       final direct = _dynString((entry as dynamic).contractId) ??
           _dynString((entry as dynamic).idContract) ??
           _dynString((entry as dynamic).contractRef);
-      if (direct != null) return direct;
+
+      if (direct != null && direct.trim().isNotEmpty) {
+        return direct.trim();
+      }
 
       final path = (entry as dynamic).path ??
           (entry as dynamic).docPath ??
           (entry as dynamic).parentPath ??
           (entry as dynamic).fullPath ??
           (entry as dynamic).storagePath ??
-          (entry as dynamic).measurementPath;
+          (entry as dynamic).measurementPath ??
+          (entry as dynamic).recordPath;
 
       final fromPath = _parseContractIdFromPath(path?.toString());
-      if (fromPath != null) return fromPath;
 
-      final idMaybePath = (entry as dynamic).uid?.toString();
-      final fromId = _parseContractIdFromPath(idMaybePath);
-      if (fromId != null) return fromId;
+      if (fromPath != null) {
+        return fromPath;
+      }
+
+      final uidMaybePath = (entry as dynamic).uid?.toString();
+      final fromUidPath = _parseContractIdFromPath(uidMaybePath);
+
+      if (fromUidPath != null) {
+        return fromUidPath;
+      }
     } catch (_) {}
+
     return null;
   }
 
   Future<void> _preloadDfdLabels(Iterable<ContractData> base) async {
     final futures = <Future<void>>[];
 
-    for (final c in base) {
-      final id = _idToString(c.id);
-      if (id == null) continue;
+    for (final contract in base) {
+      final id = _idToString(contract.id);
+
+      if (id == null || id.trim().isEmpty) {
+        continue;
+      }
 
       final precisaRodovia = !_roadNameByContract.containsKey(id);
       final precisaRegiao = !_regionByContract.containsKey(id);
       final precisaStatus = !_statusByContract.containsKey(id);
       final precisaNatureza = !_naturezaByContract.containsKey(id);
       final precisaVencedor = !_winnerByContract.containsKey(id);
-      final precisaValor = !_valueByContract.containsKey(id);
       final precisaMunicipio = !_municipioByContract.containsKey(id);
+      final precisaValor = !_valueByContract.containsKey(id);
 
       final precisaAlgoDeDfd = precisaRodovia ||
           precisaRegiao ||
           precisaStatus ||
           precisaNatureza ||
-          precisaValor ||
-          precisaMunicipio;
+          precisaMunicipio ||
+          precisaValor;
 
       final precisaAlgoDeEdital = precisaVencedor;
 
@@ -154,58 +241,79 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
         continue;
       }
 
-      futures.add(() async {
-        if (precisaAlgoDeDfd && !jaTentouDfd) {
-          _dfdCheckedContracts.add(id);
+      futures.add(
+            () async {
+          if (precisaAlgoDeDfd && !jaTentouDfd) {
+            _dfdCheckedContracts.add(id);
 
-          final DfdData? dfd = await dfdCubit.getDataForContract(id);
+            try {
+              final DfdData? dfd = await dfdCubit.getDataForContract(id);
 
-          if (dfd != null) {
-            if (precisaRodovia) {
-              final road = dfd.rodovia?.trim();
-              if (road != null && road.isNotEmpty) {
-                _roadNameByContract[id] = road;
+              if (dfd != null) {
+                if (precisaRodovia) {
+                  final road = dfd.rodovia?.trim();
+
+                  if (road != null && road.isNotEmpty) {
+                    _roadNameByContract[id] = road;
+                  }
+                }
+
+                if (precisaRegiao) {
+                  final region = dfd.regional?.trim();
+
+                  if (region != null && region.isNotEmpty) {
+                    _regionByContract[id] = region;
+                  }
+                }
+
+                if (precisaStatus) {
+                  final status = dfd.statusDemanda?.trim();
+
+                  if (status != null && status.isNotEmpty) {
+                    _statusByContract[id] = status;
+                  }
+                }
+
+                if (precisaNatureza) {
+                  final natureza = dfd.naturezaIntervencao?.trim();
+
+                  if (natureza != null && natureza.isNotEmpty) {
+                    _naturezaByContract[id] = natureza;
+                  }
+                }
+
+                if (precisaMunicipio) {
+                  final municipio = dfd.municipio?.trim();
+
+                  if (municipio != null && municipio.isNotEmpty) {
+                    _municipioByContract[id] = municipio;
+                  }
+                }
+
+                if (precisaValor) {
+                  _valueByContract[id] = dfd.valorDemanda ?? 0.0;
+                }
               }
-            }
-            if (precisaRegiao) {
-              final reg = dfd.regional?.trim();
-              if (reg != null && reg.isNotEmpty) {
-                _regionByContract[id] = reg;
-              }
-            }
-            if (precisaStatus) {
-              final s = dfd.statusDemanda?.trim();
-              if (s != null && s.isNotEmpty) {
-                _statusByContract[id] = s;
-              }
-            }
-            if (precisaNatureza) {
-              final nat = dfd.naturezaIntervencao?.trim();
-              if (nat != null && nat.isNotEmpty) {
-                _naturezaByContract[id] = nat;
-              }
-            }
-            if (precisaValor) {
-              _valueByContract[id] = dfd.valorDemanda ?? 0.0;
-            }
-            if (precisaMunicipio) {
-              final mun = dfd.municipio?.trim();
-              if (mun != null && mun.isNotEmpty) {
-                _municipioByContract[id] = mun;
-              }
-            }
+            } catch (_) {}
           }
-        }
 
-        if (precisaAlgoDeEdital && !jaTentouEdital) {
-          _editalCheckedContracts.add(id);
-          final EditalData? edital = await editalCubit.getDataForContract(id);
-          final w = edital?.vencedor.trim();
-          if (w != null && w.isNotEmpty) {
-            _winnerByContract[id] = w;
+          if (precisaAlgoDeEdital && !jaTentouEdital) {
+            _editalCheckedContracts.add(id);
+
+            try {
+              final EditalData? edital = await editalCubit.getDataForContract(
+                id,
+              );
+
+              final winner = edital?.vencedor.trim();
+
+              if (winner != null && winner.isNotEmpty) {
+                _winnerByContract[id] = winner;
+              }
+            } catch (_) {}
           }
-        }
-      }());
+        }(),
+      );
     }
 
     if (futures.isNotEmpty) {
@@ -216,157 +324,205 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
   Map<String, String> get regionByMunicipio {
     final map = <String, String>{};
 
-    for (final c in state.allContracts) {
-      final mun = _getMunicipioLabel(c).trim();
-      final reg = _getRegionLabel(c).trim();
+    for (final contract in state.allContracts) {
+      final municipio = _getMunicipioLabel(contract).trim();
+      final region = _getRegionLabel(contract).trim();
 
-      if (mun.isEmpty ||
-          mun.toUpperCase() == 'SEM MUNICÍPIO' ||
-          reg.isEmpty ||
-          reg.toUpperCase() == 'SEM REGIÃO') {
+      if (municipio.isEmpty ||
+          municipio.toUpperCase() == 'SEM MUNICÍPIO' ||
+          region.isEmpty ||
+          region.toUpperCase() == 'SEM REGIÃO') {
         continue;
       }
 
-      final key = mun.toUpperCase();
-      map.putIfAbsent(key, () => reg);
+      map.putIfAbsent(
+        municipio.toUpperCase(),
+            () => region,
+      );
     }
 
     return map;
   }
 
-  String _getRoadLabel(ContractData c) {
-    final id = _idToString(c.id);
-    final cached = (id != null) ? _roadNameByContract[id] : null;
-    if (cached != null && cached.trim().isNotEmpty) return cached.trim();
+  String _getRoadLabel(ContractData contract) {
+    final id = _idToString(contract.id);
+    final cached = id == null ? null : _roadNameByContract[id];
+
+    if (cached != null && cached.trim().isNotEmpty) {
+      return cached.trim();
+    }
+
     return 'SEM RODOVIA';
   }
 
-  String _getRegionLabel(ContractData c) {
-    final id = _idToString(c.id);
-    final cached = (id != null) ? _regionByContract[id] : null;
-    return (cached != null && cached.trim().isNotEmpty)
-        ? cached.trim()
-        : 'SEM REGIÃO';
+  String _getRegionLabel(ContractData contract) {
+    final id = _idToString(contract.id);
+    final cached = id == null ? null : _regionByContract[id];
+
+    if (cached != null && cached.trim().isNotEmpty) {
+      return cached.trim();
+    }
+
+    return 'SEM REGIÃO';
   }
 
-  String _getStatusLabel(ContractData c) {
-    final id = _idToString(c.id);
-    final cached = (id != null) ? _statusByContract[id] : null;
-    final v = (cached ?? '').trim();
-    if (v.isNotEmpty) return v;
+  String _getStatusLabel(ContractData contract) {
+    final id = _idToString(contract.id);
+    final cached = id == null ? null : _statusByContract[id];
+    final value = (cached ?? '').trim();
+
+    if (value.isNotEmpty) {
+      return value;
+    }
+
     return 'SEM STATUS';
   }
 
-  String _getNatureLabel(ContractData c) {
-    final id = _idToString(c.id);
-    final cached = (id != null) ? _naturezaByContract[id] : null;
-    final v = (cached ?? '').trim();
-    if (v.isNotEmpty) return v;
+  String _getNatureLabel(ContractData contract) {
+    final id = _idToString(contract.id);
+    final cached = id == null ? null : _naturezaByContract[id];
+    final value = (cached ?? '').trim();
+
+    if (value.isNotEmpty) {
+      return value;
+    }
+
     return 'SEM NATUREZA';
   }
 
-  String _getWinnerLabel(ContractData c) {
-    final id = _idToString(c.id);
-    final cached = (id != null) ? _winnerByContract[id] : null;
-    final v = (cached ?? '').trim();
-    if (v.isNotEmpty) return v;
+  String _getWinnerLabel(ContractData contract) {
+    final id = _idToString(contract.id);
+    final cached = id == null ? null : _winnerByContract[id];
+    final value = (cached ?? '').trim();
+
+    if (value.isNotEmpty) {
+      return value;
+    }
+
     return 'EM PROJETO';
   }
 
-  String _getMunicipioLabel(ContractData c) {
-    final id = _idToString(c.id);
-    final cached = (id != null) ? _municipioByContract[id] : null;
-    final v = (cached ?? '').trim();
-    if (v.isNotEmpty) return v;
+  String _getMunicipioLabel(ContractData contract) {
+    final id = _idToString(contract.id);
+    final cached = id == null ? null : _municipioByContract[id];
+    final value = (cached ?? '').trim();
+
+    if (value.isNotEmpty) {
+      return value;
+    }
+
     return 'SEM MUNICÍPIO';
   }
 
-  double _getContractValue(ContractData c) {
-    final id = _idToString(c.id);
-    if (id == null) return 0.0;
-    final v = _valueByContract[id];
-    if (v == null) return 0.0;
-    return v;
+  double _getContractValue(ContractData contract) {
+    final id = _idToString(contract.id);
+
+    if (id == null) {
+      return 0.0;
+    }
+
+    return _valueByContract[id] ?? 0.0;
   }
 
   List<String> _extractCompanies(List<ContractData> data) {
     final set = <String>{
-      for (final c in data) _getWinnerLabel(c).trim().toUpperCase(),
+      for (final contract in data)
+        _getWinnerLabel(contract).trim().toUpperCase(),
     };
+
     final list = set.toList()..sort();
+
     return list;
   }
 
-  bool get houveInteracaoComFiltros =>
-      state.selectedStatus != null ||
-          state.selectedCompany != null ||
-          state.selectedRegions.isNotEmpty ||
-          state.selectedRoad != null ||
-          state.selectedMunicipio != null;
+  bool get houveInteracaoComFiltros {
+    return state.selectedStatus != null ||
+        state.selectedCompany != null ||
+        state.selectedRegions.isNotEmpty ||
+        state.selectedRoad != null ||
+        state.selectedMunicipio != null;
+  }
 
   double? get totaisMedicoes => state.totalMedicoes;
+
   double? get totaisReajustes => state.totalReajustes;
+
   double? get totaisRevisoes => state.totalRevisoes;
 
   List<String> get municipiosSelecionadosParaMapa {
-    final sel = state.selectedMunicipio;
-    if (sel != null &&
-        sel.trim().isNotEmpty &&
-        sel.trim().toUpperCase() != 'SEM MUNICÍPIO') {
-      return [sel.trim()];
+    final selected = state.selectedMunicipio;
+
+    if (selected != null &&
+        selected.trim().isNotEmpty &&
+        selected.trim().toUpperCase() != 'SEM MUNICÍPIO') {
+      return <String>[selected.trim()];
     }
 
     final set = <String>{};
-    for (final c in state.filteredContracts) {
-      final m = _getMunicipioLabel(c);
-      final v = m.trim();
-      if (v.isEmpty) continue;
-      if (v.toUpperCase() == 'SEM MUNICÍPIO') continue;
-      set.add(v);
+
+    for (final contract in state.filteredContracts) {
+      final municipio = _getMunicipioLabel(contract).trim();
+
+      if (municipio.isEmpty) continue;
+      if (municipio.toUpperCase() == 'SEM MUNICÍPIO') continue;
+
+      set.add(municipio);
     }
 
     final list = set.toList()..sort();
+
     return list;
   }
 
   List<String> get municipiosComContratosGeral {
     final set = <String>{};
-    for (final c in state.allContracts) {
-      final m = _getMunicipioLabel(c);
-      final v = m.trim();
-      if (v.isEmpty) continue;
-      if (v.toUpperCase() == 'SEM MUNICÍPIO') continue;
-      set.add(v);
+
+    for (final contract in state.allContracts) {
+      final municipio = _getMunicipioLabel(contract).trim();
+
+      if (municipio.isEmpty) continue;
+      if (municipio.toUpperCase() == 'SEM MUNICÍPIO') continue;
+
+      set.add(municipio);
     }
+
     final list = set.toList()..sort();
+
     return list;
   }
 
   Map<String, double> _somarMapas(List<Map<String, double>> maps) {
-    final out = <String, double>{};
-    for (final m in maps) {
-      for (final e in m.entries) {
-        out[e.key] = (out[e.key] ?? 0.0) + e.value;
+    final output = <String, double>{};
+
+    for (final map in maps) {
+      for (final entry in map.entries) {
+        output[entry.key] = (output[entry.key] ?? 0.0) + entry.value;
       }
     }
-    return out;
+
+    return output;
   }
 
   Map<String, double> get totaisStatusAtuais {
     switch (state.tipoDeValorSelecionado) {
       case 'Valor contratado':
         return state.totaisStatusIniciais;
+
       case 'Total em aditivos':
         return state.totaisStatusAditivos;
+
       case 'Total em apostilas':
         return state.totaisStatusApostilas;
+
       case 'Somatório total':
       default:
-        return _somarMapas([
-          state.totaisStatusIniciais,
-          state.totaisStatusAditivos,
-          state.totaisStatusApostilas,
-        ]);
+        return _somarMapas(
+          [
+            state.totaisStatusIniciais,
+            state.totaisStatusAditivos,
+            state.totaisStatusApostilas,
+          ],
+        );
     }
   }
 
@@ -374,56 +530,74 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     switch (state.tipoDeValorSelecionado) {
       case 'Valor contratado':
         return state.totaisStatusIniciaisFull;
+
       case 'Total em aditivos':
         return state.totaisStatusAditivosFull;
+
       case 'Total em apostilas':
         return state.totaisStatusApostilasFull;
+
       case 'Somatório total':
       default:
-        return _somarMapas([
-          state.totaisStatusIniciaisFull,
-          state.totaisStatusAditivosFull,
-          state.totaisStatusApostilasFull,
-        ]);
+        return _somarMapas(
+          [
+            state.totaisStatusIniciaisFull,
+            state.totaisStatusAditivosFull,
+            state.totaisStatusApostilasFull,
+          ],
+        );
     }
   }
 
   List<String> get labelsStatusGeneralContracts {
     final entries = totaisStatusAtuaisFull.entries
-        .where((e) => e.value > 0)
+        .where((entry) => entry.value > 0)
         .toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    return entries.map((e) => e.key).toList();
+
+    return entries.map((entry) => entry.key).toList();
   }
 
   List<double> get valuesStatusGeneralContractsFull {
     final labels = labelsStatusGeneralContracts;
-    return labels.map((k) => totaisStatusAtuaisFull[k] ?? 0.0).toList();
+
+    return labels.map((label) {
+      return totaisStatusAtuaisFull[label] ?? 0.0;
+    }).toList();
   }
 
   List<double> get valuesStatusGeneralContractsFiltered {
     final labels = labelsStatusGeneralContracts;
-    return labels.map((k) => totaisStatusAtuais[k] ?? 0.0).toList();
+
+    return labels.map((label) {
+      return totaisStatusAtuais[label] ?? 0.0;
+    }).toList();
   }
 
-  List<double> get valuesStatusGeneralContracts =>
-      valuesStatusGeneralContractsFiltered;
+  List<double> get valuesStatusGeneralContracts {
+    return valuesStatusGeneralContractsFiltered;
+  }
 
   Map<String, double> get totaisRegiaoAtuais {
     switch (state.tipoDeValorSelecionado) {
       case 'Valor contratado':
         return state.totaisRegiaoIniciais;
+
       case 'Total em aditivos':
         return state.totaisRegiaoAditivos;
+
       case 'Total em apostilas':
         return state.totaisRegiaoApostilas;
+
       case 'Somatório total':
       default:
-        return _somarMapas([
-          state.totaisRegiaoIniciais,
-          state.totaisRegiaoAditivos,
-          state.totaisRegiaoApostilas,
-        ]);
+        return _somarMapas(
+          [
+            state.totaisRegiaoIniciais,
+            state.totaisRegiaoAditivos,
+            state.totaisRegiaoApostilas,
+          ],
+        );
     }
   }
 
@@ -431,17 +605,22 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     switch (state.tipoDeValorSelecionado) {
       case 'Valor contratado':
         return state.totaisRegiaoIniciaisFull;
+
       case 'Total em aditivos':
         return state.totaisRegiaoAditivosFull;
+
       case 'Total em apostilas':
         return state.totaisRegiaoApostilasFull;
+
       case 'Somatório total':
       default:
-        return _somarMapas([
-          state.totaisRegiaoIniciaisFull,
-          state.totaisRegiaoAditivosFull,
-          state.totaisRegiaoApostilasFull,
-        ]);
+        return _somarMapas(
+          [
+            state.totaisRegiaoIniciaisFull,
+            state.totaisRegiaoAditivosFull,
+            state.totaisRegiaoApostilasFull,
+          ],
+        );
     }
   }
 
@@ -449,48 +628,71 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     final keys = <String>{
       ...totaisRegiaoAtuaisFull.keys,
       ...totaisRegiaoAtuais.keys,
-    }
-      ..removeWhere(
-            (k) => k.trim().isEmpty || k.trim().toUpperCase() == 'SEM REGIÃO',
-      );
+    };
+
+    keys.removeWhere(
+          (key) {
+        final value = key.trim().toUpperCase();
+
+        return value.isEmpty || value == 'SEM REGIÃO';
+      },
+    );
 
     final list = keys.toList()..sort();
+
     return list;
   }
 
-  List<double?> get valuesRegionOfMapFull =>
-      labelsRegionOfMap.map((r) => totaisRegiaoAtuaisFull[r]).toList();
+  List<double?> get valuesRegionOfMapFull {
+    return labelsRegionOfMap.map((region) {
+      return totaisRegiaoAtuaisFull[region];
+    }).toList();
+  }
 
-  List<double?> get valuesRegionOfMapFiltered =>
-      labelsRegionOfMap.map((r) => totaisRegiaoAtuais[r]).toList();
+  List<double?> get valuesRegionOfMapFiltered {
+    return labelsRegionOfMap.map((region) {
+      return totaisRegiaoAtuais[region];
+    }).toList();
+  }
 
-  List<double?> get valuesRegionOfMap => valuesRegionOfMapFiltered;
+  List<double?> get valuesRegionOfMap {
+    return valuesRegionOfMapFiltered;
+  }
 
   List<Color> get barColorsRegion {
-    return List.generate(labelsRegionOfMap.length, (i) {
-      if (state.selectedRegionIndex != null &&
-          state.selectedRegionIndex == i) {
-        return Colors.orangeAccent;
-      }
-      return Colors.cyan;
-    });
+    return List<Color>.generate(
+      labelsRegionOfMap.length,
+          (index) {
+        if (state.selectedRegionIndex != null &&
+            state.selectedRegionIndex == index) {
+          return Colors.orangeAccent;
+        }
+
+        return Colors.cyan;
+      },
+    );
   }
 
   Map<String, double> get totaisEmpresaAtuais {
     switch (state.tipoDeValorSelecionado) {
       case 'Valor contratado':
         return state.totaisEmpresaIniciais;
+
       case 'Total em aditivos':
         return state.totaisEmpresaAditivos;
+
       case 'Total em apostilas':
         return state.totaisEmpresaApostilas;
+
       case 'Somatório total':
       default:
-        return _somarMapas([
-          state.totaisEmpresaIniciais,
-          state.totaisEmpresaAditivos,
-          state.totaisEmpresaApostilas,
-        ]);
+        return _somarMapas(
+          [
+            state.totaisEmpresaIniciais,
+            state.totaisEmpresaAditivos,
+            state.totaisEmpresaApostilas,
+          ],
+        );
     }
   }
 
@@ -498,60 +700,83 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     switch (state.tipoDeValorSelecionado) {
       case 'Valor contratado':
         return state.totaisEmpresaIniciaisFull;
+
       case 'Total em aditivos':
         return state.totaisEmpresaAditivosFull;
+
       case 'Total em apostilas':
         return state.totaisEmpresaApostilasFull;
+
       case 'Somatório total':
       default:
-        return _somarMapas([
-          state.totaisEmpresaIniciaisFull,
-          state.totaisEmpresaAditivosFull,
-          state.totaisEmpresaApostilasFull,
-        ]);
+        return _somarMapas(
+          [
+            state.totaisEmpresaIniciaisFull,
+            state.totaisEmpresaAditivosFull,
+            state.totaisEmpresaApostilasFull,
+          ],
+        );
     }
   }
 
-  List<String> get labelsCompany => state.uniqueCompanies;
+  List<String> get labelsCompany {
+    return state.uniqueCompanies;
+  }
 
-  List<double> get valuesCompanyFull =>
-      state.uniqueCompanies
-          .map((e) => totaisEmpresaAtuaisFull[e] ?? 0.0)
-          .toList();
+  List<double> get valuesCompanyFull {
+    return state.uniqueCompanies.map((company) {
+      return totaisEmpresaAtuaisFull[company] ?? 0.0;
+    }).toList();
+  }
 
-  List<double> get valuesCompany =>
-      state.uniqueCompanies.map((e) => totaisEmpresaAtuais[e] ?? 0.0).toList();
+  List<double> get valuesCompany {
+    return state.uniqueCompanies.map((company) {
+      return totaisEmpresaAtuais[company] ?? 0.0;
+    }).toList();
+  }
 
   List<Color> get barColorsEmpresa {
-    return List.generate(state.uniqueCompanies.length, (i) {
-      if (state.selectedCompanyIndex != null &&
-          state.selectedCompanyIndex == i) {
-        return Colors.orangeAccent;
-      }
-      return Colors.blueAccent;
-    });
+    return List<Color>.generate(
+      state.uniqueCompanies.length,
+          (index) {
+        if (state.selectedCompanyIndex != null &&
+            state.selectedCompanyIndex == index) {
+          return Colors.orangeAccent;
+        }
+
+        return Colors.blueAccent;
+      },
+    );
   }
 
   List<String> get radarServiceLabels {
     final set = <String>{};
-    for (final c in state.allContracts) {
-      final s = _getNatureLabel(c);
-      if (s != 'SEM NATUREZA') set.add(s);
+
+    for (final contract in state.allContracts) {
+      final service = _getNatureLabel(contract);
+
+      if (service != 'SEM NATUREZA') {
+        set.add(service);
+      }
     }
+
     final ordered = set.toList()..sort();
+
     return ordered;
   }
 
-  double _valorRadarParaContrato(ContractData c) {
+  double _valorRadarParaContrato(ContractData contract) {
     switch (state.tipoDeValorSelecionado) {
       case 'Valor contratado':
-        return _getContractValue(c);
+        return _getContractValue(contract);
+
       case 'Total em aditivos':
       case 'Total em apostilas':
         return 0.0;
+
       case 'Somatório total':
       default:
-        return _getContractValue(c);
+        return _getContractValue(contract);
     }
   }
 
@@ -559,45 +784,81 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       List<ContractData> base,
       List<String> labels,
       ) {
-    final mapa = {for (final t in labels) t: 0.0};
-    for (final c in base) {
-      final valor = _valorRadarParaContrato(c);
-      if (valor == 0) continue;
-      final natureza = _getNatureLabel(c);
+    final map = <String, double>{
+      for (final label in labels) label: 0.0,
+    };
+
+    for (final contract in base) {
+      final value = _valorRadarParaContrato(contract);
+
+      if (value == 0.0) continue;
+
+      final natureza = _getNatureLabel(contract);
+
       if (natureza == 'SEM NATUREZA') continue;
-      if (mapa.containsKey(natureza)) {
-        mapa[natureza] = (mapa[natureza] ?? 0.0) + valor;
+
+      if (map.containsKey(natureza)) {
+        map[natureza] = (map[natureza] ?? 0.0) + value;
       }
     }
-    return labels.map((t) => mapa[t] ?? 0.0).toList();
+
+    return labels.map((label) {
+      return map[label] ?? 0.0;
+    }).toList();
   }
 
   List<double> radarServiceValuesGeral() {
     final labels = radarServiceLabels;
-    return _sumRadarPorNatureza(state.filteredContracts, labels);
+
+    return _sumRadarPorNatureza(
+      state.filteredContracts,
+      labels,
+    );
   }
 
   List<double> radarServiceValuesEmpresaSelecionada() {
-    if (state.selectedCompany == null) return const [];
+    if (state.selectedCompany == null) {
+      return const <double>[];
+    }
+
     final labels = radarServiceLabels;
-    final alvo = state.selectedCompany!.toUpperCase();
-    final base = state.filteredContracts
-        .where((c) => _getWinnerLabel(c).toUpperCase() == alvo)
-        .toList();
-    return _sumRadarPorNatureza(base, labels);
+    final selectedCompany = state.selectedCompany!.toUpperCase();
+
+    final base = state.filteredContracts.where((contract) {
+      return _getWinnerLabel(contract).toUpperCase() == selectedCompany;
+    }).toList();
+
+    return _sumRadarPorNatureza(
+      base,
+      labels,
+    );
   }
 
   List<double> radarServiceValuesRegiaoSelecionada() {
     if (state.selectedRegion == null && state.selectedRegions.isEmpty) {
-      return const [];
+      return const <double>[];
     }
+
     final labels = radarServiceLabels;
-    final alvo =
-    (state.selectedRegion ?? state.selectedRegions.first).toUpperCase();
-    final base = state.filteredContracts
-        .where((c) => _getRegionLabel(c).toUpperCase().contains(alvo))
-        .toList();
-    return _sumRadarPorNatureza(base, labels);
+
+    final selectedRegion = (state.selectedRegion ??
+        (state.selectedRegions.isNotEmpty
+            ? state.selectedRegions.first
+            : ''))
+        .toUpperCase();
+
+    if (selectedRegion.isEmpty) {
+      return const <double>[];
+    }
+
+    final base = state.filteredContracts.where((contract) {
+      return _getRegionLabel(contract).toUpperCase().contains(selectedRegion);
+    }).toList();
+
+    return _sumRadarPorNatureza(
+      base,
+      labels,
+    );
   }
 
   List<RadarSeriesData> radarDatasetsServices({
@@ -606,14 +867,21 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     required Color success,
   }) {
     final labels = radarServiceLabels;
-    if (labels.isEmpty) return const <RadarSeriesData>[];
+
+    if (labels.isEmpty) {
+      return const <RadarSeriesData>[];
+    }
 
     final geral = radarServiceValuesGeral();
     final empresa = radarServiceValuesEmpresaSelecionada();
     final regiao = radarServiceValuesRegiaoSelecionada();
 
     final raw = <RadarSeriesData>[
-      RadarSeriesData(name: 'Geral', values: geral, color: primary),
+      RadarSeriesData(
+        name: 'Geral',
+        values: geral,
+        color: primary,
+      ),
       if (empresa.isNotEmpty)
         RadarSeriesData(
           name: state.selectedCompany ?? 'Empresa',
@@ -631,382 +899,546 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
         ),
     ];
 
-    return raw
-        .where(
-          (s) => s.values.length == labels.length && s.values.any((v) => v > 0),
-    )
-        .toList(growable: false);
+    return raw.where((series) {
+      return series.values.length == labels.length &&
+          series.values.any((value) => value > 0);
+    }).toList(growable: false);
   }
 
   List<TreemapItem> get treemapRodovias {
-    final ordenado = state.totaisRodoviaFull.entries.toList()
+    final ordered = state.totaisRodoviaFull.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    int i = 0;
-    return ordenado.map((e) {
+    var index = 0;
+
+    return ordered.map((entry) {
       final color =
-      TreemapStyle.tradeMapColors[i % TreemapStyle.tradeMapColors.length];
-      i++;
-      return TreemapItem(label: e.key, value: e.value, color: color);
+      TreemapStyle.tradeMapColors[index % TreemapStyle.tradeMapColors.length];
+
+      index++;
+
+      return TreemapItem(
+        label: entry.key,
+        value: entry.value,
+        color: color,
+      );
     }).toList(growable: false);
   }
 
   List<double?> get treemapRodoviasFilteredValues {
-    final ordenado = state.totaisRodoviaFull.entries.toList()
+    final ordered = state.totaisRodoviaFull.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    return ordenado
-        .map((e) => state.totaisRodoviaFiltrado[e.key] ?? 0.0)
-        .toList();
+
+    return ordered.map((entry) {
+      return state.totaisRodoviaFiltrado[entry.key] ?? 0.0;
+    }).toList();
   }
 
   Future<void> initialize() async {
-    emit(state.copyWith(isLoading: true));
+    emit(
+      state.copyWith(
+        isLoading: true,
+        initialized: false,
+      ),
+    );
 
-    final allContracts = _allContractsFromProcessCubit;
+    try {
+      final allContracts = await _waitContractsFromProcessCubit();
 
-    await _preloadDfdLabels(allContracts);
-    await _reloadMeasurementGroups();
+      if (isClosed) return;
 
-    final uniqueCompanies = _extractCompanies(allContracts);
+      await _preloadDfdLabels(allContracts);
 
-    emit(state.copyWith(
-      allContracts: allContracts,
-      filteredContracts: allContracts,
-      uniqueCompanies: uniqueCompanies,
-      selectedYear: DateTime.now().year,
-    ));
+      if (isClosed) return;
 
-    await aplicarFiltrosERecalcular();
+      final uniqueCompanies = _extractCompanies(allContracts);
 
-    emit(state.copyWith(
-      initialized: true,
-      isLoading: false,
-    ));
+      emit(
+        state.copyWith(
+          allContracts: allContracts,
+          filteredContracts: allContracts,
+          uniqueCompanies: uniqueCompanies,
+          selectedYear: DateTime.now().year,
+        ),
+      );
+
+      await _reloadMeasurementGroups();
+
+      if (isClosed) return;
+
+      await aplicarFiltrosERecalcular();
+
+      if (isClosed) return;
+
+      emit(
+        state.copyWith(
+          initialized: true,
+          isLoading: false,
+        ),
+      );
+    } catch (_) {
+      if (isClosed) return;
+
+      emit(
+        state.copyWith(
+          initialized: true,
+          isLoading: false,
+        ),
+      );
+    }
   }
 
   Future<void> refreshAndRecalc() async {
-    await _reloadMeasurementGroups();
-    await aplicarFiltrosERecalcular();
+    emit(
+      state.copyWith(
+        isLoading: true,
+      ),
+    );
+
+    try {
+      await _reloadMeasurementGroups();
+
+      if (isClosed) return;
+
+      await aplicarFiltrosERecalcular();
+
+      if (isClosed) return;
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          initialized: true,
+        ),
+      );
+    } catch (_) {
+      if (isClosed) return;
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          initialized: true,
+        ),
+      );
+    }
   }
 
-  Future<void> onHotReload() => refreshAndRecalc();
+  Future<void> onHotReload() {
+    return refreshAndRecalc();
+  }
 
   Future<void> _reloadMeasurementGroups() async {
-    final results = await Future.wait([
-      reportMeasurementCubit.getAllMeasurementsCollectionGroup(),
-      adjustmentMeasurementCubit.getAllAdjustmentsCollectionGroup(),
-      revisionMeasurementCubit.getAllRevisionsCollectionGroup(),
-    ]);
+    List<ReportExecutedData> allMeasurements = const <ReportExecutedData>[];
+    List<AdjustmentMeasurementData> allAdjustments =
+    const <AdjustmentMeasurementData>[];
+    List<RevisionMeasurementData> allRevisions =
+    const <RevisionMeasurementData>[];
 
-    final allMeasurements = results[0] as List<ReportExecutedData>;
-    final allAdjustments = results[1] as List<AdjustmentMeasurementData>;
-    final allRevisions = results[2] as List<RevisionMeasurementData>;
+    try {
+      allMeasurements =
+      await reportMeasurementCubit.getAllMeasurementsCollectionGroup();
+    } catch (_) {}
 
-    emit(state.copyWith(
-      allMeasurements: allMeasurements,
-      allAdjustments: allAdjustments,
-      allRevisions: allRevisions,
-    ));
+    try {
+      allAdjustments =
+      await adjustmentMeasurementCubit.getAllAdjustmentsCollectionGroup();
+    } catch (_) {}
+
+    try {
+      allRevisions =
+      await revisionMeasurementCubit.getAllRevisionsCollectionGroup();
+    } catch (_) {}
+
+    if (isClosed) return;
+
+    emit(
+      state.copyWith(
+        allMeasurements: allMeasurements,
+        allAdjustments: allAdjustments,
+        allRevisions: allRevisions,
+      ),
+    );
   }
 
   Future<void> onStatusSelected(String? status) async {
-    final sel = status?.trim();
-    final same =
-        (state.selectedStatus ?? '').toUpperCase() == (sel ?? '').toUpperCase();
+    final selected = status?.trim();
 
-    if (sel == null || same) {
-      emit(state.copyWith(
-        selectedStatus: null,
-        selectedCompany: null,
-        selectedCompanyIndex: null,
-        selectedRegion: null,
-        selectedRegionIndex: null,
-        selectedRegions: const [],
-        selectedRoad: null,
-        selectedMunicipio: null,
-      ));
+    final same = (state.selectedStatus ?? '').toUpperCase() ==
+        (selected ?? '').toUpperCase();
+
+    if (selected == null || selected.isEmpty || same) {
+      emit(
+        state.copyWith(
+          selectedStatus: null,
+          selectedCompany: null,
+          selectedCompanyIndex: null,
+          selectedRegion: null,
+          selectedRegionIndex: null,
+          selectedRegions: const <String>[],
+          selectedRoad: null,
+          selectedMunicipio: null,
+        ),
+      );
     } else {
-      final selUpper = sel.toUpperCase();
-      final regs = _allContractsFromProcessCubit
-          .where((c) => _getStatusLabel(c).toUpperCase() == selUpper)
-          .map((c) => _getRegionLabel(c).toUpperCase())
-          .where((r) => r.isNotEmpty && r != 'SEM REGIÃO')
+      final selectedUpper = selected.toUpperCase();
+
+      final regions = _allContractsFromProcessCubit
+          .where((contract) {
+        return _getStatusLabel(contract).toUpperCase() == selectedUpper;
+      })
+          .map((contract) => _getRegionLabel(contract).toUpperCase())
+          .where((region) {
+        return region.isNotEmpty && region != 'SEM REGIÃO';
+      })
           .toSet()
           .toList();
 
-      emit(state.copyWith(
-        selectedStatus: sel,
-        selectedCompany: null,
-        selectedCompanyIndex: null,
-        selectedRegion: null,
-        selectedRegionIndex: null,
-        selectedRegions: regs,
-        selectedRoad: null,
-        selectedMunicipio: null,
-      ));
+      emit(
+        state.copyWith(
+          selectedStatus: selected,
+          selectedCompany: null,
+          selectedCompanyIndex: null,
+          selectedRegion: null,
+          selectedRegionIndex: null,
+          selectedRegions: regions,
+          selectedRoad: null,
+          selectedMunicipio: null,
+        ),
+      );
     }
 
     await aplicarFiltrosERecalcular();
   }
 
   Future<void> onCompanySelected(String company) async {
-    final idx = state.uniqueCompanies
-        .indexWhere((e) => e.toUpperCase() == company.toUpperCase());
+    final cleanCompany = company.trim();
 
-    if (idx < 0) {
-      final isSame =
-          (state.selectedCompany ?? '').toUpperCase() == company.toUpperCase();
+    if (cleanCompany.isEmpty) {
+      return;
+    }
 
-      if (isSame) {
-        emit(state.copyWith(
+    final index = state.uniqueCompanies.indexWhere((item) {
+      return item.toUpperCase() == cleanCompany.toUpperCase();
+    });
+
+    if (index >= 0) {
+      await onCompanyIndexSelected(index);
+      return;
+    }
+
+    final isSame =
+        (state.selectedCompany ?? '').toUpperCase() == cleanCompany.toUpperCase();
+
+    if (isSame) {
+      emit(
+        state.copyWith(
           selectedCompany: null,
           selectedCompanyIndex: null,
-          selectedRegions: const [],
+          selectedRegions: const <String>[],
           selectedMunicipio: null,
-        ));
-      } else {
-        final contratosEmpresa = _allContractsFromProcessCubit.where(
-              (c) => _getWinnerLabel(c).toUpperCase() == company.toUpperCase(),
-        );
+        ),
+      );
+    } else {
+      final contracts = _allContractsFromProcessCubit.where((contract) {
+        return _getWinnerLabel(contract).toUpperCase() ==
+            cleanCompany.toUpperCase();
+      });
 
-        final regs = contratosEmpresa
-            .map((c) => _getRegionLabel(c).toUpperCase())
-            .where((r) => r.isNotEmpty && r != 'SEM REGIÃO')
-            .toSet()
-            .toList();
+      final regions = contracts
+          .map((contract) => _getRegionLabel(contract).toUpperCase())
+          .where((region) {
+        return region.isNotEmpty && region != 'SEM REGIÃO';
+      })
+          .toSet()
+          .toList();
 
-        emit(state.copyWith(
-          selectedCompany: company,
+      emit(
+        state.copyWith(
+          selectedCompany: cleanCompany,
           selectedCompanyIndex: null,
-          selectedRegions: regs,
+          selectedRegions: regions,
           selectedStatus: null,
           selectedRegion: null,
           selectedRegionIndex: null,
           selectedRoad: null,
           selectedMunicipio: null,
-        ));
-      }
+        ),
+      );
+    }
+
+    await aplicarFiltrosERecalcular();
+  }
+
+  Future<void> onCompanyIndexSelected(int? index) async {
+    if (index == null || state.selectedCompanyIndex == index) {
+      emit(
+        state.copyWith(
+          selectedCompany: null,
+          selectedCompanyIndex: null,
+          selectedRegions: const <String>[],
+          selectedStatus: null,
+          selectedRegion: null,
+          selectedRegionIndex: null,
+          selectedRoad: null,
+          selectedMunicipio: null,
+        ),
+      );
 
       await aplicarFiltrosERecalcular();
       return;
     }
 
-    await onCompanyIndexSelected(idx);
-  }
+    if (index < 0 || index >= state.uniqueCompanies.length) {
+      return;
+    }
 
-  Future<void> onCompanyIndexSelected(int? index) async {
-    if (index == null || state.selectedCompanyIndex == index) {
-      emit(state.copyWith(
-        selectedCompany: null,
-        selectedCompanyIndex: null,
-        selectedRegions: const [],
+    final company = state.uniqueCompanies[index];
+
+    final contracts = _allContractsFromProcessCubit.where((contract) {
+      return _getWinnerLabel(contract).toUpperCase() == company.toUpperCase();
+    });
+
+    final regions = contracts
+        .map((contract) => _getRegionLabel(contract).toUpperCase())
+        .where((region) {
+      return region.isNotEmpty && region != 'SEM REGIÃO';
+    })
+        .toSet()
+        .toList();
+
+    emit(
+      state.copyWith(
+        selectedCompany: company,
+        selectedCompanyIndex: index,
+        selectedRegions: regions,
         selectedStatus: null,
         selectedRegion: null,
         selectedRegionIndex: null,
         selectedRoad: null,
         selectedMunicipio: null,
-      ));
-      await aplicarFiltrosERecalcular();
-      return;
-    }
-
-    if (index < 0 || index >= state.uniqueCompanies.length) return;
-
-    final company = state.uniqueCompanies[index];
-    final contratosEmpresa = _allContractsFromProcessCubit.where(
-          (c) => _getWinnerLabel(c).toUpperCase() == company.toUpperCase(),
+      ),
     );
-
-    final regs = contratosEmpresa
-        .map((c) => _getRegionLabel(c).toUpperCase())
-        .where((r) => r.isNotEmpty && r != 'SEM REGIÃO')
-        .toSet()
-        .toList();
-
-    emit(state.copyWith(
-      selectedCompany: company,
-      selectedCompanyIndex: index,
-      selectedRegions: regs,
-      selectedStatus: null,
-      selectedRegion: null,
-      selectedRegionIndex: null,
-      selectedRoad: null,
-      selectedMunicipio: null,
-    ));
 
     await aplicarFiltrosERecalcular();
   }
 
   Future<void> onRegionSelected(String? region) async {
-    if (region == null) {
+    final cleanRegion = region?.trim();
+
+    if (cleanRegion == null || cleanRegion.isEmpty) {
       await onRegionIndexSelected(null);
       return;
     }
 
-    final idx = labelsRegionOfMap
-        .indexWhere((r) => r.toUpperCase() == region.toUpperCase());
+    final index = labelsRegionOfMap.indexWhere((item) {
+      return item.toUpperCase() == cleanRegion.toUpperCase();
+    });
 
-    if (idx < 0) {
-      final same = state.selectedRegions.contains(region.toUpperCase());
-
-      if (same) {
-        emit(state.copyWith(
-          selectedRegion: null,
-          selectedRegions: const [],
-          selectedRegionIndex: null,
-          selectedMunicipio: null,
-        ));
-      } else {
-        emit(state.copyWith(
-          selectedRegion: region,
-          selectedRegions: [region.toUpperCase()],
-          selectedRegionIndex: null,
-          selectedMunicipio: null,
-        ));
-      }
-
-      await aplicarFiltrosERecalcular();
+    if (index >= 0) {
+      await onRegionIndexSelected(index);
       return;
     }
 
-    await onRegionIndexSelected(idx);
+    final same = state.selectedRegions.contains(cleanRegion.toUpperCase());
+
+    if (same) {
+      emit(
+        state.copyWith(
+          selectedRegion: null,
+          selectedRegions: const <String>[],
+          selectedRegionIndex: null,
+          selectedMunicipio: null,
+        ),
+      );
+    } else {
+      emit(
+        state.copyWith(
+          selectedRegion: cleanRegion,
+          selectedRegions: <String>[cleanRegion.toUpperCase()],
+          selectedRegionIndex: null,
+          selectedMunicipio: null,
+        ),
+      );
+    }
+
+    await aplicarFiltrosERecalcular();
   }
 
   Future<void> onRegionIndexSelected(int? index) async {
     if (index == null || state.selectedRegionIndex == index) {
-      emit(state.copyWith(
-        selectedRegion: null,
-        selectedRegions: const [],
-        selectedRegionIndex: null,
-        selectedMunicipio: null,
-      ));
+      emit(
+        state.copyWith(
+          selectedRegion: null,
+          selectedRegions: const <String>[],
+          selectedRegionIndex: null,
+          selectedMunicipio: null,
+        ),
+      );
+
       await aplicarFiltrosERecalcular();
       return;
     }
 
-    if (index < 0 || index >= labelsRegionOfMap.length) return;
+    if (index < 0 || index >= labelsRegionOfMap.length) {
+      return;
+    }
 
     final region = labelsRegionOfMap[index];
 
-    emit(state.copyWith(
-      selectedRegion: region,
-      selectedRegions: [region.toUpperCase()],
-      selectedRegionIndex: index,
-      selectedMunicipio: null,
-    ));
+    emit(
+      state.copyWith(
+        selectedRegion: region,
+        selectedRegions: <String>[region.toUpperCase()],
+        selectedRegionIndex: index,
+        selectedMunicipio: null,
+      ),
+    );
 
     await aplicarFiltrosERecalcular();
   }
 
   Future<void> onRoadSelected(String? roadLabel) async {
-    final sel = roadLabel?.trim();
-    final same =
-        (state.selectedRoad ?? '').toUpperCase() == (sel ?? '').toUpperCase();
+    final selected = roadLabel?.trim();
 
-    if (sel == null || same) {
-      emit(state.copyWith(
-        selectedRoad: null,
-        selectedRegions: const [],
-        selectedRegion: null,
-        selectedRegionIndex: null,
-        selectedStatus: null,
-        selectedCompany: null,
-        selectedCompanyIndex: null,
-        selectedMunicipio: null,
-      ));
+    final same =
+        (state.selectedRoad ?? '').toUpperCase() == (selected ?? '').toUpperCase();
+
+    if (selected == null || selected.isEmpty || same) {
+      emit(
+        state.copyWith(
+          selectedRoad: null,
+          selectedRegions: const <String>[],
+          selectedRegion: null,
+          selectedRegionIndex: null,
+          selectedStatus: null,
+          selectedCompany: null,
+          selectedCompanyIndex: null,
+          selectedMunicipio: null,
+        ),
+      );
     } else {
-      final regs = _allContractsFromProcessCubit
-          .where((c) => _getRoadLabel(c).toUpperCase() == sel.toUpperCase())
-          .map((c) => _getRegionLabel(c).toUpperCase())
-          .where((r) => r.isNotEmpty && r != 'SEM REGIÃO')
+      final regions = _allContractsFromProcessCubit
+          .where((contract) {
+        return _getRoadLabel(contract).toUpperCase() == selected.toUpperCase();
+      })
+          .map((contract) => _getRegionLabel(contract).toUpperCase())
+          .where((region) {
+        return region.isNotEmpty && region != 'SEM REGIÃO';
+      })
           .toSet()
           .toList();
 
-      emit(state.copyWith(
-        selectedRoad: sel,
-        selectedRegions: regs,
-        selectedStatus: null,
-        selectedCompany: null,
-        selectedCompanyIndex: null,
-        selectedRegion: null,
-        selectedRegionIndex: null,
-        selectedMunicipio: null,
-      ));
+      emit(
+        state.copyWith(
+          selectedRoad: selected,
+          selectedRegions: regions,
+          selectedStatus: null,
+          selectedCompany: null,
+          selectedCompanyIndex: null,
+          selectedRegion: null,
+          selectedRegionIndex: null,
+          selectedMunicipio: null,
+        ),
+      );
     }
 
     await aplicarFiltrosERecalcular();
   }
 
   Future<void> onMunicipioSelected(String? municipio) async {
-    final sel = municipio?.trim();
-    final same = (state.selectedMunicipio ?? '').toUpperCase() ==
-        (sel ?? '').toUpperCase();
+    final selected = municipio?.trim();
 
-    if (sel == null || same) {
-      emit(state.copyWith(
-        selectedMunicipio: null,
-      ));
+    final same = (state.selectedMunicipio ?? '').toUpperCase() ==
+        (selected ?? '').toUpperCase();
+
+    if (selected == null || selected.isEmpty || same) {
+      emit(
+        state.copyWith(
+          selectedMunicipio: null,
+        ),
+      );
     } else {
-      emit(state.copyWith(
-        selectedMunicipio: sel,
-        selectedStatus: null,
-        selectedCompany: null,
-        selectedCompanyIndex: null,
-        selectedRegion: null,
-        selectedRegionIndex: null,
-        selectedRegions: const [],
-        selectedRoad: null,
-      ));
+      emit(
+        state.copyWith(
+          selectedMunicipio: selected,
+          selectedStatus: null,
+          selectedCompany: null,
+          selectedCompanyIndex: null,
+          selectedRegion: null,
+          selectedRegionIndex: null,
+          selectedRegions: const <String>[],
+          selectedRoad: null,
+        ),
+      );
     }
 
     await aplicarFiltrosERecalcular();
   }
 
   Future<void> limparSelecoes() async {
-    emit(state.copyWith(
-      selectedStatus: null,
-      selectedCompany: null,
-      selectedCompanyIndex: null,
-      selectedRegion: null,
-      selectedRegionIndex: null,
-      selectedRegions: const [],
-      selectedRoad: null,
-      selectedMunicipio: null,
-    ));
+    emit(
+      state.copyWith(
+        selectedStatus: null,
+        selectedCompany: null,
+        selectedCompanyIndex: null,
+        selectedRegion: null,
+        selectedRegionIndex: null,
+        selectedRegions: const <String>[],
+        selectedRoad: null,
+        selectedMunicipio: null,
+      ),
+    );
+
     await aplicarFiltrosERecalcular();
   }
 
   void onTipoDeValorSelecionado(String novoTipo) {
-    emit(state.copyWith(tipoDeValorSelecionado: novoTipo));
+    emit(
+      state.copyWith(
+        tipoDeValorSelecionado: novoTipo,
+      ),
+    );
   }
 
   void updateSelectedYearMonth(int? year, int? month) {
-    emit(state.copyWith(
-      selectedYear: year,
-      selectedMonth: month,
-    ));
+    emit(
+      state.copyWith(
+        selectedYear: year,
+        selectedMonth: month,
+      ),
+    );
   }
 
   List<ContractData> _filterContracts(List<ContractData> base) {
-    final selStatus = state.selectedStatus?.toUpperCase();
-    final selCompany = state.selectedCompany?.toUpperCase();
-    final selRoad = state.selectedRoad?.toUpperCase();
-    final selMunicipio = state.selectedMunicipio?.toUpperCase();
-    final regionsUpper = state.selectedRegions.map((e) => e.toUpperCase());
+    final selectedStatus = state.selectedStatus?.toUpperCase();
+    final selectedCompany = state.selectedCompany?.toUpperCase();
+    final selectedRoad = state.selectedRoad?.toUpperCase();
+    final selectedMunicipio = state.selectedMunicipio?.toUpperCase();
 
-    return base.where((c) {
-      final region = _getRegionLabel(c).toUpperCase();
-      final company = _getWinnerLabel(c).toUpperCase();
-      final statusDfd = _getStatusLabel(c).toUpperCase();
-      final road = _getRoadLabel(c).toUpperCase();
-      final municipio = _getMunicipioLabel(c).toUpperCase();
+    final regionsUpper = state.selectedRegions.map((region) {
+      return region.toUpperCase();
+    }).toList();
 
-      final matchCompany = selCompany == null || company == selCompany;
+    return base.where((contract) {
+      final region = _getRegionLabel(contract).toUpperCase();
+      final company = _getWinnerLabel(contract).toUpperCase();
+      final status = _getStatusLabel(contract).toUpperCase();
+      final road = _getRoadLabel(contract).toUpperCase();
+      final municipio = _getMunicipioLabel(contract).toUpperCase();
+
+      final matchCompany =
+          selectedCompany == null || company == selectedCompany;
+
       final matchRegion = state.selectedRegions.isEmpty ||
-          regionsUpper.any((r) => region.contains(r));
-      final matchStatus = selStatus == null || statusDfd == selStatus;
-      final matchRoad = selRoad == null || road == selRoad;
-      final matchMunicipio = selMunicipio == null || municipio == selMunicipio;
+          regionsUpper.any((selectedRegion) {
+            return region.contains(selectedRegion);
+          });
+
+      final matchStatus = selectedStatus == null || status == selectedStatus;
+
+      final matchRoad = selectedRoad == null || road == selectedRoad;
+
+      final matchMunicipio =
+          selectedMunicipio == null || municipio == selectedMunicipio;
 
       return matchCompany &&
           matchRegion &&
@@ -1019,206 +1451,244 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
   Future<void> aplicarFiltrosERecalcular() async {
     final runId = ++_applyRunId;
 
-    final allContracts =
-    state.allContracts.isEmpty ? _allContractsFromProcessCubit : state.allContracts;
+    try {
+      final allContracts = state.allContracts.isEmpty
+          ? _allContractsFromProcessCubit
+          : state.allContracts;
 
-    final allMeasurements = state.allMeasurements;
-    final allAdjustments = state.allAdjustments;
-    final allRevisions = state.allRevisions;
+      final allMeasurements = state.allMeasurements;
+      final allAdjustments = state.allAdjustments;
+      final allRevisions = state.allRevisions;
 
-    await _preloadDfdLabels(allContracts);
-    if (isClosed || runId != _applyRunId) return;
+      await _preloadDfdLabels(allContracts);
 
-    final filtered = _filterContracts(allContracts);
+      if (isClosed || runId != _applyRunId) return;
 
-    final statusIni = <String, double>{};
-    final empIni = <String, double>{};
-    final regIni = <String, double>{};
+      final filtered = _filterContracts(allContracts);
 
-    for (final c in filtered) {
-      final status = _getStatusLabel(c);
-      final empresa = _getWinnerLabel(c);
-      final regiao = _getRegionLabel(c);
-      final valor = _getContractValue(c);
+      final statusIni = <String, double>{};
+      final empIni = <String, double>{};
+      final regIni = <String, double>{};
 
-      statusIni[status] = (statusIni[status] ?? 0.0) + valor;
-      empIni[empresa] = (empIni[empresa] ?? 0.0) + valor;
-      regIni[regiao] = (regIni[regiao] ?? 0.0) + valor;
-    }
+      for (final contract in filtered) {
+        final status = _getStatusLabel(contract);
+        final empresa = _getWinnerLabel(contract);
+        final regiao = _getRegionLabel(contract);
+        final valor = _getContractValue(contract);
 
-    final allIds = <String>{
-      for (final c in allContracts)
-        if (_idToString(c.id) != null) _idToString(c.id)!,
-    };
-
-    final filtradosIds = <String>{
-      for (final c in filtered)
-        if (_idToString(c.id) != null) _idToString(c.id)!,
-    };
-
-    final byIdAllContracts = <String, ContractData>{
-      for (final c in allContracts)
-        if (_idToString(c.id) != null) _idToString(c.id)!: c,
-    };
-
-    final allAdditives = allIds.isNotEmpty
-        ? await additivesRepository.getAdditivesByContractIds(allIds)
-        : <AdditivesData>[];
-    if (isClosed || runId != _applyRunId) return;
-
-    final allApostilles = allIds.isNotEmpty
-        ? await apostillesRepository.getApostillesByContractIds(allIds)
-        : <ApostillesData>[];
-    if (isClosed || runId != _applyRunId) return;
-
-    final regIniFull = <String, double>{};
-    final empIniFull = <String, double>{};
-    final statusIniFull = <String, double>{};
-
-    for (final c in allContracts) {
-      final regiao = _getRegionLabel(c);
-      final empresa = _getWinnerLabel(c);
-      final status = _getStatusLabel(c);
-      final valor = _getContractValue(c);
-
-      regIniFull[regiao] = (regIniFull[regiao] ?? 0.0) + valor;
-      empIniFull[empresa] = (empIniFull[empresa] ?? 0.0) + valor;
-      statusIniFull[status] = (statusIniFull[status] ?? 0.0) + valor;
-    }
-
-    final regAdFull = <String, double>{};
-    final regApFull = <String, double>{};
-
-    final empAdFull = <String, double>{};
-    final empApFull = <String, double>{};
-
-    final statusAdFull = <String, double>{};
-    final statusApFull = <String, double>{};
-
-    final statusAd = <String, double>{};
-    final empAd = <String, double>{};
-    final regAd = <String, double>{};
-
-    final statusAp = <String, double>{};
-    final empAp = <String, double>{};
-    final regAp = <String, double>{};
-
-    for (final ad in allAdditives) {
-      final adId = _idToString(ad.contractId);
-      if (adId == null) continue;
-      final c = byIdAllContracts[adId];
-      if (c == null) continue;
-
-      final regiao = _getRegionLabel(c);
-      final empresa = _getWinnerLabel(c);
-      final status = _getStatusLabel(c);
-      final valor = ad.additiveValue ?? 0.0;
-
-      regAdFull[regiao] = (regAdFull[regiao] ?? 0.0) + valor;
-      empAdFull[empresa] = (empAdFull[empresa] ?? 0.0) + valor;
-      statusAdFull[status] = (statusAdFull[status] ?? 0.0) + valor;
-
-      if (filtradosIds.contains(adId)) {
-        regAd[regiao] = (regAd[regiao] ?? 0.0) + valor;
-        empAd[empresa] = (empAd[empresa] ?? 0.0) + valor;
-        statusAd[status] = (statusAd[status] ?? 0.0) + valor;
+        statusIni[status] = (statusIni[status] ?? 0.0) + valor;
+        empIni[empresa] = (empIni[empresa] ?? 0.0) + valor;
+        regIni[regiao] = (regIni[regiao] ?? 0.0) + valor;
       }
-    }
 
-    for (final ap in allApostilles) {
-      final apId = _idToString(ap.contractId);
-      if (apId == null) continue;
-      final c = byIdAllContracts[apId];
-      if (c == null) continue;
+      final allIds = <String>{
+        for (final contract in allContracts)
+          if (_idToString(contract.id) != null) _idToString(contract.id)!,
+      };
 
-      final regiao = _getRegionLabel(c);
-      final empresa = _getWinnerLabel(c);
-      final status = _getStatusLabel(c);
-      final valor = ap.apostilleValue ?? 0.0;
+      final filteredIds = <String>{
+        for (final contract in filtered)
+          if (_idToString(contract.id) != null) _idToString(contract.id)!,
+      };
 
-      regApFull[regiao] = (regApFull[regiao] ?? 0.0) + valor;
-      empApFull[empresa] = (empApFull[empresa] ?? 0.0) + valor;
-      statusApFull[status] = (statusApFull[status] ?? 0.0) + valor;
+      final byIdAllContracts = <String, ContractData>{
+        for (final contract in allContracts)
+          if (_idToString(contract.id) != null)
+            _idToString(contract.id)!: contract,
+      };
 
-      if (filtradosIds.contains(apId)) {
-        regAp[regiao] = (regAp[regiao] ?? 0.0) + valor;
-        empAp[empresa] = (empAp[empresa] ?? 0.0) + valor;
-        statusAp[status] = (statusAp[status] ?? 0.0) + valor;
+      final allAdditives = allIds.isNotEmpty
+          ? await additivesRepository.getAdditivesByContractIds(allIds)
+          : <AdditivesData>[];
+
+      if (isClosed || runId != _applyRunId) return;
+
+      final allApostilles = allIds.isNotEmpty
+          ? await apostillesRepository.getApostillesByContractIds(allIds)
+          : <ApostillesData>[];
+
+      if (isClosed || runId != _applyRunId) return;
+
+      final regIniFull = <String, double>{};
+      final empIniFull = <String, double>{};
+      final statusIniFull = <String, double>{};
+
+      for (final contract in allContracts) {
+        final regiao = _getRegionLabel(contract);
+        final empresa = _getWinnerLabel(contract);
+        final status = _getStatusLabel(contract);
+        final valor = _getContractValue(contract);
+
+        regIniFull[regiao] = (regIniFull[regiao] ?? 0.0) + valor;
+        empIniFull[empresa] = (empIniFull[empresa] ?? 0.0) + valor;
+        statusIniFull[status] = (statusIniFull[status] ?? 0.0) + valor;
       }
+
+      final regAdFull = <String, double>{};
+      final regApFull = <String, double>{};
+
+      final empAdFull = <String, double>{};
+      final empApFull = <String, double>{};
+
+      final statusAdFull = <String, double>{};
+      final statusApFull = <String, double>{};
+
+      final statusAd = <String, double>{};
+      final empAd = <String, double>{};
+      final regAd = <String, double>{};
+
+      final statusAp = <String, double>{};
+      final empAp = <String, double>{};
+      final regAp = <String, double>{};
+
+      for (final additive in allAdditives) {
+        final contractId = _idToString(additive.contractId);
+
+        if (contractId == null) continue;
+
+        final contract = byIdAllContracts[contractId];
+
+        if (contract == null) continue;
+
+        final regiao = _getRegionLabel(contract);
+        final empresa = _getWinnerLabel(contract);
+        final status = _getStatusLabel(contract);
+        final valor = additive.additiveValue ?? 0.0;
+
+        regAdFull[regiao] = (regAdFull[regiao] ?? 0.0) + valor;
+        empAdFull[empresa] = (empAdFull[empresa] ?? 0.0) + valor;
+        statusAdFull[status] = (statusAdFull[status] ?? 0.0) + valor;
+
+        if (filteredIds.contains(contractId)) {
+          regAd[regiao] = (regAd[regiao] ?? 0.0) + valor;
+          empAd[empresa] = (empAd[empresa] ?? 0.0) + valor;
+          statusAd[status] = (statusAd[status] ?? 0.0) + valor;
+        }
+      }
+
+      for (final apostille in allApostilles) {
+        final contractId = _idToString(apostille.contractId);
+
+        if (contractId == null) continue;
+
+        final contract = byIdAllContracts[contractId];
+
+        if (contract == null) continue;
+
+        final regiao = _getRegionLabel(contract);
+        final empresa = _getWinnerLabel(contract);
+        final status = _getStatusLabel(contract);
+        final valor = apostille.apostilleValue ?? 0.0;
+
+        regApFull[regiao] = (regApFull[regiao] ?? 0.0) + valor;
+        empApFull[empresa] = (empApFull[empresa] ?? 0.0) + valor;
+        statusApFull[status] = (statusApFull[status] ?? 0.0) + valor;
+
+        if (filteredIds.contains(contractId)) {
+          regAp[regiao] = (regAp[regiao] ?? 0.0) + valor;
+          empAp[empresa] = (empAp[empresa] ?? 0.0) + valor;
+          statusAp[status] = (statusAp[status] ?? 0.0) + valor;
+        }
+      }
+
+      final rodFull = <String, double>{};
+
+      for (final contract in allContracts) {
+        final rodovia = _getRoadLabel(contract);
+
+        if (rodovia.isEmpty || rodovia == 'SEM RODOVIA') continue;
+
+        final valor = _valorRadarParaContrato(contract);
+
+        if (valor == 0.0) continue;
+
+        rodFull[rodovia] = (rodFull[rodovia] ?? 0.0) + valor;
+      }
+
+      final rodFiltrado = <String, double>{};
+
+      for (final contract in filtered) {
+        final rodovia = _getRoadLabel(contract);
+
+        if (rodovia.isEmpty || rodovia == 'SEM RODOVIA') continue;
+
+        final valor = _valorRadarParaContrato(contract);
+
+        if (valor == 0.0) continue;
+
+        rodFiltrado[rodovia] = (rodFiltrado[rodovia] ?? 0.0) + valor;
+      }
+
+      final filteredMeasurements = allMeasurements.where((measurement) {
+        final contractId = _extractContractId(measurement);
+
+        return contractId != null && filteredIds.contains(contractId);
+      }).toList();
+
+      final totalMedicoes = reportMeasurementCubit.sum(filteredMeasurements);
+
+      final filteredAdjustments = allAdjustments.where((adjustment) {
+        final contractId = _extractContractId(adjustment);
+
+        return contractId != null && filteredIds.contains(contractId);
+      }).toList();
+
+      final totalReajustes = adjustmentMeasurementCubit.sum(filteredAdjustments);
+
+      final filteredRevisions = allRevisions.where((revision) {
+        final contractId = _extractContractId(revision);
+
+        return contractId != null && filteredIds.contains(contractId);
+      }).toList();
+
+      final totalRevisoes = revisionMeasurementCubit.sum(filteredRevisions);
+
+      final uniqueCompanies = _extractCompanies(allContracts);
+
+      if (isClosed || runId != _applyRunId) return;
+
+      emit(
+        state.copyWith(
+          allContracts: allContracts,
+          filteredContracts: filtered,
+          allMeasurements: allMeasurements,
+          allAdjustments: allAdjustments,
+          allRevisions: allRevisions,
+          uniqueCompanies: uniqueCompanies,
+          totaisStatusIniciais: statusIni,
+          totaisStatusAditivos: statusAd,
+          totaisStatusApostilas: statusAp,
+          totaisRegiaoIniciais: regIni,
+          totaisRegiaoAditivos: regAd,
+          totaisRegiaoApostilas: regAp,
+          totaisEmpresaIniciais: empIni,
+          totaisEmpresaAditivos: empAd,
+          totaisEmpresaApostilas: empAp,
+          totaisStatusIniciaisFull: statusIniFull,
+          totaisStatusAditivosFull: statusAdFull,
+          totaisStatusApostilasFull: statusApFull,
+          totaisRegiaoIniciaisFull: regIniFull,
+          totaisRegiaoAditivosFull: regAdFull,
+          totaisRegiaoApostilasFull: regApFull,
+          totaisEmpresaIniciaisFull: empIniFull,
+          totaisEmpresaAditivosFull: empAdFull,
+          totaisEmpresaApostilasFull: empApFull,
+          totaisRodoviaFull: rodFull,
+          totaisRodoviaFiltrado: rodFiltrado,
+          totalMedicoes: totalMedicoes,
+          totalReajustes: totalReajustes,
+          totalRevisoes: totalRevisoes,
+        ),
+      );
+    } catch (_) {
+      if (isClosed || runId != _applyRunId) return;
+
+      emit(
+        state.copyWith(
+          initialized: true,
+          isLoading: false,
+        ),
+      );
     }
-
-    final rodFull = <String, double>{};
-    for (final c in allContracts) {
-      final rod = _getRoadLabel(c);
-      if (rod.isEmpty || rod == 'SEM RODOVIA') continue;
-      final valor = _valorRadarParaContrato(c);
-      if (valor == 0.0) continue;
-      rodFull[rod] = (rodFull[rod] ?? 0.0) + valor;
-    }
-
-    final rodFiltrado = <String, double>{};
-    for (final c in filtered) {
-      final rod = _getRoadLabel(c);
-      if (rod.isEmpty || rod == 'SEM RODOVIA') continue;
-      final valor = _valorRadarParaContrato(c);
-      if (valor == 0.0) continue;
-      rodFiltrado[rod] = (rodFiltrado[rod] ?? 0.0) + valor;
-    }
-
-    final idsFiltro = filtradosIds;
-
-    final filtradasMed = allMeasurements.where((m) {
-      final cid = _extractContractId(m);
-      return cid != null && idsFiltro.contains(cid);
-    }).toList();
-    final totalMedicoes = reportMeasurementCubit.sum(filtradasMed);
-
-    final entriesReaj = allAdjustments.where((e) {
-      final cid = _extractContractId(e);
-      return cid != null && idsFiltro.contains(cid);
-    }).toList();
-    final totalReajustes = adjustmentMeasurementCubit.sum(entriesReaj);
-
-    final entriesRev = allRevisions.where((e) {
-      final cid = _extractContractId(e);
-      return cid != null && idsFiltro.contains(cid);
-    }).toList();
-    final totalRevisoes = revisionMeasurementCubit.sum(entriesRev);
-
-    final uniqueCompanies = _extractCompanies(allContracts);
-
-    if (isClosed || runId != _applyRunId) return;
-
-    emit(state.copyWith(
-      allContracts: allContracts,
-      filteredContracts: filtered,
-      allMeasurements: allMeasurements,
-      allAdjustments: allAdjustments,
-      allRevisions: allRevisions,
-      uniqueCompanies: uniqueCompanies,
-      totaisStatusIniciais: statusIni,
-      totaisStatusAditivos: statusAd,
-      totaisStatusApostilas: statusAp,
-      totaisRegiaoIniciais: regIni,
-      totaisRegiaoAditivos: regAd,
-      totaisRegiaoApostilas: regAp,
-      totaisEmpresaIniciais: empIni,
-      totaisEmpresaAditivos: empAd,
-      totaisEmpresaApostilas: empAp,
-      totaisStatusIniciaisFull: statusIniFull,
-      totaisStatusAditivosFull: statusAdFull,
-      totaisStatusApostilasFull: statusApFull,
-      totaisRegiaoIniciaisFull: regIniFull,
-      totaisRegiaoAditivosFull: regAdFull,
-      totaisRegiaoApostilasFull: regApFull,
-      totaisEmpresaIniciaisFull: empIniFull,
-      totaisEmpresaAditivosFull: empAdFull,
-      totaisEmpresaApostilasFull: empApFull,
-      totaisRodoviaFull: rodFull,
-      totaisRodoviaFiltrado: rodFiltrado,
-      totalMedicoes: totalMedicoes,
-      totalReajustes: totalReajustes,
-      totalRevisoes: totalRevisoes,
-    ));
   }
 }

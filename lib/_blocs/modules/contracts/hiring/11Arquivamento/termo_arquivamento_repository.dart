@@ -12,16 +12,118 @@ import 'termo_arquivamento_data.dart';
 
 class TermoArquivamentoRepository {
   TermoArquivamentoRepository({
+    required String tenantId,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
-  })  : _db = firestore ?? FirebaseFirestore.instance,
+  })  : _tenantId = _requireTenantId(tenantId),
+        _db = firestore ?? FirebaseFirestore.instance,
         _storage = storage ?? FirebaseStorage.instance;
 
+  final String _tenantId;
   final FirebaseFirestore _db;
   final FirebaseStorage _storage;
 
+  static const String _hiringCollectionId = 'hiring';
+  static const String _mainDocId = 'main';
+  static const String _arquivamentoCollectionId = 'arquivamento';
+
+  static String _requireTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório em TermoArquivamentoRepository.',
+      );
+    }
+
+    return cleanTenantId;
+  }
+
+  String get tenantId => _tenantId;
+
+  String _requireContractId(String contractId) {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    return cleanContractId;
+  }
+
+  String _requireTaId(String taId) {
+    final cleanTaId = taId.trim();
+
+    if (cleanTaId.isEmpty) {
+      throw Exception('taId não informado.');
+    }
+
+    return cleanTaId;
+  }
+
+  String _requireSectionKey(String sectionKey) {
+    final cleanSectionKey = sectionKey.trim();
+
+    if (cleanSectionKey.isEmpty) {
+      throw Exception('sectionKey não informado.');
+    }
+
+    return cleanSectionKey;
+  }
+
+  String _requireSectionDocId(String sectionDocId) {
+    final cleanSectionDocId = sectionDocId.trim();
+
+    if (cleanSectionDocId.isEmpty) {
+      throw Exception('sectionDocId não informado.');
+    }
+
+    return cleanSectionDocId;
+  }
+
+  DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
+    final cleanContractId = _requireContractId(contractId);
+
+    return _db
+        .collection('tenants')
+        .doc(_tenantId)
+        .collection('contracts')
+        .doc(cleanContractId);
+  }
+
+  DocumentReference<Map<String, dynamic>> _hiringMainDoc(String contractId) {
+    return _contractDoc(contractId)
+        .collection(_hiringCollectionId)
+        .doc(_mainDocId);
+  }
+
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
-    return _db.collection('contracts').doc(contractId).collection('arquivamento');
+    return _hiringMainDoc(contractId).collection(_arquivamentoCollectionId);
+  }
+
+  DocumentReference<Map<String, dynamic>> _taDoc({
+    required String contractId,
+    required String taId,
+  }) {
+    final cleanContractId = _requireContractId(contractId);
+    final cleanTaId = _requireTaId(taId);
+
+    return _col(cleanContractId).doc(cleanTaId);
+  }
+
+  DocumentReference<Map<String, dynamic>> _sectionDoc({
+    required String contractId,
+    required String taId,
+    required String sectionKey,
+    required String sectionDocId,
+  }) {
+    final cleanSectionKey = _requireSectionKey(sectionKey);
+    final cleanSectionDocId = _requireSectionDocId(sectionDocId);
+
+    return _taDoc(
+      contractId: contractId,
+      taId: taId,
+    ).collection(cleanSectionKey).doc(cleanSectionDocId);
   }
 
   String _filesPath({
@@ -29,7 +131,13 @@ class TermoArquivamentoRepository {
     required String taId,
     required String pecasDocId,
   }) {
-    return 'contracts/$contractId/arquivamento/$taId/${TermoArquivamentoData.sectionPecas}/$pecasDocId/files';
+    final cleanContractId = _requireContractId(contractId);
+    final cleanTaId = _requireTaId(taId);
+    final cleanPecasDocId = _requireSectionDocId(pecasDocId);
+
+    return 'tenants/$_tenantId/contracts/$cleanContractId/'
+        'hiring/main/arquivamento/$cleanTaId/'
+        '${TermoArquivamentoData.sectionPecas}/$cleanPecasDocId/files';
   }
 
   String _extractExt(String nameOrUrl) {
@@ -62,20 +170,58 @@ class TermoArquivamentoRepository {
     }
   }
 
+  Map<String, dynamic> _cleanSystemFields(Map<String, dynamic> data) {
+    return Map<String, dynamic>.from(data)
+      ..remove('createdAt')
+      ..remove('updatedAt')
+      ..remove('createdBy')
+      ..remove('updatedBy');
+  }
+
+  String _preferredRootMergeSectionKey() {
+    const preferred = 'metadados';
+
+    if (TermoArquivamentoData.sectionKeys.contains(preferred)) {
+      return preferred;
+    }
+
+    if (TermoArquivamentoData.sectionKeys.isNotEmpty) {
+      return TermoArquivamentoData.sectionKeys.first;
+    }
+
+    return preferred;
+  }
+
   Future<({String taId, Map<String, String> sectionIds})> ensureStructure(
       String contractId,
       ) async {
-    final cleanContractId = contractId.trim();
-
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
+    final cleanContractId = _requireContractId(contractId);
 
     final sectionIds = <String, String>{
-      for (final section in TermoArquivamentoData.sectionKeys) section: 'main',
+      for (final section in TermoArquivamentoData.sectionKeys) section: _mainDocId,
     };
 
-    return (taId: 'main', sectionIds: sectionIds);
+    final root = _taDoc(
+      contractId: cleanContractId,
+      taId: _mainDocId,
+    );
+
+    await root.set(
+      <String, dynamic>{
+        'id': _mainDocId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'module': _arquivamentoCollectionId,
+        'recordPath': root.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    return (taId: _mainDocId, sectionIds: sectionIds);
   }
 
   Future<Map<String, Map<String, dynamic>>> loadAllSections({
@@ -83,18 +229,13 @@ class TermoArquivamentoRepository {
     required String taId,
     required Map<String, String> sectionIds,
   }) async {
-    final cleanContractId = contractId.trim();
-    final cleanTaId = taId.trim();
+    final cleanContractId = _requireContractId(contractId);
+    final cleanTaId = _requireTaId(taId);
 
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
-
-    if (cleanTaId.isEmpty) {
-      throw Exception('taId não informado.');
-    }
-
-    final root = _col(cleanContractId).doc(cleanTaId);
+    final root = _taDoc(
+      contractId: cleanContractId,
+      taId: cleanTaId,
+    );
 
     final entries = await Future.wait(
       sectionIds.entries.map((entry) async {
@@ -110,14 +251,9 @@ class TermoArquivamentoRepository {
 
         final snap = await root.collection(sectionName).doc(sectionDocId).get();
 
-        final data = Map<String, dynamic>.from(
+        final data = _cleanSystemFields(
           snap.data() ?? const <String, dynamic>{},
         );
-
-        data.remove('createdAt');
-        data.remove('updatedAt');
-        data.remove('createdBy');
-        data.remove('updatedBy');
 
         return MapEntry<String, Map<String, dynamic>>(sectionName, data);
       }),
@@ -135,21 +271,33 @@ class TermoArquivamentoRepository {
     required Map<String, String> sectionIds,
     required Map<String, Map<String, dynamic>> sectionsData,
   }) async {
-    final cleanContractId = contractId.trim();
-    final cleanTaId = taId.trim();
-
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
-
-    if (cleanTaId.isEmpty) {
-      throw Exception('taId não informado.');
-    }
+    final cleanContractId = _requireContractId(contractId);
+    final cleanTaId = _requireTaId(taId);
 
     if (sectionsData.isEmpty) return;
 
     final batch = _db.batch();
-    final root = _col(cleanContractId).doc(cleanTaId);
+
+    final root = _taDoc(
+      contractId: cleanContractId,
+      taId: cleanTaId,
+    );
+
+    batch.set(
+      root,
+      <String, dynamic>{
+        'id': cleanTaId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'module': _arquivamentoCollectionId,
+        'recordPath': root.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
 
     for (final entry in sectionsData.entries) {
       final sectionKey = entry.key.trim();
@@ -158,16 +306,24 @@ class TermoArquivamentoRepository {
       if (sectionKey.isEmpty) continue;
       if (sectionDocId == null || sectionDocId.isEmpty) continue;
 
-      final sectionData = Map<String, dynamic>.from(entry.value)
-        ..remove('createdAt')
-        ..remove('updatedAt')
-        ..remove('createdBy')
-        ..remove('updatedBy');
+      final sectionRef = root.collection(sectionKey).doc(sectionDocId);
+
+      final sectionData = _cleanSystemFields(entry.value);
 
       batch.set(
-        root.collection(sectionKey).doc(sectionDocId),
+        sectionRef,
         <String, dynamic>{
           ...sectionData,
+          'id': sectionDocId,
+          'tenantId': _tenantId,
+          'companyId': _tenantId,
+          'contractId': cleanContractId,
+          'uidContract': cleanContractId,
+          'uidcontract': cleanContractId,
+          'taId': cleanTaId,
+          'termoArquivamentoId': cleanTaId,
+          'sectionKey': sectionKey,
+          'recordPath': sectionRef.path,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -184,45 +340,63 @@ class TermoArquivamentoRepository {
     required String sectionDocId,
     required Map<String, dynamic> data,
   }) async {
-    final cleanContractId = contractId.trim();
-    final cleanTaId = taId.trim();
-    final cleanSectionKey = sectionKey.trim();
-    final cleanSectionDocId = sectionDocId.trim();
+    final cleanContractId = _requireContractId(contractId);
+    final cleanTaId = _requireTaId(taId);
+    final cleanSectionKey = _requireSectionKey(sectionKey);
+    final cleanSectionDocId = _requireSectionDocId(sectionDocId);
 
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
+    final root = _taDoc(
+      contractId: cleanContractId,
+      taId: cleanTaId,
+    );
 
-    if (cleanTaId.isEmpty) {
-      throw Exception('taId não informado.');
-    }
+    final ref = _sectionDoc(
+      contractId: cleanContractId,
+      taId: cleanTaId,
+      sectionKey: cleanSectionKey,
+      sectionDocId: cleanSectionDocId,
+    );
 
-    if (cleanSectionKey.isEmpty) {
-      throw Exception('sectionKey não informado.');
-    }
+    final cleanData = _cleanSystemFields(data);
 
-    if (cleanSectionDocId.isEmpty) {
-      throw Exception('sectionDocId não informado.');
-    }
+    final batch = _db.batch();
 
-    final cleanData = Map<String, dynamic>.from(data)
-      ..remove('createdAt')
-      ..remove('updatedAt')
-      ..remove('createdBy')
-      ..remove('updatedBy');
-
-    final ref = _col(cleanContractId)
-        .doc(cleanTaId)
-        .collection(cleanSectionKey)
-        .doc(cleanSectionDocId);
-
-    await ref.set(
+    batch.set(
+      root,
       <String, dynamic>{
-        ...cleanData,
+        'id': cleanTaId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'module': _arquivamentoCollectionId,
+        'recordPath': root.path,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
     );
+
+    batch.set(
+      ref,
+      <String, dynamic>{
+        ...cleanData,
+        'id': cleanSectionDocId,
+        'tenantId': _tenantId,
+        'companyId': _tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'taId': cleanTaId,
+        'termoArquivamentoId': cleanTaId,
+        'sectionKey': cleanSectionKey,
+        'recordPath': ref.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
   }
 
   Future<TermoArquivamentoData?> readDataForContract(String contractId) async {
@@ -232,11 +406,31 @@ class TermoArquivamentoRepository {
 
     final ids = await ensureStructure(cleanContractId);
 
+    final rootRef = _taDoc(
+      contractId: cleanContractId,
+      taId: ids.taId,
+    );
+
+    final rootSnap = await rootRef.get();
+
+    final rootData = _cleanSystemFields(
+      rootSnap.data() ?? const <String, dynamic>{},
+    );
+
     final sections = await loadAllSections(
       contractId: cleanContractId,
       taId: ids.taId,
       sectionIds: ids.sectionIds,
     );
+
+    if (rootData.isNotEmpty) {
+      final targetSection = _preferredRootMergeSectionKey();
+
+      sections[targetSection] = <String, dynamic>{
+        ...rootData,
+        ...(sections[targetSection] ?? const <String, dynamic>{}),
+      };
+    }
 
     final hasAnyData = sections.values.any((map) => map.isNotEmpty);
 
@@ -391,10 +585,16 @@ class TermoArquivamentoRepository {
           SettableMetadata(
             contentType: _contentTypeForExt(ext),
             customMetadata: <String, String>{
-              'originalName': cleanFileName,
+              'tenantId': _tenantId,
+              'companyId': _tenantId,
               'contractId': cleanContractId,
+              'uidContract': cleanContractId,
+              'uidcontract': cleanContractId,
               'taId': cleanTaId,
+              'termoArquivamentoId': cleanTaId,
               'pecasDocId': cleanPecasDocId,
+              'module': _arquivamentoCollectionId,
+              'originalName': cleanFileName,
             },
           ),
     );

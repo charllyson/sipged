@@ -1,3 +1,5 @@
+// lib/screens/modules/contracts/measurement/report/report_executed_page.dart
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,6 +12,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart'
 
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_state.dart';
 
 import 'package:sipged/_blocs/modules/financial/payments/report/report_paid_data.dart';
@@ -44,6 +47,18 @@ class ReportExecutedPage extends StatelessWidget {
 
   final ContractData contractData;
 
+  String _resolveRequiredTenantId(PermissionState permissionState) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para ReportExecutedPage.',
+      );
+    }
+
+    return tenantId;
+  }
+
   @override
   Widget build(BuildContext context) {
     final contractId = contractData.id?.trim();
@@ -57,29 +72,46 @@ class ReportExecutedPage extends StatelessWidget {
       );
     }
 
-    return BlocProvider(
-      create: (context) {
-        final permissionState = context.read<PermissionCubit>().state;
-
-        return ReportExecutedCubit(
-          initialPermissions: permissionState.current,
-          initialTenantId: permissionState.activeTenantId,
-          moduleId: 'operation_measurements',
-        )..loadByContract(contractId);
+    return BlocBuilder<PermissionCubit, PermissionState>(
+      buildWhen: (previous, current) {
+        return previous.activeTenantId != current.activeTenantId ||
+            previous.current != current.current;
       },
-      child: BlocListener<PermissionCubit, PermissionState>(
-        listenWhen: (previous, current) {
-          return previous.current != current.current ||
-              previous.activeTenantId != current.activeTenantId;
-        },
-        listener: (context, permissionState) {
-          context.read<ReportExecutedCubit>().updatePermissions(
-            permissions: permissionState.current,
-            tenantId: permissionState.activeTenantId,
-          );
-        },
-        child: _ReportMeasurementView(contractData: contractData),
-      ),
+      builder: (context, permissionState) {
+        final tenantId = _resolveRequiredTenantId(permissionState);
+
+        return BlocProvider<ReportExecutedCubit>(
+          key: ValueKey<String>('report-executed-$tenantId-$contractId'),
+          create: (context) {
+            return ReportExecutedCubit(
+              repository: ReportExecutedRepository(
+                tenantId: tenantId,
+              ),
+              initialPermissions: permissionState.current,
+              initialTenantId: tenantId,
+              moduleId: 'operation_measurements',
+            )..loadByContract(contractId);
+          },
+          child: BlocListener<PermissionCubit, PermissionState>(
+            listenWhen: (previous, current) {
+              return previous.current != current.current ||
+                  previous.activeTenantId != current.activeTenantId;
+            },
+            listener: (context, permissionState) {
+              final nextTenantId = _resolveRequiredTenantId(permissionState);
+
+              context.read<ReportExecutedCubit>().updatePermissions(
+                permissions: permissionState.current,
+                tenantId: nextTenantId,
+              );
+            },
+            child: _ReportMeasurementView(
+              contractData: contractData,
+              tenantId: tenantId,
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -87,17 +119,20 @@ class ReportExecutedPage extends StatelessWidget {
 class _ReportMeasurementView extends StatefulWidget {
   const _ReportMeasurementView({
     required this.contractData,
+    required this.tenantId,
   });
 
   final ContractData contractData;
+  final String tenantId;
 
   @override
   State<_ReportMeasurementView> createState() => _ReportMeasurementViewState();
 }
 
 class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
-  final DfdRepository _dfdRepository = DfdRepository();
-  final ReportPaidRepository _paymentRepository = ReportPaidRepository();
+  late DfdRepository _dfdRepository;
+  late ReportPaidRepository _paymentRepository;
+  late AdditivesRepository _additivesRepository;
 
   DfdData? _dfdData;
 
@@ -149,13 +184,39 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
   void initState() {
     super.initState();
 
-    _syncPaymentRepositoryTenant();
+    _configureRepositories();
+
     _loadDfdAggregatesAndPayments();
 
     orderCtrl.addListener(_validateForm);
     processCtrl.addListener(_validateForm);
     valueCtrl.addListener(_validateForm);
     dateCtrl.addListener(_validateForm);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReportMeasurementView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final oldContractId = oldWidget.contractData.id?.trim() ?? '';
+    final newContractId = widget.contractData.id?.trim() ?? '';
+
+    if (oldWidget.tenantId != widget.tenantId || oldContractId != newContractId) {
+      _configureRepositories();
+
+      setState(() {
+        _dfdData = null;
+        _valorDemanda = 0.0;
+        _totalAditivos = 0.0;
+        _payments = <ReportPaidData>[];
+        _selectedIndex = null;
+        _selectedMeasurement = null;
+        _sideItems = <Attachment>[];
+        _selectedSideIndex = null;
+      });
+
+      _loadDfdAggregatesAndPayments();
+    }
   }
 
   @override
@@ -179,24 +240,26 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     super.dispose();
   }
 
-  String? _cleanTenantId(String? value) {
-    final clean = value?.trim();
+  void _configureRepositories() {
+    final tenantId = widget.tenantId.trim();
 
-    if (clean == null || clean.isEmpty) return null;
+    if (tenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para carregar medições.',
+      );
+    }
 
-    return clean;
-  }
+    _dfdRepository = DfdRepository(
+      tenantId: tenantId,
+    );
 
-  String? _activeTenantIdFromPermissions() {
-    final permissionState = context.read<PermissionCubit>().state;
+    _paymentRepository = ReportPaidRepository(
+      tenantId: tenantId,
+    );
 
-    return _cleanTenantId(permissionState.activeTenantId);
-  }
-
-  void _syncPaymentRepositoryTenant([String? tenantId]) {
-    final resolvedTenantId = _cleanTenantId(tenantId) ?? _activeTenantIdFromPermissions();
-
-    _paymentRepository.setActiveTenantId(resolvedTenantId);
+    _additivesRepository = AdditivesRepository(
+      tenantId: tenantId,
+    );
   }
 
   Future<void> _loadDfdAggregatesAndPayments() async {
@@ -212,20 +275,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     if (contractId.isEmpty) return;
 
     try {
-      final tenantId = _activeTenantIdFromPermissions();
-
-      if (tenantId == null || tenantId.isEmpty) {
-        if (!mounted) return;
-
-        setState(() {
-          _payments = <ReportPaidData>[];
-        });
-
-        return;
-      }
-
-      _paymentRepository.setActiveTenantId(tenantId);
-
       final payments = await _paymentRepository.getPaymentsByContract(
         contractId: contractId,
       );
@@ -266,12 +315,13 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     }
 
     try {
-      final additivesRepo = AdditivesRepository();
-      final list = await additivesRepo.ensureForContract(contractId);
+      final list = await _additivesRepository.ensureForContract(contractId);
 
       totalAditivos = list.fold<double>(
         0.0,
-            (previousTotal, item) => previousTotal + (item.additiveValue ?? 0.0),
+            (previousTotal, item) {
+          return previousTotal + (item.additiveValue ?? 0.0);
+        },
       );
     } catch (e, stack) {
       debugPrint('Falha ao carregar aditivos do contrato em medições: $e');
@@ -531,6 +581,8 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       measurementValue: _parseNumFromExtra(extra['measurementValue']) ??
           _selectedMeasurement?.value,
       extra: <String, dynamic>{
+        'tenantId': widget.tenantId,
+        'companyId': widget.tenantId,
         'route': route,
         'module': route,
         'source': 'measurement_notification',
@@ -786,448 +838,241 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
   Widget build(BuildContext context) {
     final contractId = _contractId;
 
-    return BlocListener<PermissionCubit, PermissionState>(
-      listenWhen: (previous, current) {
-        return previous.current != current.current ||
-            previous.activeTenantId != current.activeTenantId;
+    return BlocConsumer<ReportExecutedCubit, ReportExecutedState>(
+      listener: (context, state) {
+        if (state.status != ReportExecutedStatus.success) return;
+
+        final list = state.measurements;
+
+        if (_selectedMeasurement == null) {
+          _fillFieldsFromMeasurement(list, null, null);
+          return;
+        }
+
+        final index = list.indexWhere(
+              (item) => item.id == _selectedMeasurement!.id,
+        );
+
+        if (index >= 0) {
+          _fillFieldsFromMeasurement(list, list[index], index);
+        } else {
+          _fillFieldsFromMeasurement(list, null, null);
+        }
       },
-      listener: (context, permissionState) {
-        _syncPaymentRepositoryTenant(permissionState.activeTenantId);
-        _loadPaymentsForContract();
-      },
-      child: BlocConsumer<ReportExecutedCubit, ReportExecutedState>(
-        listener: (context, state) {
-          if (state.status != ReportExecutedStatus.success) return;
+      builder: (context, state) {
+        final cubit = context.read<ReportExecutedCubit>();
+        final navigator = Navigator.of(context);
 
-          final list = state.measurements;
-
-          if (_selectedMeasurement == null) {
-            _fillFieldsFromMeasurement(list, null, null);
-            return;
-          }
-
-          final index = list.indexWhere(
-                (item) => item.id == _selectedMeasurement!.id,
+        if (state.status == ReportExecutedStatus.loading &&
+            state.measurements.isEmpty) {
+          return const Center(
+            child: LoadingTreeDots(size: 110),
           );
+        }
 
-          if (index >= 0) {
-            _fillFieldsFromMeasurement(list, list[index], index);
-          } else {
-            _fillFieldsFromMeasurement(list, null, null);
-          }
-        },
-        builder: (context, state) {
-          final cubit = context.read<ReportExecutedCubit>();
-          final navigator = Navigator.of(context);
+        if (state.status == ReportExecutedStatus.failure) {
+          return Center(
+            child: Text(
+              state.error ?? 'Erro ao carregar medições.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+          );
+        }
 
-          if (state.status == ReportExecutedStatus.loading &&
-              state.measurements.isEmpty) {
-            return const Center(
-              child: LoadingTreeDots(size: 110),
-            );
-          }
+        final measurements = state.measurements;
+        final uploading = state.uploading;
+        final uploadProgress = state.uploadProgress;
 
-          if (state.status == ReportExecutedStatus.failure) {
-            return Center(
-              child: Text(
-                state.error ?? 'Erro ao carregar medições.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red),
-              ),
-            );
-          }
+        final labels = measurements
+            .map((measurement) => (measurement.order ?? 0).toString())
+            .toList();
 
-          final measurements = state.measurements;
-          final uploading = state.uploading;
-          final uploadProgress = state.uploadProgress;
+        final values = measurements
+            .map((measurement) => measurement.value ?? 0.0)
+            .toList();
 
-          final labels = measurements
-              .map((measurement) => (measurement.order ?? 0).toString())
-              .toList();
+        final measurementIds = measurements
+            .map((measurement) => measurement.id?.trim() ?? '')
+            .toList();
 
-          final values = measurements
-              .map((measurement) => measurement.value ?? 0.0)
-              .toList();
+        final measurementOrders = measurements
+            .map((measurement) => measurement.order)
+            .toList();
 
-          final measurementIds = measurements
-              .map((measurement) => measurement.id?.trim() ?? '')
-              .toList();
+        final paymentValues = _buildPaymentValuesForMeasurements(measurements);
 
-          final measurementOrders = measurements
-              .map((measurement) => measurement.order)
-              .toList();
+        final totalMedicoes = cubit.sum(measurements);
+        final totalPagamentos = _sumPaymentsTotal(_payments);
 
-          final paymentValues = _buildPaymentValuesForMeasurements(measurements);
+        final totalDisponivel = _valorDemanda + _totalAditivos;
+        final saldo = totalDisponivel - totalMedicoes;
 
-          final totalMedicoes = cubit.sum(measurements);
-          final totalPagamentos = _sumPaymentsTotal(_payments);
+        final selectedIndex = _selectedIndex;
 
-          final totalDisponivel = _valorDemanda + _totalAditivos;
-          final saldo = totalDisponivel - totalMedicoes;
+        return Stack(
+          children: [
+            Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SectionTitle(text: 'Gráfico das medições'),
+                        ReportExecutedGraph(
+                          labels: labels,
+                          values: values,
+                          measurementIds: measurementIds,
+                          measurementOrders: measurementOrders,
+                          payments: _payments,
+                          paymentValues: paymentValues,
+                          totalPagamentos: totalPagamentos,
+                          valorTotal: totalDisponivel,
+                          totalMedicoes: totalMedicoes,
+                          selectedIndex: selectedIndex,
+                          onSelectIndex: (index) {
+                            if (index < 0 || index >= measurements.length) {
+                              setState(() {
+                                _selectedIndex = null;
+                                _selectedMeasurement = null;
+                              });
 
-          final selectedIndex = _selectedIndex;
+                              _fillFieldsFromMeasurement(
+                                measurements,
+                                null,
+                                null,
+                              );
 
-          return Stack(
-            children: [
-              Column(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SectionTitle(text: 'Gráfico das medições'),
-                          ReportExecutedGraph(
-                            labels: labels,
-                            values: values,
-                            measurementIds: measurementIds,
-                            measurementOrders: measurementOrders,
-                            payments: _payments,
-                            paymentValues: paymentValues,
-                            totalPagamentos: totalPagamentos,
-                            valorTotal: totalDisponivel,
-                            totalMedicoes: totalMedicoes,
-                            selectedIndex: selectedIndex,
-                            onSelectIndex: (index) {
-                              if (index < 0 || index >= measurements.length) {
-                                setState(() {
-                                  _selectedIndex = null;
-                                  _selectedMeasurement = null;
-                                });
+                              return;
+                            }
 
-                                _fillFieldsFromMeasurement(
-                                  measurements,
-                                  null,
-                                  null,
+                            final measurement = measurements[index];
+
+                            setState(() {
+                              _selectedIndex = index;
+                              _selectedMeasurement = measurement;
+                            });
+
+                            _fillFieldsFromMeasurement(
+                              measurements,
+                              measurement,
+                              index,
+                            );
+                          },
+                        ),
+                        const SectionTitle(
+                          text: 'Cadastrar medições no sistema',
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: ReportExecutedForm(
+                            isEditable: cubit.isEditable,
+                            formValidated: formValidated,
+                            selectedReportMeasurement: _selectedMeasurement,
+                            currentReportMeasurementId:
+                            _selectedMeasurement?.id,
+                            contractData: widget.contractData,
+                            orderController: orderCtrl,
+                            processNumberController: processCtrl,
+                            dateController: dateCtrl,
+                            valueController: valueCtrl,
+                            sideLoading: uploading,
+                            sideUploadProgress: uploadProgress,
+                            onPaymentsChanged: _loadPaymentsForContract,
+                            onClear: () {
+                              setState(() {
+                                _selectedIndex = null;
+                                _selectedMeasurement = null;
+                              });
+
+                              _fillFieldsFromMeasurement(
+                                measurements,
+                                null,
+                                null,
+                              );
+                            },
+                            onAddSideItem: () async {
+                              final measurement = _selectedMeasurement;
+
+                              if (measurement == null ||
+                                  measurement.id == null ||
+                                  measurement.id!.isEmpty) {
+                                await _safeNotify(
+                                  title: 'Salve a medição primeiro',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  'Depois você poderá anexar arquivos.',
+                                  status: NotificationStatus.info,
                                 );
-
                                 return;
                               }
 
-                              final measurement = measurements[index];
-
-                              setState(() {
-                                _selectedIndex = index;
-                                _selectedMeasurement = measurement;
-                              });
-
-                              _fillFieldsFromMeasurement(
-                                measurements,
-                                measurement,
-                                index,
-                              );
-                            },
-                          ),
-                          const SectionTitle(
-                            text: 'Cadastrar medições no sistema',
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: ReportExecutedForm(
-                              isEditable: cubit.isEditable,
-                              formValidated: formValidated,
-                              selectedReportMeasurement: _selectedMeasurement,
-                              currentReportMeasurementId:
-                              _selectedMeasurement?.id,
-                              contractData: widget.contractData,
-                              orderController: orderCtrl,
-                              processNumberController: processCtrl,
-                              dateController: dateCtrl,
-                              valueController: valueCtrl,
-                              sideLoading: uploading,
-                              sideUploadProgress: uploadProgress,
-                              onPaymentsChanged: _loadPaymentsForContract,
-                              onClear: () {
-                                setState(() {
-                                  _selectedIndex = null;
-                                  _selectedMeasurement = null;
-                                });
-
-                                _fillFieldsFromMeasurement(
-                                  measurements,
-                                  null,
-                                  null,
+                              try {
+                                final attachment =
+                                await cubit.pickAndUploadAttachment(
+                                  contractId: contractId,
+                                  measurementId: measurement.id!,
                                 );
-                              },
-                              onAddSideItem: () async {
-                                final measurement = _selectedMeasurement;
-
-                                if (measurement == null ||
-                                    measurement.id == null ||
-                                    measurement.id!.isEmpty) {
-                                  await _safeNotify(
-                                    title: 'Salve a medição primeiro',
-                                    subtitle: _contractSummary,
-                                    details:
-                                    'Depois você poderá anexar arquivos.',
-                                    status: NotificationStatus.info,
-                                  );
-                                  return;
-                                }
-
-                                try {
-                                  final attachment =
-                                  await cubit.pickAndUploadAttachment(
-                                    contractId: contractId,
-                                    measurementId: measurement.id!,
-                                  );
-
-                                  if (!mounted) return;
-
-                                  setState(() {
-                                    _sideItems = [..._sideItems, attachment];
-                                    _selectedSideIndex = _sideItems.length - 1;
-                                    _selectedMeasurement!.attachments =
-                                    List<Attachment>.from(_sideItems);
-                                  });
-
-                                  final actorName = _resolveActorName(
-                                    FirebaseAuth.instance.currentUser?.uid,
-                                  );
-
-                                  await _safeNotify(
-                                    title: 'Arquivo anexado à medição',
-                                    subtitle: _contractSummary,
-                                    details:
-                                    '${attachment.label} anexado por $actorName.',
-                                    status: NotificationStatus.success,
-                                    saveInBell: true,
-                                    sendPush: true,
-                                    extra: <String, dynamic>{
-                                      'action': 'measurement_attachment_created',
-                                      'measurementId': measurement.id,
-                                      'measurementOrder': measurement.order,
-                                      'attachmentLabel': attachment.label,
-                                      'attachmentUrl': attachment.url,
-                                    },
-                                  );
-                                } catch (e) {
-                                  await _safeNotify(
-                                    title: 'Falha ao anexar arquivo',
-                                    subtitle: _contractSummary,
-                                    details: '$e',
-                                    status: NotificationStatus.error,
-                                    duration: const Duration(seconds: 6),
-                                  );
-                                }
-                              },
-                              onSave: () async {
-                                final ok = await confirmDialog(
-                                  context,
-                                  'Deseja salvar esta medição?',
-                                );
-
-                                if (!ok) return;
-
-                                final date = _parseDate(dateCtrl.text);
-
-                                if (date == null) {
-                                  await _safeNotify(
-                                    title: 'Data da medição inválida',
-                                    subtitle: _contractSummary,
-                                    details: 'Use o formato dd/MM/aaaa.',
-                                    status: NotificationStatus.error,
-                                  );
-                                  return;
-                                }
-
-                                if (contractId.isEmpty) {
-                                  await _safeNotify(
-                                    title: 'Contrato inválido',
-                                    subtitle: _contractSummary,
-                                    details:
-                                    'Não foi possível identificar o contrato.',
-                                    status: NotificationStatus.error,
-                                  );
-                                  return;
-                                }
 
                                 if (!mounted) return;
 
-                                setState(() => _isSaving = true);
+                                setState(() {
+                                  _sideItems = [..._sideItems, attachment];
+                                  _selectedSideIndex = _sideItems.length - 1;
+                                  _selectedMeasurement!.attachments =
+                                  List<Attachment>.from(_sideItems);
+                                });
 
-                                final isNew = _selectedMeasurement?.id == null;
-
-                                final data = ReportExecutedData(
-                                  id: _selectedMeasurement?.id,
-                                  contractId: contractId,
-                                  order: int.tryParse(orderCtrl.text),
-                                  numberprocess: processCtrl.text.trim(),
-                                  value: _parseCurrency(valueCtrl.text),
-                                  date: date,
-                                  attachments: _sideItems.isEmpty
-                                      ? null
-                                      : List<Attachment>.from(_sideItems),
+                                final actorName = _resolveActorName(
+                                  FirebaseAuth.instance.currentUser?.uid,
                                 );
 
-                                try {
-                                  await cubit.saveOrUpdate(data);
-                                  await _loadPaymentsForContract();
-
-                                  final actorName = _resolveActorName(
-                                    FirebaseAuth.instance.currentUser?.uid,
-                                  );
-
-                                  await _safeNotify(
-                                    title: isNew
-                                        ? 'Medição criada'
-                                        : 'Medição atualizada',
-                                    subtitle: _contractSummary,
-                                    details: isNew
-                                        ? 'Boletim ${data.order ?? '-'} criado por $actorName.'
-                                        : 'Boletim ${data.order ?? '-'} atualizado por $actorName.',
-                                    status: NotificationStatus.success,
-                                    saveInBell: true,
-                                    sendPush: true,
-                                    extra: <String, dynamic>{
-                                      'action': isNew
-                                          ? 'measurement_created'
-                                          : 'measurement_updated',
-                                      'measurementId': data.id,
-                                      'measurementOrder': data.order,
-                                      'measurementProcess': data.numberprocess,
-                                      'measurementValue': data.value,
-                                      'measurementDate':
-                                      data.date?.toIso8601String(),
-                                    },
-                                  );
-                                } catch (e) {
-                                  await _safeNotify(
-                                    title: 'Erro ao salvar medição',
-                                    subtitle: _contractSummary,
-                                    details: '$e',
-                                    status: NotificationStatus.error,
-                                    duration: const Duration(seconds: 6),
-                                  );
-                                } finally {
-                                  if (mounted) {
-                                    setState(() => _isSaving = false);
-                                  }
-                                }
-                              },
-                              onOpenMemoDeCalculo: null,
-                              onOpenBoletimDeMedicao: () async {
-                                final measurement = _selectedMeasurement;
-
-                                if (measurement == null ||
-                                    measurement.id == null ||
-                                    measurement.id!.isEmpty) {
-                                  await _safeNotify(
-                                    title: 'Selecione uma medição',
-                                    subtitle: _contractSummary,
-                                    details:
-                                    'Selecione ou salve uma medição para abrir o boletim.',
-                                    status: NotificationStatus.info,
-                                  );
-                                  return;
-                                }
-
-                                await navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) => CreateDetailedReportPage(
-                                      titulo:
-                                      'Boletim ${measurement.order ?? '-'}',
-                                      contractData: widget.contractData,
-                                      measurement: measurement,
-                                    ),
-                                  ),
+                                await _safeNotify(
+                                  title: 'Arquivo anexado à medição',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  '${attachment.label} anexado por $actorName.',
+                                  status: NotificationStatus.success,
+                                  saveInBell: true,
+                                  sendPush: true,
+                                  extra: <String, dynamic>{
+                                    'action': 'measurement_attachment_created',
+                                    'measurementId': measurement.id,
+                                    'measurementOrder': measurement.order,
+                                    'attachmentLabel': attachment.label,
+                                    'attachmentUrl': attachment.url,
+                                  },
                                 );
-                              },
-                              sideItems: _sideItems,
-                              selectedSideIndex: _selectedSideIndex,
-                              onTapSideItem: (index) {
-                                setState(() => _selectedSideIndex = index);
-                              },
-                              onDeleteSideItem: _removeAttachmentAt,
-                              onSideItemsChanged: _applySideItemsFromWidget,
-                              onRenamePersist: ({
-                                required int index,
-                                required Attachment oldItem,
-                                required Attachment newItem,
-                              }) async {
-                                final measurement = _selectedMeasurement;
-
-                                if (measurement == null ||
-                                    measurement.id == null ||
-                                    measurement.id!.isEmpty) {
-                                  return false;
-                                }
-
-                                try {
-                                  await cubit.renameAttachmentLabel(
-                                    contractId: contractId,
-                                    measurementId: measurement.id!,
-                                    oldItem: oldItem,
-                                    newItem: newItem,
-                                  );
-
-                                  final actorName = _resolveActorName(
-                                    FirebaseAuth.instance.currentUser?.uid,
-                                  );
-
-                                  await _safeNotify(
-                                    title: 'Anexo de medição renomeado',
-                                    subtitle: _contractSummary,
-                                    details:
-                                    '${newItem.label} renomeado por $actorName.',
-                                    status: NotificationStatus.success,
-                                    saveInBell: true,
-                                    sendPush: true,
-                                    extra: <String, dynamic>{
-                                      'action':
-                                      'measurement_attachment_renamed',
-                                      'measurementId': measurement.id,
-                                      'measurementOrder': measurement.order,
-                                      'oldAttachmentLabel': oldItem.label,
-                                      'newAttachmentLabel': newItem.label,
-                                      'attachmentUrl': newItem.url,
-                                    },
-                                  );
-
-                                  return true;
-                                } catch (e) {
-                                  await _safeNotify(
-                                    title: 'Falha ao renomear anexo',
-                                    subtitle: _contractSummary,
-                                    details: '$e',
-                                    status: NotificationStatus.error,
-                                    duration: const Duration(seconds: 6),
-                                  );
-
-                                  return false;
-                                }
-                              },
-                            ),
-                          ),
-                          const SectionTitle(
-                            text: 'Medições cadastradas no sistema',
-                          ),
-                          ReportExecutedTable(
-                            onTapItem: (ReportExecutedData data) {
-                              final index = measurements.indexWhere(
-                                    (item) => item.id == data.id,
-                              );
-
-                              if (index < 0) return;
-
-                              setState(() {
-                                _selectedIndex = index;
-                                _selectedMeasurement = data;
-                              });
-
-                              _fillFieldsFromMeasurement(
-                                measurements,
-                                data,
-                                index,
-                              );
+                              } catch (e) {
+                                await _safeNotify(
+                                  title: 'Falha ao anexar arquivo',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
+                                  status: NotificationStatus.error,
+                                  duration: const Duration(seconds: 6),
+                                );
+                              }
                             },
-                            onDelete: (id) async {
+                            onSave: () async {
                               final ok = await confirmDialog(
                                 context,
-                                'Deseja realmente apagar esta medição?',
+                                'Deseja salvar esta medição?',
                               );
 
                               if (!ok) return;
+
+                              final date = _parseDate(dateCtrl.text);
+
+                              if (date == null) {
+                                await _safeNotify(
+                                  title: 'Data da medição inválida',
+                                  subtitle: _contractSummary,
+                                  details: 'Use o formato dd/MM/aaaa.',
+                                  status: NotificationStatus.error,
+                                );
+                                return;
+                              }
 
                               if (contractId.isEmpty) {
                                 await _safeNotify(
@@ -1242,20 +1087,24 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
                               if (!mounted) return;
 
-                              final deletedMeasurement =
-                              measurements.firstWhere(
-                                    (item) => item.id == id,
-                                orElse: () => ReportExecutedData(id: id),
-                              );
-
                               setState(() => _isSaving = true);
 
-                              try {
-                                await cubit.delete(
-                                  contractId: contractId,
-                                  measurementId: id,
-                                );
+                              final isNew = _selectedMeasurement?.id == null;
 
+                              final data = ReportExecutedData(
+                                id: _selectedMeasurement?.id,
+                                contractId: contractId,
+                                order: int.tryParse(orderCtrl.text),
+                                numberprocess: processCtrl.text.trim(),
+                                value: _parseCurrency(valueCtrl.text),
+                                date: date,
+                                attachments: _sideItems.isEmpty
+                                    ? null
+                                    : List<Attachment>.from(_sideItems),
+                              );
+
+                              try {
+                                await cubit.saveOrUpdate(data);
                                 await _loadPaymentsForContract();
 
                                 final actorName = _resolveActorName(
@@ -1263,30 +1112,31 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 );
 
                                 await _safeNotify(
-                                  title: 'Medição apagada',
+                                  title: isNew
+                                      ? 'Medição criada'
+                                      : 'Medição atualizada',
                                   subtitle: _contractSummary,
-                                  details: deletedMeasurement.order != null
-                                      ? 'Boletim ${deletedMeasurement.order} removido por $actorName.'
-                                      : 'Boletim removido por $actorName.',
-                                  status: NotificationStatus.warning,
+                                  details: isNew
+                                      ? 'Boletim ${data.order ?? '-'} criado por $actorName.'
+                                      : 'Boletim ${data.order ?? '-'} atualizado por $actorName.',
+                                  status: NotificationStatus.success,
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
-                                    'action': 'measurement_deleted',
-                                    'measurementId': id,
-                                    'measurementOrder':
-                                    deletedMeasurement.order,
-                                    'measurementProcess':
-                                    deletedMeasurement.numberprocess,
-                                    'measurementValue':
-                                    deletedMeasurement.value,
-                                    'measurementDate': deletedMeasurement.date
-                                        ?.toIso8601String(),
+                                    'action': isNew
+                                        ? 'measurement_created'
+                                        : 'measurement_updated',
+                                    'measurementId': data.id,
+                                    'measurementOrder': data.order,
+                                    'measurementProcess': data.numberprocess,
+                                    'measurementValue': data.value,
+                                    'measurementDate':
+                                    data.date?.toIso8601String(),
                                   },
                                 );
                               } catch (e) {
                                 await _safeNotify(
-                                  title: 'Erro ao apagar medição',
+                                  title: 'Erro ao salvar medição',
                                   subtitle: _contractSummary,
                                   details: '$e',
                                   status: NotificationStatus.error,
@@ -1297,55 +1147,247 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   setState(() => _isSaving = false);
                                 }
                               }
+                            },
+                            onOpenMemoDeCalculo: null,
+                            onOpenBoletimDeMedicao: () async {
+                              final measurement = _selectedMeasurement;
 
-                              if (!mounted) return;
-
-                              if (_selectedMeasurement?.id == id) {
-                                setState(() {
-                                  _selectedIndex = null;
-                                  _selectedMeasurement = null;
-                                });
-
-                                _fillFieldsFromMeasurement(
-                                  measurements,
-                                  null,
-                                  null,
+                              if (measurement == null ||
+                                  measurement.id == null ||
+                                  measurement.id!.isEmpty) {
+                                await _safeNotify(
+                                  title: 'Selecione uma medição',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  'Selecione ou salve uma medição para abrir o boletim.',
+                                  status: NotificationStatus.info,
                                 );
+                                return;
+                              }
+
+                              await navigator.push(
+                                MaterialPageRoute(
+                                  builder: (_) => CreateDetailedReportPage(
+                                    titulo:
+                                    'Boletim ${measurement.order ?? '-'}',
+                                    contractData: widget.contractData,
+                                    measurement: measurement,
+                                  ),
+                                ),
+                              );
+                            },
+                            sideItems: _sideItems,
+                            selectedSideIndex: _selectedSideIndex,
+                            onTapSideItem: (index) {
+                              setState(() => _selectedSideIndex = index);
+                            },
+                            onDeleteSideItem: _removeAttachmentAt,
+                            onSideItemsChanged: _applySideItemsFromWidget,
+                            onRenamePersist: ({
+                              required int index,
+                              required Attachment oldItem,
+                              required Attachment newItem,
+                            }) async {
+                              final measurement = _selectedMeasurement;
+
+                              if (measurement == null ||
+                                  measurement.id == null ||
+                                  measurement.id!.isEmpty) {
+                                return false;
+                              }
+
+                              try {
+                                await cubit.renameAttachmentLabel(
+                                  contractId: contractId,
+                                  measurementId: measurement.id!,
+                                  oldItem: oldItem,
+                                  newItem: newItem,
+                                );
+
+                                final actorName = _resolveActorName(
+                                  FirebaseAuth.instance.currentUser?.uid,
+                                );
+
+                                await _safeNotify(
+                                  title: 'Anexo de medição renomeado',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  '${newItem.label} renomeado por $actorName.',
+                                  status: NotificationStatus.success,
+                                  saveInBell: true,
+                                  sendPush: true,
+                                  extra: <String, dynamic>{
+                                    'action':
+                                    'measurement_attachment_renamed',
+                                    'measurementId': measurement.id,
+                                    'measurementOrder': measurement.order,
+                                    'oldAttachmentLabel': oldItem.label,
+                                    'newAttachmentLabel': newItem.label,
+                                    'attachmentUrl': newItem.url,
+                                  },
+                                );
+
+                                return true;
+                              } catch (e) {
+                                await _safeNotify(
+                                  title: 'Falha ao renomear anexo',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
+                                  status: NotificationStatus.error,
+                                  duration: const Duration(seconds: 6),
+                                );
+
+                                return false;
                               }
                             },
-                            measurementsData: measurements,
-                            payments: _payments,
-                            valorInicial: _valorDemanda,
-                            valorAditivos: _totalAditivos,
-                            valorTotal: totalDisponivel,
-                            saldo: saldo,
-                            contractData: widget.contractData,
-                            selectedMeasurement: _selectedMeasurement,
                           ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
+                        ),
+                        const SectionTitle(
+                          text: 'Medições cadastradas no sistema',
+                        ),
+                        ReportExecutedTable(
+                          onTapItem: (ReportExecutedData data) {
+                            final index = measurements.indexWhere(
+                                  (item) => item.id == data.id,
+                            );
+
+                            if (index < 0) return;
+
+                            setState(() {
+                              _selectedIndex = index;
+                              _selectedMeasurement = data;
+                            });
+
+                            _fillFieldsFromMeasurement(
+                              measurements,
+                              data,
+                              index,
+                            );
+                          },
+                          onDelete: (id) async {
+                            final ok = await confirmDialog(
+                              context,
+                              'Deseja realmente apagar esta medição?',
+                            );
+
+                            if (!ok) return;
+
+                            if (contractId.isEmpty) {
+                              await _safeNotify(
+                                title: 'Contrato inválido',
+                                subtitle: _contractSummary,
+                                details:
+                                'Não foi possível identificar o contrato.',
+                                status: NotificationStatus.error,
+                              );
+                              return;
+                            }
+
+                            if (!mounted) return;
+
+                            final deletedMeasurement =
+                            measurements.firstWhere(
+                                  (item) => item.id == id,
+                              orElse: () => ReportExecutedData(id: id),
+                            );
+
+                            setState(() => _isSaving = true);
+
+                            try {
+                              await cubit.delete(
+                                contractId: contractId,
+                                measurementId: id,
+                              );
+
+                              await _loadPaymentsForContract();
+
+                              final actorName = _resolveActorName(
+                                FirebaseAuth.instance.currentUser?.uid,
+                              );
+
+                              await _safeNotify(
+                                title: 'Medição apagada',
+                                subtitle: _contractSummary,
+                                details: deletedMeasurement.order != null
+                                    ? 'Boletim ${deletedMeasurement.order} removido por $actorName.'
+                                    : 'Boletim removido por $actorName.',
+                                status: NotificationStatus.warning,
+                                saveInBell: true,
+                                sendPush: true,
+                                extra: <String, dynamic>{
+                                  'action': 'measurement_deleted',
+                                  'measurementId': id,
+                                  'measurementOrder':
+                                  deletedMeasurement.order,
+                                  'measurementProcess':
+                                  deletedMeasurement.numberprocess,
+                                  'measurementValue':
+                                  deletedMeasurement.value,
+                                  'measurementDate': deletedMeasurement.date
+                                      ?.toIso8601String(),
+                                },
+                              );
+                            } catch (e) {
+                              await _safeNotify(
+                                title: 'Erro ao apagar medição',
+                                subtitle: _contractSummary,
+                                details: '$e',
+                                status: NotificationStatus.error,
+                                duration: const Duration(seconds: 6),
+                              );
+                            } finally {
+                              if (mounted) {
+                                setState(() => _isSaving = false);
+                              }
+                            }
+
+                            if (!mounted) return;
+
+                            if (_selectedMeasurement?.id == id) {
+                              setState(() {
+                                _selectedIndex = null;
+                                _selectedMeasurement = null;
+                              });
+
+                              _fillFieldsFromMeasurement(
+                                measurements,
+                                null,
+                                null,
+                              );
+                            }
+                          },
+                          measurementsData: measurements,
+                          payments: _payments,
+                          valorInicial: _valorDemanda,
+                          valorAditivos: _totalAditivos,
+                          valorTotal: totalDisponivel,
+                          saldo: saldo,
+                          contractData: widget.contractData,
+                          selectedMeasurement: _selectedMeasurement,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                     ),
                   ),
-                  const FootBar(),
+                ),
+                const FootBar(),
+              ],
+            ),
+            if (_isSaving)
+              Stack(
+                children: [
+                  ModalBarrier(
+                    dismissible: false,
+                    color: Colors.black.withValues(alpha: 0.4),
+                  ),
+                  const Center(
+                    child: LoadingTreeDots(size: 120),
+                  ),
                 ],
               ),
-              if (_isSaving)
-                Stack(
-                  children: [
-                    ModalBarrier(
-                      dismissible: false,
-                      color: Colors.black.withValues(alpha: 0.4),
-                    ),
-                    const Center(
-                      child: LoadingTreeDots(size: 120),
-                    ),
-                  ],
-                ),
-            ],
-          );
-        },
-      ),
+          ],
+        );
+      },
     );
   }
 }

@@ -1,5 +1,3 @@
-// lib/_blocs/modules/contracts/measurement/report/report_executed_cubit.dart
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
@@ -13,13 +11,16 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
   ReportExecutedCubit({
     ReportExecutedRepository? repository,
     UserPermissionData? initialPermissions,
-    String? initialTenantId,
+    required String initialTenantId,
     this.moduleId = 'operation_measurements',
-  })  : _repo = repository ?? ReportExecutedRepository(),
+  })  : _repo = repository ??
+      ReportExecutedRepository(
+        tenantId: initialTenantId,
+      ),
         _currentPermissions = initialPermissions,
-        _tenantId = _resolveInitialTenantId(
-          tenantId: initialTenantId,
-          permissions: initialPermissions,
+        _tenantId = _cleanRequiredTenantId(
+          initialTenantId,
+          context: 'ReportExecutedCubit.initialTenantId',
         ),
         super(ReportExecutedState.initial()) {
     _syncRepositoryTenant();
@@ -29,40 +30,35 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
   final String moduleId;
 
   UserPermissionData? _currentPermissions;
-  String? _tenantId;
+  String _tenantId;
 
-  static String? _cleanTenantId(String? value) {
-    final clean = value?.trim();
-    return clean == null || clean.isEmpty ? null : clean;
-  }
+  static String _cleanRequiredTenantId(
+      String value, {
+        required String context,
+      }) {
+    final clean = value.trim();
 
-  static String? _resolveInitialTenantId({
-    required String? tenantId,
-    required UserPermissionData? permissions,
-  }) {
-    final direct = _cleanTenantId(tenantId);
-
-    if (direct != null) {
-      return direct;
+    if (clean.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório em $context.',
+      );
     }
 
-    final permissionTenant = _cleanTenantId(permissions?.activeTenantId);
-
-    if (permissionTenant != null) {
-      return permissionTenant;
-    }
-
-    return null;
+    return clean;
   }
 
   void _syncRepositoryTenant() {
     _repo.setActiveTenantId(_tenantId);
   }
 
-  void setTenantId(String? tenantId) {
+  void setTenantId(String tenantId) {
     final previousTenantId = _tenantId;
 
-    _tenantId = _cleanTenantId(tenantId);
+    _tenantId = _cleanRequiredTenantId(
+      tenantId,
+      context: 'ReportExecutedCubit.setTenantId',
+    );
+
     _syncRepositoryTenant();
 
     final currentContractId = state.contractId?.trim();
@@ -74,17 +70,12 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
     }
   }
 
-  bool get _hasTenantId {
-    final clean = _tenantId?.trim();
-    return clean != null && clean.isNotEmpty;
-  }
-
   String _requireTenantId() {
-    final clean = _tenantId?.trim();
+    final clean = _tenantId.trim();
 
-    if (clean == null || clean.isEmpty) {
+    if (clean.isEmpty) {
       throw Exception(
-        'Nenhuma empresa ativa foi selecionada para acessar medições.',
+        'tenantId é obrigatório para acessar medições.',
       );
     }
 
@@ -95,20 +86,16 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
 
   void updatePermissions({
     UserPermissionData? permissions,
-    String? tenantId,
+    required String tenantId,
   }) {
     final previousTenantId = _tenantId;
 
     _currentPermissions = permissions ?? _currentPermissions;
 
-    final resolvedTenantId = _resolveInitialTenantId(
-      tenantId: tenantId,
-      permissions: _currentPermissions,
+    _tenantId = _cleanRequiredTenantId(
+      tenantId,
+      context: 'ReportExecutedCubit.updatePermissions',
     );
-
-    if (resolvedTenantId != null) {
-      _tenantId = resolvedTenantId;
-    }
 
     _syncRepositoryTenant();
 
@@ -174,7 +161,7 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
 
     throw Exception(
       'Usuário sem permissão para alterar medições. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
@@ -185,41 +172,19 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
 
     throw Exception(
       'Usuário sem permissão para apagar medições. '
-          'Módulo: $moduleId | tenantId: ${_tenantId ?? 'não definido'}',
+          'Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
   Future<void> loadByContract(String contractId) async {
-    _syncRepositoryTenant();
+    _requireTenantId();
 
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) {
-      emit(
-        state.copyWith(
-          status: ReportExecutedStatus.success,
-          measurements: const <ReportExecutedData>[],
-          error: null,
-          contractId: null,
-          uploading: false,
-          uploadProgress: null,
-        ),
+      throw Exception(
+        'contractId é obrigatório para carregar medições.',
       );
-      return;
-    }
-
-    if (!_hasTenantId) {
-      emit(
-        state.copyWith(
-          status: ReportExecutedStatus.failure,
-          measurements: const <ReportExecutedData>[],
-          error: 'Nenhuma empresa ativa foi selecionada.',
-          contractId: cleanContractId,
-          uploading: false,
-          uploadProgress: null,
-        ),
-      );
-      return;
     }
 
     emit(
@@ -256,11 +221,13 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
           uploadProgress: null,
         ),
       );
+
+      rethrow;
     }
   }
 
   Future<List<ReportExecutedData>> getAllMeasurementsCollectionGroup() {
-    _syncRepositoryTenant();
+    _requireTenantId();
     return _repo.getAllMeasurementsCollectionGroup();
   }
 
@@ -390,7 +357,9 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
     final cleanContractId = contractId.trim();
     final cleanMeasurementId = measurementId.trim();
 
-    if (cleanContractId.isEmpty || cleanMeasurementId.isEmpty) return;
+    if (cleanContractId.isEmpty || cleanMeasurementId.isEmpty) {
+      throw Exception('contractId e measurementId são obrigatórios.');
+    }
 
     await _repo.deleteAttachment(
       contractId: cleanContractId,
@@ -414,7 +383,9 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
     final cleanContractId = contractId.trim();
     final cleanMeasurementId = measurementId.trim();
 
-    if (cleanContractId.isEmpty || cleanMeasurementId.isEmpty) return;
+    if (cleanContractId.isEmpty || cleanMeasurementId.isEmpty) {
+      throw Exception('contractId e measurementId são obrigatórios.');
+    }
 
     await _repo.renameAttachmentLabel(
       contractId: cleanContractId,

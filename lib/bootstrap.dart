@@ -1,3 +1,6 @@
+// lib/bootstrap.dart
+// ou o arquivo onde você mantém o bootstrapAndRunApp()
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -5,18 +8,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:sipged/_blocs/system/module/module_cubit.dart';
 
-import '_blocs/system/permission/permission_cubit.dart';
 import 'firebase_options_flavors.dart';
 import 'gate_page.dart';
+
+import 'package:sipged/_blocs/system/module/module_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
 
@@ -39,56 +45,11 @@ import 'package:sipged/_blocs/system/login/login_repository.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
-import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
-
 import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_repository.dart';
 
-import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
-
 import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/budget/budget_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
-
-import 'package:sipged/_blocs/modules/contracts/validity/validity_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_repository.dart';
 
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
@@ -179,9 +140,11 @@ Future<void> bootstrapAndRunApp() async {
             BlocProvider<ModuleCubit>(
               create: (_) => ModuleCubit(),
             ),
-            BlocProvider(
+
+            BlocProvider<PermissionCubit>(
               create: (_) => PermissionCubit(),
             ),
+
             BlocProvider<MapOverlayCubit>(
               create: (_) => MapOverlayCubit(),
             ),
@@ -197,6 +160,7 @@ Future<void> bootstrapAndRunApp() async {
             RepositoryProvider<LoginRepository>(
               create: (_) => LoginRepository(),
             ),
+
             BlocProvider<LoginCubit>(
               create: (ctx) => LoginCubit(
                 repository: ctx.read<LoginRepository>(),
@@ -216,6 +180,7 @@ Future<void> bootstrapAndRunApp() async {
             RepositoryProvider<NotificationRemoteRepository>(
               create: (_) => NotificationRemoteRepository(),
             ),
+
             BlocProvider<NotificationRemoteCubit>(
               create: (ctx) => NotificationRemoteCubit(
                 repository: ctx.read<NotificationRemoteRepository>(),
@@ -243,6 +208,7 @@ Future<void> bootstrapAndRunApp() async {
                 );
               },
             ),
+
             BlocProvider<NominatimCubit>(
               create: (ctx) => NominatimCubit(
                 repository: ctx.read<NominatimRepository>(),
@@ -252,6 +218,7 @@ Future<void> bootstrapAndRunApp() async {
             RepositoryProvider<UserRepository>(
               create: (_) => UserRepository(),
             ),
+
             BlocProvider<UserCubit>(
               create: (ctx) => UserCubit(
                 ctx.read<UserRepository>(),
@@ -260,6 +227,7 @@ Future<void> bootstrapAndRunApp() async {
                 bindCurrentUser: true,
               ),
             ),
+
             BlocProvider<AccidentsCubit>(
               create: (_) => AccidentsCubit(),
             ),
@@ -267,175 +235,40 @@ Future<void> bootstrapAndRunApp() async {
             RepositoryProvider<InfractionsRepository>(
               create: (_) => InfractionsRepository(),
             ),
+
             BlocProvider<InfractionsCubit>(
               create: (ctx) => InfractionsCubit(
                 repository: ctx.read<InfractionsRepository>(),
               ),
             ),
 
-            BlocProvider<ReportExecutedCubit>(
-              create: (_) => ReportExecutedCubit(),
-            ),
-
-            BlocProvider<ValidityCubit>(
-              create: (_) => ValidityCubit(
-                repository: ValidityRepository(),
-              ),
-            ),
-
             RepositoryProvider<BudgetRepository>(
               create: (_) => BudgetRepository(),
             ),
+
             BlocProvider<BudgetCubit>(
               create: (ctx) => BudgetCubit(
                 repository: ctx.read<BudgetRepository>(),
               ),
             ),
 
-            BlocProvider<AdjustmentMeasurementCubit>(
-              create: (_) => AdjustmentMeasurementCubit(),
-            ),
-
-            BlocProvider<RevisionMeasurementCubit>(
-              create: (_) => RevisionMeasurementCubit(),
-            ),
-
-            RepositoryProvider<AdditivesRepository>(
-              create: (_) => AdditivesRepository(),
-            ),
-
-            RepositoryProvider<ApostillesRepository>(
-              create: (_) => ApostillesRepository(),
-            ),
-
-            RepositoryProvider<DfdRepository>(
-              create: (_) => DfdRepository(),
-            ),
-            BlocProvider<DfdCubit>(
-              create: (ctx) => DfdCubit(
-                repository: ctx.read<DfdRepository>(),
-              ),
-            ),
-
-            RepositoryProvider<PublicacaoExtratoRepository>(
-              create: (_) => PublicacaoExtratoRepository(),
-            ),
-            BlocProvider<PublicacaoExtratoCubit>(
-              create: (ctx) => PublicacaoExtratoCubit(
-                ctx.read<PublicacaoExtratoRepository>(),
-              ),
-            ),
-
-            RepositoryProvider<EditalRepository>(
-              create: (_) => EditalRepository(),
-            ),
-            BlocProvider<EditalCubit>(
-              create: (ctx) => EditalCubit(
-                ctx.read<EditalRepository>(),
-              ),
-            ),
-
             RepositoryProvider<ContractRepository>(
               create: (_) => ContractRepository(),
             ),
+
             BlocProvider<ContractCubit>(
               create: (ctx) => ContractCubit(
                 repository: ctx.read<ContractRepository>(),
               ),
             ),
 
-            BlocProvider<GeneralDashboardCubit>(
-              create: (ctx) => GeneralDashboardCubit(
-                processCubit: ctx.read<ContractCubit>(),
-                additivesRepository: ctx.read<AdditivesRepository>(),
-                apostillesRepository: ctx.read<ApostillesRepository>(),
-                reportMeasurementCubit: ctx.read<ReportExecutedCubit>(),
-                adjustmentMeasurementCubit:
-                ctx.read<AdjustmentMeasurementCubit>(),
-                revisionMeasurementCubit: ctx.read<RevisionMeasurementCubit>(),
-                dfdCubit: ctx.read<DfdCubit>(),
-                editalCubit: ctx.read<EditalCubit>(),
-              )..initialize(),
-            ),
-
             RepositoryProvider<ScheduleRoadRepository>(
               create: (_) => ScheduleRoadRepository(),
             ),
+
             BlocProvider<ScheduleRoadCubit>(
               create: (ctx) => ScheduleRoadCubit(
                 repository: ctx.read<ScheduleRoadRepository>(),
-              ),
-            ),
-
-            RepositoryProvider<EtpRepository>(
-              create: (_) => EtpRepository(),
-            ),
-            BlocProvider<EtpCubit>(
-              create: (ctx) => EtpCubit(
-                ctx.read<EtpRepository>(),
-              ),
-            ),
-
-            RepositoryProvider<TrRepository>(
-              create: (_) => TrRepository(),
-            ),
-            BlocProvider<TrCubit>(
-              create: (ctx) => TrCubit(
-                ctx.read<TrRepository>(),
-              ),
-            ),
-
-            RepositoryProvider<CotacaoRepository>(
-              create: (_) => CotacaoRepository(),
-            ),
-            BlocProvider<CotacaoCubit>(
-              create: (ctx) => CotacaoCubit(
-                ctx.read<CotacaoRepository>(),
-              ),
-            ),
-
-            RepositoryProvider<HabilitacaoRepository>(
-              create: (_) => HabilitacaoRepository(),
-            ),
-            BlocProvider<HabilitacaoCubit>(
-              create: (ctx) => HabilitacaoCubit(
-                ctx.read<HabilitacaoRepository>(),
-              ),
-            ),
-
-            RepositoryProvider<DotacaoRepository>(
-              create: (_) => DotacaoRepository(),
-            ),
-            BlocProvider<DotacaoCubit>(
-              create: (ctx) => DotacaoCubit(
-                ctx.read<DotacaoRepository>(),
-              ),
-            ),
-
-            RepositoryProvider<MinutaContratoRepository>(
-              create: (_) => MinutaContratoRepository(),
-            ),
-            BlocProvider<MinutaContratoCubit>(
-              create: (ctx) => MinutaContratoCubit(
-                ctx.read<MinutaContratoRepository>(),
-              ),
-            ),
-
-            RepositoryProvider<ParecerJuridicoRepository>(
-              create: (_) => ParecerJuridicoRepository(),
-            ),
-            BlocProvider<ParecerJuridicoCubit>(
-              create: (ctx) => ParecerJuridicoCubit(
-                ctx.read<ParecerJuridicoRepository>(),
-              ),
-            ),
-
-            RepositoryProvider<TermoArquivamentoRepository>(
-              create: (_) => TermoArquivamentoRepository(),
-            ),
-            BlocProvider<TermoArquivamentoCubit>(
-              create: (ctx) => TermoArquivamentoCubit(
-                ctx.read<TermoArquivamentoRepository>(),
               ),
             ),
           ],
@@ -446,7 +279,6 @@ Future<void> bootstrapAndRunApp() async {
       );
     },
         (Object error, StackTrace stack) {
-      debugPrint('[ZoneGuarded] $error');
       debugPrintStack(stackTrace: stack);
     },
   );

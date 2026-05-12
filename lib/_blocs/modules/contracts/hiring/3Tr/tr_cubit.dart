@@ -9,10 +9,18 @@ import 'tr_repository.dart';
 import 'tr_state.dart';
 
 class TrCubit extends Cubit<TrState> {
-  TrCubit([TrRepository? repository])
-      : repo = repository ?? TrRepository(),
-        super(TrState.initial());
+  TrCubit({
+    required String tenantId,
+    TrRepository? repository,
+  })  : _tenantId = _validateTenantId(tenantId),
+        repo = repository ?? TrRepository(tenantId: _validateTenantId(tenantId)),
+        super(
+        TrState.initial(
+          tenantId: _validateTenantId(tenantId),
+        ),
+      );
 
+  final String _tenantId;
   final TrRepository repo;
 
   int _loadSeq = 0;
@@ -20,8 +28,21 @@ class TrCubit extends Cubit<TrState> {
 
   bool get _alive => !isClosed;
 
+  String get tenantId => _tenantId;
+
+  static String _validateTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório para TrCubit.');
+    }
+
+    return cleanTenantId;
+  }
+
   Future<TrData?> getDataForContract(String contractId) {
     final id = contractId.trim();
+
     if (id.isEmpty) return Future<TrData?>.value(null);
 
     return repo.readDataForContract(id);
@@ -53,6 +74,7 @@ class TrCubit extends Cubit<TrState> {
         loading: true,
         saving: false,
         saveSuccess: false,
+        tenantId: _tenantId,
         contractId: cleanContractId,
         clearError: true,
       ),
@@ -76,6 +98,7 @@ class TrCubit extends Cubit<TrState> {
           loading: false,
           saving: false,
           saveSuccess: false,
+          tenantId: _tenantId,
           contractId: cleanContractId,
           trId: ids.trId,
           sectionIds: ids.sectionIds,
@@ -121,6 +144,7 @@ class TrCubit extends Cubit<TrState> {
         saving: true,
         loading: false,
         saveSuccess: false,
+        tenantId: _tenantId,
         contractId: cleanContractId,
         clearError: true,
       ),
@@ -155,6 +179,7 @@ class TrCubit extends Cubit<TrState> {
         state.copyWith(
           saving: false,
           saveSuccess: true,
+          tenantId: _tenantId,
           contractId: cleanContractId,
           trId: ids.trId,
           sectionIds: ids.sectionIds,
@@ -212,6 +237,7 @@ class TrCubit extends Cubit<TrState> {
         saving: true,
         loading: false,
         saveSuccess: false,
+        tenantId: _tenantId,
         contractId: cleanContractId,
         clearError: true,
       ),
@@ -228,6 +254,7 @@ class TrCubit extends Cubit<TrState> {
           state.copyWith(
             saving: false,
             saveSuccess: false,
+            tenantId: _tenantId,
             error: 'Seção inválida: $cleanSectionKey',
             trId: ids.trId,
             sectionIds: ids.sectionIds,
@@ -261,6 +288,7 @@ class TrCubit extends Cubit<TrState> {
         state.copyWith(
           saving: false,
           saveSuccess: true,
+          tenantId: _tenantId,
           contractId: cleanContractId,
           trId: ids.trId,
           sectionIds: ids.sectionIds,
@@ -288,8 +316,7 @@ class TrCubit extends Cubit<TrState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanTrId = (trId ?? state.trId ?? '').trim();
-    final cleanDocumentosId =
-    (documentosId ?? state.currentDocsId ?? '').trim();
+    final cleanDocumentosId = (documentosId ?? state.currentDocsId ?? '').trim();
 
     if (cleanContractId.isEmpty ||
         cleanTrId.isEmpty ||
@@ -319,8 +346,7 @@ class TrCubit extends Cubit<TrState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanTrId = (trId ?? state.trId ?? '').trim();
-    final cleanDocumentosId =
-    (documentosId ?? state.currentDocsId ?? '').trim();
+    final cleanDocumentosId = (documentosId ?? state.currentDocsId ?? '').trim();
 
     if (cleanContractId.isEmpty ||
         cleanTrId.isEmpty ||
@@ -345,8 +371,7 @@ class TrCubit extends Cubit<TrState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanTrId = (trId ?? state.trId ?? '').trim();
-    final cleanDocumentosId =
-    (documentosId ?? state.currentDocsId ?? '').trim();
+    final cleanDocumentosId = (documentosId ?? state.currentDocsId ?? '').trim();
     final cleanFileName = fileName.trim();
 
     if (cleanContractId.isEmpty ||

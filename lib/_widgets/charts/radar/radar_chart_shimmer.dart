@@ -1,28 +1,30 @@
-// lib/_widgets/charts/radar/radar_chart_shimmer.dart
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-/// Shimmer genérico (sem dependências externas) usando ShaderMask.
 class _Shimmer extends StatefulWidget {
-  const _Shimmer({required this.child});
+  const _Shimmer({
+    required this.child,
+  });
+
   final Widget child;
 
   @override
   State<_Shimmer> createState() => _ShimmerState();
 }
 
-class _ShimmerState extends State<_Shimmer>
-    with SingleTickerProviderStateMixin {
+class _ShimmerState extends State<_Shimmer> with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
+
     _ctrl = AnimationController.unbounded(vsync: this)
       ..repeat(
         min: 0,
         max: 1,
-        period: Duration(milliseconds: 1200),
+        period: const Duration(milliseconds: 1200),
       );
   }
 
@@ -36,42 +38,46 @@ class _ShimmerState extends State<_Shimmer>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
+      child: widget.child,
       builder: (context, child) {
         final width = MediaQuery.of(context).size.width;
         final dx = (width * 2) * _ctrl.value - width;
+
         final gradient = LinearGradient(
           begin: Alignment(-1.0 + _ctrl.value * 2, 0),
           end: Alignment(1.0 + _ctrl.value * 2, 0),
           colors: [
-            Colors.grey.shade400,
-            Colors.grey.shade200,
-            Colors.grey.shade400,
+            Colors.grey.shade300,
+            Colors.grey.shade100,
+            Colors.grey.shade300,
           ],
           stops: const [0.25, 0.5, 0.75],
         );
+
         return ShaderMask(
-          shaderCallback: (bounds) =>
-              gradient.createShader(bounds.shift(Offset(dx, 0))),
+          shaderCallback: (bounds) {
+            return gradient.createShader(
+              bounds.shift(Offset(dx, 0)),
+            );
+          },
           blendMode: BlendMode.srcATop,
           child: child,
         );
       },
-      child: widget.child,
     );
   }
 }
 
-/// Desenha a “teia” de radar (anéis + eixos) e a MOLDURA externa.
 class _RadarSkeletonPainter extends CustomPainter {
   _RadarSkeletonPainter({
     required this.rings,
     required this.axes,
     required this.color,
     this.frameColor,
-    this.radiusFactor = 0.85, // encurta o raio
-    this.gridStroke = 1.0, // traço da grade
-    this.ringOpacity = 0.35, // opacidade dos anéis
-    this.axisOpacity = 0.55, // opacidade dos eixos
+    this.radiusFactor = 0.85,
+    this.gridStroke = 1.0,
+    this.ringOpacity = 0.35,
+    this.axisOpacity = 0.55,
   });
 
   final int rings;
@@ -94,32 +100,35 @@ class _RadarSkeletonPainter extends CustomPainter {
       ..strokeWidth = gridStroke
       ..color = color;
 
-    // anéis
-    for (var r = 1; r <= rings; r++) {
-      final t = r / rings;
+    for (var ring = 1; ring <= rings; ring++) {
+      final t = ring / rings;
       final path = Path();
-      for (var i = 0; i < axes; i++) {
-        final ang = -math.pi / 2 + (2 * math.pi * i / axes);
-        final px = center.dx + radius * t * math.cos(ang);
-        final py = center.dy + radius * t * math.sin(ang);
-        if (i == 0) {
+
+      for (var axis = 0; axis < axes; axis++) {
+        final angle = -math.pi / 2 + (2 * math.pi * axis / axes);
+        final px = center.dx + radius * t * math.cos(angle);
+        final py = center.dy + radius * t * math.sin(angle);
+
+        if (axis == 0) {
           path.moveTo(px, py);
         } else {
           path.lineTo(px, py);
         }
       }
+
       path.close();
+
       canvas.drawPath(
         path,
         gridPaint..color = color.withValues(alpha: ringOpacity),
       );
     }
 
-    // eixos
-    for (var i = 0; i < axes; i++) {
-      final ang = -math.pi / 2 + (2 * math.pi * i / axes);
-      final px = center.dx + radius * math.cos(ang);
-      final py = center.dy + radius * math.sin(ang);
+    for (var axis = 0; axis < axes; axis++) {
+      final angle = -math.pi / 2 + (2 * math.pi * axis / axes);
+      final px = center.dx + radius * math.cos(angle);
+      final py = center.dy + radius * math.sin(angle);
+
       canvas.drawLine(
         center,
         Offset(px, py),
@@ -127,32 +136,42 @@ class _RadarSkeletonPainter extends CustomPainter {
       );
     }
 
-    // moldura
     final framePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
-      ..color = (frameColor ?? color.withValues(alpha: 0.9));
+      ..color = frameColor ?? color.withValues(alpha: 0.9);
 
     final framePath = Path();
-    for (var i = 0; i < axes; i++) {
-      final ang = -math.pi / 2 + (2 * math.pi * i / axes);
-      final px = center.dx + radius * math.cos(ang);
-      final py = center.dy + radius * math.sin(ang);
-      if (i == 0) {
+
+    for (var axis = 0; axis < axes; axis++) {
+      final angle = -math.pi / 2 + (2 * math.pi * axis / axes);
+      final px = center.dx + radius * math.cos(angle);
+      final py = center.dy + radius * math.sin(angle);
+
+      if (axis == 0) {
         framePath.moveTo(px, py);
       } else {
         framePath.lineTo(px, py);
       }
     }
+
     framePath.close();
     canvas.drawPath(framePath, framePaint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _RadarSkeletonPainter oldDelegate) {
+    return oldDelegate.rings != rings ||
+        oldDelegate.axes != axes ||
+        oldDelegate.color != color ||
+        oldDelegate.frameColor != frameColor ||
+        oldDelegate.radiusFactor != radiusFactor ||
+        oldDelegate.gridStroke != gridStroke ||
+        oldDelegate.ringOpacity != ringOpacity ||
+        oldDelegate.axisOpacity != axisOpacity;
+  }
 }
 
-/// Shimmer do radar (apenas o conteúdo, sem Card).
 class RadarChartShimmer extends StatelessWidget {
   const RadarChartShimmer({
     super.key,
@@ -173,14 +192,18 @@ class RadarChartShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gridColor = isDark ? Colors.white30 : Colors.grey.shade500;
+    final gridColor = Colors.grey.shade400;
+    final frameColor = Colors.grey.shade500;
+
+    final int safeAxes = axes.clamp(3, 24);
+    final int safeRings = rings.clamp(3, 12);
 
     final chartSkeleton = CustomPaint(
       painter: _RadarSkeletonPainter(
-        rings: rings,
-        axes: axes,
+        rings: safeRings,
+        axes: safeAxes,
         color: gridColor,
-        frameColor: isDark ? Colors.white60 : Colors.grey.shade500,
+        frameColor: frameColor,
         radiusFactor: 0.86,
         gridStroke: 1.0,
         ringOpacity: 0.35,

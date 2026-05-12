@@ -12,8 +12,8 @@ import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/box_list_files.dart';
 
-import 'package:sipged/_blocs/modules/financial/budget/budget_cubit.dart';
-import 'package:sipged/_blocs/modules/financial/budget/budget_state.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_cubit.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_state.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
@@ -79,7 +79,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
     super.dispose();
   }
 
-  void _syncFromState(BudgetState state) {
+  void _syncFromState(LOAState state) {
     if (_companyCtrl.text != state.companyLabel) {
       _companyCtrl.text = state.companyLabel;
     }
@@ -115,7 +115,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
 
     if (companyId.isEmpty && companyLabel.isEmpty) return;
 
-    final cubit = context.read<BudgetCubit>();
+    final cubit = context.read<LOACubit>();
     final state = cubit.state;
 
     final needsUpdate = (state.companyId ?? '').trim() != companyId ||
@@ -201,7 +201,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<BudgetCubit, BudgetState>(
+    return BlocBuilder<LOACubit, LOAState>(
       builder: (context, budgetState) {
         _syncFromState(budgetState);
 
@@ -235,7 +235,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
 
                 final double minCardHeight = isSmallScreen ? 260.0 : 170.0;
 
-                final budgetCubit = context.read<BudgetCubit>();
+                final budgetCubit = context.read<LOACubit>();
                 final formOk = budgetCubit.formValidated;
                 final amountValue = budgetCubit.amountValue;
 
@@ -267,7 +267,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       specialItemLabel: 'Adicionar fonte',
                       menuMaxHeight: 260,
                       onChanged: (label) {
-                        final localBudgetCubit = context.read<BudgetCubit>();
+                        final localBudgetCubit = context.read<LOACubit>();
                         final selectedLabel = _s(label);
 
                         if (selectedLabel.isEmpty) {
@@ -291,7 +291,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                           ? (label) async {
                         final tenantCubit = context.read<TenantCubit>();
                         final localBudgetCubit =
-                        context.read<BudgetCubit>();
+                        context.read<LOACubit>();
 
                         final newLabel = _s(label);
 
@@ -312,7 +312,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                           ? (ctx, oldLabel) async {
                         final tenantCubit = context.read<TenantCubit>();
                         final localBudgetCubit =
-                        context.read<BudgetCubit>();
+                        context.read<LOACubit>();
 
                         final oldL = _s(oldLabel);
 
@@ -357,7 +357,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                           ? (ctx, label) async {
                         final tenantCubit = context.read<TenantCubit>();
                         final localBudgetCubit =
-                        context.read<BudgetCubit>();
+                        context.read<LOACubit>();
 
                         final lab = _s(label);
 
@@ -392,7 +392,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       labelText: 'Exercício (Ano)',
                       keyboardType: TextInputType.number,
                       onChanged: (v) {
-                        context.read<BudgetCubit>().setYearText(v);
+                        context.read<LOACubit>().setYearText(v);
                       },
                     ),
                     CustomTextField(
@@ -400,7 +400,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       controller: _codeCtrl,
                       labelText: 'Código (opcional)',
                       onChanged: (v) {
-                        context.read<BudgetCubit>().setBudgetCode(v);
+                        context.read<LOACubit>().setBudgetCode(v);
                       },
                     ),
                     CustomTextField(
@@ -408,7 +408,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       controller: _descCtrl,
                       labelText: 'Descrição',
                       onChanged: (v) {
-                        context.read<BudgetCubit>().setDescription(v);
+                        context.read<LOACubit>().setDescription(v);
                       },
                     ),
                     CustomTextField(
@@ -417,7 +417,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       labelText: 'Valor orçado',
                       keyboardType: TextInputType.number,
                       onChanged: (v) {
-                        context.read<BudgetCubit>().setAmountText(v);
+                        context.read<LOACubit>().setAmountText(v);
                       },
                     ),
                   ],
@@ -432,7 +432,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                         budgetState.selected == null ? 'Salvar' : 'Atualizar',
                       ),
                       onPressed: formOk
-                          ? () => context.read<BudgetCubit>().saveOrUpdate()
+                          ? () => context.read<LOACubit>().saveOrUpdate()
                           : null,
                     ),
                     const SizedBox(width: 12),
@@ -441,7 +441,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                         icon: const Icon(Icons.restore),
                         label: const Text('Limpar'),
                         onPressed: () {
-                          context.read<BudgetCubit>().select(null);
+                          context.read<LOACubit>().select(null);
                         },
                       ),
                   ],
@@ -474,15 +474,15 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                   selectedIndex: budgetState.selectedSideIndex,
                   onAddPressed: null,
                   onTap: (i) {
-                    context.read<BudgetCubit>().selectSideIndex(i);
+                    context.read<LOACubit>().selectSideIndex(i);
                   },
                   onDelete: (i) {
-                    context.read<BudgetCubit>().deleteAttachmentAt(i);
+                    context.read<LOACubit>().deleteAttachmentAt(i);
                   },
                   enableRename: true,
                   onItemsChanged: (newItems) {
                     final list = newItems.whereType<Attachment>().toList();
-                    context.read<BudgetCubit>().setAttachments(list);
+                    context.read<LOACubit>().setAttachments(list);
                   },
                   onRenamePersist: null,
                   width: sideWidth,

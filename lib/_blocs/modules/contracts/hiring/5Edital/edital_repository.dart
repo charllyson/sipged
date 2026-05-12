@@ -1,10 +1,8 @@
-// lib/_blocs/modules/contracts/hiring/5Edital/edital_repository.dart
-
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
@@ -12,17 +10,103 @@ import 'edital_data.dart';
 
 class EditalRepository {
   EditalRepository({
+    required String tenantId,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
   })  : _db = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _storage = storage ?? FirebaseStorage.instance,
+        _tenantId = _requireTenantId(tenantId);
 
   final FirebaseFirestore _db;
   final FirebaseStorage _storage;
+  final String _tenantId;
+
+  static const String _hiringCollectionId = 'hiring';
+  static const String _mainDocId = 'main';
+  static const String _editalCollectionId = 'edital';
+
+  String get tenantId => _tenantId;
+
+  static String _requireTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório em EditalRepository.');
+    }
+
+    return cleanTenantId;
+  }
+
+  String _requireContractId(String contractId) {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId não informado.');
+    }
+
+    return cleanContractId;
+  }
+
+  String _requireEditalId(String editalId) {
+    final cleanEditalId = editalId.trim();
+
+    if (cleanEditalId.isEmpty) {
+      throw Exception('editalId não informado.');
+    }
+
+    return cleanEditalId;
+  }
+
+  String _requireSectionKey(String sectionKey) {
+    final cleanSectionKey = sectionKey.trim();
+
+    if (cleanSectionKey.isEmpty) {
+      throw Exception('sectionKey não informado.');
+    }
+
+    return cleanSectionKey;
+  }
+
+  String _requireSectionDocId(String sectionDocId) {
+    final cleanSectionDocId = sectionDocId.trim();
+
+    if (cleanSectionDocId.isEmpty) {
+      throw Exception('sectionDocId não informado.');
+    }
+
+    return cleanSectionDocId;
+  }
+
+  CollectionReference<Map<String, dynamic>> _contractsCol() {
+    return _db.collection('tenants').doc(tenantId).collection('contracts');
+  }
+
+  DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
+    final cleanContractId = _requireContractId(contractId);
+
+    return _contractsCol().doc(cleanContractId);
+  }
+
+  DocumentReference<Map<String, dynamic>> _hiringMainDoc(String contractId) {
+    return _contractDoc(contractId).collection(_hiringCollectionId).doc(_mainDocId);
+  }
 
   CollectionReference<Map<String, dynamic>> _col(String contractId) {
-    return _db.collection('contracts').doc(contractId).collection('edital');
+    final cleanContractId = _requireContractId(contractId);
+
+    return _hiringMainDoc(cleanContractId).collection(_editalCollectionId);
   }
+
+  DocumentReference<Map<String, dynamic>> _editalDoc({
+    required String contractId,
+    required String editalId,
+  }) {
+    final cleanContractId = _requireContractId(contractId);
+    final cleanEditalId = _requireEditalId(editalId);
+
+    return _col(cleanContractId).doc(cleanEditalId);
+  }
+
 
   String _filesPath({
     required String contractId,
@@ -30,7 +114,14 @@ class EditalRepository {
     required String sectionKey,
     required String sectionDocId,
   }) {
-    return 'contracts/$contractId/edital/$editalId/$sectionKey/$sectionDocId/files';
+    final cleanContractId = _requireContractId(contractId);
+    final cleanEditalId = _requireEditalId(editalId);
+    final cleanSectionKey = _requireSectionKey(sectionKey);
+    final cleanSectionDocId = _requireSectionDocId(sectionDocId);
+
+    return 'tenants/$tenantId/contracts/$cleanContractId/'
+        'hiring/main/edital/$cleanEditalId/'
+        '$cleanSectionKey/$cleanSectionDocId/files';
   }
 
   String _extractExt(String nameOrUrl) {
@@ -59,19 +150,214 @@ class EditalRepository {
     }
   }
 
+  Future<void> _ensureContractParent(String contractId) async {
+    final cleanContractId = _requireContractId(contractId);
+
+    await _contractDoc(cleanContractId).set(
+      <String, dynamic>{
+        'id': cleanContractId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> _ensureHiringMain(String contractId) async {
+    final cleanContractId = _requireContractId(contractId);
+
+    await _ensureContractParent(cleanContractId);
+
+    await _hiringMainDoc(cleanContractId).set(
+      <String, dynamic>{
+        'id': _mainDocId,
+        'module': _hiringCollectionId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
   Future<({String editalId, Map<String, String> sectionIds})>
   ensureEditalStructure(String contractId) async {
-    final id = contractId.trim();
+    final cleanContractId = _requireContractId(contractId);
 
-    if (id.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
+    await _ensureHiringMain(cleanContractId);
 
     final sectionIds = <String, String>{
-      for (final section in EditalData.sectionKeys) section: 'main',
+      for (final section in EditalData.sectionKeys) section: _mainDocId,
     };
 
-    return (editalId: 'main', sectionIds: sectionIds);
+    final root = _editalDoc(
+      contractId: cleanContractId,
+      editalId: _mainDocId,
+    );
+
+    await root.set(
+      <String, dynamic>{
+        'id': _mainDocId,
+        'module': _editalCollectionId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'recordPath': root.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    return (
+    editalId: _mainDocId,
+    sectionIds: sectionIds,
+    );
+  }
+
+  Future<Map<String, EditalData?>> getSummaryForContracts(
+      Iterable<String> contractIds, {
+        bool debug = false,
+      }) async {
+    final ids = contractIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+
+    final result = <String, EditalData?>{
+      for (final id in ids) id: null,
+    };
+
+    if (ids.isEmpty) {
+      return result;
+    }
+
+    final sw = Stopwatch()..start();
+
+    final entries = await Future.wait(
+      ids.map((contractId) async {
+        try {
+          final data = await readSummaryForContract(contractId);
+          return MapEntry<String, EditalData?>(contractId, data);
+        } catch (error) {
+          if (debug) {
+            debugPrint(
+              '[EditalRepository] Erro summary contractId=$contractId: $error',
+            );
+          }
+
+          return MapEntry<String, EditalData?>(contractId, null);
+        }
+      }),
+    );
+
+    for (final entry in entries) {
+      result[entry.key] = entry.value;
+    }
+
+    sw.stop();
+
+    if (debug) {
+      final loaded = result.values.whereType<EditalData>().length;
+
+      debugPrint(
+        '[EditalRepository] getSummaryForContracts '
+            'tenantId=$tenantId contratos=${ids.length} '
+            'comDados=$loaded em ${sw.elapsedMilliseconds}ms',
+      );
+    }
+
+    return result;
+  }
+
+  Future<EditalData?> readSummaryForContract(String contractId) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) return null;
+
+    final rootRef = _editalDoc(
+      contractId: cleanContractId,
+      editalId: _mainDocId,
+    );
+
+    final rootSnap = await rootRef.get();
+    final rootData = rootSnap.data();
+
+    if (rootData != null && rootData.isNotEmpty) {
+      final cleanRoot = Map<String, dynamic>.from(rootData);
+      _removeSystemFields(cleanRoot);
+
+      final hasFlatSummary = _hasAnyValue(
+        cleanRoot,
+        const <String>[
+          'numero',
+          'modalidade',
+          'criterio',
+          'idPncp',
+          'linkPncp',
+          'dataPublicacao',
+          'dataSessao',
+          'horaSessao',
+          'vencedor',
+          'valorVencedor',
+          'linksDocumentos',
+        ],
+      );
+
+      if (hasFlatSummary) {
+        return EditalData.fromMap(cleanRoot);
+      }
+    }
+
+    final sections = await _loadSummarySections(cleanContractId);
+
+    final hasAnyData = sections.values.any((map) => map.isNotEmpty);
+
+    if (!hasAnyData) return null;
+
+    return EditalData.fromSectionsMap(sections);
+  }
+
+  Future<Map<String, Map<String, dynamic>>> _loadSummarySections(
+      String contractId,
+      ) async {
+    final root = _editalDoc(
+      contractId: contractId,
+      editalId: _mainDocId,
+    );
+
+    final keys = <String>[
+      EditalData.sectionDivulgacao,
+      EditalData.sectionSessao,
+      EditalData.sectionJulgamento,
+      EditalData.sectionResultado,
+      EditalData.sectionRecursos,
+      EditalData.sectionDocumentos,
+    ];
+
+    final entries = await Future.wait(
+      keys.map((sectionKey) async {
+        final snap = await root.collection(sectionKey).doc(_mainDocId).get();
+
+        final data = Map<String, dynamic>.from(
+          snap.data() ?? const <String, dynamic>{},
+        );
+
+        _removeSystemFields(data);
+
+        return MapEntry<String, Map<String, dynamic>>(sectionKey, data);
+      }),
+    );
+
+    return <String, Map<String, dynamic>>{
+      for (final entry in entries) entry.key: entry.value,
+    };
   }
 
   Future<Map<String, Map<String, dynamic>>> loadAllSections({
@@ -82,13 +368,8 @@ class EditalRepository {
     final cleanContractId = contractId.trim();
     final cleanEditalId = editalId.trim();
 
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
-
-    if (cleanEditalId.isEmpty) {
-      throw Exception('editalId não informado.');
-    }
+    if (cleanContractId.isEmpty) throw Exception('contractId não informado.');
+    if (cleanEditalId.isEmpty) throw Exception('editalId não informado.');
 
     final root = _col(cleanContractId).doc(cleanEditalId);
 
@@ -104,17 +385,13 @@ class EditalRepository {
           );
         }
 
-        final snap =
-        await root.collection(sectionName).doc(sectionDocId).get();
+        final snap = await root.collection(sectionName).doc(sectionDocId).get();
 
         final data = Map<String, dynamic>.from(
           snap.data() ?? const <String, dynamic>{},
         );
 
-        data.remove('createdAt');
-        data.remove('updatedAt');
-        data.remove('createdBy');
-        data.remove('updatedBy');
+        _removeSystemFields(data);
 
         return MapEntry<String, Map<String, dynamic>>(
           sectionName,
@@ -138,18 +415,62 @@ class EditalRepository {
     final cleanContractId = contractId.trim();
     final cleanEditalId = editalId.trim();
 
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
-
-    if (cleanEditalId.isEmpty) {
-      throw Exception('editalId não informado.');
-    }
-
+    if (cleanContractId.isEmpty) throw Exception('contractId não informado.');
+    if (cleanEditalId.isEmpty) throw Exception('editalId não informado.');
     if (sectionsData.isEmpty) return;
 
-    final batch = _db.batch();
+    await _ensureHiringMain(cleanContractId);
+
     final root = _col(cleanContractId).doc(cleanEditalId);
+    final hiringRef = _hiringMainDoc(cleanContractId);
+
+    final batch = _db.batch();
+
+    final summary = EditalData.fromSectionsMap(sectionsData).toMap()
+      ..removeWhere((_, value) => value == null);
+
+    batch.set(
+      _contractDoc(cleanContractId),
+      <String, dynamic>{
+        'id': cleanContractId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      hiringRef,
+      <String, dynamic>{
+        'id': _mainDocId,
+        'module': _hiringCollectionId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      root,
+      <String, dynamic>{
+        'id': cleanEditalId,
+        'module': _editalCollectionId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'recordPath': root.path,
+        ...summary,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
 
     for (final entry in sectionsData.entries) {
       final sectionKey = entry.key.trim();
@@ -158,16 +479,25 @@ class EditalRepository {
       if (sectionKey.isEmpty) continue;
       if (sectionDocId == null || sectionDocId.isEmpty) continue;
 
-      final sectionData = Map<String, dynamic>.from(entry.value)
-        ..remove('createdAt')
-        ..remove('updatedAt')
-        ..remove('createdBy')
-        ..remove('updatedBy');
+      final sectionData = Map<String, dynamic>.from(entry.value);
+      _removeWriteProtectedFields(sectionData);
+
+      final ref = root.collection(sectionKey).doc(sectionDocId);
 
       batch.set(
-        root.collection(sectionKey).doc(sectionDocId),
+        ref,
         <String, dynamic>{
           ...sectionData,
+          'id': sectionDocId,
+          'module': _editalCollectionId,
+          'tenantId': tenantId,
+          'companyId': tenantId,
+          'contractId': cleanContractId,
+          'uidContract': cleanContractId,
+          'uidcontract': cleanContractId,
+          'editalId': cleanEditalId,
+          'sectionKey': sectionKey,
+          'recordPath': ref.path,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -189,40 +519,92 @@ class EditalRepository {
     final cleanSectionKey = sectionKey.trim();
     final cleanSectionDocId = sectionDocId.trim();
 
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId não informado.');
-    }
-
-    if (cleanEditalId.isEmpty) {
-      throw Exception('editalId não informado.');
-    }
-
-    if (cleanSectionKey.isEmpty) {
-      throw Exception('sectionKey não informado.');
-    }
-
+    if (cleanContractId.isEmpty) throw Exception('contractId não informado.');
+    if (cleanEditalId.isEmpty) throw Exception('editalId não informado.');
+    if (cleanSectionKey.isEmpty) throw Exception('sectionKey não informado.');
     if (cleanSectionDocId.isEmpty) {
       throw Exception('sectionDocId não informado.');
     }
 
-    final cleanData = Map<String, dynamic>.from(data)
-      ..remove('createdAt')
-      ..remove('updatedAt')
-      ..remove('createdBy')
-      ..remove('updatedBy');
+    await _ensureHiringMain(cleanContractId);
 
-    final ref = _col(cleanContractId)
-        .doc(cleanEditalId)
-        .collection(cleanSectionKey)
-        .doc(cleanSectionDocId);
+    final cleanData = Map<String, dynamic>.from(data);
+    _removeWriteProtectedFields(cleanData);
 
-    await ref.set(
+    final root = _col(cleanContractId).doc(cleanEditalId);
+    final hiringRef = _hiringMainDoc(cleanContractId);
+    final ref = root.collection(cleanSectionKey).doc(cleanSectionDocId);
+
+    final rootSummary = _summaryRootFieldsFromSingleSection(
+      sectionKey: cleanSectionKey,
+      data: cleanData,
+    );
+
+    final batch = _db.batch();
+
+    batch.set(
+      _contractDoc(cleanContractId),
       <String, dynamic>{
-        ...cleanData,
+        'id': cleanContractId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
     );
+
+    batch.set(
+      hiringRef,
+      <String, dynamic>{
+        'id': _mainDocId,
+        'module': _hiringCollectionId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      root,
+      <String, dynamic>{
+        'id': cleanEditalId,
+        'module': _editalCollectionId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'recordPath': root.path,
+        ...rootSummary,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      ref,
+      <String, dynamic>{
+        ...cleanData,
+        'id': cleanSectionDocId,
+        'module': _editalCollectionId,
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'contractId': cleanContractId,
+        'uidContract': cleanContractId,
+        'uidcontract': cleanContractId,
+        'editalId': cleanEditalId,
+        'sectionKey': cleanSectionKey,
+        'recordPath': ref.path,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
   }
 
   Future<EditalData?> readDataForContract(String contractId) async {
@@ -263,16 +645,16 @@ class EditalRepository {
       return const <Attachment>[];
     }
 
-    final ref = _storage.ref(
+    final result = await _storage
+        .ref(
       _filesPath(
         contractId: cleanContractId,
         editalId: cleanEditalId,
         sectionKey: cleanSectionKey,
         sectionDocId: cleanSectionDocId,
       ),
-    );
-
-    final result = await ref.listAll();
+    )
+        .listAll();
 
     final attachments = await Future.wait(
       result.items.map((item) async {
@@ -292,7 +674,6 @@ class EditalRepository {
     );
 
     attachments.sort((a, b) => a.label.compareTo(b.label));
-
     return attachments;
   }
 
@@ -321,6 +702,8 @@ class EditalRepository {
         cleanSectionDocId.isEmpty) {
       throw Exception('Caminho inválido para upload do edital.');
     }
+
+    await _ensureHiringMain(cleanContractId);
 
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -362,10 +745,15 @@ class EditalRepository {
         contentType: _contentTypeForExt(ext),
         customMetadata: <String, String>{
           'originalName': name,
+          'tenantId': tenantId,
+          'companyId': tenantId,
           'contractId': cleanContractId,
+          'uidContract': cleanContractId,
+          'uidcontract': cleanContractId,
           'editalId': cleanEditalId,
           'sectionKey': cleanSectionKey,
           'sectionDocId': cleanSectionDocId,
+          'module': _editalCollectionId,
         },
       ),
     );
@@ -411,16 +799,17 @@ class EditalRepository {
     }
 
     try {
-      final ref = _storage.ref(
+      await _storage
+          .ref(
         '${_filesPath(
           contractId: cleanContractId,
           editalId: cleanEditalId,
           sectionKey: cleanSectionKey,
           sectionDocId: cleanSectionDocId,
         )}/$cleanFileName',
-      );
+      )
+          .delete();
 
-      await ref.delete();
       return true;
     } catch (_) {
       return false;
@@ -438,5 +827,145 @@ class EditalRepository {
     } catch (_) {
       return false;
     }
+  }
+
+  Map<String, dynamic> _summaryRootFieldsFromSingleSection({
+    required String sectionKey,
+    required Map<String, dynamic> data,
+  }) {
+    switch (sectionKey) {
+      case EditalData.sectionDivulgacao:
+        return <String, dynamic>{
+          if (data.containsKey('numero')) 'numero': data['numero'],
+          if (data.containsKey('modalidade')) 'modalidade': data['modalidade'],
+          if (data.containsKey('criterio')) 'criterio': data['criterio'],
+          if (data.containsKey('idPncp')) 'idPncp': data['idPncp'],
+          if (data.containsKey('linkPncp')) 'linkPncp': data['linkPncp'],
+          if (data.containsKey('linkSei')) 'linkSei': data['linkSei'],
+          if (data.containsKey('linksPublicacoes'))
+            'linksPublicacoes': data['linksPublicacoes'],
+          if (data.containsKey('dataPublicacao'))
+            'dataPublicacao': data['dataPublicacao'],
+          if (data.containsKey('prazoImpugnacao'))
+            'prazoImpugnacao': data['prazoImpugnacao'],
+          if (data.containsKey('prazoPropostas'))
+            'prazoPropostas': data['prazoPropostas'],
+          if (data.containsKey('observacoes')) 'observacoes': data['observacoes'],
+        };
+
+      case EditalData.sectionSessao:
+        return <String, dynamic>{
+          if (data.containsKey('dataSessao')) 'dataSessao': data['dataSessao'],
+          if (data.containsKey('horaSessao')) 'horaSessao': data['horaSessao'],
+          if (data.containsKey('responsavel')) 'responsavel': data['responsavel'],
+          if (data.containsKey('localPlataforma'))
+            'localPlataforma': data['localPlataforma'],
+        };
+
+      case EditalData.sectionJulgamento:
+        return <String, dynamic>{
+          if (data.containsKey('parecer')) 'parecer': data['parecer'],
+          if (data.containsKey('criterioAplicado'))
+            'criterioAplicado': data['criterioAplicado'],
+          if (data.containsKey('linkAta')) 'linkAta': data['linkAta'],
+          if (data.containsKey('recursosHouve'))
+            'recursosHouve': data['recursosHouve'],
+          if (data.containsKey('decisaoRecursos'))
+            'decisaoRecursos': data['decisaoRecursos'],
+          if (data.containsKey('linksRecursos'))
+            'linksRecursos': data['linksRecursos'],
+        };
+
+      case EditalData.sectionResultado:
+        return <String, dynamic>{
+          if (data.containsKey('vencedor')) 'vencedor': data['vencedor'],
+          if (data.containsKey('vencedorCnpj'))
+            'vencedorCnpj': data['vencedorCnpj'],
+          if (data.containsKey('valorVencedor'))
+            'valorVencedor': data['valorVencedor'],
+          if (data.containsKey('dataResultado'))
+            'dataResultado': data['dataResultado'],
+          if (data.containsKey('adjudicacaoData'))
+            'adjudicacaoData': data['adjudicacaoData'],
+          if (data.containsKey('adjudicacaoLink'))
+            'adjudicacaoLink': data['adjudicacaoLink'],
+          if (data.containsKey('homologacaoData'))
+            'homologacaoData': data['homologacaoData'],
+          if (data.containsKey('homologacaoLink'))
+            'homologacaoLink': data['homologacaoLink'],
+          if (data.containsKey('highlightWinner'))
+            'highlightWinner': data['highlightWinner'],
+          if (data.containsKey('habilitarSomenteVencedor'))
+            'habilitarSomenteVencedor': data['habilitarSomenteVencedor'],
+        };
+
+      case EditalData.sectionRecursos:
+        return <String, dynamic>{
+          if (data.containsKey('houve')) 'recursosHouve': data['houve'],
+          if (data.containsKey('decisao')) 'decisaoRecursos': data['decisao'],
+          if (data.containsKey('links')) 'linksRecursos': data['links'],
+        };
+
+      case EditalData.sectionDocumentos:
+        return <String, dynamic>{
+          if (data.containsKey('linksDocumentos'))
+            'linksDocumentos': data['linksDocumentos'],
+        };
+
+      case EditalData.sectionObservacoes:
+        return <String, dynamic>{
+          if (data.containsKey('observacoes')) 'observacoes': data['observacoes'],
+        };
+
+      default:
+        return const <String, dynamic>{};
+    }
+  }
+
+  bool _hasAnyValue(
+      Map<String, dynamic> data,
+      List<String> keys,
+      ) {
+    for (final key in keys) {
+      final value = data[key];
+
+      if (value == null) continue;
+
+      if (value is String && value.trim().isEmpty) continue;
+
+      return true;
+    }
+
+    return false;
+  }
+
+  void _removeWriteProtectedFields(Map<String, dynamic> data) {
+    data.remove('createdAt');
+    data.remove('updatedAt');
+    data.remove('createdBy');
+    data.remove('updatedBy');
+  }
+
+  void _removeSystemFields(Map<String, dynamic> data) {
+    _removeWriteProtectedFields(data);
+    data.remove('migratedAt');
+    data.remove('migrationSourcePath');
+    data.remove('migrationSourceDocId');
+    data.remove('migrationTargetPath');
+    data.remove('legacySourceId');
+    data.remove('legacySourcePath');
+    data.remove('recordPath');
+    data.remove('sourcePath');
+    data.remove('path');
+    data.remove('sourceCollectionModel');
+    data.remove('tenantId');
+    data.remove('companyId');
+    data.remove('uidContract');
+    data.remove('uidcontract');
+    data.remove('contractId');
+    data.remove('module');
+    data.remove('id');
+    data.remove('editalId');
+    data.remove('sectionKey');
   }
 }

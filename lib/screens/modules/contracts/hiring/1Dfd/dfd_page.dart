@@ -9,10 +9,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_state.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';

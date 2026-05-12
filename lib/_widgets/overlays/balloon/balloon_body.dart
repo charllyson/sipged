@@ -1,3 +1,5 @@
+// lib/_widgets/overlays/balloon/balloon_body.dart
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/overlays/balloon/balloon_empty.dart';
@@ -13,6 +15,7 @@ class BalloonBody extends StatelessWidget {
     required this.maxHeight,
     required this.items,
     this.title,
+    this.showHeader = true,
     this.tipSide = BalloonTipSide.top,
     this.tipCenterX,
     this.tipCenterY,
@@ -33,6 +36,10 @@ class BalloonBody extends StatelessWidget {
 
   final double? tipCenterX;
   final double? tipCenterY;
+
+  /// Se false, oculta totalmente o header,
+  /// mesmo que title, headerIcon ou action estejam preenchidos.
+  final bool showHeader;
 
   /// Opcional. Se null ou vazio, não renderiza texto no header.
   final String? title;
@@ -59,6 +66,10 @@ class BalloonBody extends StatelessWidget {
   }
 
   bool get _hasHeader {
+    if (!showHeader) {
+      return false;
+    }
+
     final cleanTitle = (title ?? '').trim();
 
     return cleanTitle.isNotEmpty || headerIcon != null || _hasAction;

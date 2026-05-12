@@ -1,3 +1,6 @@
+// lib/screens/modules/financial/tab_bar_financial_page.dart
+// ajuste o caminho conforme onde esse arquivo está no seu projeto
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -7,8 +10,11 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
-import 'package:sipged/_blocs/modules/financial/budget/budget_cubit.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_cubit.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_cubit.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
 
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
@@ -32,7 +38,8 @@ class TabBarFinancialPage extends StatefulWidget {
 }
 
 class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
-  final DfdRepository _dfdRepository = DfdRepository();
+  late String _activeTenantId;
+  late DfdRepository _dfdRepository;
 
   DfdData? _dfdData;
 
@@ -55,6 +62,15 @@ class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
   @override
   void initState() {
     super.initState();
+
+    _activeTenantId = _resolveRequiredTenantId(
+      context.read<PermissionCubit>().state,
+    );
+
+    _dfdRepository = DfdRepository(
+      tenantId: _activeTenantId,
+    );
+
     _loadDfdDisplayData();
   }
 
@@ -66,9 +82,40 @@ class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
     final newId = widget.contractData?.id?.trim() ?? '';
 
     if (oldId != newId) {
-      _dfdData = null;
+      setState(() {
+        _dfdData = null;
+      });
+
       _loadDfdDisplayData();
     }
+  }
+
+  String _resolveRequiredTenantId(PermissionState permissionState) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para TabBarFinancialPage.',
+      );
+    }
+
+    return tenantId;
+  }
+
+  void _handlePermissionStateChanged(PermissionState permissionState) {
+    final nextTenantId = _resolveRequiredTenantId(permissionState);
+
+    if (nextTenantId == _activeTenantId) return;
+
+    setState(() {
+      _activeTenantId = nextTenantId;
+      _dfdRepository = DfdRepository(
+        tenantId: _activeTenantId,
+      );
+      _dfdData = null;
+    });
+
+    _loadDfdDisplayData();
   }
 
   Future<void> _loadDfdDisplayData() async {
@@ -109,9 +156,13 @@ class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
   Widget _buildBudgetTab(ContractData contract) {
     final contractId = contract.id?.trim() ?? '';
 
-    return BlocProvider<BudgetCubit>(
-      key: ValueKey('financial-budget-$contractId'),
-      create: (_) => BudgetCubit(),
+    return BlocProvider<LOACubit>(
+      key: ValueKey<String>('financial-budget-$_activeTenantId-$contractId'),
+      create: (_) {
+        return LOACubit(
+          //tenantId: _activeTenantId,
+        );
+      },
       child: BudgetPage(
         contractData: contract,
       ),
@@ -122,8 +173,12 @@ class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
     final contractId = contract.id?.trim() ?? '';
 
     return BlocProvider<EmpenhoCubit>(
-      key: ValueKey('financial-empenho-$contractId'),
-      create: (_) => EmpenhoCubit(),
+      key: ValueKey<String>('financial-empenho-$_activeTenantId-$contractId'),
+      create: (_) {
+        return EmpenhoCubit(
+          //tenantId: _activeTenantId,
+        );
+      },
       child: EmpenhoPage(
         contractData: contract,
       ),
@@ -132,24 +187,32 @@ class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
 
   @override
   Widget build(BuildContext context) {
-    return TabChanged(
-      contractData: widget.contractData,
-      contractsCubit: widget.contractsCubit,
-      initialTabIndex: widget.initialTabIndex,
-      textBanner: _textBanner,
-      contractNumberBuilder: _buildContractNumber,
-      tabs: [
-        ContractTabDescriptor(
-          label: 'Orçamento',
-          requireSavedContract: true,
-          builder: (c) => _buildBudgetTab(c!),
-        ),
-        ContractTabDescriptor(
-          label: 'Empenhos',
-          requireSavedContract: true,
-          builder: (c) => _buildEmpenhoTab(c!),
-        ),
-      ],
+    return BlocListener<PermissionCubit, PermissionState>(
+      listenWhen: (previous, current) {
+        return previous.activeTenantId != current.activeTenantId;
+      },
+      listener: (context, permissionState) {
+        _handlePermissionStateChanged(permissionState);
+      },
+      child: TabChanged(
+        contractData: widget.contractData,
+        contractsCubit: widget.contractsCubit,
+        initialTabIndex: widget.initialTabIndex,
+        textBanner: _textBanner,
+        contractNumberBuilder: _buildContractNumber,
+        tabs: [
+          ContractTabDescriptor(
+            label: 'Orçamento',
+            requireSavedContract: true,
+            builder: (contract) => _buildBudgetTab(contract!),
+          ),
+          ContractTabDescriptor(
+            label: 'Empenhos',
+            requireSavedContract: true,
+            builder: (contract) => _buildEmpenhoTab(contract!),
+          ),
+        ],
+      ),
     );
   }
 }

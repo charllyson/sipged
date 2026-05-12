@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';

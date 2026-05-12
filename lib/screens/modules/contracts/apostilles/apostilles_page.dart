@@ -59,6 +59,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
   late final ApostillesCubit _cubit;
 
+  String? _activeTenantId;
+
   String? _lastFilledId;
   int? _selectedAttachmentIndex;
   bool _initialNextOrderApplied = false;
@@ -92,19 +94,36 @@ class _ApostillesPageState extends State<ApostillesPage> {
     return _contractId;
   }
 
+  static String _requireTenantIdFromPermissionState(
+      PermissionState permissionState,
+      ) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw StateError(
+        'Nenhuma empresa ativa foi selecionada para abrir apostilamentos.',
+      );
+    }
+
+    return tenantId;
+  }
+
   @override
   void initState() {
     super.initState();
 
     final permissionState = context.read<PermissionCubit>().state;
+    final activeTenantId = _requireTenantIdFromPermissionState(permissionState);
+
+    _activeTenantId = activeTenantId;
 
     _cubit = ApostillesCubit(
       contract: widget.contractData,
       repository: ApostillesRepository(
-        tenantId: permissionState.activeTenantId,
+        tenantId: activeTenantId,
       ),
       initialPermissions: permissionState.current,
-      tenantId: permissionState.activeTenantId,
+      tenantId: activeTenantId,
       moduleId: _route,
       enforcePermissions: false,
     );
@@ -149,15 +168,20 @@ class _ApostillesPageState extends State<ApostillesPage> {
     if (_loadingContractDisplay) return;
 
     final contractId = _contractId;
+    final tenantId = _activeTenantId?.trim();
 
     if (contractId.isEmpty) return;
+    if (tenantId == null || tenantId.isEmpty) return;
 
     setState(() {
       _loadingContractDisplay = true;
     });
 
     try {
-      final dfd = await _loadDfd(contractId);
+      final dfd = await _loadDfd(
+        tenantId: tenantId,
+        contractId: contractId,
+      );
 
       if (!mounted) return;
 
@@ -174,17 +198,23 @@ class _ApostillesPageState extends State<ApostillesPage> {
     }
   }
 
-  Future<DfdData?> _loadDfd(String contractId) async {
-    final candidatePaths = <String>[
-      'contracts/$contractId/hiring/00Dfd',
-      'contracts/$contractId/hiring/01Dfd',
-      'contracts/$contractId/hiring/dfd',
-      'contracts/$contractId/dfd/main',
-      'contracts/$contractId/demand/dfd',
+  Future<DfdData?> _loadDfd({
+    required String tenantId,
+    required String contractId,
+  }) async {
+    final cleanTenantId = tenantId.trim();
+    final cleanContractId = contractId.trim();
 
-      // Caminhos multi-tenant, caso o DFD já esteja no novo padrão.
-      if (_cubit.state.errorMessage == null)
-        ..._tenantDfdCandidatePaths(contractId),
+    if (cleanTenantId.isEmpty || cleanContractId.isEmpty) {
+      return null;
+    }
+
+    final candidatePaths = <String>[
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/00Dfd',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/01Dfd',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/dfd',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/dfd/main',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/demand/dfd',
     ];
 
     for (final path in candidatePaths) {
@@ -194,34 +224,33 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
       final parsed = _parseDfd(
         data,
-        contractId: contractId,
+        contractId: cleanContractId,
+      );
+
+      if (parsed != null) return parsed;
+    }
+
+    final collectionCandidates = <String>[
+      'tenants/$cleanTenantId/contracts/$cleanContractId/dfd',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/dfd/items',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/00Dfd/items',
+      'tenants/$cleanTenantId/contracts/$cleanContractId/hiring/01Dfd/items',
+    ];
+
+    for (final collectionPath in collectionCandidates) {
+      final data = await _tryReadFirstDocumentFromCollection(collectionPath);
+
+      if (data == null) continue;
+
+      final parsed = _parseDfd(
+        data,
+        contractId: cleanContractId,
       );
 
       if (parsed != null) return parsed;
     }
 
     return null;
-  }
-
-  List<String> _tenantDfdCandidatePaths(String contractId) {
-    try {
-      final tenantId = context.read<PermissionCubit>().state.activeTenantId;
-      final cleanTenantId = tenantId?.trim();
-
-      if (cleanTenantId == null || cleanTenantId.isEmpty) {
-        return const <String>[];
-      }
-
-      return <String>[
-        'tenants/$cleanTenantId/contracts/$contractId/hiring/00Dfd',
-        'tenants/$cleanTenantId/contracts/$contractId/hiring/01Dfd',
-        'tenants/$cleanTenantId/contracts/$contractId/hiring/dfd',
-        'tenants/$cleanTenantId/contracts/$contractId/dfd/main',
-        'tenants/$cleanTenantId/contracts/$contractId/demand/dfd',
-      ];
-    } catch (_) {
-      return const <String>[];
-    }
   }
 
   DfdData? _parseDfd(
@@ -260,6 +289,24 @@ class _ApostillesPageState extends State<ApostillesPage> {
       final data = snapshot.data();
 
       if (data == null || data.isEmpty) return null;
+
+      return Map<String, dynamic>.from(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _tryReadFirstDocumentFromCollection(
+      String path,
+      ) async {
+    try {
+      final snapshot = await _firestore.collection(path).limit(1).get();
+
+      if (snapshot.docs.isEmpty) return null;
+
+      final data = snapshot.docs.first.data();
+
+      if (data.isEmpty) return null;
 
       return Map<String, dynamic>.from(data);
     } catch (_) {
@@ -326,6 +373,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
   DateTime? _parseDateTimeFromExtra(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
 
     final text = value.toString().trim();
 
@@ -425,6 +473,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         'sourceKey': _notificationSource,
         'subSource': _notificationSource,
         'notificationSource': _notificationSource,
+        'tenantId': _activeTenantId,
+        'companyId': _activeTenantId,
         'actorId': currentUserId,
         'actorName': actorName,
         'contractId': _contractId,
@@ -534,6 +584,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         sendPush: true,
         extra: <String, dynamic>{
           'action': result.created ? 'apostille_created' : 'apostille_updated',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'apostilleId': result.apostilleId,
           'apostilleOrder': result.order,
           'apostilleProcess': _processCtrl.text.trim(),
@@ -549,6 +601,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         duration: const Duration(seconds: 6),
         extra: <String, dynamic>{
           'action': 'apostille_save_error',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'error': e.toString(),
         },
       );
@@ -601,6 +655,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         sendPush: true,
         extra: <String, dynamic>{
           'action': 'apostille_attachment_renamed',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'apostilleId': result.apostilleId,
           'apostilleOrder': result.apostilleOrder,
           'oldAttachmentId': result.oldAttachment.id,
@@ -621,6 +677,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         duration: const Duration(seconds: 6),
         extra: <String, dynamic>{
           'action': 'apostille_attachment_rename_error',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'error': e.toString(),
         },
       );
@@ -658,6 +716,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         sendPush: true,
         extra: <String, dynamic>{
           'action': 'apostille_attachment_added',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'apostilleId': result.apostilleId,
           'apostilleOrder': result.apostilleOrder,
           'attachmentId': result.attachment.id,
@@ -674,6 +734,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         duration: const Duration(seconds: 6),
         extra: <String, dynamic>{
           'action': 'apostille_attachment_add_error',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'error': e.toString(),
         },
       );
@@ -704,6 +766,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         sendPush: true,
         extra: <String, dynamic>{
           'action': 'apostille_attachment_deleted',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'apostilleId': result.apostilleId,
           'apostilleOrder': result.apostilleOrder,
           'attachmentId': result.attachment?.id,
@@ -720,6 +784,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         duration: const Duration(seconds: 6),
         extra: <String, dynamic>{
           'action': 'apostille_attachment_delete_error',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'error': e.toString(),
         },
       );
@@ -746,6 +812,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         sendPush: true,
         extra: <String, dynamic>{
           'action': 'apostille_deleted',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'apostilleId': result.apostilleId,
           'apostilleOrder': result.order,
           'apostilleProcess': result.process,
@@ -761,6 +829,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
         duration: const Duration(seconds: 6),
         extra: <String, dynamic>{
           'action': 'apostille_delete_error',
+          'tenantId': _activeTenantId,
+          'companyId': _activeTenantId,
           'error': e.toString(),
         },
       );
@@ -777,10 +847,27 @@ class _ApostillesPageState extends State<ApostillesPage> {
               previous.activeTenantId != current.activeTenantId;
         },
         listener: (context, permissionState) {
+          final nextTenantId = permissionState.activeTenantId?.trim();
+
+          if (nextTenantId == null || nextTenantId.isEmpty) {
+            return;
+          }
+
+          final previousTenantId = _activeTenantId;
+
+          _activeTenantId = nextTenantId;
+
           _cubit.updatePermissions(
             permissions: permissionState.current,
-            tenantId: permissionState.activeTenantId,
+            tenantId: nextTenantId,
           );
+
+          if (previousTenantId != nextTenantId) {
+            _dfdData = null;
+            _initialNextOrderApplied = false;
+
+            _loadContractDisplayData();
+          }
         },
         child: BlocBuilder<ApostillesCubit, ApostillesState>(
           builder: (context, state) {
@@ -894,9 +981,8 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       sideItems: state.sideAttachments,
                                       selectedSideIndex:
                                       _selectedAttachmentIndex,
-                                      onAddSideItem: state.canAddFile
-                                          ? _addAttachment
-                                          : null,
+                                      onAddSideItem:
+                                      state.canAddFile ? _addAttachment : null,
                                       onTapSideItem: (index) {
                                         setState(() {
                                           _selectedAttachmentIndex = index;

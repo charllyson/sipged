@@ -1,20 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'budget_data.dart';
+import 'loa_data.dart';
 
-class BudgetRepository {
+class LOARepository {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
 
-  BudgetRepository({
+  LOARepository({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance;
 
   CollectionReference<Map<String, dynamic>> _col() =>
-      _db.collection(BudgetData.collectionName);
+      _db.collection(LOAData.collectionName);
 
   DocumentReference<Map<String, dynamic>> _doc(String id) => _col().doc(id);
 
@@ -32,7 +32,7 @@ class BudgetRepository {
 
 
   /// Ordenação local: year desc, updatedAt desc
-  List<BudgetData> _sortLocal(List<BudgetData> list) {
+  List<LOAData> _sortLocal(List<LOAData> list) {
     list.sort((a, b) {
       final ay = a.year;
       final by = b.year;
@@ -48,7 +48,7 @@ class BudgetRepository {
   /// =========================
   /// GET ALL
   /// =========================
-  Future<List<BudgetData>> getAll() async {
+  Future<List<LOAData>> getAll() async {
     try {
       // ✅ Se existir índice composto, ótimo (year + updatedAt)
       final qs = await _col()
@@ -56,14 +56,14 @@ class BudgetRepository {
           .orderBy('updatedAt', descending: true)
           .get();
 
-      return qs.docs.map((d) => BudgetData.fromDocument(d)).toList();
+      return qs.docs.map((d) => LOAData.fromDocument(d)).toList();
     } catch (e) {
       if (!_isMissingIndexError(e)) rethrow;
 
       // ✅ Fallback SEM índice composto:
       // - pega sem 2 orderBy (ou sem orderBy)
       final qs = await _col().get();
-      final list = qs.docs.map((d) => BudgetData.fromDocument(d)).toList();
+      final list = qs.docs.map((d) => LOAData.fromDocument(d)).toList();
       return _sortLocal(list);
     }
   }
@@ -71,7 +71,7 @@ class BudgetRepository {
   /// =========================
   /// GET BY CONTRACT
   /// =========================
-  Future<List<BudgetData>> getAllByContract({required String contractId}) async {
+  Future<List<LOAData>> getAllByContract({required String contractId}) async {
     final cid = contractId.trim();
 
     try {
@@ -82,7 +82,7 @@ class BudgetRepository {
           .orderBy('updatedAt', descending: true)
           .get();
 
-      return qs.docs.map((d) => BudgetData.fromDocument(d)).toList();
+      return qs.docs.map((d) => LOAData.fromDocument(d)).toList();
     } catch (e) {
       if (!_isMissingIndexError(e)) rethrow;
 
@@ -93,7 +93,7 @@ class BudgetRepository {
           .where('contractId', isEqualTo: cid)
           .get();
 
-      final list = qs.docs.map((d) => BudgetData.fromDocument(d)).toList();
+      final list = qs.docs.map((d) => LOAData.fromDocument(d)).toList();
       return _sortLocal(list);
     }
   }
@@ -101,7 +101,7 @@ class BudgetRepository {
   /// =========================
   /// SAVE/UPDATE
   /// =========================
-  Future<void> saveOrUpdate(BudgetData e) async {
+  Future<void> saveOrUpdate(LOAData e) async {
     final uid = _auth.currentUser?.uid ?? '';
 
     final docRef =

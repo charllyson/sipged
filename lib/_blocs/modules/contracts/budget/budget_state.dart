@@ -1,4 +1,4 @@
-// lib/_blocs/modules/contracts/budget/budget_state.dart
+// lib/_blocs/modules/contracts/budget/loa_state.dart
 import 'package:equatable/equatable.dart';
 import 'budget_data.dart';
 

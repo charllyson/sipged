@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:sipged/_blocs/modules/financial/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/financial/loa/loa_data.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 
 import 'package:sipged/_widgets/charts/legend/chart_legend.dart';
@@ -14,7 +14,7 @@ class EmpenhoSlicesRow extends StatefulWidget {
   final NumberFormat currency;
 
   /// Orçamento (para mapear cor por fundingSourceLabel)
-  final List<BudgetData> budgets;
+  final List<LOAData> budgets;
 
   /// Empenhos do recorte atual (contrato ou geral)
   final List<EmpenhoData> empenhos;

@@ -1,39 +1,45 @@
-// lib/_widgets/charts/treemap/treemap_chart_changed.dart
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/charts/treemap/treemap_class.dart';
 import 'package:sipged/_widgets/charts/treemap/treemap_painter.dart';
 import 'package:sipged/_widgets/charts/treemap/treemap_shimmer.dart';
-import 'package:sipged/_widgets/cards/basic/basic_card.dart';
+
+import 'package:sipged/_widgets/overlays/balloon/balloon_body.dart';
+import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
+import 'package:sipged/_widgets/overlays/balloon/balloon_tip.dart';
 
 class TreemapChartChanged extends StatefulWidget {
-  /// Itens do Treemap – o **value** de cada item representa o VALOR TOTAL (FULL)
-  /// e será usado para definir a área do retângulo.
+  /// Itens do Treemap.
+  /// O value representa o valor total e define a área do retângulo.
   final List<TreemapItem> items;
 
-  /// Valores **FILTRADOS** alinhados por índice com [items].
-  /// (se null ou de tamanho diferente, todo mundo é tratado como 100% filtrado).
+  /// Valores filtrados alinhados por índice com [items].
+  /// Se null ou de tamanho diferente, todo item é tratado como 100%.
   final List<double?>? filteredValues;
 
-  /// Altura do canvas do treemap (como no BarChart).
+  /// Altura do canvas/card.
   final double heightGraphic;
 
-  /// Mantida por compatibilidade, mas o layout sempre respeita o maxWidth do pai.
+  /// Mantido por compatibilidade.
   final bool expandToMaxWidth;
 
-  /// Tamanho alvo por célula (apenas para cálculo de largura em casos sem bound).
+  /// Tamanho alvo por célula em caso de largura sem bound.
   final double targetCellSide;
 
-  /// Callback ao selecionar um item (label) – null limpa a seleção.
+  /// Callback ao selecionar item.
+  /// null limpa a seleção.
   final void Function(String? label)? onItemSelected;
 
   const TreemapChartChanged({
     super.key,
     required this.items,
     this.filteredValues,
-    this.heightGraphic = 300,
+    this.heightGraphic = 295.0,
     this.expandToMaxWidth = false,
     this.targetCellSide = 120,
     this.onItemSelected,
@@ -45,203 +51,502 @@ class TreemapChartChanged extends StatefulWidget {
 
 class _TreemapChartChangedState extends State<TreemapChartChanged> {
   final Map<TreemapItem, Rect> _rects = {};
-  TreemapItem? _selected;
-
-  /// intensidade/“opacidade lógica” 0..1 p/ cada item,
-  /// calculada a partir de filteredValues / value.
-  Map<TreemapItem, double> _intensityByItem = {};
-
-  // Tooltip infra
-  OverlayEntry? _overlay;
-  final ValueNotifier<Offset?> _tooltipPos = ValueNotifier<Offset?>(null);
-  final ValueNotifier<TreemapItem?> _tooltipItem =
-  ValueNotifier<TreemapItem?>(null);
-
-  /// key só para hit-test e coordenadas do canvas
   final GlobalKey _paintKey = GlobalKey();
 
+  String? _selectedLabel;
+
+  Map<TreemapItem, double> _intensityByItem = {};
+
+  bool _anchorRebuildScheduled = false;
+
+  static const Color _cardBackgroundColor = Colors.white;
+
+  static const double _balloonPreferredWidth = 300;
+  static const double _balloonMinWidth = 210;
+  static const double _balloonMaxHeight = 170;
+  static const double _balloonGap = 8;
+  static const double _canvasMargin = 8;
+  static const double _tipHeight = 10;
+  static const double _tipHorizontalMargin = 20;
+
   @override
-  void dispose() {
-    _removeOverlay();
-    _tooltipPos.dispose();
-    _tooltipItem.dispose();
-    super.dispose();
-  }
+  void didUpdateWidget(covariant TreemapChartChanged oldWidget) {
+    super.didUpdateWidget(oldWidget);
 
-  // ========================= TOOLTIP =========================
+    final selectedLabel = _selectedLabel;
 
-  void _ensureOverlay() {
-    if (_overlay != null || !mounted) return;
-    final overlayState = Overlay.maybeOf(context);
-    if (overlayState == null) return;
-
-    _overlay = OverlayEntry(
-      builder: (context) {
-        return ValueListenableBuilder<TreemapItem?>(
-          valueListenable: _tooltipItem,
-          builder: (_, item, _) {
-            if (item == null) return const SizedBox.shrink();
-            return ValueListenableBuilder<Offset?>(
-              valueListenable: _tooltipPos,
-              builder: (_, pos, _) {
-                if (pos == null) return const SizedBox.shrink();
-
-                return Positioned(
-                  left: pos.dx - 160,
-                  top: pos.dy + 12,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: DefaultTextStyle(
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.label,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text('Investido: ${SipGedFormatMoney.doubleToText(item.value)}'),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-
-    overlayState.insert(_overlay!);
-  }
-
-  void _removeOverlay() {
-    _overlay?.remove();
-    _overlay = null;
-  }
-
-  void _hideTooltip() {
-    _tooltipItem.value = null;
-    _tooltipPos.value = null;
-  }
-
-  void _showTooltip(TreemapItem item, Offset globalPos) {
-    _ensureOverlay();
-    _tooltipItem.value = item;
-    _tooltipPos.value = globalPos;
-  }
-
-  // ========================= HIT TEST =========================
-
-  TreemapItem? _hit(Offset local) {
-    for (final e in _rects.entries) {
-      if (e.value.contains(local)) return e.key;
-    }
-    return null;
-  }
-
-  RenderBox? _renderBox() {
-    final ctx = _paintKey.currentContext;
-    if (ctx == null) return null;
-    final ro = ctx.findRenderObject();
-    return ro is RenderBox ? ro : null;
-  }
-
-  // ========================= INTENSIDADE =========================
-
-  void _buildIntensityMap() {
-    _intensityByItem = {};
-
-    final f = widget.filteredValues;
-
-    final hasValidFilter = f != null &&
-        f.length == widget.items.length &&
-        f.any((v) => (v ?? 0) > 0);
-
-    if (!hasValidFilter) {
-      for (final item in widget.items) {
-        _intensityByItem[item] = 1.0;
-      }
+    if (selectedLabel == null) {
       return;
     }
 
-    for (int i = 0; i < widget.items.length; i++) {
-      final item = widget.items[i];
-      final base = item.value;
-      final filtered = f[i] ?? 0.0;
+    final stillExists = widget.items.any((item) {
+      return item.label.trim() == selectedLabel;
+    });
 
-      double factor;
-      if (base <= 0) {
-        factor = filtered > 0 ? 1.0 : 0.0;
-      } else {
-        factor = (filtered / base).clamp(0.0, 1.0);
+    if (!stillExists) {
+      setState(() {
+        _selectedLabel = null;
+      });
+      return;
+    }
+
+    _scheduleAnchorRebuild();
+  }
+
+  List<TreemapItem> get _validItems {
+    return widget.items.where((item) {
+      return item.label.trim().isNotEmpty &&
+          item.value > 0 &&
+          item.value.isFinite &&
+          !item.value.isNaN;
+    }).toList(growable: false);
+  }
+
+  TreemapItem? _selectedItemFrom(List<TreemapItem> validItems) {
+    final selectedLabel = _selectedLabel;
+
+    if (selectedLabel == null || selectedLabel.trim().isEmpty) {
+      return null;
+    }
+
+    for (final item in validItems) {
+      if (item.label.trim() == selectedLabel) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  Rect? _rectForSelectedLabel() {
+    final selectedLabel = _selectedLabel;
+
+    if (selectedLabel == null || selectedLabel.trim().isEmpty) {
+      return null;
+    }
+
+    for (final entry in _rects.entries) {
+      if (entry.key.label.trim() == selectedLabel && _isValidRect(entry.value)) {
+        return entry.value;
+      }
+    }
+
+    return null;
+  }
+
+  TreemapItem? _itemForSelectedLabel(List<TreemapItem> validItems) {
+    final selectedLabel = _selectedLabel;
+
+    if (selectedLabel == null || selectedLabel.trim().isEmpty) {
+      return null;
+    }
+
+    for (final item in validItems) {
+      if (item.label.trim() == selectedLabel) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  void _scheduleAnchorRebuild() {
+    if (_anchorRebuildScheduled || !mounted) {
+      return;
+    }
+
+    _anchorRebuildScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _anchorRebuildScheduled = false;
+
+      if (!mounted) {
+        return;
       }
 
-      _intensityByItem[item] = factor;
+      if (_selectedLabel == null) {
+        return;
+      }
+
+      setState(() {});
+    });
+  }
+
+  void _buildIntensityMap(List<TreemapItem> validItems) {
+    _intensityByItem = {};
+
+    final filteredValues = widget.filteredValues;
+
+    final hasValidFilter = filteredValues != null &&
+        filteredValues.length == widget.items.length &&
+        filteredValues.any((value) {
+          final clean = value ?? 0.0;
+          return clean > 0 && clean.isFinite && !clean.isNaN;
+        });
+
+    if (!hasValidFilter) {
+      for (final item in validItems) {
+        _intensityByItem[item] = 1.0;
+      }
+
+      return;
+    }
+
+    for (final item in validItems) {
+      final originalIndex = widget.items.indexOf(item);
+
+      if (originalIndex < 0 || originalIndex >= filteredValues.length) {
+        _intensityByItem[item] = 1.0;
+        continue;
+      }
+
+      final base = item.value;
+      final filtered = filteredValues[originalIndex] ?? 0.0;
+
+      if (base <= 0 || !base.isFinite || base.isNaN) {
+        _intensityByItem[item] = 0.0;
+        continue;
+      }
+
+      if (!filtered.isFinite || filtered.isNaN || filtered <= 0) {
+        _intensityByItem[item] = 0.0;
+        continue;
+      }
+
+      _intensityByItem[item] = (filtered / base).clamp(0.0, 1.0);
     }
   }
 
-  // ========================= TAMANHO =========================
-
-  Size _resolveSize(BoxConstraints c) {
+  Size _resolveSize(BoxConstraints constraints) {
     double width;
-    if (c.hasBoundedWidth && c.maxWidth.isFinite) {
-      // Caso normal: estamos dentro de um layout com largura fixa.
-      width = c.maxWidth;
+
+    if (constraints.hasBoundedWidth &&
+        constraints.maxWidth.isFinite &&
+        constraints.maxWidth > 0) {
+      width = constraints.maxWidth;
     } else {
-      // Caso raro (sem bound explícito): estima uma largura finita.
-      final n = math.max(1, widget.items.length);
-      final gridSide = math.sqrt(n);
-      width =
-          (gridSide * widget.targetCellSide).clamp(300.0, 1200.0).toDouble();
+      final count = math.max(1, widget.items.length);
+      final gridSide = math.sqrt(count);
+
+      width = (gridSide * widget.targetCellSide)
+          .clamp(300.0, 1200.0)
+          .toDouble();
     }
 
     double height = widget.heightGraphic;
-    if (c.hasBoundedHeight && c.maxHeight.isFinite) {
-      height = math.min(height, c.maxHeight);
+
+    if (!height.isFinite || height.isNaN || height <= 0) {
+      height = 295.0;
     }
-    height = height.clamp(150.0, 3000.0);
+
+    if (constraints.hasBoundedHeight &&
+        constraints.maxHeight.isFinite &&
+        constraints.maxHeight > 0) {
+      height = math.min(height, constraints.maxHeight);
+    }
+
+    height = height.clamp(150.0, 3000.0).toDouble();
 
     return Size(width, height);
   }
 
-  // ========================= BUILD =========================
+  RenderBox? _renderBox() {
+    final currentContext = _paintKey.currentContext;
+
+    if (currentContext == null) {
+      return null;
+    }
+
+    final renderObject = currentContext.findRenderObject();
+
+    if (renderObject is RenderBox) {
+      return renderObject;
+    }
+
+    return null;
+  }
+
+  TreemapItem? _hit(Offset local) {
+    for (final entry in _rects.entries) {
+      if (entry.value.contains(local)) {
+        return entry.key;
+      }
+    }
+
+    return null;
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    final box = _renderBox();
+
+    if (box == null) {
+      return;
+    }
+
+    final local = box.globalToLocal(details.globalPosition);
+    final item = _hit(local);
+
+    if (item == null) {
+      setState(() {
+        _selectedLabel = null;
+      });
+
+      widget.onItemSelected?.call(null);
+      return;
+    }
+
+    final label = item.label.trim();
+
+    if (label.isEmpty) {
+      setState(() {
+        _selectedLabel = null;
+      });
+
+      widget.onItemSelected?.call(null);
+      return;
+    }
+
+    final same = _selectedLabel == label;
+
+    if (same) {
+      setState(() {
+        _selectedLabel = null;
+      });
+
+      widget.onItemSelected?.call(null);
+      return;
+    }
+
+    setState(() {
+      _selectedLabel = label;
+    });
+
+    widget.onItemSelected?.call(label);
+
+    _scheduleAnchorRebuild();
+  }
+
+  String? _buildPercentualDetails(TreemapItem item) {
+    final intensity = _intensityByItem[item];
+
+    if (intensity == null || !intensity.isFinite || intensity.isNaN) {
+      return null;
+    }
+
+    final percentual = (intensity * 100).clamp(0.0, 100.0);
+
+    return 'Participação filtrada: ${percentual.toStringAsFixed(1)}%';
+  }
+
+  Widget? _buildSelectedBalloon({
+    required Size canvasSize,
+    required List<TreemapItem> validItems,
+  }) {
+    final selectedItem = _itemForSelectedLabel(validItems);
+
+    if (selectedItem == null) {
+      return null;
+    }
+
+    final rect = _rectForSelectedLabel();
+
+    if (rect == null || !_isValidRect(rect)) {
+      _scheduleAnchorRebuild();
+      return null;
+    }
+
+    if (!_isValidSize(canvasSize)) {
+      return null;
+    }
+
+    final anchor = rect.center;
+
+    final width = _resolveBalloonWidth(canvasSize.width);
+
+    if (width <= 0) {
+      return null;
+    }
+
+    final position = _resolveBalloonPosition(
+      canvasSize: canvasSize,
+      anchor: anchor,
+      width: width,
+    );
+
+    return Positioned(
+      left: position.left,
+      top: position.top,
+      width: width,
+      child: IgnorePointer(
+        child: Material(
+          type: MaterialType.transparency,
+          child: BalloonBody(
+            width: width,
+            maxHeight: _balloonMaxHeight,
+            tipSide: position.tipSide,
+            tipCenterX: position.tipCenterX,
+            title: 'Detalhes do investimento',
+            headerIcon: Icons.account_tree_outlined,
+            items: [
+              BalloonTileData.simple(
+                id: selectedItem.label,
+                title: selectedItem.label,
+                subtitle:
+                'Investido: ${SipGedFormatMoney.doubleToText(selectedItem.value)}',
+                details: _buildPercentualDetails(selectedItem),
+                icon: Icons.paid_outlined,
+                accentColor: selectedItem.color,
+                highlighted: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  double _resolveBalloonWidth(double canvasWidth) {
+    if (!canvasWidth.isFinite || canvasWidth.isNaN || canvasWidth <= 0) {
+      return 0;
+    }
+
+    final availableWidth = canvasWidth - (_canvasMargin * 2);
+
+    if (availableWidth <= 0) {
+      return 0;
+    }
+
+    if (availableWidth < _balloonMinWidth) {
+      return availableWidth;
+    }
+
+    return math.min(_balloonPreferredWidth, availableWidth);
+  }
+
+  _TreemapBalloonPosition _resolveBalloonPosition({
+    required Size canvasSize,
+    required Offset anchor,
+    required double width,
+  }) {
+    final rawLeft = anchor.dx - (width / 2);
+    final maxLeft = canvasSize.width - width - _canvasMargin;
+
+    final left = _safeClamp(
+      rawLeft,
+      _canvasMargin,
+      maxLeft,
+    );
+
+    final rawTipCenterX = anchor.dx - left;
+
+    final tipCenterX = _safeClamp(
+      rawTipCenterX,
+      _tipHorizontalMargin,
+      width - _tipHorizontalMargin,
+    );
+
+    final belowTop = anchor.dy + _balloonGap;
+    final belowBottom = belowTop + _tipHeight + _balloonMaxHeight;
+
+    if (belowBottom <= canvasSize.height) {
+      return _TreemapBalloonPosition(
+        left: left,
+        top: belowTop,
+        tipCenterX: tipCenterX,
+        tipSide: BalloonTipSide.top,
+      );
+    }
+
+    final rawAboveTop =
+        anchor.dy - _balloonMaxHeight - _tipHeight - _balloonGap;
+
+    final maxTop =
+        canvasSize.height - _balloonMaxHeight - _tipHeight - _canvasMargin;
+
+    final top = _safeClamp(
+      rawAboveTop,
+      _canvasMargin,
+      maxTop,
+    );
+
+    return _TreemapBalloonPosition(
+      left: left,
+      top: top,
+      tipCenterX: tipCenterX,
+      tipSide: BalloonTipSide.bottom,
+    );
+  }
+
+  double _safeClamp(
+      double value,
+      double min,
+      double max,
+      ) {
+    if (!value.isFinite || value.isNaN) {
+      return min;
+    }
+
+    if (!min.isFinite || min.isNaN) {
+      min = 0;
+    }
+
+    if (!max.isFinite || max.isNaN) {
+      max = min;
+    }
+
+    if (max < min) {
+      return min;
+    }
+
+    return value.clamp(min, max).toDouble();
+  }
+
+  bool _isValidSize(Size size) {
+    return size.width > 0 &&
+        size.height > 0 &&
+        size.width.isFinite &&
+        size.height.isFinite &&
+        !size.width.isNaN &&
+        !size.height.isNaN;
+  }
+
+  bool _isValidRect(Rect rect) {
+    return !rect.isEmpty &&
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.left.isFinite &&
+        rect.top.isFinite &&
+        rect.right.isFinite &&
+        rect.bottom.isFinite &&
+        rect.width.isFinite &&
+        rect.height.isFinite &&
+        !rect.width.isNaN &&
+        !rect.height.isNaN;
+  }
 
   @override
   Widget build(BuildContext context) {
-    _buildIntensityMap();
+    final validItems = _validItems;
+    _buildIntensityMap(validItems);
+
+    final selectedItem = _selectedItemFrom(validItems);
+
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
-    final bool noData =
-        widget.items.isEmpty || widget.items.every((e) => e.value <= 0);
 
     return LayoutBuilder(
       builder: (_, constraints) {
         final size = _resolveSize(constraints);
 
-        // ============ CASO: SHIMMER ============
-        if (noData) {
+        if (validItems.isEmpty) {
           return BasicCard(
             isDark: isDark,
             width: size.width.isFinite ? size.width : null,
+            height: size.height,
             padding: const EdgeInsets.all(8),
+            backgroundColor: _cardBackgroundColor,
+            gradient: null,
+            enableShadow: true,
             child: SizedBox(
               width: size.width,
               height: size.height,
@@ -254,71 +559,65 @@ class _TreemapChartChangedState extends State<TreemapChartChanged> {
           );
         }
 
-        // ============ CASO: TREEMAP REAL ============
+        final selectedBalloon = _buildSelectedBalloon(
+          canvasSize: size,
+          validItems: validItems,
+        );
+
         final treemapCanvas = SizedBox(
           width: size.width,
           height: size.height,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapUp: (d) {
-              final box = _renderBox();
-              if (box == null) return;
-
-              final local = box.globalToLocal(d.globalPosition);
-              final item = _hit(local);
-
-              if (item == null) {
-                setState(() => _selected = null);
-                widget.onItemSelected?.call(null);
-                _hideTooltip();
-                return;
-              }
-
-              final same = _selected?.label == item.label;
-
-              setState(() => _selected = same ? null : item);
-              widget.onItemSelected?.call(same ? null : item.label);
-
-              same ? _hideTooltip() : _showTooltip(item, d.globalPosition);
-            },
-            child: MouseRegion(
-              onHover: (e) {
-                final box = _renderBox();
-                if (box == null) return;
-
-                final local = box.globalToLocal(e.position);
-                final item = _hit(local);
-
-                if (item == null) {
-                  _hideTooltip();
-                } else {
-                  _showTooltip(item, e.position);
-                }
-              },
-              onExit: (_) => _hideTooltip(),
-              child: ClipRect(
-                // garante que nada “vaze” para fora do card
-                child: CustomPaint(
-                  key: _paintKey,
-                  painter: TreemapPainter(
-                    widget.items,
-                    outRects: _rects,
-                    selected: _selected,
-                    intensityByItem: _intensityByItem,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: _handleTapUp,
+                  child: ClipRect(
+                    child: CustomPaint(
+                      key: _paintKey,
+                      painter: TreemapPainter(
+                        validItems,
+                        outRects: _rects,
+                        selected: selectedItem,
+                        intensityByItem: _intensityByItem,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
                   ),
                 ),
               ),
-            ),
+              ?selectedBalloon,
+            ],
           ),
         );
 
         return BasicCard(
           isDark: isDark,
           width: size.width.isFinite ? size.width : null,
+          height: size.height,
           padding: const EdgeInsets.all(8),
+          backgroundColor: _cardBackgroundColor,
+          gradient: null,
+          enableShadow: true,
           child: treemapCanvas,
         );
       },
     );
   }
+}
+
+class _TreemapBalloonPosition {
+  const _TreemapBalloonPosition({
+    required this.left,
+    required this.top,
+    required this.tipCenterX,
+    required this.tipSide,
+  });
+
+  final double left;
+  final double top;
+  final double tipCenterX;
+  final BalloonTipSide tipSide;
 }

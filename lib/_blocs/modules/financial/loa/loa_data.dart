@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
-class BudgetData {
+class LOAData {
   static const String collectionName = 'budgets';
 
   String? id;
@@ -33,7 +33,7 @@ class BudgetData {
   DateTime? updatedAt;
   String? updatedBy;
 
-  BudgetData({
+  LOAData({
     this.id,
     this.contractId,
     this.companyId,
@@ -108,11 +108,11 @@ class BudgetData {
     return null;
   }
 
-  factory BudgetData.fromDocument(DocumentSnapshot snap) {
+  factory LOAData.fromDocument(DocumentSnapshot snap) {
     final data = _readSnapData(snap);
     final pdfUrl = data['pdfUrl'] as String?;
 
-    return BudgetData(
+    return LOAData(
       id: (data['id'] as String?) ?? snap.id,
       contractId: data['contractId'] as String?,
       companyId: data['companyId'] as String?,
@@ -159,7 +159,7 @@ class BudgetData {
     }..removeWhere((k, v) => v == null);
   }
 
-  BudgetData copyWith({
+  LOAData copyWith({
     String? id,
     String? contractId,
     String? companyId,
@@ -177,7 +177,7 @@ class BudgetData {
     DateTime? updatedAt,
     String? updatedBy,
   }) {
-    return BudgetData(
+    return LOAData(
       id: id ?? this.id,
       contractId: contractId ?? this.contractId,
       companyId: companyId ?? this.companyId,

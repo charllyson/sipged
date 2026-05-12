@@ -20,33 +20,46 @@ class ValidityRepository {
     FirebaseFirestore? db,
     FirebaseAuth? auth,
     FirebaseStorage? storage,
-    String? tenantId,
+    required String tenantId,
   })  : _db = db ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
         _storage = storage ?? FirebaseStorage.instance,
-        _activeTenantId = tenantId?.trim();
+        _activeTenantId = _cleanRequiredTenantId(
+          tenantId,
+          context: 'ValidityRepository.constructor',
+        );
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final FirebaseStorage _storage;
 
-  String? _activeTenantId;
+  String _activeTenantId;
 
-  void setActiveTenantId(String? tenantId) {
-    final clean = tenantId?.trim();
-    _activeTenantId = clean == null || clean.isEmpty ? null : clean;
+  static String _cleanRequiredTenantId(
+      String value, {
+        required String context,
+      }) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório em $context.');
+    }
+
+    return clean;
+  }
+
+  void setActiveTenantId(String tenantId) {
+    _activeTenantId = _cleanRequiredTenantId(
+      tenantId,
+      context: 'ValidityRepository.setActiveTenantId',
+    );
   }
 
   String _requireTenantId() {
-    final tenantId = _activeTenantId?.trim();
-
-    if (tenantId == null || tenantId.isEmpty) {
-      throw Exception(
-        'Nenhuma empresa ativa foi selecionada para acessar vigências.',
-      );
-    }
-
-    return tenantId;
+    return _cleanRequiredTenantId(
+      _activeTenantId,
+      context: 'ValidityRepository._requireTenantId',
+    );
   }
 
   CollectionReference<Map<String, dynamic>> _contractsCol() {
@@ -56,7 +69,13 @@ class ValidityRepository {
   }
 
   DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
-    return _contractsCol().doc(contractId.trim());
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId é obrigatório.');
+    }
+
+    return _contractsCol().doc(cleanContractId);
   }
 
   CollectionReference<Map<String, dynamic>> _ordersCol(String contractId) {
@@ -67,7 +86,13 @@ class ValidityRepository {
     required String contractId,
     required String validityId,
   }) {
-    return _ordersCol(contractId).doc(validityId.trim());
+    final cleanValidityId = validityId.trim();
+
+    if (cleanValidityId.isEmpty) {
+      throw Exception('validityId é obrigatório.');
+    }
+
+    return _ordersCol(contractId).doc(cleanValidityId);
   }
 
   CollectionReference<Map<String, dynamic>> _additivesCol(String contractId) {
@@ -130,6 +155,8 @@ class ValidityRepository {
   }
 
   Future<List<ContractData>> getAllContracts() async {
+    _requireTenantId();
+
     final snapshot = await _contractsCol().get();
 
     return snapshot.docs.map((doc) {
@@ -142,9 +169,13 @@ class ValidityRepository {
   }
 
   Future<ContractData?> getSpecificContract({required String uid}) async {
+    _requireTenantId();
+
     final cleanUid = uid.trim();
 
-    if (cleanUid.isEmpty) return null;
+    if (cleanUid.isEmpty) {
+      throw Exception('contractId é obrigatório para buscar contrato.');
+    }
 
     final snapshot = await _contractDoc(cleanUid).get();
 
@@ -162,9 +193,13 @@ class ValidityRepository {
   }
 
   Future<ContractData?> buscarContrato(String contractId) async {
+    _requireTenantId();
+
     final cleanContractId = contractId.trim();
 
-    if (cleanContractId.isEmpty) return null;
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId é obrigatório para buscar contrato.');
+    }
 
     final snapshot = await _contractDoc(cleanContractId).get();
 
@@ -252,7 +287,9 @@ class ValidityRepository {
     final contractId = uidContract.trim();
     final validityId = uidValidade.trim();
 
-    if (contractId.isEmpty || validityId.isEmpty) return;
+    if (contractId.isEmpty || validityId.isEmpty) {
+      throw Exception('contractId e validityId são obrigatórios.');
+    }
 
     final docRef = _orderDoc(
       contractId: contractId,
@@ -310,21 +347,15 @@ class ValidityRepository {
   Future<List<ValidityData>> getAllValidityOfContract({
     required String uidContract,
   }) async {
+    _requireTenantId();
+
     final contractId = uidContract.trim();
 
-    if (contractId.isEmpty) return const <ValidityData>[];
-
-    QuerySnapshot<Map<String, dynamic>> snapshot;
-
-    try {
-      snapshot = await _ordersCol(contractId).orderBy('ordernumber').get();
-    } on FirebaseException catch (e) {
-      if (e.code == 'failed-precondition' || e.code == 'not-found') {
-        snapshot = await _ordersCol(contractId).get();
-      } else {
-        rethrow;
-      }
+    if (contractId.isEmpty) {
+      throw Exception('contractId é obrigatório para carregar vigências.');
     }
+
+    final snapshot = await _ordersCol(contractId).orderBy('ordernumber').get();
 
     final list = snapshot.docs
         .map((doc) => ValidityData.fromDocument(snapshot: doc))
@@ -346,6 +377,12 @@ class ValidityRepository {
 
     if (currentUid == null) return;
 
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId é obrigatório para notificar vigência.');
+    }
+
     final ref = _db
         .collection('users')
         .doc(currentUid)
@@ -357,7 +394,7 @@ class ValidityRepository {
       'titulo': validade.ordertype ?? 'Vigência atualizada',
       'tenantId': tenantId,
       'companyId': tenantId,
-      'contractId': contractId,
+      'contractId': cleanContractId,
       'validityId': validade.id,
       'createdAt': FieldValue.serverTimestamp(),
       'seen': false,
@@ -365,9 +402,15 @@ class ValidityRepository {
   }
 
   Stream<List<Registro>> getNotificacoesRecentesStream(String uid) {
+    final cleanUid = uid.trim();
+
+    if (cleanUid.isEmpty) {
+      throw Exception('uid é obrigatório para carregar notificações.');
+    }
+
     return _db
         .collection('users')
-        .doc(uid)
+        .doc(cleanUid)
         .collection('notifications')
         .orderBy('createdAt', descending: true)
         .limit(10)
@@ -410,21 +453,17 @@ class ValidityRepository {
   }
 
   Future<List<AdditivesData>> buscarAditivos(String contractId) async {
+    _requireTenantId();
+
     final cleanContractId = contractId.trim();
 
-    if (cleanContractId.isEmpty) return const <AdditivesData>[];
-
-    QuerySnapshot<Map<String, dynamic>> snap;
-
-    try {
-      snap = await _additivesCol(cleanContractId).orderBy('additiveorder').get();
-    } on FirebaseException catch (e) {
-      if (e.code == 'failed-precondition' || e.code == 'not-found') {
-        snap = await _additivesCol(cleanContractId).get();
-      } else {
-        rethrow;
-      }
+    if (cleanContractId.isEmpty) {
+      throw Exception('contractId é obrigatório para buscar aditivos.');
     }
+
+    final snap = await _additivesCol(cleanContractId)
+        .orderBy('additiveorder')
+        .get();
 
     final list = snap.docs
         .map((doc) => AdditivesData.fromDocument(snapshot: doc))
@@ -563,9 +602,8 @@ class ValidityRepository {
     final task = ref.putData(
       bytes,
       SettableMetadata(
-        contentType: ext == '.pdf'
-            ? 'application/pdf'
-            : 'application/octet-stream',
+        contentType:
+        ext == '.pdf' ? 'application/pdf' : 'application/octet-stream',
         customMetadata: {
           'tenantId': tenantId,
           'companyId': tenantId,
@@ -609,7 +647,7 @@ class ValidityRepository {
     final cleanValidityId = validityId.trim();
 
     if (cleanContractId.isEmpty || cleanValidityId.isEmpty) {
-      return const <({String name, String url})>[];
+      throw Exception('contractId e validityId são obrigatórios.');
     }
 
     final folderRef = _storage.ref(
@@ -618,22 +656,18 @@ class ValidityRepository {
 
     final output = <({String name, String url})>[];
 
-    try {
-      final result = await folderRef.listAll();
+    final result = await folderRef.listAll();
 
-      for (final item in result.items) {
-        try {
-          final url = await item.getDownloadURL();
+    for (final item in result.items) {
+      final url = await item.getDownloadURL();
 
-          output.add(
-            (
-            name: item.name,
-            url: url,
-            ),
-          );
-        } catch (_) {}
-      }
-    } catch (_) {}
+      output.add(
+        (
+        name: item.name,
+        url: url,
+        ),
+      );
+    }
 
     final unique = <String, ({String name, String url})>{};
 
@@ -713,11 +747,11 @@ class ValidityRepository {
     final validityId = validity.id?.trim();
 
     if (contractId == null || contractId.isEmpty) {
-      return const <Attachment>[];
+      throw Exception('contractId é obrigatório para carregar anexos.');
     }
 
     if (validityId == null || validityId.isEmpty) {
-      return const <Attachment>[];
+      throw Exception('validityId é obrigatório para carregar anexos.');
     }
 
     final currentAttachments = validity.attachments ?? const <Attachment>[];
@@ -786,7 +820,8 @@ class ValidityRepository {
         id: file.name,
         label: file.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
         url: file.url,
-        path: 'tenants/$tenantId/contracts/$contractId/orders/$validityId/${file.name}',
+        path:
+        'tenants/$tenantId/contracts/$contractId/orders/$validityId/${file.name}',
         ext: ext,
         createdAt: DateTime.now(),
         createdBy: _auth.currentUser?.uid,
@@ -888,13 +923,11 @@ class ValidityRepository {
       final validityId = validity.id?.trim();
 
       if (contractId == null || contractId.isEmpty) {
-        onComplete(false);
-        return false;
+        throw Exception('contractId é obrigatório para upload de PDF.');
       }
 
       if (validityId == null || validityId.isEmpty) {
-        onComplete(false);
-        return false;
+        throw Exception('validityId é obrigatório para upload de PDF.');
       }
 
       final url = await uploadPdfWithPickerAndReturnUrl(
@@ -974,8 +1007,13 @@ class ValidityRepository {
       final contractId = contract.id?.trim();
       final validityId = validity.id?.trim();
 
-      if (contractId == null || contractId.isEmpty) return false;
-      if (validityId == null || validityId.isEmpty) return false;
+      if (contractId == null || contractId.isEmpty) {
+        throw Exception('contractId é obrigatório para excluir PDF.');
+      }
+
+      if (validityId == null || validityId.isEmpty) {
+        throw Exception('validityId é obrigatório para excluir PDF.');
+      }
 
       try {
         await _storage
@@ -1057,8 +1095,13 @@ class ValidityRepository {
     final contractId = contract.id?.trim();
     final validityId = validity.id?.trim();
 
-    if (contractId == null || contractId.isEmpty) return null;
-    if (validityId == null || validityId.isEmpty) return null;
+    if (contractId == null || contractId.isEmpty) {
+      throw Exception('contractId é obrigatório para obter PDF.');
+    }
+
+    if (validityId == null || validityId.isEmpty) {
+      throw Exception('validityId é obrigatório para obter PDF.');
+    }
 
     final snap = await _orderDoc(
       contractId: contractId,

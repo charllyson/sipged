@@ -9,8 +9,10 @@ import 'habilitacao_repository.dart';
 import 'habilitacao_state.dart';
 
 class HabilitacaoCubit extends Cubit<HabilitacaoState> {
-  HabilitacaoCubit([HabilitacaoRepository? repository])
-      : repo = repository ?? HabilitacaoRepository(),
+  HabilitacaoCubit({
+    required String tenantId,
+    HabilitacaoRepository? repository,
+  })  : repo = repository ?? HabilitacaoRepository(tenantId: tenantId),
         super(HabilitacaoState.initial());
 
   final HabilitacaoRepository repo;
@@ -288,7 +290,8 @@ class HabilitacaoCubit extends Cubit<HabilitacaoState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanHabId = (habId ?? state.habId ?? '').trim();
-    final cleanLicitacaoDocId = (licitacaoDocId ??
+    final cleanLicitacaoDocId =
+    (licitacaoDocId ??
         state.sectionIds[HabilitacaoData.sectionLicitacaoAdesao] ??
         '')
         .trim();
@@ -333,7 +336,8 @@ class HabilitacaoCubit extends Cubit<HabilitacaoState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanHabId = (habId ?? state.habId ?? '').trim();
-    final cleanLicitacaoDocId = (licitacaoDocId ??
+    final cleanLicitacaoDocId =
+    (licitacaoDocId ??
         state.sectionIds[HabilitacaoData.sectionLicitacaoAdesao] ??
         '')
         .trim();
@@ -383,7 +387,8 @@ class HabilitacaoCubit extends Cubit<HabilitacaoState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanHabId = (habId ?? state.habId ?? '').trim();
-    final cleanLicitacaoDocId = (licitacaoDocId ??
+    final cleanLicitacaoDocId =
+    (licitacaoDocId ??
         state.sectionIds[HabilitacaoData.sectionLicitacaoAdesao] ??
         '')
         .trim();

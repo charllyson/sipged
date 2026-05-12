@@ -1,5 +1,6 @@
 // lib/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
@@ -9,10 +10,21 @@ import 'dfd_repository.dart';
 import 'dfd_state.dart';
 
 class DfdCubit extends Cubit<DfdState> {
-  DfdCubit({DfdRepository? repository})
-      : repo = repository ?? DfdRepository(),
-        super(DfdState.initial());
+  DfdCubit({
+    required String tenantId,
+    DfdRepository? repository,
+  })  : _tenantId = _validateTenantId(tenantId),
+        repo = repository ??
+            DfdRepository(
+              tenantId: _validateTenantId(tenantId),
+            ),
+        super(
+        DfdState.initial(
+          tenantId: _validateTenantId(tenantId),
+        ),
+      );
 
+  final String _tenantId;
   final DfdRepository repo;
 
   int _loadSeq = 0;
@@ -20,11 +32,83 @@ class DfdCubit extends Cubit<DfdState> {
 
   bool get _alive => !isClosed;
 
+  String get tenantId => _tenantId;
+
+  static String _validateTenantId(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório para DfdCubit.');
+    }
+
+    return cleanTenantId;
+  }
+
   Future<DfdData?> getDataForContract(String contractId) {
     final id = contractId.trim();
+
     if (id.isEmpty) return Future<DfdData?>.value(null);
 
     return repo.readDataForContract(id);
+  }
+
+  /// Carregamento resumido em lote para telas de listagem/dashboard.
+  ///
+  /// Usado pela ListDemandPage para evitar 1 leitura completa por contrato.
+  /// Depende do método:
+  ///
+  /// DfdRepository.readDataForContractsSummary(...)
+  Future<Map<String, DfdData?>> getSummaryForContracts(
+      Iterable<String> contractIds, {
+        bool debug = false,
+      }) async {
+    final ids = contractIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+
+    if (ids.isEmpty) {
+      return const <String, DfdData?>{};
+    }
+
+    final sw = Stopwatch()..start();
+
+    try {
+      final result = await repo.readDataForContractsSummary(
+        ids,
+        debug: debug,
+      );
+
+      sw.stop();
+
+      if (debug) {
+        debugPrint(
+          '[DfdCubit] getSummaryForContracts | '
+              'tenantId=$tenantId | '
+              'contratos=${ids.length} | '
+              'retorno=${result.length} | '
+              'tempo=${sw.elapsedMilliseconds}ms',
+        );
+      }
+
+      return result;
+    } catch (error, stack) {
+      sw.stop();
+
+      debugPrint(
+        '[DfdCubit] Erro em getSummaryForContracts | '
+            'tenantId=$tenantId | '
+            'contratos=${ids.length} | '
+            'tempo=${sw.elapsedMilliseconds}ms | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      return <String, DfdData?>{
+        for (final id in ids) id: null,
+      };
+    }
   }
 
   Future<void> load(String contractId) async {
@@ -53,6 +137,7 @@ class DfdCubit extends Cubit<DfdState> {
         loading: true,
         saving: false,
         saveSuccess: false,
+        tenantId: _tenantId,
         contractId: cleanContractId,
         clearError: true,
       ),
@@ -76,6 +161,7 @@ class DfdCubit extends Cubit<DfdState> {
           loading: false,
           saving: false,
           saveSuccess: false,
+          tenantId: _tenantId,
           contractId: cleanContractId,
           dfdId: ids.dfdId,
           sectionIds: ids.sectionIds,
@@ -83,8 +169,16 @@ class DfdCubit extends Cubit<DfdState> {
           clearError: true,
         ),
       );
-    } catch (error) {
+    } catch (error, stack) {
       if (!_alive || reqId != _loadSeq) return;
+
+      debugPrint(
+        '[DfdCubit] Erro em load | '
+            'tenantId=$tenantId | '
+            'contractId=$cleanContractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
 
       emit(
         state.copyWith(
@@ -121,6 +215,7 @@ class DfdCubit extends Cubit<DfdState> {
         saving: true,
         loading: false,
         saveSuccess: false,
+        tenantId: _tenantId,
         contractId: cleanContractId,
         clearError: true,
       ),
@@ -155,6 +250,7 @@ class DfdCubit extends Cubit<DfdState> {
         state.copyWith(
           saving: false,
           saveSuccess: true,
+          tenantId: _tenantId,
           contractId: cleanContractId,
           dfdId: ids.dfdId,
           sectionIds: ids.sectionIds,
@@ -162,8 +258,16 @@ class DfdCubit extends Cubit<DfdState> {
           clearError: true,
         ),
       );
-    } catch (error) {
+    } catch (error, stack) {
       if (!_alive || reqId != _saveSeq) return;
+
+      debugPrint(
+        '[DfdCubit] Erro em saveAll | '
+            'tenantId=$tenantId | '
+            'contractId=$cleanContractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
 
       emit(
         state.copyWith(
@@ -186,6 +290,7 @@ class DfdCubit extends Cubit<DfdState> {
         saving: true,
         loading: false,
         saveSuccess: false,
+        tenantId: _tenantId,
         clearError: true,
       ),
     );
@@ -211,6 +316,7 @@ class DfdCubit extends Cubit<DfdState> {
           saving: false,
           loading: false,
           saveSuccess: true,
+          tenantId: _tenantId,
           contractId: finalContractId,
           dfdId: ids.dfdId,
           sectionIds: ids.sectionIds,
@@ -220,8 +326,15 @@ class DfdCubit extends Cubit<DfdState> {
       );
 
       return finalContractId;
-    } catch (error) {
+    } catch (error, stack) {
       if (!_alive || reqId != _saveSeq) return null;
+
+      debugPrint(
+        '[DfdCubit] Erro em saveAllWithAutoContract | '
+            'tenantId=$tenantId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
 
       emit(
         state.copyWith(
@@ -272,6 +385,7 @@ class DfdCubit extends Cubit<DfdState> {
         saving: true,
         loading: false,
         saveSuccess: false,
+        tenantId: _tenantId,
         contractId: cleanContractId,
         clearError: true,
       ),
@@ -281,13 +395,14 @@ class DfdCubit extends Cubit<DfdState> {
       final ids = await repo.ensureStructure(cleanContractId);
       final sectionId = ids.sectionIds[cleanSectionKey];
 
-      if (sectionId == null) {
+      if (sectionId == null || sectionId.trim().isEmpty) {
         if (!_alive || reqId != _saveSeq) return;
 
         emit(
           state.copyWith(
             saving: false,
             saveSuccess: false,
+            tenantId: _tenantId,
             error: 'Seção inválida: $cleanSectionKey',
             dfdId: ids.dfdId,
             sectionIds: ids.sectionIds,
@@ -321,6 +436,7 @@ class DfdCubit extends Cubit<DfdState> {
         state.copyWith(
           saving: false,
           saveSuccess: true,
+          tenantId: _tenantId,
           contractId: cleanContractId,
           dfdId: ids.dfdId,
           sectionIds: ids.sectionIds,
@@ -328,8 +444,17 @@ class DfdCubit extends Cubit<DfdState> {
           clearError: true,
         ),
       );
-    } catch (error) {
+    } catch (error, stack) {
       if (!_alive || reqId != _saveSeq) return;
+
+      debugPrint(
+        '[DfdCubit] Erro em saveOneSection | '
+            'tenantId=$tenantId | '
+            'contractId=$cleanContractId | '
+            'sectionKey=$cleanSectionKey | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
 
       emit(
         state.copyWith(

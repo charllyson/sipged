@@ -1,7 +1,7 @@
 // lib/screens/modules/contracts/hiring/3Tr/section_1_objeto_fundamentacao.dart
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
 

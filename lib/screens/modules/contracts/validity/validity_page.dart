@@ -28,7 +28,7 @@ import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/timeline/timeline_class.dart';
+import 'package:sipged/screens/modules/contracts/validity/timeline_class.dart';
 
 import 'validity_form_section.dart';
 import 'validity_table_section.dart';
@@ -46,7 +46,8 @@ class ValidityPage extends StatefulWidget {
 }
 
 class _ValidityPageState extends State<ValidityPage> {
-  final DfdRepository _dfdRepository = DfdRepository();
+  late String _activeTenantId;
+  late DfdRepository _dfdRepository;
 
   DfdData? _dfdData;
 
@@ -79,6 +80,15 @@ class _ValidityPageState extends State<ValidityPage> {
   @override
   void initState() {
     super.initState();
+
+    _activeTenantId = _resolveRequiredTenantId(
+      context.read<PermissionCubit>().state,
+    );
+
+    _dfdRepository = DfdRepository(
+      tenantId: _activeTenantId,
+    );
+
     _loadDfdDisplayData();
   }
 
@@ -90,9 +100,40 @@ class _ValidityPageState extends State<ValidityPage> {
     final newId = widget.contractData.id?.trim() ?? '';
 
     if (oldId != newId) {
-      _dfdData = null;
+      setState(() {
+        _dfdData = null;
+      });
+
       _loadDfdDisplayData();
     }
+  }
+
+  String _resolveRequiredTenantId(PermissionState permissionState) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para ValidityPage.',
+      );
+    }
+
+    return tenantId;
+  }
+
+  void _handlePermissionStateChanged(PermissionState permissionState) {
+    final nextTenantId = _resolveRequiredTenantId(permissionState);
+
+    if (nextTenantId == _activeTenantId) return;
+
+    setState(() {
+      _activeTenantId = nextTenantId;
+      _dfdRepository = DfdRepository(
+        tenantId: _activeTenantId,
+      );
+      _dfdData = null;
+    });
+
+    _loadDfdDisplayData();
   }
 
   Future<void> _loadDfdDisplayData() async {
@@ -265,10 +306,7 @@ class _ValidityPageState extends State<ValidityPage> {
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -321,17 +359,16 @@ class _ValidityPageState extends State<ValidityPage> {
         extra['validityEndDate'],
       ),
       extra: <String, dynamic>{
+        'tenantId': _activeTenantId,
+        'companyId': _activeTenantId,
         'route': route,
         'module': route,
         'source': 'validity_notification',
         'sourceKey': notificationSource,
         'subSource': notificationSource,
         'notificationSource': notificationSource,
-
-        /// Mantidos para o NotificationBell identificar usuário/foto.
         'actorId': currentUserId,
         'actorName': actorName,
-
         'contractId': _contractId,
         'contractNumber': _contractNumber,
         'processNumber': _contractNumber,
@@ -350,10 +387,7 @@ class _ValidityPageState extends State<ValidityPage> {
     String? subtitle,
     String? details,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade temporária com chamadas antigas.
     NotificationStatus? type,
-
     Duration duration = const Duration(seconds: 4),
     bool saveInBell = false,
     bool sendPush = false,
@@ -380,404 +414,430 @@ class _ValidityPageState extends State<ValidityPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ValidityCubit>(
-      create: (context) {
-        final permissionState = context.read<PermissionCubit>().state;
+    return BlocBuilder<PermissionCubit, PermissionState>(
+      buildWhen: (previous, current) {
+        return previous.activeTenantId != current.activeTenantId ||
+            previous.current != current.current;
+      },
+      builder: (context, permissionState) {
+        final tenantId = _resolveRequiredTenantId(permissionState);
 
-        final cubit = ValidityCubit(
-          repository: ValidityRepository(),
-          initialPermissions: permissionState.current,
-          initialTenantId: permissionState.activeTenantId,
-          moduleId: 'contracts_validity',
-        );
-
-        if (_contractId.isNotEmpty) {
-          cubit.loadForContract(_contractId);
+        if (tenantId != _activeTenantId) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _handlePermissionStateChanged(permissionState);
+          });
         }
 
-        return cubit;
-      },
-      child: BlocListener<PermissionCubit, PermissionState>(
-        listenWhen: (previous, current) {
-          return previous.current != current.current ||
-              previous.activeTenantId != current.activeTenantId;
-        },
-        listener: (context, permissionState) {
-          context.read<ValidityCubit>().updatePermissions(
-            permissions: permissionState.current,
-            tenantId: permissionState.activeTenantId,
-          );
-        },
-        child: BlocBuilder<ValidityCubit, ValidityState>(
-          builder: (context, state) {
-            final cubit = context.read<ValidityCubit>();
-
-            final isBusy = state.isLoading || state.isSaving;
-            final isEditable = cubit.isEditable;
-
-            Future<void> handleAddAttachment() async {
-              final selected = state.selectedValidity;
-
-              if (selected == null) {
-                await _safeNotify(
-                  context: context,
-                  title: 'Salve a validade primeiro',
-                  subtitle: 'Depois você poderá anexar arquivos.',
-                  status: NotificationStatus.info,
-                );
-                return;
-              }
-
-              try {
-                final tempRepo = ValidityRepository();
-                final (bytes, originalName) = await tempRepo.pickFileBytes();
-
-                if (!context.mounted) return;
-
-                final suggestion = _suggestLabelFromName(
-                  selected,
-                  originalName,
-                );
-
-                final label = await askLabelDialog(context, suggestion);
-
-                if (!context.mounted) return;
-                if (label == null || label.trim().isEmpty) return;
-
-                await cubit.addAttachmentFromBytes(
-                  bytes: bytes,
-                  originalName: originalName,
-                  customLabel: label.trim(),
-                );
-
-                if (!context.mounted) return;
-
-                await _safeNotify(
-                  context: context,
-                  title: 'Arquivo anexado',
-                  subtitle: label.trim(),
-                  status: NotificationStatus.success,
-                  saveInBell: true,
-                  sendPush: true,
-                  extra: <String, dynamic>{
-                    'action': 'validity_attachment_created',
-                    'validityId': selected.id,
-                    'orderNumber': selected.orderNumber,
-                    'orderType': selected.ordertype,
-                    'orderDate': selected.orderdate?.toIso8601String(),
-                    'validityStartDate': selected.orderdate?.toIso8601String(),
-                    'attachmentLabel': label.trim(),
-                  },
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-
-                await _safeNotify(
-                  context: context,
-                  title: 'Erro ao anexar arquivo',
-                  subtitle: '$e',
-                  status: NotificationStatus.error,
-                  duration: const Duration(seconds: 6),
-                );
-              }
-            }
-
-            Future<void> handleOpenAttachment(int index) async {
-              if (index < 0 || index >= state.attachments.length) return;
-
-              final attachment = state.attachments[index];
-              final url = attachment.url.trim();
-
-              if (url.isEmpty) return;
-              if (!context.mounted) return;
-
-              await showDialog<void>(
-                context: context,
-                builder: (_) => Dialog(
-                  backgroundColor: Colors.white,
-                  insetPadding: const EdgeInsets.all(16),
-                  child: PdfPreview(pdfUrl: url),
-                ),
-              );
-            }
-
-            Future<void> handleDeleteAttachment(int index) async {
-              if (index < 0 || index >= state.attachments.length) return;
-
-              final selected = state.selectedValidity;
-              final attachment = state.attachments[index];
-
-              final ok = await confirmDialog(
-                context,
-                'Deseja remover este arquivo?',
-              );
-
-              if (!context.mounted) return;
-              if (!ok) return;
-
-              try {
-                await cubit.deleteAttachmentAt(index);
-
-                if (!context.mounted) return;
-
-                await _safeNotify(
-                  context: context,
-                  title: 'Arquivo removido',
-                  subtitle: attachment.label,
-                  status: NotificationStatus.warning,
-                  saveInBell: true,
-                  sendPush: true,
-                  extra: <String, dynamic>{
-                    'action': 'validity_attachment_deleted',
-                    'validityId': selected?.id,
-                    'orderNumber': selected?.orderNumber,
-                    'orderType': selected?.ordertype,
-                    'orderDate': selected?.orderdate?.toIso8601String(),
-                    'validityStartDate':
-                    selected?.orderdate?.toIso8601String(),
-                    'attachmentLabel': attachment.label,
-                    'attachmentUrl': attachment.url,
-                  },
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-
-                await _safeNotify(
-                  context: context,
-                  title: 'Erro ao remover arquivo',
-                  subtitle: '$e',
-                  status: NotificationStatus.error,
-                  duration: const Duration(seconds: 6),
-                );
-              }
-            }
-
-            Future<void> handleSaveOrUpdate() async {
-              final selectedBeforeSave = state.selectedValidity;
-              final isNew = selectedBeforeSave?.id == null;
-
-              final ok = await confirmDialog(
-                context,
-                'Deseja salvar esta validade?',
-              );
-
-              if (!context.mounted) return;
-              if (!ok) return;
-
-              try {
-                await cubit.saveSelected();
-
-                if (!context.mounted) return;
-
-                final selectedAfterSave = cubit.state.selectedValidity;
-                final validity = selectedAfterSave ?? selectedBeforeSave;
-
-                final actorName = _resolveActorName(
-                  FirebaseAuth.instance.currentUser?.uid,
-                );
-
-                await _safeNotify(
-                  context: context,
-                  title: isNew ? 'Validade criada' : 'Validade atualizada',
-                  subtitle: isNew
-                      ? 'Ordem salva por $actorName.'
-                      : 'Ordem atualizada por $actorName.',
-                  status: NotificationStatus.success,
-                  saveInBell: true,
-                  sendPush: true,
-                  extra: <String, dynamic>{
-                    'action': isNew ? 'validity_created' : 'validity_updated',
-                    'validityId': validity?.id,
-                    'orderNumber': validity?.orderNumber,
-                    'orderType': validity?.ordertype,
-                    'orderDate': validity?.orderdate?.toIso8601String(),
-                    'validityStartDate':
-                    validity?.orderdate?.toIso8601String(),
-                  },
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-
-                await _safeNotify(
-                  context: context,
-                  title: 'Erro ao salvar validade',
-                  subtitle: '$e',
-                  status: NotificationStatus.error,
-                  duration: const Duration(seconds: 6),
-                );
-              }
-            }
-
-            Future<bool> handleRenamePersistAttachment({
-              required int index,
-              required Attachment oldItem,
-              required Attachment newItem,
-            }) async {
-              final selected = state.selectedValidity;
-
-              try {
-                await cubit.renameAttachment(
-                  index,
-                  newItem.label,
-                );
-
-                if (!context.mounted) return false;
-
-                await _safeNotify(
-                  context: context,
-                  title: 'Anexo renomeado',
-                  subtitle: newItem.label,
-                  status: NotificationStatus.success,
-                  saveInBell: true,
-                  sendPush: true,
-                  extra: <String, dynamic>{
-                    'action': 'validity_attachment_renamed',
-                    'validityId': selected?.id,
-                    'orderNumber': selected?.orderNumber,
-                    'orderType': selected?.ordertype,
-                    'orderDate': selected?.orderdate?.toIso8601String(),
-                    'validityStartDate':
-                    selected?.orderdate?.toIso8601String(),
-                    'oldAttachmentLabel': oldItem.label,
-                    'newAttachmentLabel': newItem.label,
-                    'attachmentUrl': newItem.url,
-                  },
-                );
-
-                return true;
-              } catch (e) {
-                if (!context.mounted) return false;
-
-                await _safeNotify(
-                  context: context,
-                  title: 'Falha ao renomear anexo',
-                  subtitle: '$e',
-                  status: NotificationStatus.error,
-                  duration: const Duration(seconds: 6),
-                );
-
-                return false;
-              }
-            }
-
-            Future<void> handleDeleteValidity(String id) async {
-              final ok = await confirmDialog(
-                context,
-                'Deseja apagar esta validade?',
-              );
-
-              if (!context.mounted) return;
-              if (!ok) return;
-
-              final deleted = state.validities.firstWhere(
-                    (item) => item.id == id,
-                orElse: () => ValidityData(id: id),
-              );
-
-              try {
-                await cubit.deleteValidity(id);
-
-                if (!context.mounted) return;
-
-                final actorName = _resolveActorName(
-                  FirebaseAuth.instance.currentUser?.uid,
-                );
-
-                await _safeNotify(
-                  context: context,
-                  title: 'Validade apagada',
-                  subtitle:
-                  'Ordem ${deleted.orderNumber ?? '-'} removida por $actorName.',
-                  status: NotificationStatus.warning,
-                  saveInBell: true,
-                  sendPush: true,
-                  extra: <String, dynamic>{
-                    'action': 'validity_deleted',
-                    'validityId': id,
-                    'orderNumber': deleted.orderNumber,
-                    'orderType': deleted.ordertype,
-                    'orderDate': deleted.orderdate?.toIso8601String(),
-                    'validityStartDate':
-                    deleted.orderdate?.toIso8601String(),
-                  },
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-
-                await _safeNotify(
-                  context: context,
-                  title: 'Erro ao apagar validade',
-                  subtitle: '$e',
-                  status: NotificationStatus.error,
-                  duration: const Duration(seconds: 6),
-                );
-              }
-            }
-
-            return Stack(
-              children: [
-                Column(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 12),
-                            const TimelineClass(),
-                            const SectionTitle(
-                              text: 'Cadastrar validades no sistema',
-                            ),
-                            ValidityFormSection(
-                              contractData: widget.contractData,
-                              state: state,
-                              isEditable: isEditable,
-                              isSaving: state.isSaving,
-                              onChangedOrderNumber: cubit.selectOrderNumber,
-                              onChangedOrderType: cubit.updateOrderType,
-                              onChangedOrderDate: cubit.updateOrderDate,
-                              onClear: cubit.createNewValidity,
-                              onSaveOrUpdate: handleSaveOrUpdate,
-                              onAddAttachment: handleAddAttachment,
-                              onDeleteAttachment: handleDeleteAttachment,
-                              onTapAttachment: handleOpenAttachment,
-                              onRenamePersistAttachment:
-                              handleRenamePersistAttachment,
-                            ),
-                            const SectionTitle(
-                              text: 'Validades cadastradas no sistema',
-                            ),
-                            ValidityTableSection(
-                              validities: state.validities,
-                              selectedItem: state.selectedValidity,
-                              onTapItem: cubit.selectValidity,
-                              onDelete: handleDeleteValidity,
-                            ),
-                            const SizedBox(height: 20),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const FootBar(),
-                  ],
-                ),
-                if (isBusy)
-                  Stack(
-                    children: [
-                      ModalBarrier(
-                        dismissible: false,
-                        color: Colors.black.withValues(alpha: 0.28),
-                      ),
-                      const Center(
-                        child: LoadingTreeDots(size: 110),
-                      ),
-                    ],
-                  ),
-              ],
+        return BlocProvider<ValidityCubit>(
+          key: ValueKey<String>('validity-$tenantId-$_contractId'),
+          create: (context) {
+            final cubit = ValidityCubit(
+              repository: ValidityRepository(
+                tenantId: tenantId,
+              ),
+              initialPermissions: permissionState.current,
+              initialTenantId: tenantId,
+              moduleId: 'contracts_validity',
             );
+
+            if (_contractId.isNotEmpty) {
+              cubit.loadForContract(_contractId);
+            }
+
+            return cubit;
           },
-        ),
-      ),
+          child: BlocListener<PermissionCubit, PermissionState>(
+            listenWhen: (previous, current) {
+              return previous.current != current.current ||
+                  previous.activeTenantId != current.activeTenantId;
+            },
+            listener: (context, permissionState) {
+              final nextTenantId = _resolveRequiredTenantId(permissionState);
+
+              context.read<ValidityCubit>().updatePermissions(
+                permissions: permissionState.current,
+                tenantId: nextTenantId,
+              );
+            },
+            child: BlocBuilder<ValidityCubit, ValidityState>(
+              builder: (context, state) {
+                final cubit = context.read<ValidityCubit>();
+
+                final isBusy = state.isLoading || state.isSaving;
+                final isEditable = cubit.isEditable;
+
+                Future<void> handleAddAttachment() async {
+                  final selected = state.selectedValidity;
+
+                  if (selected == null) {
+                    await _safeNotify(
+                      context: context,
+                      title: 'Salve a validade primeiro',
+                      subtitle: 'Depois você poderá anexar arquivos.',
+                      status: NotificationStatus.info,
+                    );
+                    return;
+                  }
+
+                  try {
+                    final tempRepo = ValidityRepository(
+                      tenantId: _activeTenantId,
+                    );
+
+                    final (bytes, originalName) = await tempRepo.pickFileBytes();
+
+                    if (!context.mounted) return;
+
+                    final suggestion = _suggestLabelFromName(
+                      selected,
+                      originalName,
+                    );
+
+                    final label = await askLabelDialog(context, suggestion);
+
+                    if (!context.mounted) return;
+                    if (label == null || label.trim().isEmpty) return;
+
+                    await cubit.addAttachmentFromBytes(
+                      bytes: bytes,
+                      originalName: originalName,
+                      customLabel: label.trim(),
+                    );
+
+                    if (!context.mounted) return;
+
+                    await _safeNotify(
+                      context: context,
+                      title: 'Arquivo anexado',
+                      subtitle: label.trim(),
+                      status: NotificationStatus.success,
+                      saveInBell: true,
+                      sendPush: true,
+                      extra: <String, dynamic>{
+                        'action': 'validity_attachment_created',
+                        'validityId': selected.id,
+                        'orderNumber': selected.orderNumber,
+                        'orderType': selected.ordertype,
+                        'orderDate': selected.orderdate?.toIso8601String(),
+                        'validityStartDate':
+                        selected.orderdate?.toIso8601String(),
+                        'attachmentLabel': label.trim(),
+                      },
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+
+                    await _safeNotify(
+                      context: context,
+                      title: 'Erro ao anexar arquivo',
+                      subtitle: '$e',
+                      status: NotificationStatus.error,
+                      duration: const Duration(seconds: 6),
+                    );
+                  }
+                }
+
+                Future<void> handleOpenAttachment(int index) async {
+                  if (index < 0 || index >= state.attachments.length) return;
+
+                  final attachment = state.attachments[index];
+                  final url = attachment.url.trim();
+
+                  if (url.isEmpty) return;
+                  if (!context.mounted) return;
+
+                  await showDialog<void>(
+                    context: context,
+                    builder: (_) => Dialog(
+                      backgroundColor: Colors.white,
+                      insetPadding: const EdgeInsets.all(16),
+                      child: PdfPreview(pdfUrl: url),
+                    ),
+                  );
+                }
+
+                Future<void> handleDeleteAttachment(int index) async {
+                  if (index < 0 || index >= state.attachments.length) return;
+
+                  final selected = state.selectedValidity;
+                  final attachment = state.attachments[index];
+
+                  final ok = await confirmDialog(
+                    context,
+                    'Deseja remover este arquivo?',
+                  );
+
+                  if (!context.mounted) return;
+                  if (!ok) return;
+
+                  try {
+                    await cubit.deleteAttachmentAt(index);
+
+                    if (!context.mounted) return;
+
+                    await _safeNotify(
+                      context: context,
+                      title: 'Arquivo removido',
+                      subtitle: attachment.label,
+                      status: NotificationStatus.warning,
+                      saveInBell: true,
+                      sendPush: true,
+                      extra: <String, dynamic>{
+                        'action': 'validity_attachment_deleted',
+                        'validityId': selected?.id,
+                        'orderNumber': selected?.orderNumber,
+                        'orderType': selected?.ordertype,
+                        'orderDate': selected?.orderdate?.toIso8601String(),
+                        'validityStartDate':
+                        selected?.orderdate?.toIso8601String(),
+                        'attachmentLabel': attachment.label,
+                        'attachmentUrl': attachment.url,
+                      },
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+
+                    await _safeNotify(
+                      context: context,
+                      title: 'Erro ao remover arquivo',
+                      subtitle: '$e',
+                      status: NotificationStatus.error,
+                      duration: const Duration(seconds: 6),
+                    );
+                  }
+                }
+
+                Future<void> handleSaveOrUpdate() async {
+                  final selectedBeforeSave = state.selectedValidity;
+                  final isNew = selectedBeforeSave?.id == null;
+
+                  final ok = await confirmDialog(
+                    context,
+                    'Deseja salvar esta validade?',
+                  );
+
+                  if (!context.mounted) return;
+                  if (!ok) return;
+
+                  try {
+                    await cubit.saveSelected();
+
+                    if (!context.mounted) return;
+
+                    final selectedAfterSave = cubit.state.selectedValidity;
+                    final validity = selectedAfterSave ?? selectedBeforeSave;
+
+                    final actorName = _resolveActorName(
+                      FirebaseAuth.instance.currentUser?.uid,
+                    );
+
+                    await _safeNotify(
+                      context: context,
+                      title: isNew ? 'Validade criada' : 'Validade atualizada',
+                      subtitle: isNew
+                          ? 'Ordem salva por $actorName.'
+                          : 'Ordem atualizada por $actorName.',
+                      status: NotificationStatus.success,
+                      saveInBell: true,
+                      sendPush: true,
+                      extra: <String, dynamic>{
+                        'action':
+                        isNew ? 'validity_created' : 'validity_updated',
+                        'validityId': validity?.id,
+                        'orderNumber': validity?.orderNumber,
+                        'orderType': validity?.ordertype,
+                        'orderDate': validity?.orderdate?.toIso8601String(),
+                        'validityStartDate':
+                        validity?.orderdate?.toIso8601String(),
+                      },
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+
+                    await _safeNotify(
+                      context: context,
+                      title: 'Erro ao salvar validade',
+                      subtitle: '$e',
+                      status: NotificationStatus.error,
+                      duration: const Duration(seconds: 6),
+                    );
+                  }
+                }
+
+                Future<bool> handleRenamePersistAttachment({
+                  required int index,
+                  required Attachment oldItem,
+                  required Attachment newItem,
+                }) async {
+                  final selected = state.selectedValidity;
+
+                  try {
+                    await cubit.renameAttachment(
+                      index,
+                      newItem.label,
+                    );
+
+                    if (!context.mounted) return false;
+
+                    await _safeNotify(
+                      context: context,
+                      title: 'Anexo renomeado',
+                      subtitle: newItem.label,
+                      status: NotificationStatus.success,
+                      saveInBell: true,
+                      sendPush: true,
+                      extra: <String, dynamic>{
+                        'action': 'validity_attachment_renamed',
+                        'validityId': selected?.id,
+                        'orderNumber': selected?.orderNumber,
+                        'orderType': selected?.ordertype,
+                        'orderDate': selected?.orderdate?.toIso8601String(),
+                        'validityStartDate':
+                        selected?.orderdate?.toIso8601String(),
+                        'oldAttachmentLabel': oldItem.label,
+                        'newAttachmentLabel': newItem.label,
+                        'attachmentUrl': newItem.url,
+                      },
+                    );
+
+                    return true;
+                  } catch (e) {
+                    if (!context.mounted) return false;
+
+                    await _safeNotify(
+                      context: context,
+                      title: 'Falha ao renomear anexo',
+                      subtitle: '$e',
+                      status: NotificationStatus.error,
+                      duration: const Duration(seconds: 6),
+                    );
+
+                    return false;
+                  }
+                }
+
+                Future<void> handleDeleteValidity(String id) async {
+                  final ok = await confirmDialog(
+                    context,
+                    'Deseja apagar esta validade?',
+                  );
+
+                  if (!context.mounted) return;
+                  if (!ok) return;
+
+                  final deleted = state.validities.firstWhere(
+                        (item) => item.id == id,
+                    orElse: () => ValidityData(id: id),
+                  );
+
+                  try {
+                    await cubit.deleteValidity(id);
+
+                    if (!context.mounted) return;
+
+                    final actorName = _resolveActorName(
+                      FirebaseAuth.instance.currentUser?.uid,
+                    );
+
+                    await _safeNotify(
+                      context: context,
+                      title: 'Validade apagada',
+                      subtitle:
+                      'Ordem ${deleted.orderNumber ?? '-'} removida por $actorName.',
+                      status: NotificationStatus.warning,
+                      saveInBell: true,
+                      sendPush: true,
+                      extra: <String, dynamic>{
+                        'action': 'validity_deleted',
+                        'validityId': id,
+                        'orderNumber': deleted.orderNumber,
+                        'orderType': deleted.ordertype,
+                        'orderDate': deleted.orderdate?.toIso8601String(),
+                        'validityStartDate':
+                        deleted.orderdate?.toIso8601String(),
+                      },
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+
+                    await _safeNotify(
+                      context: context,
+                      title: 'Erro ao apagar validade',
+                      subtitle: '$e',
+                      status: NotificationStatus.error,
+                      duration: const Duration(seconds: 6),
+                    );
+                  }
+                }
+
+                return Stack(
+                  children: [
+                    Column(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 12),
+                                const TimelineClass(),
+                                const SectionTitle(
+                                  text: 'Cadastrar validades no sistema',
+                                ),
+                                ValidityFormSection(
+                                  contractData: widget.contractData,
+                                  state: state,
+                                  isEditable: isEditable,
+                                  isSaving: state.isSaving,
+                                  onChangedOrderNumber:
+                                  cubit.selectOrderNumber,
+                                  onChangedOrderType: cubit.updateOrderType,
+                                  onChangedOrderDate: cubit.updateOrderDate,
+                                  onClear: cubit.createNewValidity,
+                                  onSaveOrUpdate: handleSaveOrUpdate,
+                                  onAddAttachment: handleAddAttachment,
+                                  onDeleteAttachment: handleDeleteAttachment,
+                                  onTapAttachment: handleOpenAttachment,
+                                  onRenamePersistAttachment:
+                                  handleRenamePersistAttachment,
+                                ),
+                                const SectionTitle(
+                                  text: 'Validades cadastradas no sistema',
+                                ),
+                                ValidityTableSection(
+                                  validities: state.validities,
+                                  selectedItem: state.selectedValidity,
+                                  onTapItem: cubit.selectValidity,
+                                  onDelete: handleDeleteValidity,
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const FootBar(),
+                      ],
+                    ),
+                    if (isBusy)
+                      Stack(
+                        children: [
+                          ModalBarrier(
+                            dismissible: false,
+                            color: Colors.black.withValues(alpha: 0.28),
+                          ),
+                          const Center(
+                            child: LoadingTreeDots(size: 110),
+                          ),
+                        ],
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }

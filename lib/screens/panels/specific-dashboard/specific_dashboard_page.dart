@@ -1,4 +1,5 @@
 // lib/screens/panels/specific-dashboard/specific_dashboard_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -17,8 +18,12 @@ import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_me
 import 'package:sipged/_blocs/modules/contracts/validity/validity_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
 
-// DFD Repo (usado pelo SpecificDashboardCubit)
+// DFD Repo usado pelo SpecificDashboardCubit
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+
+// Permission / Tenant ativo
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
 
 // ===== Widgets / Seções auxiliares =====
 import 'package:sipged/_widgets/draw/background/background_change.dart';
@@ -34,7 +39,7 @@ import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_metr
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_schedules.dart';
 
 // Timeline
-import 'package:sipged/_widgets/timeline/timeline_class.dart';
+import 'package:sipged/screens/modules/contracts/validity/timeline_class.dart';
 
 class SpecificDashboardPage extends StatefulWidget {
   const SpecificDashboardPage({
@@ -49,64 +54,123 @@ class SpecificDashboardPage extends StatefulWidget {
 }
 
 class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
+  String _resolveRequiredTenantId(PermissionState permissionState) {
+    final tenantId = permissionState.activeTenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para SpecificDashboardPage.',
+      );
+    }
+
+    return tenantId;
+  }
+
+  String _resolveRequiredContractId() {
+    final contractId = widget.contractData.id?.trim();
+
+    if (contractId == null || contractId.isEmpty) {
+      throw ArgumentError(
+        'contractId é obrigatório para SpecificDashboardPage.',
+      );
+    }
+
+    return contractId;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final contractId = widget.contractData.id ?? '';
+    final contractId = _resolveRequiredContractId();
 
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<SpecificDashboardCubit>(
-          create: (_) => SpecificDashboardCubit(
-            dfdRepository: DfdRepository(),
-            additivesRepository: AdditivesRepository(),
-            apostillesRepository: ApostillesRepository(),
-            reportRepository: ReportExecutedRepository(),
-            adjustmentRepository: AdjustmentMeasurementRepository(),
-            revisionRepository: RevisionMeasurementRepository(),
-          )..loadForContract(contractId),
-        ),
-        BlocProvider<ValidityCubit>(
-          create: (_) => ValidityCubit(
-            repository: ValidityRepository(),
-          )..loadForContract(contractId),
-        ),
-      ],
-      child: Scaffold(
-        appBar: UpBar(
-          leading: Padding(
-            padding: EdgeInsets.only(left: 12.0),
-            child: CircleButtonChange(),
-          ),
-        ),
-        body: Stack(
-          children: [
-            const BackgroundChange(),
-            SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 12),
-                  const TimelineClass(dfdStatus: null),
+    return BlocBuilder<PermissionCubit, PermissionState>(
+      buildWhen: (previous, current) {
+        return previous.activeTenantId != current.activeTenantId;
+      },
+      builder: (context, permissionState) {
+        final tenantId = _resolveRequiredTenantId(permissionState);
 
-                  const SectionTitle(text: 'Resumo do Geral do contrato'),
-                  const SpecificDashboardContractSummary(),
-                  const SizedBox(height: 12),
-                  const SpecificDashboardApostillesSummary(),
-
-                  const SectionTitle(text: 'Acompanhamento físico'),
-                  SpecificDashboardSchedules(contract: widget.contractData),
-
-                  const SectionTitle(text: 'Métricas'),
-                  SpecificDashboardMetrics(), // ✅ aqui
-                  const SizedBox(height: 40),
-                ],
-              ),
+        return MultiBlocProvider(
+          key: ValueKey<String>('specific-dashboard-$tenantId-$contractId'),
+          providers: [
+            BlocProvider<SpecificDashboardCubit>(
+              create: (_) {
+                return SpecificDashboardCubit(
+                  dfdRepository: DfdRepository(
+                    tenantId: tenantId,
+                  ),
+                  additivesRepository: AdditivesRepository(
+                    tenantId: tenantId,
+                  ),
+                  apostillesRepository: ApostillesRepository(
+                    tenantId: tenantId,
+                  ),
+                  reportRepository: ReportExecutedRepository(
+                    tenantId: tenantId,
+                  ),
+                  adjustmentRepository: AdjustmentMeasurementRepository(
+                    tenantId: tenantId,
+                  ),
+                  revisionRepository: RevisionMeasurementRepository(
+                    tenantId: tenantId,
+                  ),
+                )..loadForContract(contractId);
+              },
+            ),
+            BlocProvider<ValidityCubit>(
+              create: (_) {
+                return ValidityCubit(
+                  repository: ValidityRepository(
+                    tenantId: tenantId,
+                  ),
+                  initialTenantId: tenantId
+                )..loadForContract(
+                    contractId,
+                );
+              },
             ),
           ],
-        ),
-        bottomNavigationBar: const FootBar(),
-      ),
+          child: Scaffold(
+            appBar: const UpBar(
+              leading: Padding(
+                padding: EdgeInsets.only(left: 12.0),
+                child: CircleButtonChange(),
+              ),
+            ),
+            body: Stack(
+              children: [
+                const Positioned.fill(
+                  child: BackgroundChange(),
+                ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 12),
+                      const TimelineClass(dfdStatus: null),
+
+                      const SectionTitle(text: 'Resumo do Geral do contrato'),
+                      const SpecificDashboardContractSummary(),
+                      const SizedBox(height: 12),
+                      const SpecificDashboardApostillesSummary(),
+
+                      const SectionTitle(text: 'Acompanhamento físico'),
+                      SpecificDashboardSchedules(
+                        contract: widget.contractData,
+                      ),
+
+                      const SectionTitle(text: 'Métricas'),
+                      const SpecificDashboardMetrics(),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            bottomNavigationBar: const FootBar(),
+          ),
+        );
+      },
     );
   }
 }

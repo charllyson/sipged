@@ -12,9 +12,20 @@ import 'parecer_juridico_repository.dart';
 import 'parecer_juridico_state.dart';
 
 class ParecerJuridicoCubit extends Cubit<ParecerState> {
-  ParecerJuridicoCubit([ParecerJuridicoRepository? repository])
-      : repo = repository ?? ParecerJuridicoRepository(),
-        super(ParecerState.initial());
+  ParecerJuridicoCubit({
+    required String tenantId,
+    ParecerJuridicoRepository? repository,
+  })  : repo = repository ??
+      ParecerJuridicoRepository(
+        tenantId: tenantId,
+      ),
+        super(ParecerState.initial()) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      throw ArgumentError('tenantId é obrigatório em ParecerJuridicoCubit.');
+    }
+  }
 
   final ParecerJuridicoRepository repo;
 
@@ -294,8 +305,7 @@ class ParecerJuridicoCubit extends Cubit<ParecerState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanParecerId = (parecerId ?? state.parecerId ?? '').trim();
-    final cleanDocumentosId =
-    (documentosId ??
+    final cleanDocumentosId = (documentosId ??
         state.sectionIds[ParecerJuridicoData.sectionDocumentos] ??
         '')
         .trim();
@@ -341,8 +351,7 @@ class ParecerJuridicoCubit extends Cubit<ParecerState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanParecerId = (parecerId ?? state.parecerId ?? '').trim();
-    final cleanDocumentosId =
-    (documentosId ??
+    final cleanDocumentosId = (documentosId ??
         state.sectionIds[ParecerJuridicoData.sectionDocumentos] ??
         '')
         .trim();
@@ -396,8 +405,7 @@ class ParecerJuridicoCubit extends Cubit<ParecerState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanParecerId = (parecerId ?? state.parecerId ?? '').trim();
-    final cleanDocumentosId =
-    (documentosId ??
+    final cleanDocumentosId = (documentosId ??
         state.sectionIds[ParecerJuridicoData.sectionDocumentos] ??
         '')
         .trim();
@@ -427,8 +435,7 @@ class ParecerJuridicoCubit extends Cubit<ParecerState> {
   }) async {
     final cleanContractId = contractId.trim();
     final cleanParecerId = (parecerId ?? state.parecerId ?? '').trim();
-    final cleanDocumentosId =
-    (documentosId ??
+    final cleanDocumentosId = (documentosId ??
         state.sectionIds[ParecerJuridicoData.sectionDocumentos] ??
         '')
         .trim();
