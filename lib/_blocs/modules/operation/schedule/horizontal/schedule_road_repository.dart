@@ -1,5 +1,3 @@
-// lib/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart
-
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -101,23 +99,10 @@ class ScheduleRoadRepository {
         .doc(cleanContractId);
   }
 
-  /// Configuração central do cronograma:
-  ///
-  /// /tenants/{tenantId}/contracts/{contractId}/schedule/lanes
-  ///
-  /// Nesse documento ficam:
-  /// - lanes: lista de faixas
-  /// - services: lista de serviços
   DocumentReference<Map<String, dynamic>> _scheduleLanesDoc(String contractId) {
     return _contractRef(contractId).collection('schedule').doc('lanes');
   }
 
-  /// Documento pai das células:
-  ///
-  /// /tenants/{tenantId}/contracts/{contractId}/schedule/cells
-  ///
-  /// As células ficam em:
-  /// /tenants/{tenantId}/contracts/{contractId}/schedule/cells/items/{cellId}
   DocumentReference<Map<String, dynamic>> _scheduleCellsDoc(String contractId) {
     return _contractRef(contractId).collection('schedule').doc('cells');
   }
@@ -199,15 +184,15 @@ class ScheduleRoadRepository {
     await _scheduleLanesDoc(cleanContractId).set({
       'tenantId': tenantId,
       'contractId': cleanContractId,
-      'services': cleanServices.map((service) {
-        return service.toServiceMap();
-      }).toList(growable: false),
-      'lanes': cleanLanes.map((lane) {
-        return lane.toLaneMap();
-      }).toList(growable: false),
+      'services': cleanServices
+          .map((service) => service.toServiceMap())
+          .toList(growable: false),
+      'lanes': cleanLanes.map((lane) => lane.toLaneMap()).toList(
+        growable: false,
+      ),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
-      'version': 2,
+      'version': 3,
     }, SetOptions(merge: true));
 
     _servicesCache.remove(cleanContractId);
@@ -233,12 +218,20 @@ class ScheduleRoadRepository {
 
       seen.add(key);
 
+      final label = service.label.trim().isEmpty ? key : service.label.trim();
+      final iconKey = service.iconKey.trim().isEmpty
+          ? ScheduleRoadData.pickIconKeyForTitle(label)
+          : service.iconKey.trim();
+
       out.add(
         ScheduleRoadData.service(
           key: key,
-          label: service.label.trim(),
-          icon: service.icon,
-          color: service.color,
+          label: key == 'geral' ? 'GERAL' : label,
+          iconKey: key == 'geral' ? 'clear_all' : iconKey,
+          icon: key == 'geral'
+              ? Icons.clear_all
+              : ScheduleRoadData.iconForKey(iconKey),
+          color: key == 'geral' ? Colors.grey : service.color,
         ),
       );
     }
@@ -335,6 +328,7 @@ class ScheduleRoadRepository {
           faixaIndex: 0,
           key: 'terraplenagem',
           label: 'TERRAPLENAGEM',
+          iconKey: 'terrain_outlined',
           icon: Icons.terrain_outlined,
           color: Color(0xFFE76F51),
         ),
@@ -343,6 +337,7 @@ class ScheduleRoadRepository {
           faixaIndex: 0,
           key: 'base',
           label: 'BASE',
+          iconKey: 'layers_outlined',
           icon: Icons.layers_outlined,
           color: Color(0xFF43A047),
         ),
@@ -351,7 +346,8 @@ class ScheduleRoadRepository {
           faixaIndex: 0,
           key: 'asfalto',
           label: 'ASFALTO',
-          icon: Icons.alt_route,
+          iconKey: 'alt_route_outlined',
+          icon: Icons.alt_route_outlined,
           color: Color(0xFF455A64),
         ),
       ],
@@ -419,13 +415,18 @@ class ScheduleRoadRepository {
         if (key.isEmpty) continue;
 
         final label = (map['label'] ?? key).toString().trim();
+        final effectiveLabel = label.isEmpty ? key : label;
+
+        final iconKey = _iconKeyForServiceMap(map, key, effectiveLabel);
+        final color = _colorForServiceMap(map, key, effectiveLabel);
 
         services.add(
           ScheduleRoadData.service(
             key: key,
-            label: label.isEmpty ? key : label,
-            icon: _iconForServiceMap(map, key),
-            color: _colorForServiceMap(map, key),
+            label: effectiveLabel,
+            iconKey: iconKey,
+            icon: ScheduleRoadData.iconForKey(iconKey),
+            color: color,
           ),
         );
       }
@@ -439,48 +440,24 @@ class ScheduleRoadRepository {
     return frozen;
   }
 
-  IconData _iconForServiceMap(
+  String _iconKeyForServiceMap(
       Map<String, dynamic> map,
       String key,
+      String label,
       ) {
-    final iconKey = (map['iconKey'] ?? key).toString().trim();
+    final raw = (map['iconKey'] ?? map['icon'] ?? '').toString().trim();
 
-    switch (iconKey) {
-      case 'geral':
-        return Icons.clear_all;
+    if (raw.isNotEmpty) return raw;
 
-      case 'asfalto':
-        return Icons.alt_route;
+    if (key == 'geral') return 'clear_all';
 
-      case 'base':
-        return Icons.layers_outlined;
-
-      case 'terraplenagem':
-        return Icons.terrain_outlined;
-
-      case 'drenagem':
-        return Icons.water_drop_outlined;
-
-      case 'sinalizacao':
-        return Icons.traffic_outlined;
-
-      case 'obra_arte':
-        return Icons.account_tree_outlined;
-
-      case 'meio_fio':
-        return Icons.linear_scale_outlined;
-
-      case 'lane':
-        return Icons.view_stream_outlined;
-
-      default:
-        return Icons.construction_outlined;
-    }
+    return ScheduleRoadData.pickIconKeyForTitle(label.isEmpty ? key : label);
   }
 
   Color _colorForServiceMap(
       Map<String, dynamic> map,
       String key,
+      String label,
       ) {
     final rawColor = map['color'];
 
@@ -495,7 +472,7 @@ class ScheduleRoadRepository {
 
     if (key == 'geral') return Colors.grey;
 
-    return Colors.blueGrey;
+    return ScheduleRoadData.colorForService(label.isEmpty ? key : label);
   }
 
   Future<List<ScheduleRoadData>> loadFaixas(String contractId) async {
@@ -639,6 +616,8 @@ class ScheduleRoadRepository {
         ...data,
         'key': serviceKey,
         'label': meta.label,
+        'iconKey': meta.iconKey,
+        'color': meta.color.toARGB32(),
         'tipo': data['tipo'] ?? meta.label,
       };
 
@@ -761,7 +740,7 @@ class ScheduleRoadRepository {
       'status': cleanStatus,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      'takenAtMs': ?takenMs,
+      if (takenMs != null) 'takenAtMs': takenMs,
       if (takenMs == null) 'takenAtMs': FieldValue.delete(),
       if (hasComment) 'comentario': comentario!.trim(),
       if (!hasComment) 'comentario': FieldValue.delete(),
@@ -820,13 +799,13 @@ class ScheduleRoadRepository {
         uploadedMetas.add({
           'url': url,
           'name': meta.name ?? unique,
-          'takenAt': taken?.millisecondsSinceEpoch,
-          'takenAtMs': taken?.millisecondsSinceEpoch,
-          'lat': meta.lat,
-          'lng': meta.lng,
-          'make': meta.make,
-          'model': meta.model,
-          'orientation': meta.orientation,
+          if (taken != null) 'takenAt': taken.millisecondsSinceEpoch,
+          if (taken != null) 'takenAtMs': taken.millisecondsSinceEpoch,
+          if (meta.lat != null) 'lat': meta.lat,
+          if (meta.lng != null) 'lng': meta.lng,
+          if (meta.make != null) 'make': meta.make,
+          if (meta.model != null) 'model': meta.model,
+          if (meta.orientation != null) 'orientation': meta.orientation,
           'uploadedAtMs': meta.uploadedAtMs ?? nowMs,
           'uploadedBy': meta.uploadedBy ?? currentUserId,
         });
@@ -852,8 +831,9 @@ class ScheduleRoadRepository {
       } catch (_) {}
     }
 
-    final rawMetaList =
-    currentData['fotosMeta'] is List ? currentData['fotosMeta'] as List : const [];
+    final rawMetaList = currentData['fotosMeta'] is List
+        ? currentData['fotosMeta'] as List
+        : const [];
 
     final oldMetas = rawMetaList
         .whereType<Object>()
@@ -910,7 +890,7 @@ class ScheduleRoadRepository {
       if (orderedMetas.isNotEmpty) 'fotosMeta': orderedMetas,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      'takenAtMs': ?takenMs,
+      if (takenMs != null) 'takenAtMs': takenMs,
       if (takenMs == null) 'takenAtMs': FieldValue.delete(),
     }, SetOptions(merge: true));
 
@@ -1064,7 +1044,8 @@ class ScheduleRoadRepository {
       faixaIndex: 0,
       key: 'geral',
       label: 'GERAL',
-      icon: Icons.route,
+      iconKey: 'route_outlined',
+      icon: Icons.route_outlined,
       color: Colors.grey,
       geometryType: resolvedGeometryType,
       multiLine: lines.length == 1 ? null : lines,
@@ -1173,12 +1154,13 @@ class ScheduleRoadRepository {
     final mainData = <String, dynamic>{
       'tenantId': tenantId,
       'contractId': cleanContractId,
-      'summarySubjectContract': summarySubjectContract,
+      if (summarySubjectContract != null)
+        'summarySubjectContract': summarySubjectContract,
       'geometryType': geometryType,
       'storageMode': 'inline_v1',
       'totalSegments': lines.length,
       'totalPoints': totalPoints,
-      'bounds': ?bounds,
+      if (bounds != null) 'bounds': bounds,
       if (lines.length == 1) 'points': _toPoints(lines.first),
       if (lines.length == 1) 'multiLine': FieldValue.delete(),
       if (lines.length > 1) 'multiLine': _toMultiFirestore(lines),
@@ -1199,7 +1181,8 @@ class ScheduleRoadRepository {
       faixaIndex: 0,
       key: 'geral',
       label: 'GERAL',
-      icon: Icons.route,
+      iconKey: 'route_outlined',
+      icon: Icons.route_outlined,
       color: Colors.grey,
       geometryType: geometryType,
       multiLine: lines.length == 1 ? null : lines,
@@ -1237,12 +1220,18 @@ class ScheduleRoadRepository {
 
     for (final line in lines) {
       for (final point in line) {
-        minLat = minLat == null ? point.latitude : math.min(minLat, point.latitude);
-        maxLat = maxLat == null ? point.latitude : math.max(maxLat, point.latitude);
-        minLng =
-        minLng == null ? point.longitude : math.min(minLng, point.longitude);
-        maxLng =
-        maxLng == null ? point.longitude : math.max(maxLng, point.longitude);
+        minLat = minLat == null
+            ? point.latitude
+            : math.min(minLat, point.latitude);
+        maxLat = maxLat == null
+            ? point.latitude
+            : math.max(maxLat, point.latitude);
+        minLng = minLng == null
+            ? point.longitude
+            : math.min(minLng, point.longitude);
+        maxLng = maxLng == null
+            ? point.longitude
+            : math.max(maxLng, point.longitude);
       }
     }
 

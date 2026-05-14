@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_style.dart';
 
 import 'package:sipged/_widgets/dialog/windows/window_dialog.dart';
+import 'package:sipged/_widgets/draw/colors/colors_change_catalog.dart';
+import 'package:sipged/_widgets/draw/icons/icon_picker_grid.dart';
+import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 
 class ScheduleLaneEdit extends StatefulWidget {
@@ -95,6 +97,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
             key: key,
             label: service.label.trim().isEmpty ? key : service.label.trim(),
             icon: service.icon,
+            iconKey: service.iconKey,
             color: service.color,
           ),
         ),
@@ -122,7 +125,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
         altura: rowData.altura ?? 20.0,
         anchor: rowData.anchor,
         allowedByService: _cleanAllowedMap(rowData.allowedByService),
-        color: ScheduleRoadStyle.colorForFaixa(nome),
+        color: ScheduleRoadData.colorForFaixa(nome),
       );
 
       _rows.add(row);
@@ -158,7 +161,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
         pos: item.pos,
         nome: item.nome,
         altura: 20.0,
-        color: ScheduleRoadStyle.colorForFaixa(item.nome),
+        color: ScheduleRoadData.colorForFaixa(item.nome),
       );
 
       _rows.add(row);
@@ -228,7 +231,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
           pos: '',
           nome: '',
           altura: 20.0,
-          color: ScheduleRoadStyle.colorForFaixa(''),
+          color: ScheduleRoadData.colorForFaixa(''),
           allowedByService: _defaultAllowedForNewLane(),
         ),
       );
@@ -245,7 +248,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
           pos: '',
           nome: '',
           altura: 20.0,
-          color: ScheduleRoadStyle.colorForFaixa(''),
+          color: ScheduleRoadData.colorForFaixa(''),
           allowedByService: _defaultAllowedForNewLane(),
         ),
       );
@@ -270,7 +273,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
     setState(() {
       _rows[index] = _rows[index].copyWith(
         nome: value,
-        color: ScheduleRoadStyle.colorForFaixa(value),
+        color: ScheduleRoadData.colorForFaixa(value),
       );
     });
   }
@@ -328,11 +331,15 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
       final key = _nextServiceKey();
       final label = _nextServiceLabel();
 
+      final iconKey = 'construction_outlined';
+      final color = ScheduleRoadData.colorForService(label);
+
       final service = _EditableScheduleService(
         key: key,
         label: label,
-        color: ScheduleRoadStyle.colorForService(label),
-        icon: ScheduleRoadStyle.pickIconForTitle(label),
+        iconKey: iconKey,
+        icon: IconsCatalog.iconFor(iconKey),
+        color: color,
       );
 
       _services.add(service);
@@ -402,10 +409,30 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
 
     setState(() {
       service.label = nextLabel;
-      service.color = ScheduleRoadStyle.colorForService(nextLabel);
-      service.icon = ScheduleRoadStyle.pickIconForTitle(nextLabel);
-
       _sortServices();
+    });
+  }
+
+  void _onServiceIconChanged(
+      _EditableScheduleService service,
+      String iconKey,
+      ) {
+    if (service.key == 'geral') return;
+
+    setState(() {
+      service.iconKey = iconKey;
+      service.icon = IconsCatalog.iconFor(iconKey);
+    });
+  }
+
+  void _onServiceColorChanged(
+      _EditableScheduleService service,
+      int colorValue,
+      ) {
+    if (service.key == 'geral') return;
+
+    setState(() {
+      service.color = Color(colorValue);
     });
   }
 
@@ -445,6 +472,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
         ScheduleRoadData.service(
           key: key,
           label: key == 'geral' ? 'GERAL' : service.label.trim(),
+          iconKey: key == 'geral' ? 'clear_all' : service.iconKey,
           icon: key == 'geral' ? Icons.clear_all : service.icon,
           color: key == 'geral' ? Colors.grey : service.color,
         ),
@@ -560,6 +588,8 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
                     onSelect: _selectService,
                     onRemove: _removeService,
                     onLabelChanged: _onServiceLabelChanged,
+                    onIconChanged: _onServiceIconChanged,
+                    onColorChanged: _onServiceColorChanged,
                     compact: true,
                   ),
                   const SizedBox(height: 12),
@@ -588,7 +618,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(
-                          width: dialogW >= 820 ? 300 : 250,
+                          width: dialogW >= 820 ? 340 : 290,
                           child: _ScheduleServicesEditor(
                             services: _services,
                             activeServiceKey: _activeServiceKey,
@@ -596,6 +626,8 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
                             onSelect: _selectService,
                             onRemove: _removeService,
                             onLabelChanged: _onServiceLabelChanged,
+                            onIconChanged: _onServiceIconChanged,
+                            onColorChanged: _onServiceColorChanged,
                             compact: false,
                           ),
                         ),
@@ -643,6 +675,7 @@ class _EditableScheduleService {
   _EditableScheduleService({
     required this.key,
     required this.label,
+    required this.iconKey,
     required this.icon,
     required this.color,
   }) : labelCtrl = TextEditingController(text: label);
@@ -651,16 +684,22 @@ class _EditableScheduleService {
     final key = data.key.trim();
     final label = data.label.trim().isEmpty ? key : data.label.trim();
 
+    final iconKey = data.iconKey.trim().isEmpty
+        ? ScheduleRoadData.defaultIconKeyForService(key)
+        : data.iconKey.trim();
+
     return _EditableScheduleService(
       key: key,
       label: label,
-      icon: data.icon,
+      iconKey: iconKey,
+      icon: key == 'geral' ? Icons.clear_all : IconsCatalog.iconFor(iconKey),
       color: data.color,
     );
   }
 
   String key;
   String label;
+  String iconKey;
   IconData icon;
   Color color;
 
@@ -833,6 +872,8 @@ class _ScheduleServicesEditor extends StatelessWidget {
     required this.onSelect,
     required this.onRemove,
     required this.onLabelChanged,
+    required this.onIconChanged,
+    required this.onColorChanged,
     required this.compact,
   });
 
@@ -844,6 +885,10 @@ class _ScheduleServicesEditor extends StatelessWidget {
   final ValueChanged<String> onRemove;
   final void Function(_EditableScheduleService service, String value)
   onLabelChanged;
+  final void Function(_EditableScheduleService service, String iconKey)
+  onIconChanged;
+  final void Function(_EditableScheduleService service, int colorValue)
+  onColorChanged;
 
   final bool compact;
 
@@ -875,6 +920,18 @@ class _ScheduleServicesEditor extends StatelessWidget {
               : (value) => onLabelChanged(
             service,
             value,
+          ),
+          onIconChanged: isGeral
+              ? null
+              : (iconKey) => onIconChanged(
+            service,
+            iconKey,
+          ),
+          onColorChanged: isGeral
+              ? null
+              : (colorValue) => onColorChanged(
+            service,
+            colorValue,
           ),
         );
       },
@@ -963,6 +1020,8 @@ class _ServiceEditorTile extends StatelessWidget {
     required this.onTap,
     required this.onRemove,
     required this.onChanged,
+    required this.onIconChanged,
+    required this.onColorChanged,
     required this.compact,
   });
 
@@ -972,11 +1031,89 @@ class _ServiceEditorTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onRemove;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onIconChanged;
+  final ValueChanged<int>? onColorChanged;
   final bool compact;
+
+  Future<void> _openIconPicker(BuildContext context) async {
+    if (onIconChanged == null) return;
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        final size = MediaQuery.sizeOf(dialogContext);
+        final isMobile = size.width < 720;
+
+        return Dialog(
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 12 : 24,
+            vertical: isMobile ? 12 : 24,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isMobile ? size.width * 0.96 : 620,
+              maxHeight: size.height * 0.84,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Selecionar ícone do serviço',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Fechar',
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: IconPickerGrid(
+                      selectedKey: service.iconKey,
+                      previewColor: service.color,
+                      maxColumns: isMobile ? 5 : 7,
+                      maxGridHeight: double.infinity,
+                      onChanged: (key) {
+                        Navigator.of(dialogContext).pop(key);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result == null || result.trim().isEmpty) return;
+
+    onIconChanged!(result);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    final preview = CircleAvatar(
+      radius: compact ? 16 : 18,
+      backgroundColor: service.color.withValues(alpha: 0.16),
+      child: Icon(
+        isGeral ? Icons.clear_all : service.icon,
+        color: service.color,
+        size: compact ? 17 : 19,
+      ),
+    );
 
     return Material(
       color: isSelected
@@ -997,49 +1134,182 @@ class _ServiceEditorTile extends StatelessWidget {
               width: isSelected ? 1.4 : 1,
             ),
           ),
-          child: Row(
+          child: Column(
             children: [
-              CircleAvatar(
-                radius: compact ? 16 : 18,
-                backgroundColor: service.color.withValues(alpha: 0.16),
-                child: Icon(
-                  isGeral ? Icons.clear_all : service.icon,
+              Row(
+                children: [
+                  preview,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: isGeral
+                        ? const Text(
+                      'GERAL',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    )
+                        : CustomTextField(
+                      controller: service.labelCtrl,
+                      onChanged: onChanged,
+                      textInputAction: TextInputAction.done,
+                      labelText: 'Serviço',
+                      hintText: 'Ex: ASFALTO, BASE...',
+                    ),
+                  ),
+                  if (onRemove != null) ...[
+                    const SizedBox(width: 6),
+                    IconButton(
+                      tooltip: 'Remover serviço',
+                      onPressed: onRemove,
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (!isGeral && isSelected) ...[
+                const SizedBox(height: 10),
+                _ServiceVisualEditor(
+                  iconKey: service.iconKey,
+                  icon: service.icon,
                   color: service.color,
-                  size: compact ? 17 : 19,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: isGeral
-                    ? const Text(
-                  'GERAL',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                  ),
-                )
-                    : CustomTextField(
-                  controller: service.labelCtrl,
-                  onChanged: onChanged,
-                  textInputAction: TextInputAction.done,
-                  labelText: 'Serviço',
-                  hintText: 'Ex: ASFALTO, BASE...',
-                ),
-              ),
-              if (onRemove != null) ...[
-                const SizedBox(width: 6),
-                IconButton(
-                  tooltip: 'Remover serviço',
-                  onPressed: onRemove,
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    color: Colors.red,
-                  ),
+                  compact: compact,
+                  onPickIcon: () => _openIconPicker(context),
+                  onColorChanged: onColorChanged,
                 ),
               ],
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ServiceVisualEditor extends StatelessWidget {
+  const _ServiceVisualEditor({
+    required this.iconKey,
+    required this.icon,
+    required this.color,
+    required this.compact,
+    required this.onPickIcon,
+    required this.onColorChanged,
+  });
+
+  final String iconKey;
+  final IconData icon;
+  final Color color;
+  final bool compact;
+  final VoidCallback onPickIcon;
+  final ValueChanged<int>? onColorChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconLabel = IconsCatalog.labelFor(iconKey);
+
+    final iconButton = InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onPickIcon,
+      child: Container(
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.34),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 34,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                iconLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const Icon(Icons.arrow_drop_down),
+          ],
+        ),
+      ),
+    );
+
+    final colorPicker = ColorsChangeCatalog(
+      selectedColorValue: color.toARGB32(),
+      title: 'Cor do serviço',
+      onChanged: (value) {
+        if (onColorChanged == null) return;
+        onColorChanged!(value);
+      },
+    );
+
+    if (compact) {
+      return Column(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Ícone',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          iconButton,
+          const SizedBox(height: 10),
+          colorPicker,
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Ícone',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              iconButton,
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: colorPicker,
+        ),
+      ],
     );
   }
 }
@@ -1376,7 +1646,8 @@ class _ScheduleLaneApplicabilityRow extends StatelessWidget {
         : theme.colorScheme.onSurface.withValues(alpha: 0.86);
 
     return Row(
-      crossAxisAlignment: compact ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment:
+      compact ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
         Checkbox(
           value: value,

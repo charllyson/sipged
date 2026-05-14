@@ -217,7 +217,7 @@ class PermissionSet extends Equatable {
   }
 
   Map<String, bool> toBoolMap() {
-    return {
+    return <String, bool>{
       'read': read,
       'create': create,
       'edit': edit,
@@ -230,48 +230,151 @@ class PermissionSet extends Equatable {
     return Map<String, dynamic>.from(toBoolMap());
   }
 
+  static bool _readBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+
+    final text = value?.toString().trim().toLowerCase();
+
+    return text == 'true' ||
+        text == '1' ||
+        text == 'sim' ||
+        text == 'yes' ||
+        text == 'y' ||
+        text == 's';
+  }
+
+  static String _normalizeKey(String raw) {
+    final key = raw.trim().toLowerCase();
+
+    switch (key) {
+      case 'read':
+      case 'ler':
+      case 'view':
+      case 'viewer':
+      case 'visualizar':
+        return 'read';
+
+      case 'create':
+      case 'criar':
+      case 'write':
+      case 'add':
+      case 'insert':
+      case 'inserir':
+      case 'cadastrar':
+        return 'create';
+
+      case 'edit':
+      case 'editar':
+      case 'update':
+      case 'atualizar':
+      case 'change':
+      case 'alterar':
+        return 'edit';
+
+      case 'delete':
+      case 'deletar':
+      case 'remove':
+      case 'remover':
+      case 'excluir':
+      case 'apagar':
+        return 'delete';
+
+      case 'approve':
+      case 'aprovar':
+      case 'approval':
+      case 'approved':
+      case 'autorizar':
+      case 'authorize':
+      case 'authorized':
+        return 'approve';
+
+      default:
+        return key;
+    }
+  }
+
   factory PermissionSet.fromMap(Map<String, dynamic>? map) {
     final m = map ?? const <String, dynamic>{};
 
-    bool readBool(dynamic value) {
-      if (value is bool) return value;
-      if (value is num) return value != 0;
+    final normalized = <String, bool>{
+      'read': false,
+      'create': false,
+      'edit': false,
+      'delete': false,
+      'approve': false,
+    };
 
-      final text = value?.toString().trim().toLowerCase();
+    for (final entry in m.entries) {
+      final key = _normalizeKey(entry.key);
 
-      return text == 'true' ||
-          text == '1' ||
-          text == 'sim' ||
-          text == 'yes' ||
-          text == 'y' ||
-          text == 's';
+      if (!normalized.containsKey(key)) continue;
+
+      normalized[key] = _readBool(entry.value);
     }
 
     return PermissionSet(
-      read: readBool(m['read'] ?? m['ler']),
-      create: readBool(m['create'] ?? m['criar']),
-      edit: readBool(m['edit'] ?? m['update'] ?? m['editar']),
-      delete: readBool(m['delete'] ?? m['remove'] ?? m['excluir']),
-      approve: readBool(m['approve'] ?? m['approval'] ?? m['aprovar']),
+      read: normalized['read'] ?? false,
+      create: normalized['create'] ?? false,
+      edit: normalized['edit'] ?? false,
+      delete: normalized['delete'] ?? false,
+      approve: normalized['approve'] ?? false,
     );
   }
 
   factory PermissionSet.fromDynamic(dynamic raw) {
-    if (raw is! Map) {
+    if (raw == null) {
       return PermissionSet.none;
     }
 
-    final map = <String, dynamic>{};
+    if (raw is PermissionSet) {
+      return raw;
+    }
 
-    raw.forEach((key, value) {
-      if (key is String) {
-        map[key] = value;
-      } else if (key != null) {
-        map[key.toString()] = value;
+    if (raw is Map) {
+      final map = <String, dynamic>{};
+
+      raw.forEach((key, value) {
+        final cleanKey = key?.toString().trim();
+
+        if (cleanKey == null || cleanKey.isEmpty) return;
+
+        map[cleanKey] = value;
+      });
+
+      return PermissionSet.fromMap(map);
+    }
+
+    if (raw is Iterable) {
+      final map = <String, dynamic>{};
+
+      for (final item in raw) {
+        final key = item?.toString().trim();
+
+        if (key == null || key.isEmpty) continue;
+
+        map[key] = true;
       }
-    });
 
-    return PermissionSet.fromMap(map);
+      return PermissionSet.fromMap(map);
+    }
+
+    if (raw is String) {
+      final map = <String, dynamic>{};
+
+      final parts = raw
+          .split(RegExp(r'[,;|\n]'))
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty);
+
+      for (final part in parts) {
+        map[part] = true;
+      }
+
+      return PermissionSet.fromMap(map);
+    }
+
+    return PermissionSet.none;
   }
 
   @override
@@ -291,26 +394,40 @@ class PermissionActionCodec {
     switch (raw.trim().toLowerCase()) {
       case 'create':
       case 'criar':
+      case 'write':
+      case 'add':
+      case 'insert':
+      case 'cadastrar':
         return PermissionAction.create;
 
       case 'edit':
       case 'update':
       case 'editar':
       case 'atualizar':
+      case 'change':
+      case 'alterar':
         return PermissionAction.edit;
 
       case 'delete':
       case 'remove':
       case 'excluir':
       case 'apagar':
+      case 'deletar':
+      case 'remover':
         return PermissionAction.delete;
 
       case 'approve':
       case 'approval':
+      case 'approved':
       case 'aprovar':
+      case 'autorizar':
+      case 'authorize':
+      case 'authorized':
         return PermissionAction.approve;
 
       case 'read':
+      case 'view':
+      case 'visualizar':
       case 'ler':
       default:
         return PermissionAction.read;
@@ -377,8 +494,9 @@ class TenantPermissionData extends Equatable {
 
     final moduleOverrides = <String, PermissionSet>{};
 
-    final rawModuleOverrides =
-        raw.remove('moduleOverrides') ?? raw.remove('modules') ?? raw.remove('permissions');
+    final rawModuleOverrides = raw.remove('moduleOverrides') ??
+        raw.remove('modules') ??
+        raw.remove('permissions');
 
     if (rawModuleOverrides is Map) {
       rawModuleOverrides.forEach((key, value) {
@@ -620,8 +738,10 @@ class UserPermissionData extends Equatable {
 
     final tenantAccess = <String, TenantPermissionData>{};
 
-    final rawTenantAccess =
-        raw.remove('tenantAccess') ?? raw.remove('companiesAccess');
+    final rawTenantAccess = raw.remove('tenantAccess') ??
+        raw.remove('tenantsAccess') ??
+        raw.remove('companyAccess') ??
+        raw.remove('companiesAccess');
 
     if (rawTenantAccess is Map) {
       rawTenantAccess.forEach((key, value) {
@@ -650,8 +770,10 @@ class UserPermissionData extends Equatable {
 
     final rawTenantIds = raw.remove('tenantIds') ??
         raw.remove('allowedTenantIds') ??
+        raw.remove('accessibleTenantIds') ??
         raw.remove('companyIds') ??
         raw.remove('allowedCompanyIds') ??
+        raw.remove('accessibleCompanyIds') ??
         raw.remove('tenants') ??
         raw.remove('companies');
 
@@ -756,10 +878,14 @@ class UserPermissionData extends Equatable {
       if (item == null) return;
 
       if (item is String) {
-        final clean = item.trim();
+        final parts = item.split(RegExp(r'[,;|\n]'));
 
-        if (clean.isNotEmpty) {
-          values.add(clean);
+        for (final part in parts) {
+          final clean = part.trim();
+
+          if (clean.isNotEmpty) {
+            values.add(clean);
+          }
         }
 
         return;
@@ -820,7 +946,8 @@ class UserPermissionData extends Equatable {
         },
       if (tenantAccess.isNotEmpty)
         'tenantAccess': {
-          for (final entry in tenantAccess.entries) entry.key: entry.value.toMap(),
+          for (final entry in tenantAccess.entries)
+            entry.key: entry.value.toMap(),
         },
       'tenantIds': tenantIds,
       ...extra,

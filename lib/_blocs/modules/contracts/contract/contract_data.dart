@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 
 class ContractData {
@@ -6,7 +7,7 @@ class ContractData {
 
   /// ACL por contrato.
   ///
-  /// Estrutura:
+  /// Estrutura oficial:
   /// permissionContractId: {
   ///   uid: {
   ///     read: true,
@@ -20,7 +21,7 @@ class ContractData {
 
   /// Metadados por participante.
   ///
-  /// Estrutura:
+  /// Estrutura oficial:
   /// participantsInfo: {
   ///   uid: {
   ///     role: 'FISCAL',
@@ -113,6 +114,56 @@ class ContractData {
     return result;
   }
 
+  static dynamic _firstExistingValue(
+      Map<String, dynamic> json,
+      List<String> keys,
+      ) {
+    for (final key in keys) {
+      if (json.containsKey(key)) {
+        return json[key];
+      }
+    }
+
+    return null;
+  }
+
+  static String? _readIdFromJson(
+      Map<String, dynamic> json,
+      String? id,
+      ) {
+    final explicitId = id?.trim();
+
+    if (explicitId != null && explicitId.isNotEmpty) {
+      return explicitId;
+    }
+
+    final fromId = json['id']?.toString().trim();
+
+    if (fromId != null && fromId.isNotEmpty) {
+      return fromId;
+    }
+
+    final contractId = json['contractId']?.toString().trim();
+
+    if (contractId != null && contractId.isNotEmpty) {
+      return contractId;
+    }
+
+    final uidContract = json['uidContract']?.toString().trim();
+
+    if (uidContract != null && uidContract.isNotEmpty) {
+      return uidContract;
+    }
+
+    final uidcontract = json['uidcontract']?.toString().trim();
+
+    if (uidcontract != null && uidcontract.isNotEmpty) {
+      return uidcontract;
+    }
+
+    return id;
+  }
+
   factory ContractData.fromDocument({
     required DocumentSnapshot snapshot,
   }) {
@@ -136,20 +187,37 @@ class ContractData {
       Map<String, dynamic> json, {
         String? id,
       }) {
+    final rawPermissions = _firstExistingValue(
+      json,
+      const <String>[
+        'permissionContractId',
+        'permissionsContractId',
+        'permissionContracts',
+        'permissions',
+        'participantsPermissions',
+      ],
+    );
+
+    final rawParticipantsInfo = _firstExistingValue(
+      json,
+      const <String>[
+        'participantsInfo',
+        'participants',
+        'participantsMeta',
+        'participantsData',
+      ],
+    );
+
     return ContractData(
-      id: id ?? json['id']?.toString(),
-      permissionContractId: _readPermissionContractId(
-        json['permissionContractId'],
-      ),
-      participantsInfo: _readParticipantsInfo(
-        json['participantsInfo'],
-      ),
+      id: _readIdFromJson(json, id),
+      permissionContractId: _readPermissionContractId(rawPermissions),
+      participantsInfo: _readParticipantsInfo(rawParticipantsInfo),
     );
   }
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
-      if (id != null && id!.trim().isNotEmpty) 'id': id,
+      if (id != null && id!.trim().isNotEmpty) 'id': id!.trim(),
       'permissionContractId': permissionContractId.map(
             (uid, perms) {
           return MapEntry(
@@ -330,9 +398,13 @@ class ContractData {
       participantsInfo,
     );
 
-    if (meta.isNotEmpty) {
-      updatedMeta[cleanUserId] = Map<String, dynamic>.from(meta);
-    }
+    final normalizedMeta = <String, dynamic>{
+      if (meta.isNotEmpty) ...Map<String, dynamic>.from(meta),
+      if ((meta['role']?.toString().trim() ?? '').isEmpty)
+        'role': 'COLABORADOR',
+    };
+
+    updatedMeta[cleanUserId] = normalizedMeta;
 
     return copyWith(
       permissionContractId: updatedPerms,

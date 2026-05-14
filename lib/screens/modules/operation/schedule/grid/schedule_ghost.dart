@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_style.dart';
 
 class ScheduleGhost extends StatelessWidget {
   final double w;
@@ -23,6 +23,39 @@ class ScheduleGhost extends StatelessWidget {
     return pattern[i % pattern.length];
   }
 
+  String _resolvedPos(ScheduleRoadData faixa, int index) {
+    final fromData = (faixa.pos ?? '').trim();
+
+    if (fromData.isNotEmpty) {
+      return fromData;
+    }
+
+    final fromController = (faixa.posCtrl?.text ?? '').trim();
+
+    if (fromController.isNotEmpty) {
+      return fromController;
+    }
+
+    return _posLabelForIndex(index);
+  }
+
+  String _resolvedLaneLabel(ScheduleRoadData faixa, int index) {
+    final label = faixa.laneLabel.trim();
+
+    if (label.isNotEmpty) {
+      return label;
+    }
+
+    final pos = _resolvedPos(faixa, index);
+    final nome = (faixa.nome ?? faixa.nameCtrl?.text ?? '').trim();
+
+    if (nome.isEmpty) {
+      return pos;
+    }
+
+    return '$pos - $nome';
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -41,8 +74,8 @@ class ScheduleGhost extends StatelessWidget {
                     child: Container(
                       height: faixas[i].altura ?? 20.0,
                       decoration: BoxDecoration(
-                        color: ScheduleRoadStyle.colorForFaixa(
-                          faixas[i].laneLabel,
+                        color: ScheduleRoadData.colorForFaixa(
+                          _resolvedLaneLabel(faixas[i], i),
                         ),
                         borderRadius: BorderRadius.circular(2),
                       ),
@@ -51,9 +84,7 @@ class ScheduleGhost extends StatelessWidget {
                   Positioned.fill(
                     child: Center(
                       child: Text(
-                        (faixas[i].pos ?? '').trim().isNotEmpty
-                            ? faixas[i].pos!.trim()
-                            : _posLabelForIndex(i),
+                        _resolvedPos(faixas[i], i),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

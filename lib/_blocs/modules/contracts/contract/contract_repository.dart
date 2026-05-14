@@ -17,11 +17,29 @@ class ContractRepository {
 
   String get _currentUid => _auth.currentUser?.uid ?? '';
 
+  static const List<String> _permissionKeys = <String>[
+    'read',
+    'create',
+    'edit',
+    'delete',
+    'approve',
+  ];
+
   String _cleanTenantId(String tenantId) {
     final clean = tenantId.trim();
 
     if (clean.isEmpty) {
       throw ArgumentError('tenantId é obrigatório para acessar contratos.');
+    }
+
+    return clean;
+  }
+
+  String _cleanContractId(String contractId) {
+    final clean = contractId.trim();
+
+    if (clean.isEmpty) {
+      throw ArgumentError('contractId é obrigatório para acessar contrato.');
     }
 
     return clean;
@@ -41,11 +59,7 @@ class ContractRepository {
     required String contractId,
   }) {
     final cleanTenantId = _cleanTenantId(tenantId);
-    final cleanContractId = contractId.trim();
-
-    if (cleanContractId.isEmpty) {
-      throw ArgumentError('contractId é obrigatório para acessar contrato.');
-    }
+    final cleanContractId = _cleanContractId(contractId);
 
     return _contractsRef(cleanTenantId).doc(cleanContractId);
   }
@@ -70,17 +84,93 @@ class ContractRepository {
     return null;
   }
 
+  String? _resolveContractIdFromMapAndPath({
+    required Map<String, dynamic> data,
+    required String path,
+  }) {
+    final contractIdFromField = data['contractId']?.toString().trim();
+    final uidContractFromField = data['uidContract']?.toString().trim();
+    final uidcontractFromField = data['uidcontract']?.toString().trim();
+    final idFromField = data['id']?.toString().trim();
+    final contractIdFromPath = _contractIdFromPath(path);
+
+    if (contractIdFromField != null && contractIdFromField.isNotEmpty) {
+      return contractIdFromField;
+    }
+
+    if (uidContractFromField != null && uidContractFromField.isNotEmpty) {
+      return uidContractFromField;
+    }
+
+    if (uidcontractFromField != null && uidcontractFromField.isNotEmpty) {
+      return uidcontractFromField;
+    }
+
+    if (idFromField != null && idFromField.isNotEmpty) {
+      return idFromField;
+    }
+
+    return contractIdFromPath;
+  }
+
+  Map<String, dynamic> _auditSetMap() {
+    return <String, dynamic>{
+      'updatedAt': FieldValue.serverTimestamp(),
+      if (_currentUid.trim().isNotEmpty) 'updatedBy': _currentUid.trim(),
+    };
+  }
+
+  Map<Object, Object?> _auditUpdateMap() {
+    return <Object, Object?>{
+      'updatedAt': FieldValue.serverTimestamp(),
+      if (_currentUid.trim().isNotEmpty) 'updatedBy': _currentUid.trim(),
+    };
+  }
+
+  List<FieldPath> _legacyPermissionLiteralPaths(String userId) {
+    final cleanUserId = userId.trim();
+
+    if (cleanUserId.isEmpty) return const <FieldPath>[];
+
+    return <FieldPath>[
+      FieldPath(<String>['permissionContractId.$cleanUserId']),
+      for (final key in _permissionKeys)
+        FieldPath(<String>['permissionContractId.$cleanUserId.$key']),
+    ];
+  }
+
+  List<FieldPath> _legacyParticipantLiteralPaths(String userId) {
+    final cleanUserId = userId.trim();
+
+    if (cleanUserId.isEmpty) return const <FieldPath>[];
+
+    return <FieldPath>[
+      FieldPath(<String>['participantsInfo.$cleanUserId']),
+      FieldPath(<String>['participantsInfo.$cleanUserId.role']),
+    ];
+  }
+
+  Map<Object, Object?> _legacyDeleteMapForUser(String userId) {
+    final data = <Object, Object?>{};
+
+    for (final path in _legacyPermissionLiteralPaths(userId)) {
+      data[path] = FieldValue.delete();
+    }
+
+    for (final path in _legacyParticipantLiteralPaths(userId)) {
+      data[path] = FieldValue.delete();
+    }
+
+    return data;
+  }
+
   Future<void> _ensureContractParentDoc({
     required String tenantId,
     required String contractId,
     Map<String, dynamic> extraData = const <String, dynamic>{},
   }) async {
     final cleanTenantId = _cleanTenantId(tenantId);
-    final cleanContractId = contractId.trim();
-
-    if (cleanContractId.isEmpty) {
-      throw ArgumentError('contractId é obrigatório para criar contrato.');
-    }
+    final cleanContractId = _cleanContractId(contractId);
 
     await _contractDoc(
       tenantId: cleanTenantId,
@@ -91,10 +181,33 @@ class ContractRepository {
         'tenantId': cleanTenantId,
         'companyId': cleanTenantId,
         ...extraData,
-        'updatedAt': FieldValue.serverTimestamp(),
-        if (_currentUid.trim().isNotEmpty) 'updatedBy': _currentUid,
+        ..._auditSetMap(),
       },
       SetOptions(merge: true),
+    );
+  }
+
+  Future<void> _updateContractFields({
+    required String tenantId,
+    required String contractId,
+    required Map<Object, Object?> data,
+  }) async {
+    final cleanTenantId = _cleanTenantId(tenantId);
+    final cleanContractId = _cleanContractId(contractId);
+
+    await _ensureContractParentDoc(
+      tenantId: cleanTenantId,
+      contractId: cleanContractId,
+    );
+
+    await _contractDoc(
+      tenantId: cleanTenantId,
+      contractId: cleanContractId,
+    ).update(
+      <Object, Object?>{
+        ...data,
+        ..._auditUpdateMap(),
+      },
     );
   }
 
@@ -127,20 +240,10 @@ class ContractRepository {
     for (final doc in hiringSnapshot.docs) {
       final data = doc.data();
 
-      final contractIdFromField = data['contractId']?.toString().trim();
-      final uidContractFromField = data['uidContract']?.toString().trim();
-      final uidcontractFromField = data['uidcontract']?.toString().trim();
-      final contractIdFromPath = _contractIdFromPath(doc.reference.path);
-
-      final contractId =
-      contractIdFromField != null && contractIdFromField.isNotEmpty
-          ? contractIdFromField
-          : uidContractFromField != null && uidContractFromField.isNotEmpty
-          ? uidContractFromField
-          : uidcontractFromField != null &&
-          uidcontractFromField.isNotEmpty
-          ? uidcontractFromField
-          : contractIdFromPath;
+      final contractId = _resolveContractIdFromMapAndPath(
+        data: data,
+        path: doc.reference.path,
+      );
 
       if (contractId == null || contractId.trim().isEmpty) {
         continue;
@@ -169,20 +272,10 @@ class ContractRepository {
     for (final doc in dfdSnapshot.docs) {
       final data = doc.data();
 
-      final contractIdFromField = data['contractId']?.toString().trim();
-      final uidContractFromField = data['uidContract']?.toString().trim();
-      final uidcontractFromField = data['uidcontract']?.toString().trim();
-      final contractIdFromPath = _contractIdFromPath(doc.reference.path);
-
-      final contractId =
-      contractIdFromField != null && contractIdFromField.isNotEmpty
-          ? contractIdFromField
-          : uidContractFromField != null && uidContractFromField.isNotEmpty
-          ? uidContractFromField
-          : uidcontractFromField != null &&
-          uidcontractFromField.isNotEmpty
-          ? uidcontractFromField
-          : contractIdFromPath;
+      final contractId = _resolveContractIdFromMapAndPath(
+        data: data,
+        path: doc.reference.path,
+      );
 
       if (contractId == null || contractId.trim().isEmpty) {
         continue;
@@ -212,25 +305,29 @@ class ContractRepository {
   Future<ContractData?> getContractById({
     required String tenantId,
     required String id,
+    bool forceServer = false,
   }) async {
     final cleanTenantId = _cleanTenantId(tenantId);
     final cleanId = id.trim();
 
     if (cleanId.isEmpty) return null;
 
-    final doc = await _contractDoc(
+    final docRef = _contractDoc(
       tenantId: cleanTenantId,
       contractId: cleanId,
-    ).get();
+    );
+
+    final doc = await docRef.get(
+      forceServer ? const GetOptions(source: Source.server) : null,
+    );
 
     if (doc.exists) {
       return ContractData.fromDocument(snapshot: doc);
     }
 
-    final hiringDoc = await _contractDoc(
-      tenantId: cleanTenantId,
-      contractId: cleanId,
-    ).collection('hiring').doc('main').get();
+    final hiringDoc = await docRef.collection('hiring').doc('main').get(
+      forceServer ? const GetOptions(source: Source.server) : null,
+    );
 
     if (hiringDoc.exists) {
       final data = hiringDoc.data() ?? const <String, dynamic>{};
@@ -250,36 +347,17 @@ class ContractRepository {
   Future<ContractData?> getSpecificContract({
     required String tenantId,
     required String uidContract,
+    bool forceServer = false,
   }) async {
     final cleanTenantId = _cleanTenantId(tenantId);
     final cleanId = uidContract.trim();
 
     if (cleanId.isEmpty) return null;
 
-    final doc = await _contractDoc(
+    return getContractById(
       tenantId: cleanTenantId,
-      contractId: cleanId,
-    ).get();
-
-    if (doc.exists) {
-      return ContractData.fromDocument(snapshot: doc);
-    }
-
-    final hiringDoc = await _contractDoc(
-      tenantId: cleanTenantId,
-      contractId: cleanId,
-    ).collection('hiring').doc('main').get();
-
-    if (!hiringDoc.exists) return null;
-
-    final data = hiringDoc.data() ?? const <String, dynamic>{};
-
-    return ContractData.fromJson(
-      <String, dynamic>{
-        ...data,
-        'id': cleanId,
-      },
       id: cleanId,
+      forceServer: forceServer,
     );
   }
 
@@ -291,31 +369,27 @@ class ContractRepository {
     required bool value,
   }) async {
     final cleanTenantId = _cleanTenantId(tenantId);
-    final cleanContractId = contractId.trim();
+    final cleanContractId = _cleanContractId(contractId);
     final cleanUserId = userId.trim();
     final cleanPermissionType = permissionType.trim();
 
-    if (cleanContractId.isEmpty ||
-        cleanUserId.isEmpty ||
-        cleanPermissionType.isEmpty) {
+    if (cleanUserId.isEmpty || cleanPermissionType.isEmpty) {
       return;
     }
 
-    await _ensureContractParentDoc(
+    await _updateContractFields(
       tenantId: cleanTenantId,
       contractId: cleanContractId,
-    );
-
-    await _contractDoc(
-      tenantId: cleanTenantId,
-      contractId: cleanContractId,
-    ).set(
-      <String, dynamic>{
-        'permissionContractId.$cleanUserId.$cleanPermissionType': value,
-        'updatedAt': FieldValue.serverTimestamp(),
-        if (_currentUid.trim().isNotEmpty) 'updatedBy': _currentUid,
+      data: <Object, Object?>{
+        ..._legacyDeleteMapForUser(cleanUserId),
+        FieldPath(
+          <String>[
+            'permissionContractId',
+            cleanUserId,
+            cleanPermissionType,
+          ],
+        ): value,
       },
-      SetOptions(merge: true),
     );
   }
 
@@ -326,28 +400,25 @@ class ContractRepository {
     required Map<String, bool> permsMap,
   }) async {
     final cleanTenantId = _cleanTenantId(tenantId);
-    final cleanContractId = contractId.trim();
+    final cleanContractId = _cleanContractId(contractId);
     final cleanUserId = userId.trim();
 
-    if (cleanContractId.isEmpty || cleanUserId.isEmpty) return;
+    if (cleanUserId.isEmpty) return;
 
     final normalized = _norm(permsMap);
 
-    await _ensureContractParentDoc(
+    await _updateContractFields(
       tenantId: cleanTenantId,
       contractId: cleanContractId,
-    );
-
-    await _contractDoc(
-      tenantId: cleanTenantId,
-      contractId: cleanContractId,
-    ).set(
-      <String, dynamic>{
-        'permissionContractId.$cleanUserId': normalized,
-        'updatedAt': FieldValue.serverTimestamp(),
-        if (_currentUid.trim().isNotEmpty) 'updatedBy': _currentUid,
+      data: <Object, Object?>{
+        ..._legacyDeleteMapForUser(cleanUserId),
+        FieldPath(
+          <String>[
+            'permissionContractId',
+            cleanUserId,
+          ],
+        ): normalized,
       },
-      SetOptions(merge: true),
     );
   }
 
@@ -358,29 +429,28 @@ class ContractRepository {
     required String role,
   }) async {
     final cleanTenantId = _cleanTenantId(tenantId);
-    final cleanContractId = contractId.trim();
+    final cleanContractId = _cleanContractId(contractId);
     final cleanUserId = userId.trim();
     final cleanRole = role.trim();
 
-    if (cleanContractId.isEmpty || cleanUserId.isEmpty || cleanRole.isEmpty) {
+    if (cleanUserId.isEmpty || cleanRole.isEmpty) {
       return;
     }
 
-    await _ensureContractParentDoc(
+    await _updateContractFields(
       tenantId: cleanTenantId,
       contractId: cleanContractId,
-    );
-
-    await _contractDoc(
-      tenantId: cleanTenantId,
-      contractId: cleanContractId,
-    ).set(
-      <String, dynamic>{
-        'participantsInfo.$cleanUserId.role': cleanRole,
-        'updatedAt': FieldValue.serverTimestamp(),
-        if (_currentUid.trim().isNotEmpty) 'updatedBy': _currentUid,
+      data: <Object, Object?>{
+        FieldPath(<String>['participantsInfo.$cleanUserId.role']):
+        FieldValue.delete(),
+        FieldPath(
+          <String>[
+            'participantsInfo',
+            cleanUserId,
+            'role',
+          ],
+        ): cleanRole,
       },
-      SetOptions(merge: true),
     );
   }
 
@@ -413,8 +483,7 @@ class ContractRepository {
     ).set(
       <String, dynamic>{
         'permissionContractId': normalizedMap,
-        'updatedAt': FieldValue.serverTimestamp(),
-        if (_currentUid.trim().isNotEmpty) 'updatedBy': _currentUid,
+        ..._auditSetMap(),
       },
       SetOptions(merge: true),
     );
@@ -428,31 +497,41 @@ class ContractRepository {
     Map<String, dynamic> meta = const {},
   }) async {
     final cleanTenantId = _cleanTenantId(tenantId);
-    final cleanContractId = contractId.trim();
+    final cleanContractId = _cleanContractId(contractId);
     final cleanUserId = userId.trim();
 
-    if (cleanContractId.isEmpty || cleanUserId.isEmpty) return;
+    if (cleanUserId.isEmpty) return;
 
     final initPerms = _norm(
       permMap ?? SystemPermission.initialDocPerms(),
     );
 
-    await _ensureContractParentDoc(
-      tenantId: cleanTenantId,
-      contractId: cleanContractId,
-    );
+    final cleanMeta = Map<String, dynamic>.from(meta);
 
-    await _contractDoc(
+    final role = cleanMeta['role']?.toString().trim();
+
+    if (role == null || role.isEmpty) {
+      cleanMeta['role'] = 'COLABORADOR';
+    }
+
+    await _updateContractFields(
       tenantId: cleanTenantId,
       contractId: cleanContractId,
-    ).set(
-      <String, dynamic>{
-        'permissionContractId.$cleanUserId': initPerms,
-        if (meta.isNotEmpty) 'participantsInfo.$cleanUserId': meta,
-        'updatedAt': FieldValue.serverTimestamp(),
-        if (_currentUid.trim().isNotEmpty) 'updatedBy': _currentUid,
+      data: <Object, Object?>{
+        ..._legacyDeleteMapForUser(cleanUserId),
+        FieldPath(
+          <String>[
+            'permissionContractId',
+            cleanUserId,
+          ],
+        ): initPerms,
+        FieldPath(
+          <String>[
+            'participantsInfo',
+            cleanUserId,
+          ],
+        ): cleanMeta,
       },
-      SetOptions(merge: true),
     );
   }
 
@@ -462,20 +541,28 @@ class ContractRepository {
     required String userId,
   }) async {
     final cleanTenantId = _cleanTenantId(tenantId);
-    final cleanContractId = contractId.trim();
+    final cleanContractId = _cleanContractId(contractId);
     final cleanUserId = userId.trim();
 
-    if (cleanContractId.isEmpty || cleanUserId.isEmpty) return;
+    if (cleanUserId.isEmpty) return;
 
-    await _contractDoc(
+    await _updateContractFields(
       tenantId: cleanTenantId,
       contractId: cleanContractId,
-    ).update(
-      <String, dynamic>{
-        'permissionContractId.$cleanUserId': FieldValue.delete(),
-        'participantsInfo.$cleanUserId': FieldValue.delete(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        if (_currentUid.trim().isNotEmpty) 'updatedBy': _currentUid,
+      data: <Object, Object?>{
+        ..._legacyDeleteMapForUser(cleanUserId),
+        FieldPath(
+          <String>[
+            'permissionContractId',
+            cleanUserId,
+          ],
+        ): FieldValue.delete(),
+        FieldPath(
+          <String>[
+            'participantsInfo',
+            cleanUserId,
+          ],
+        ): FieldValue.delete(),
       },
     );
   }
@@ -487,26 +574,24 @@ class ContractRepository {
     required Map<String, dynamic> meta,
   }) async {
     final cleanTenantId = _cleanTenantId(tenantId);
-    final cleanContractId = contractId.trim();
+    final cleanContractId = _cleanContractId(contractId);
     final cleanUserId = userId.trim();
 
-    if (cleanContractId.isEmpty || cleanUserId.isEmpty) return;
+    if (cleanUserId.isEmpty) return;
 
-    await _ensureContractParentDoc(
+    await _updateContractFields(
       tenantId: cleanTenantId,
       contractId: cleanContractId,
-    );
-
-    await _contractDoc(
-      tenantId: cleanTenantId,
-      contractId: cleanContractId,
-    ).set(
-      <String, dynamic>{
-        'participantsInfo.$cleanUserId': meta,
-        'updatedAt': FieldValue.serverTimestamp(),
-        if (_currentUid.trim().isNotEmpty) 'updatedBy': _currentUid,
+      data: <Object, Object?>{
+        FieldPath(<String>['participantsInfo.$cleanUserId']):
+        FieldValue.delete(),
+        FieldPath(
+          <String>[
+            'participantsInfo',
+            cleanUserId,
+          ],
+        ): Map<String, dynamic>.from(meta),
       },
-      SetOptions(merge: true),
     );
   }
 

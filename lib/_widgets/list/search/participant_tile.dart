@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 /// - Mostra avatar, nome, papel ao lado do nome e ações no topo.
 /// - Chips de permissões toggláveis.
 /// - Em telas pequenas pode ocultar os ícones dos chips.
+/// - Mantém todas as permissões documentais visíveis:
+///   read/create/edit/delete/approve.
 /// ======================================================================
 class ParticipantTile extends StatefulWidget {
   const ParticipantTile({
@@ -30,7 +32,7 @@ class ParticipantTile extends StatefulWidget {
   final String role;
 
   /// Exemplo:
-  /// {'read': true, 'create': false, 'edit': true, 'delete': false}
+  /// {'read': true, 'create': false, 'edit': true, 'delete': false, 'approve': false}
   final Map<String, bool> perms;
 
   final List<String> roleOptions;
@@ -54,6 +56,9 @@ class _ParticipantTileState extends State<ParticipantTile> {
   late Map<String, bool> _perms;
   late String _role;
 
+  String? _savingPermKey;
+  bool _savingRole = false;
+
   static const List<String> _permOrder = <String>[
     'read',
     'create',
@@ -74,8 +79,8 @@ class _ParticipantTileState extends State<ParticipantTile> {
   void initState() {
     super.initState();
 
-    _perms = Map<String, bool>.from(widget.perms);
-    _role = widget.role.trim().isEmpty ? 'COLABORADOR' : widget.role.trim();
+    _perms = _normalizePerms(widget.perms);
+    _role = _normalizeRole(widget.role);
   }
 
   @override
@@ -83,36 +88,99 @@ class _ParticipantTileState extends State<ParticipantTile> {
     super.didUpdateWidget(oldWidget);
 
     if (!mapEquals(oldWidget.perms, widget.perms)) {
-      _perms = Map<String, bool>.from(widget.perms);
+      _perms = _normalizePerms(widget.perms);
     }
 
     if (oldWidget.role != widget.role) {
-      _role = widget.role.trim().isEmpty ? 'COLABORADOR' : widget.role.trim();
+      _role = _normalizeRole(widget.role);
     }
+  }
+
+  Map<String, bool> _normalizePerms(Map<String, bool> raw) {
+    final normalized = <String, bool>{
+      'read': false,
+      'create': false,
+      'edit': false,
+      'delete': false,
+      'approve': false,
+    };
+
+    for (final entry in raw.entries) {
+      final key = entry.key.trim().toLowerCase();
+
+      if (key.isEmpty) continue;
+
+      if (key == 'write') {
+        normalized['create'] = entry.value;
+        continue;
+      }
+
+      if (key == 'update') {
+        normalized['edit'] = entry.value;
+        continue;
+      }
+
+      if (key == 'remove') {
+        normalized['delete'] = entry.value;
+        continue;
+      }
+
+      if (key == 'approval' || key == 'approved') {
+        normalized['approve'] = entry.value;
+        continue;
+      }
+
+      normalized[key] = entry.value;
+    }
+
+    return normalized;
+  }
+
+  String _normalizeRole(String? role) {
+    final clean = role?.trim();
+
+    if (clean == null || clean.isEmpty) {
+      return 'COLABORADOR';
+    }
+
+    return clean;
   }
 
   Future<void> _togglePerm(String key, bool value) async {
     if (!widget.enabled) return;
+    if (_savingPermKey != null) return;
 
-    final oldValue = _perms[key] == true;
+    final cleanKey = key.trim().toLowerCase();
+
+    if (cleanKey.isEmpty) return;
+
+    final oldValue = _perms[cleanKey] == true;
 
     setState(() {
-      _perms[key] = value;
+      _savingPermKey = cleanKey;
+      _perms[cleanKey] = value;
     });
 
     try {
-      await widget.onTogglePerm?.call(key, value);
+      await widget.onTogglePerm?.call(cleanKey, value);
     } catch (_) {
       if (!mounted) return;
 
       setState(() {
-        _perms[key] = oldValue;
+        _perms[cleanKey] = oldValue;
+      });
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _savingPermKey = null;
       });
     }
   }
 
   Future<void> _changeRole(String? newRole) async {
     if (!widget.enabled) return;
+    if (_savingRole) return;
 
     final cleanRole = newRole?.trim();
 
@@ -122,6 +190,7 @@ class _ParticipantTileState extends State<ParticipantTile> {
     final oldRole = _role;
 
     setState(() {
+      _savingRole = true;
       _role = cleanRole;
     });
 
@@ -133,23 +202,17 @@ class _ParticipantTileState extends State<ParticipantTile> {
       setState(() {
         _role = oldRole;
       });
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _savingRole = false;
+      });
     }
   }
 
   List<String> get _visiblePermKeys {
-    final keys = _permOrder
-        .where((key) => widget.perms.containsKey(key) || _perms.containsKey(key))
-        .toList();
-
-    if (keys.isEmpty) {
-      return const <String>[
-        'read',
-        'edit',
-        'delete',
-      ];
-    }
-
-    return keys;
+    return _permOrder;
   }
 
   String _roleLabel(String role) {
@@ -214,16 +277,34 @@ class _ParticipantTileState extends State<ParticipantTile> {
           color: color.withValues(alpha: 0.18),
         ),
       ),
-      child: Text(
-        _roleLabel(_role),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          height: 1.1,
-          fontWeight: FontWeight.w900,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              _roleLabel(_role),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                height: 1.1,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          if (_savingRole) ...[
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.4,
+                color: color,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -234,6 +315,7 @@ class _ParticipantTileState extends State<ParticipantTile> {
       }) {
     final selected = _perms[key] == true;
     final label = _permLabels[key] ?? key;
+    final saving = _savingPermKey == key;
 
     const greenBg = Color(0xFFE8F5E9);
     const greenBor = Color(0xFF81C784);
@@ -243,20 +325,33 @@ class _ParticipantTileState extends State<ParticipantTile> {
     const redBor = Color(0xFFE57373);
     const redTxt = Color(0xFFC62828);
 
+    final textColor = selected ? greenTxt : redTxt;
     final showIcon = widget.showPermissionIcons && !compact;
 
     return FilterChip(
       selected: selected,
-      onSelected: widget.enabled ? (value) => _togglePerm(key, value) : null,
+      onSelected: widget.enabled && !saving && _savingPermKey == null
+          ? (value) => _togglePerm(key, value)
+          : null,
       showCheckmark: false,
       label: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (showIcon) ...[
+          if (saving) ...[
+            SizedBox(
+              width: 13,
+              height: 13,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: textColor,
+              ),
+            ),
+            const SizedBox(width: 5),
+          ] else if (showIcon) ...[
             Icon(
               selected ? Icons.check_circle_rounded : Icons.cancel_rounded,
               size: 14,
-              color: selected ? greenTxt : redTxt,
+              color: textColor,
             ),
             const SizedBox(width: 5),
           ],
@@ -266,14 +361,14 @@ class _ParticipantTileState extends State<ParticipantTile> {
               fontSize: compact ? 11 : 12,
               height: 1,
               fontWeight: FontWeight.w800,
-              color: selected ? greenTxt : redTxt,
+              color: textColor,
             ),
           ),
         ],
       ),
       backgroundColor: selected ? greenBg : redBg,
       selectedColor: selected ? greenBg : redBg,
-      disabledColor: Colors.grey.shade100,
+      disabledColor: selected ? greenBg.withValues(alpha: 0.72) : redBg.withValues(alpha: 0.72),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(999),
         side: BorderSide(
@@ -309,7 +404,7 @@ class _ParticipantTileState extends State<ParticipantTile> {
 
     return PopupMenuButton<String>(
       tooltip: 'Alterar papel',
-      enabled: widget.enabled && widget.onChangeRole != null,
+      enabled: widget.enabled && widget.onChangeRole != null && !_savingRole,
       onSelected: _changeRole,
       itemBuilder: (context) {
         return options.map((role) {
@@ -369,6 +464,12 @@ class _ParticipantTileState extends State<ParticipantTile> {
 
         final compact = localWidth < 420 || widget.maxWidth < 420;
 
+        final titleMaxWidth = compact
+            ? mathMax(localWidth - 130, 90)
+            : widget.maxWidth > 260
+            ? mathMax(widget.maxWidth - 160, 120)
+            : mathMax(widget.maxWidth - 120, 90);
+
         return Material(
           color: Colors.white,
           child: Padding(
@@ -394,11 +495,7 @@ class _ParticipantTileState extends State<ParticipantTile> {
                         children: [
                           ConstrainedBox(
                             constraints: BoxConstraints(
-                              maxWidth: compact
-                                  ? localWidth - 130
-                                  : widget.maxWidth > 260
-                                  ? widget.maxWidth - 160
-                                  : widget.maxWidth - 120,
+                              maxWidth: titleMaxWidth,
                             ),
                             child: Text(
                               widget.title,
@@ -424,7 +521,9 @@ class _ParticipantTileState extends State<ParticipantTile> {
                           size: 19,
                           color: Color(0xFF374151),
                         ),
-                        onPressed: widget.enabled ? widget.onEditPerms : null,
+                        onPressed: widget.enabled && _savingPermKey == null
+                            ? widget.onEditPerms
+                            : null,
                       ),
                     if (widget.onRemove != null)
                       IconButton(
@@ -435,7 +534,11 @@ class _ParticipantTileState extends State<ParticipantTile> {
                           size: 20,
                           color: Color(0xFFDC2626),
                         ),
-                        onPressed: widget.enabled ? widget.onRemove : null,
+                        onPressed: widget.enabled &&
+                            _savingPermKey == null &&
+                            !_savingRole
+                            ? widget.onRemove
+                            : null,
                       ),
                   ],
                 ),
@@ -457,4 +560,8 @@ class _ParticipantTileState extends State<ParticipantTile> {
       },
     );
   }
+}
+
+double mathMax(double a, double b) {
+  return a > b ? a : b;
 }

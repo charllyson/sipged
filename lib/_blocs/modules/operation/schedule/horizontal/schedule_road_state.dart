@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_style.dart';
 
 class ScheduleRoadState extends Equatable {
   final bool initialized;
@@ -155,8 +154,7 @@ class ScheduleRoadState extends Equatable {
         ? this.multiLine
         : multiLine as List<List<LatLng>>?;
 
-    final nextPoints =
-    points is _Unset ? this.points : points as List<LatLng>?;
+    final nextPoints = points is _Unset ? this.points : points as List<LatLng>?;
 
     final nextAxis = axis is _Unset ? this.axis : axis as List<LatLng>;
 
@@ -193,8 +191,7 @@ class ScheduleRoadState extends Equatable {
           ? this.selectedPolylineId
           : selectedPolylineId as String?,
       mapZoom: mapZoom ?? this.mapZoom,
-      busyReason:
-      busyReason is _Unset ? this.busyReason : busyReason as String?,
+      busyReason: busyReason is _Unset ? this.busyReason : busyReason as String?,
       servicesRevision: servicesRevision ??
           (services != null || serviceTotals != null
               ? this.servicesRevision + 1
@@ -330,7 +327,7 @@ class ScheduleRoadState extends Equatable {
   }
 
   String _canonStatus(String? raw) {
-    var text = (raw ?? '')
+    final text = (raw ?? '')
         .toLowerCase()
         .trim()
         .replaceAll('á', 'a')
@@ -577,8 +574,18 @@ class ScheduleRoadState extends Equatable {
             ? cell.key
             : (cell.label.isNotEmpty ? cell.label : ''));
 
-        base = tag.isNotEmpty
-            ? ScheduleRoadStyle.colorForService(tag)
+        final meta = services.where((service) {
+          final key = service.key.toLowerCase().trim();
+          final label = service.label.toLowerCase().trim();
+          final normalizedTag = tag.toLowerCase().trim();
+
+          return key == normalizedTag || label == normalizedTag;
+        });
+
+        base = meta.isNotEmpty
+            ? meta.first.color
+            : tag.isNotEmpty
+            ? ScheduleRoadData.colorForService(tag)
             : Colors.blueGrey.shade300;
       } else {
         base = Colors.grey.shade300;

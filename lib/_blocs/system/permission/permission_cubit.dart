@@ -584,6 +584,74 @@ class PermissionCubit extends Cubit<PermissionState> {
     }
   }
 
+  /// Concede acesso de tenant + módulo para outro usuário sem trocar o
+  /// PermissionState.current do usuário logado.
+  ///
+  /// Use este método quando o usuário logado está adicionando participantes
+  /// em um contrato. A permissão documental fica no contrato, mas a listagem
+  /// também precisa que o usuário tenha acesso ao tenant e ao módulo.
+  Future<void> grantTenantModuleForUser({
+    required String uid,
+    required String tenantId,
+    required String module,
+    required PermissionSet permissions,
+    SystemUserRole role = SystemUserRole.colaborador,
+    String? label,
+  }) async {
+    final cleanUid = uid.trim();
+    final cleanTenantId = tenantId.trim();
+    final cleanModule = module.trim();
+
+    if (cleanUid.isEmpty || cleanTenantId.isEmpty || cleanModule.isEmpty) {
+      emit(
+        state.copyWith(
+          error: 'UID, empresa ou módulo não informados.',
+        ),
+      );
+      return;
+    }
+
+    try {
+      await _repo.setTenantAccess(
+        uid: cleanUid,
+        tenantId: cleanTenantId,
+        enabled: true,
+        role: role,
+        label: label,
+      );
+
+      final existing = await _repo.loadUserPermissions(cleanUid);
+
+      final existingOverride = existing
+          ?.tenantPermission(cleanTenantId)
+          ?.overrideForModule(cleanModule) ??
+          PermissionSet.none;
+
+      final mergedPermissions = existingOverride.mergeAllow(permissions);
+
+      await _repo.setTenantModuleOverride(
+        uid: cleanUid,
+        tenantId: cleanTenantId,
+        module: cleanModule,
+        permissions: mergedPermissions,
+      );
+
+      final currentUid = state.current?.uid.trim();
+
+      if (currentUid != null && currentUid == cleanUid) {
+        await loadByUid(cleanUid);
+      }
+    } catch (e) {
+      if (isClosed) return;
+
+      emit(
+        state.copyWith(
+          error: e.toString(),
+        ),
+      );
+    }
+  }
+
   void clearError() {
     if (state.error == null) return;
 
@@ -637,6 +705,14 @@ class PermissionCubit extends Cubit<PermissionState> {
 class SystemPermission {
   const SystemPermission._();
 
+  static const List<String> _docPermissionKeys = <String>[
+    'read',
+    'create',
+    'edit',
+    'delete',
+    'approve',
+  ];
+
   static PermissionSet docPermissionsOf({
     required ContractData contract,
     required String uid,
@@ -647,9 +723,31 @@ class SystemPermission {
       return PermissionSet.none;
     }
 
-    final raw = contract.permissionContractId[cleanUid];
+    final rawMap = contract.permissionContractId;
+
+    dynamic raw = rawMap[cleanUid];
+
+    raw ??= _findPermissionByTrimmedUid(
+      rawMap: rawMap,
+      uid: cleanUid,
+    );
 
     return PermissionSet.fromDynamic(raw);
+  }
+
+  static dynamic _findPermissionByTrimmedUid({
+    required Map<String, dynamic> rawMap,
+    required String uid,
+  }) {
+    for (final entry in rawMap.entries) {
+      final key = entry.key.trim();
+
+      if (key == uid) {
+        return entry.value;
+      }
+    }
+
+    return null;
   }
 
   static bool canContractDocOnly({
@@ -767,7 +865,7 @@ class SystemPermission {
   }
 
   static Map<String, bool> initialDocPerms() {
-    return const {
+    return const <String, bool>{
       'read': true,
       'create': false,
       'edit': false,
@@ -776,8 +874,28 @@ class SystemPermission {
     };
   }
 
+  static Map<String, bool> emptyDocPerms() {
+    return const <String, bool>{
+      'read': false,
+      'create': false,
+      'edit': false,
+      'delete': false,
+      'approve': false,
+    };
+  }
+
   static Map<String, bool> normalizeDocPerms(dynamic raw) {
-    return PermissionSet.fromDynamic(raw).toBoolMap();
+    final normalized = PermissionSet.fromDynamic(raw).toBoolMap();
+
+    return <String, bool>{
+      for (final key in _docPermissionKeys) key: normalized[key] == true,
+    };
+  }
+
+  static PermissionSet permissionSetFromDocPerms(dynamic raw) {
+    return PermissionSet.fromDynamic(
+      normalizeDocPerms(raw),
+    );
   }
 
   static String? _cleanTenantId(String? tenantId) {

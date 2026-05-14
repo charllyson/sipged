@@ -285,7 +285,10 @@ class ContractCubit extends Cubit<ContractState> {
     );
   }
 
-  Future<ContractData?> getById(String id) async {
+  Future<ContractData?> getById(
+      String id, {
+        bool forceServer = false,
+      }) async {
     final cleanId = id.trim();
 
     if (cleanId.isEmpty) return null;
@@ -294,10 +297,12 @@ class ContractCubit extends Cubit<ContractState> {
 
     if (cleanTenantId == null) return null;
 
-    final cached = _findInCache(cleanId);
+    if (!forceServer) {
+      final cached = _findInCache(cleanId);
 
-    if (cached != null) {
-      return cached;
+      if (cached != null) {
+        return cached;
+      }
     }
 
     emit(
@@ -311,6 +316,7 @@ class ContractCubit extends Cubit<ContractState> {
       final process = await _repository.getContractById(
         id: cleanId,
         tenantId: cleanTenantId,
+        forceServer: forceServer,
       );
 
       if (process == null) {
@@ -325,9 +331,22 @@ class ContractCubit extends Cubit<ContractState> {
         return null;
       }
 
-      final updatedList = List<ContractData>.from(state.allProcesses)
-        ..removeWhere((p) => p.id == process.id)
-        ..add(process);
+      final updatedList = List<ContractData>.from(state.allProcesses);
+
+      final index = updatedList.indexWhere(
+            (p) => (p.id ?? '').trim() == cleanId,
+      );
+
+      if (index >= 0) {
+        updatedList[index] = process;
+      } else {
+        updatedList.add(process);
+      }
+
+      final updatedSelected =
+      (state.selectedProcess?.id ?? '').trim() == cleanId
+          ? process
+          : state.selectedProcess;
 
       if (isClosed) return process;
 
@@ -335,6 +354,7 @@ class ContractCubit extends Cubit<ContractState> {
         state.copyWith(
           loading: false,
           allProcesses: updatedList,
+          selectedProcess: updatedSelected,
           clearErrorMessage: true,
         ),
       );
@@ -376,6 +396,7 @@ class ContractCubit extends Cubit<ContractState> {
       final process = await _repository.getSpecificContract(
         uidContract: cleanId,
         tenantId: cleanTenantId,
+        forceServer: true,
       );
 
       if (process == null) {
@@ -390,9 +411,17 @@ class ContractCubit extends Cubit<ContractState> {
         return null;
       }
 
-      final updatedList = List<ContractData>.from(state.allProcesses)
-        ..removeWhere((p) => p.id == process.id)
-        ..add(process);
+      final updatedList = List<ContractData>.from(state.allProcesses);
+
+      final index = updatedList.indexWhere(
+            (p) => (p.id ?? '').trim() == process.id,
+      );
+
+      if (index >= 0) {
+        updatedList[index] = process;
+      } else {
+        updatedList.add(process);
+      }
 
       final selected = state.selectedProcess?.id == process.id
           ? process
@@ -447,9 +476,10 @@ class ContractCubit extends Cubit<ContractState> {
       );
 
       final updatedList = List<ContractData>.from(state.allProcesses)
-        ..removeWhere((p) => p.id == cleanId);
+        ..removeWhere((p) => (p.id ?? '').trim() == cleanId);
 
-      final shouldClearSelected = state.selectedProcess?.id == cleanId;
+      final shouldClearSelected =
+          (state.selectedProcess?.id ?? '').trim() == cleanId;
 
       if (isClosed) return;
 

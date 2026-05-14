@@ -1,9 +1,9 @@
-// lib/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart' show GeoPoint, Timestamp;
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+
+import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 
 class ScheduleLaneResult {
   final List<ScheduleRoadData> lanes;
@@ -43,7 +43,18 @@ class ScheduleRoadData extends Equatable {
 
   final String key;
   final String label;
+
+  /// Chave textual do ícone.
+  ///
+  /// É o valor persistido no Firestore.
+  /// Exemplo: `alt_route_outlined`, `terrain_outlined`, `layers_outlined`.
+  final String iconKey;
+
+  /// Ícone resolvido para uso na interface.
+  ///
+  /// Não precisa ser persistido diretamente.
   final IconData icon;
+
   final Color color;
 
   final String? geometryType;
@@ -75,6 +86,7 @@ class ScheduleRoadData extends Equatable {
     this.updatedBy,
     required this.key,
     required this.label,
+    this.iconKey = 'layers_outlined',
     required this.icon,
     required this.color,
     this.fotos = const <String>[],
@@ -98,6 +110,7 @@ class ScheduleRoadData extends Equatable {
     faixaIndex: 0,
     key: 'geral',
     label: 'GERAL',
+    iconKey: 'clear_all',
     icon: Icons.clear_all,
     color: Colors.grey,
   );
@@ -105,15 +118,24 @@ class ScheduleRoadData extends Equatable {
   factory ScheduleRoadData.service({
     required String key,
     required String label,
-    required IconData icon,
+    String? iconKey,
+    IconData? icon,
     required Color color,
   }) {
+    final cleanKey = key.trim();
+    final cleanLabel = label.trim();
+
+    final resolvedIconKey = (iconKey ?? '').trim().isNotEmpty
+        ? iconKey!.trim()
+        : pickIconKeyForTitle(cleanLabel.isEmpty ? cleanKey : cleanLabel);
+
     return ScheduleRoadData(
       numero: 0,
       faixaIndex: 0,
-      key: key.trim(),
-      label: label.trim(),
-      icon: icon,
+      key: cleanKey,
+      label: cleanLabel,
+      iconKey: resolvedIconKey,
+      icon: icon ?? iconForKey(resolvedIconKey),
       color: color,
     );
   }
@@ -131,6 +153,7 @@ class ScheduleRoadData extends Equatable {
       faixaIndex: faixaIndex,
       key: 'lane',
       label: 'LANE',
+      iconKey: 'table_view_outlined',
       icon: Icons.view_stream_outlined,
       color: Colors.grey,
       pos: pos,
@@ -156,6 +179,7 @@ class ScheduleRoadData extends Equatable {
       faixaIndex: faixaIndex,
       key: 'lane',
       label: 'LANE',
+      iconKey: 'table_view_outlined',
       icon: Icons.view_stream_outlined,
       color: color,
       pos: pos,
@@ -173,6 +197,42 @@ class ScheduleRoadData extends Equatable {
     if (takenAtMs == null) return null;
 
     return DateTime.fromMillisecondsSinceEpoch(takenAtMs!);
+  }
+
+  static String defaultIconKeyForService(String key) {
+    switch (key.trim().toLowerCase()) {
+      case 'geral':
+        return 'clear_all';
+
+      case 'asfalto':
+        return 'alt_route';
+
+      case 'base':
+        return 'layers_outlined';
+
+      case 'terraplenagem':
+        return 'terrain_outlined';
+
+      case 'drenagem':
+        return 'water_drop_outlined';
+
+      case 'sinalizacao':
+      case 'sinalização':
+        return 'traffic_outlined';
+
+      case 'obra_arte':
+      case 'obras_especiais':
+        return 'account_tree_outlined';
+
+      case 'meio_fio':
+        return 'linear_scale_outlined';
+
+      case 'lane':
+        return 'view_stream_outlined';
+
+      default:
+        return 'construction_outlined';
+    }
   }
 
   List<List<LatLng>> getSegments() {
@@ -340,6 +400,11 @@ class ScheduleRoadData extends Equatable {
     final key = meta?.key ?? _asString(map['key']) ?? emptyGeral.key;
     final label = meta?.label ?? _asString(map['label']) ?? emptyGeral.label;
 
+    final resolvedIconKey = meta?.iconKey ??
+        _asString(map['iconKey']) ??
+        _asString(map['icon']) ??
+        pickIconKeyForTitle(label);
+
     return ScheduleRoadData(
       numero: _asInt(map['numero']) ?? 0,
       faixaIndex: _asInt(map['faixaIndex']) ?? 0,
@@ -355,7 +420,8 @@ class ScheduleRoadData extends Equatable {
       takenAtMs: _parseTakenAtMs(map['takenAtMs']),
       key: key,
       label: label,
-      icon: meta?.icon ?? _iconForKey(key),
+      iconKey: resolvedIconKey,
+      icon: meta?.icon ?? iconForKey(resolvedIconKey),
       color: meta?.color ?? _asColor(map['color']) ?? emptyGeral.color,
       geometryType: _asString(map['geometryType']),
       multiLine: _parseMulti(map['multiLine']),
@@ -396,7 +462,7 @@ class ScheduleRoadData extends Equatable {
       map.addAll({
         'key': key,
         'label': label,
-        'iconKey': key,
+        'iconKey': iconKey,
         'color': color.toARGB32(),
       });
     }
@@ -408,7 +474,7 @@ class ScheduleRoadData extends Equatable {
     return <String, dynamic>{
       'key': key.trim(),
       'label': label.trim(),
-      'iconKey': key.trim(),
+      'iconKey': iconKey.trim(),
       'color': color.toARGB32(),
     };
   }
@@ -436,6 +502,7 @@ class ScheduleRoadData extends Equatable {
     String? updatedBy,
     String? key,
     String? label,
+    String? iconKey,
     IconData? icon,
     Color? color,
     List<String>? fotos,
@@ -453,6 +520,8 @@ class ScheduleRoadData extends Equatable {
     TextEditingController? posCtrl,
     TextEditingController? nameCtrl,
   }) {
+    final nextIconKey = iconKey ?? this.iconKey;
+
     return ScheduleRoadData(
       numero: numero ?? this.numero,
       faixaIndex: faixaIndex ?? this.faixaIndex,
@@ -465,6 +534,7 @@ class ScheduleRoadData extends Equatable {
       updatedBy: updatedBy ?? this.updatedBy,
       key: key ?? this.key,
       label: label ?? this.label,
+      iconKey: nextIconKey,
       icon: icon ?? this.icon,
       color: color ?? this.color,
       fotos: fotos ?? this.fotos,
@@ -484,8 +554,193 @@ class ScheduleRoadData extends Equatable {
     );
   }
 
-  static IconData _iconForKey(String key) {
-    switch (key.trim()) {
+  static Color colorFromSlug(
+      String slug, {
+        double s = 0.55,
+        double v = 0.85,
+      }) {
+    int hash = 0;
+
+    for (var i = 0; i < slug.length; i++) {
+      hash = 31 * hash + slug.codeUnitAt(i);
+    }
+
+    final hue = (hash % 360).toDouble();
+
+    return HSVColor.fromAHSV(1.0, hue, s, v).toColor();
+  }
+
+  static IconData iconFromSlug(String slug) {
+    final iconKey = pickIconKeyForTitle(slug);
+
+    return iconForKey(iconKey);
+  }
+
+  static const List<Color> _palette = <Color>[
+    Color(0xFF42A5F5),
+    Color(0xFFE76F51),
+    Color(0xFF43A047),
+    Color(0xFF795548),
+    Color(0xFF455A64),
+    Color(0xFFFFB300),
+    Color(0xFF26A69A),
+    Color(0xFF00ACC1),
+    Color(0xFF8E24AA),
+    Color(0xFF8D6E63),
+  ];
+
+  static String strip(String s) {
+    return s
+        .trim()
+        .toUpperCase()
+        .replaceAll('Á', 'A')
+        .replaceAll('À', 'A')
+        .replaceAll('Â', 'A')
+        .replaceAll('Ã', 'A')
+        .replaceAll('É', 'E')
+        .replaceAll('Ê', 'E')
+        .replaceAll('Í', 'I')
+        .replaceAll('Ó', 'O')
+        .replaceAll('Ô', 'O')
+        .replaceAll('Õ', 'O')
+        .replaceAll('Ú', 'U')
+        .replaceAll('Ç', 'C')
+        .replaceAll('|', ' ')
+        .replaceAll('/', ' ')
+        .replaceAll('-', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  static Color colorForService(String raw) {
+    final k = strip(raw);
+
+    if (k == 'GERAL') return Colors.black54;
+
+    bool has(String token) => k.contains(token);
+
+    if (has('PRELIMINAR') || has('PRELIMINARES')) return _palette[0];
+    if (has('TERRAPLEN')) return _palette[1];
+    if (has('BASE') || has('SUB BASE') || has('SUBBASE')) return _palette[2];
+    if (has('PAVIMENTA')) return _palette[3];
+    if (has('ASFALT') || has('CBUQ')) return _palette[4];
+    if (has('SINALIZA')) return _palette[5];
+    if (has('COMPLEMENT')) return _palette[6];
+    if (has('DRENAGEM') || has('DRENAGE')) return _palette[7];
+    if (has('OBRAS ESPECIAIS') || has('ESPECIA')) return _palette[8];
+
+    int hash = 0;
+
+    for (final c in k.codeUnits) {
+      hash = 0x1fffffff & (hash + c);
+      hash = 0x1fffffff & (hash + ((hash & 0x0007ffff) << 10));
+      hash ^= hash >> 6;
+    }
+
+    hash = 0x1fffffff & (hash + ((hash & 0x03ffffff) << 3));
+    hash ^= hash >> 11;
+    hash = 0x1fffffff & (hash + ((hash & 0x00003fff) << 15));
+
+    return _palette[hash % _palette.length];
+  }
+
+  static Color colorForFaixa(String raw) {
+    final t = strip(raw);
+
+    bool any(List<String> ks) => ks.any(t.contains);
+
+    if (any(const ['CENTRAL', 'CANTEIRO', 'CC', 'CE', 'EIXO'])) {
+      return Colors.amber.shade600;
+    }
+
+    if (any(const ['DUPLICA', 'AMPLIA', 'ADICIONAL', 'NOVA', 'NOVAS'])) {
+      return Colors.grey.shade800;
+    }
+
+    if (any(const ['ATUAL', 'EXISTENTE'])) {
+      return Colors.grey.shade600;
+    }
+
+    if (any(const ['ACOST', 'ACOSTAMENTO'])) {
+      return Colors.grey.shade400;
+    }
+
+    if (any(const ['CICLOVIA', 'BICIC', 'CICL'])) {
+      return Colors.green.shade600;
+    }
+
+    if (any(const ['PASSEIO', 'CALCADA', 'CALÇADA'])) {
+      return Colors.blue.shade600;
+    }
+
+    if (any(const ['RETORNO', 'ALCA', 'ALÇA', 'ACESSO'])) {
+      return Colors.purple.shade600;
+    }
+
+    return Colors.grey.shade500;
+  }
+
+  static String pickIconKeyForTitle(String title) {
+    final t = strip(title);
+
+    if (t.contains('SINALIZA')) return 'signpost_outlined';
+
+    if (t.contains('ESPECIA') ||
+        t.contains('OBRA DE ARTE') ||
+        t.contains('OAE') ||
+        t.contains('PONTE')) {
+      return 'assured_workload_outlined';
+    }
+
+    if (t.contains('ASFALT') ||
+        t.contains('PAVIMENTA') ||
+        t.contains('CBUQ')) {
+      return 'alt_route_outlined';
+    }
+
+    if (t.contains('BASE') || t.contains('SUBBASE') || t.contains('SUB BASE')) {
+      return 'layers_outlined';
+    }
+
+    if (t.contains('TERRAPLEN')) return 'terrain_outlined';
+
+    if (t.contains('COMPLEMENTAR') || t.contains('COMPLEMENT')) {
+      return 'add_location_alt_outlined';
+    }
+
+    if (t.contains('DRENAGE') || t.contains('DRENAGEM')) {
+      return 'water_drop_outlined';
+    }
+
+    if (t.contains('PRELIMIN')) {
+      return 'engineering_outlined';
+    }
+
+    if (t.contains('TRANSPORTE') || t.contains('RODOVIA')) {
+      return 'commute_outlined';
+    }
+
+    return 'layers_outlined';
+  }
+
+  static IconData pickIconForTitle(String title) {
+    return iconForKey(pickIconKeyForTitle(title));
+  }
+
+  static IconData iconForKey(String key) {
+    final clean = key.trim();
+
+    if (clean.isEmpty) return Icons.layers_outlined;
+
+    final fromCatalog = IconsCatalog.iconFor(clean);
+
+    if (fromCatalog != Icons.layers_outlined || clean == 'layers_outlined') {
+      return fromCatalog;
+    }
+
+    switch (clean) {
+      case 'clear_all':
+        return Icons.clear_all;
+
       case 'geral':
         return Icons.clear_all;
 
@@ -512,6 +767,9 @@ class ScheduleRoadData extends Equatable {
 
       case 'lane':
         return Icons.view_stream_outlined;
+
+      case 'route':
+        return Icons.route;
 
       default:
         return Icons.construction_outlined;
@@ -601,8 +859,9 @@ class ScheduleRoadData extends Equatable {
   static Map<String, bool> _asBoolMap(dynamic value) {
     if (value is Map) {
       return <String, bool>{
-        for (final entry in value.entries) entry.key.toString().trim(): entry.value == true,
-      };
+        for (final entry in value.entries)
+          entry.key.toString().trim(): entry.value == true,
+      }..removeWhere((key, _) => key.isEmpty || key == 'geral');
     }
 
     return const <String, bool>{};
@@ -741,7 +1000,8 @@ class ScheduleRoadData extends Equatable {
 
     if (pointRaw is Map) {
       final rawLat = pointRaw['lat'] ?? pointRaw['latitude'];
-      final rawLon = pointRaw['lng'] ?? pointRaw['longitude'] ?? pointRaw['lon'];
+      final rawLon =
+          pointRaw['lng'] ?? pointRaw['longitude'] ?? pointRaw['lon'];
 
       final lat = _asDouble(rawLat);
       final lon = _asDouble(rawLon);
@@ -757,7 +1017,9 @@ class ScheduleRoadData extends Equatable {
   static List<List<dynamic>>? _toMultiList(List<List<LatLng>>? multiLine) {
     if (multiLine == null) return null;
 
-    final validSegments = multiLine.where((segment) => segment.length >= 2).toList();
+    final validSegments = multiLine
+        .where((segment) => segment.length >= 2)
+        .toList(growable: false);
 
     if (validSegments.isEmpty) return null;
 
@@ -804,6 +1066,7 @@ class ScheduleRoadData extends Equatable {
     updatedBy,
     key,
     label,
+    iconKey,
     icon.codePoint,
     color.toARGB32(),
     geometryType,

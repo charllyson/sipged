@@ -12,6 +12,7 @@ import 'package:sipged/_widgets/list/search/participant_tile.dart';
 /// - Em participantsMode, exibe participantes com papel e permissões.
 /// - Permite alternar permissões read/create/edit/delete/approve.
 /// - Permite alterar papel e remover participante.
+/// - Persiste novo usuário via [onUserAdded].
 /// ======================================================================
 class SearchUserPermissionWidget extends StatefulWidget {
   const SearchUserPermissionWidget({
@@ -20,6 +21,7 @@ class SearchUserPermissionWidget extends StatefulWidget {
     required this.allUsers,
     this.initialUserIds = const <String>[],
     this.onChanged,
+    this.onUserAdded,
     this.enabled = true,
     this.width = 300,
     this.multiple = true,
@@ -48,8 +50,14 @@ class SearchUserPermissionWidget extends StatefulWidget {
   /// IDs inicialmente selecionados.
   final List<String> initialUserIds;
 
-  /// Dispara quando a lista de IDs muda.
+  /// Dispara quando a lista local de IDs muda.
   final void Function(List<String> userIds)? onChanged;
+
+  /// Dispara ao selecionar novo usuário.
+  ///
+  /// Use este callback para persistir no Firestore:
+  /// ContractCubit.addParticipant(...)
+  final Future<void> Function(String uid, UserData user)? onUserAdded;
 
   final bool enabled;
   final double width;
@@ -99,6 +107,7 @@ class _SearchUserPermissionWidgetState
   late List<String> _selectedIds;
 
   bool _showInlineSearch = false;
+  bool _isAddingUser = false;
 
   @override
   void initState() {
@@ -121,25 +130,40 @@ class _SearchUserPermissionWidgetState
   void didUpdateWidget(covariant SearchUserPermissionWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.initialUserIds != widget.initialUserIds &&
-        widget.controller == null) {
-      final normalized = widget.initialUserIds
-          .map((id) => id.trim())
-          .where((id) => id.isNotEmpty)
-          .toSet()
-          .toList();
+    if (widget.controller != null) {
+      return;
+    }
 
+    final oldInitial = oldWidget.initialUserIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    final newInitial = widget.initialUserIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    final current = _selectedIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    final initialReallyChanged = oldInitial.length != newInitial.length ||
+        !oldInitial.containsAll(newInitial) ||
+        !newInitial.containsAll(oldInitial);
+
+    final currentEqualsNew = current.length == newInitial.length &&
+        current.containsAll(newInitial) &&
+        newInitial.containsAll(current);
+
+    if (initialReallyChanged && !currentEqualsNew) {
       setState(() {
-        _selectedIds = normalized;
+        _selectedIds = newInitial.toList();
       });
 
       _syncController();
     }
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   List<String> _parseControllerIds(String raw) {
@@ -182,11 +206,17 @@ class _SearchUserPermissionWidgetState
 
   String _display(UserData user) {
     final name = (user.name ?? '').trim();
+    final surname = (user.surname ?? '').trim();
     final email = (user.email ?? '').trim();
     final uid = (user.uid ?? '').trim();
 
-    if (name.isNotEmpty && email.isNotEmpty) return '$name ($email)';
-    if (name.isNotEmpty) return name;
+    final fullName = [name, surname]
+        .where((value) => value.trim().isNotEmpty)
+        .join(' ')
+        .trim();
+
+    if (fullName.isNotEmpty && email.isNotEmpty) return '$fullName ($email)';
+    if (fullName.isNotEmpty) return fullName;
     if (email.isNotEmpty) return email;
     if (uid.isNotEmpty) return uid;
 
@@ -195,6 +225,7 @@ class _SearchUserPermissionWidgetState
 
   bool get _canAddMore {
     if (!widget.enabled) return false;
+    if (_isAddingUser) return false;
 
     final maxItems = widget.maxItems;
 
@@ -212,27 +243,69 @@ class _SearchUserPermissionWidgetState
     });
   }
 
-  void _addUser(UserData user) {
+  Future<void> _addUser(UserData user) async {
     if (!_canAddMore) return;
 
     final uid = _cleanUid(user);
 
     if (uid.isEmpty) return;
 
-    setState(() {
-      if (widget.multiple) {
-        if (!_selectedIds.contains(uid)) {
-          _selectedIds.add(uid);
-        }
+    final alreadySelected = _selectedIds.contains(uid);
 
-        _showInlineSearch = true;
-      } else {
-        _selectedIds = <String>[uid];
-        _showInlineSearch = false;
+    if (alreadySelected) {
+      if (!widget.multiple) {
+        setState(() {
+          _selectedIds = <String>[uid];
+          _showInlineSearch = false;
+        });
+
+        _emitChanged();
       }
+
+      return;
+    }
+
+    setState(() {
+      _isAddingUser = true;
     });
 
-    _emitChanged();
+    try {
+      if (widget.onUserAdded != null) {
+        await widget.onUserAdded!(uid, user);
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        if (widget.multiple) {
+          if (!_selectedIds.contains(uid)) {
+            _selectedIds.add(uid);
+          }
+
+          _showInlineSearch = true;
+        } else {
+          _selectedIds = <String>[uid];
+          _showInlineSearch = false;
+        }
+      });
+
+      _emitChanged();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao adicionar usuário: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _isAddingUser = false;
+      });
+    }
   }
 
   Future<void> _removeAt(int index) async {
@@ -247,8 +320,27 @@ class _SearchUserPermissionWidgetState
 
     _emitChanged();
 
-    if (widget.participantsMode && widget.onRemove != null) {
-      await widget.onRemove!(uid);
+    try {
+      if (widget.participantsMode && widget.onRemove != null) {
+        await widget.onRemove!(uid);
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        if (!_selectedIds.contains(uid)) {
+          _selectedIds.add(uid);
+        }
+      });
+
+      _emitChanged();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao remover usuário: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 
@@ -301,7 +393,7 @@ class _SearchUserPermissionWidgetState
       width: widget.width,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: Colors.black.withValues(alpha: 0.08),
@@ -322,6 +414,7 @@ class _SearchUserPermissionWidgetState
               enabled: _canAddMore,
               selectedCount: _selectedIds.length,
               maxItems: widget.maxItems,
+              isLoading: _isAddingUser,
               onAdd: _toggleSearch,
             ),
             if (_showInlineSearch && widget.enabled)
@@ -407,7 +500,7 @@ class _SearchUserPermissionWidgetState
                           role: role,
                           perms: perms,
                           roleOptions: widget.roleOptions,
-                          enabled: widget.enabled,
+                          enabled: widget.enabled && !_isAddingUser,
                           onChangeRole: widget.onChangeRole == null
                               ? null
                               : (newRole) async {
@@ -427,7 +520,7 @@ class _SearchUserPermissionWidgetState
                               : () async {
                             await widget.onEditPerms!(uid);
                           },
-                          onRemove: widget.enabled
+                          onRemove: widget.enabled && !_isAddingUser
                               ? () {
                             _removeAt(index);
                           }
@@ -439,7 +532,7 @@ class _SearchUserPermissionWidgetState
                       final user = _findById(uid) ?? UserData(uid: uid);
 
                       return Material(
-                        color: Colors.white,
+                        color: theme.cardColor,
                         child: ListTile(
                           dense: true,
                           minLeadingWidth: 0,
@@ -481,7 +574,7 @@ class _SearchUserPermissionWidgetState
                               color: cs.error,
                               size: 20,
                             ),
-                            onPressed: widget.enabled
+                            onPressed: widget.enabled && !_isAddingUser
                                 ? () {
                               _removeAt(index);
                             }
@@ -506,6 +599,7 @@ class _Header extends StatelessWidget {
     required this.enabled,
     required this.selectedCount,
     required this.maxItems,
+    required this.isLoading,
     required this.onAdd,
   });
 
@@ -513,18 +607,20 @@ class _Header extends StatelessWidget {
   final bool enabled;
   final int selectedCount;
   final int? maxItems;
+  final bool isLoading;
   final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final counter = maxItems == null ? '$selectedCount' : '$selectedCount/$maxItems';
+    final counter =
+    maxItems == null ? '$selectedCount' : '$selectedCount/$maxItems';
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         border: Border(
           bottom: BorderSide(
             color: Colors.black.withValues(alpha: 0.06),
@@ -569,16 +665,28 @@ class _Header extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          IconButton(
-            tooltip: 'Adicionar usuário',
-            visualDensity: VisualDensity.compact,
-            onPressed: enabled ? onAdd : null,
-            icon: const Icon(
-              Icons.add_circle_rounded,
-              size: 22,
-              color: Color(0xFF1B2033),
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else
+            IconButton(
+              tooltip: 'Adicionar usuário',
+              visualDensity: VisualDensity.compact,
+              onPressed: enabled ? onAdd : null,
+              icon: Icon(
+                Icons.add_circle_rounded,
+                size: 22,
+                color: enabled
+                    ? const Color(0xFF1B2033)
+                    : Colors.grey.shade400,
+              ),
             ),
-          ),
         ],
       ),
     );
