@@ -28,9 +28,9 @@ import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_in_line.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
-import 'package:sipged/screens/modules/operation/schedule/horizontal/schedule_modal_square.dart';
-import 'package:sipged/screens/modules/operation/schedule/horizontal/schedule_status.dart';
-import 'package:sipged/screens/modules/operation/schedule/horizontal/type.dart';
+import 'package:sipged/screens/modules/operation/schedule/common/modal/schedule_modal_widget.dart';
+import 'package:sipged/screens/modules/operation/schedule/common/header/schedule_status.dart';
+import 'package:sipged/screens/modules/operation/schedule/common/schedule_type.dart';
 import 'package:sipged/screens/modules/operation/schedule/vertical/polygon_painter.dart';
 import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_board.dart';
 import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_controller.dart';
@@ -1201,7 +1201,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                     value: civilBloc,
                   ),
                 ],
-                child: ScheduleModalSquare(
+                child: ScheduleModalWidget(
                   currentUserId: _uid,
                   tipoLabel: widget.title.isNotEmpty ? widget.title : 'CIVIL',
                   type: ScheduleType.civil,

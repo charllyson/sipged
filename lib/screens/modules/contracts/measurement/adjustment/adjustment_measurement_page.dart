@@ -1,11 +1,10 @@
-// lib/screens/modules/contracts/measurement/adjustment/adjustment_measurement_page.dart
-
 import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -133,8 +132,11 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
   final dateCtrl = TextEditingController();
 
   late DfdRepository _dfdRepository;
+  late ApostillesRepository _apostillesRepository;
 
   DfdData? _dfdData;
+
+  double _totalApostillesValue = 0.0;
 
   bool formValidated = false;
 
@@ -174,7 +176,12 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
       tenantId: widget.tenantId,
     );
 
+    _apostillesRepository = ApostillesRepository(
+      tenantId: widget.tenantId,
+    );
+
     _loadDfdDisplayData();
+    _loadApostillesValue();
 
     orderCtrl.addListener(_validateForm);
     processCtrl.addListener(_validateForm);
@@ -194,11 +201,17 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
         tenantId: widget.tenantId,
       );
 
+      _apostillesRepository = ApostillesRepository(
+        tenantId: widget.tenantId,
+      );
+
       setState(() {
         _dfdData = null;
+        _totalApostillesValue = 0.0;
       });
 
       _loadDfdDisplayData();
+      _loadApostillesValue();
     }
   }
 
@@ -239,6 +252,39 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
     } catch (e, stack) {
       debugPrint('Falha ao carregar DFD do contrato em reajuste: $e');
       debugPrintStack(stackTrace: stack);
+    }
+  }
+
+  Future<void> _loadApostillesValue() async {
+    final contractId = _contractId;
+
+    if (contractId.isEmpty) {
+      if (!mounted) return;
+
+      setState(() {
+        _totalApostillesValue = 0.0;
+      });
+
+      return;
+    }
+
+    try {
+      final total = await _apostillesRepository.getAllApostillesValue(contractId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _totalApostillesValue = total.isFinite ? total : 0.0;
+      });
+    } catch (e, stack) {
+      debugPrint('Falha ao carregar total de apostilamentos em reajuste: $e');
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) return;
+
+      setState(() {
+        _totalApostillesValue = 0.0;
+      });
     }
   }
 
@@ -608,9 +654,10 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
               (previousTotal, item) => previousTotal + (item.value ?? 0.0),
         );
 
-        final double totalApostilles = 0.0;
+        final double totalApostilles = _totalApostillesValue;
         final double totalAdditives = 0.0;
-        final double valorTotalDisponivel = totalApostilles + totalAdditives;
+
+        final double valorTotalDisponivel = totalApostilles;
         final double saldo = valorTotalDisponivel - total;
 
         final selectedIndex = state.selectedIndex;
@@ -786,8 +833,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 setState(() {
                                   _selectedSideIndex =
                                   cubit.state.attachments.isNotEmpty
-                                      ? cubit.state.attachments
-                                      .length -
+                                      ? cubit.state.attachments.length -
                                       1
                                       : null;
                                 });

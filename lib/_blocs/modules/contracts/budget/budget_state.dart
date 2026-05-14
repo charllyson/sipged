@@ -1,35 +1,42 @@
-// lib/_blocs/modules/contracts/budget/loa_state.dart
+// lib/_blocs/modules/contracts/budget/budget_state.dart
+
 import 'package:equatable/equatable.dart';
+
 import 'budget_data.dart';
 
-enum BudgetStatus { initial, loading, success, failure }
+enum BudgetStatus {
+  initial,
+  loading,
+  success,
+  failure,
+}
 
 class BudgetState extends Equatable {
   const BudgetState({
     this.status = BudgetStatus.initial,
-    this.byContract = const {},
-    this.loading = const {},
-    this.errorByContract = const {},
+    this.byContract = const <String, BudgetData>{},
+    this.loading = const <String, bool>{},
+    this.errorByContract = const <String, String?>{},
     this.lastContractId,
   });
 
   final BudgetStatus status;
-
-  /// Cache: contractId -> BudgetData
   final Map<String, BudgetData> byContract;
-
-  /// contractId -> loading
   final Map<String, bool> loading;
-
-  /// contractId -> erro (string)
   final Map<String, String?> errorByContract;
-
-  /// Último contrato operado (útil para UI)
   final String? lastContractId;
 
-  BudgetData? dataFor(String contractId) => byContract[contractId];
-  bool loadingFor(String contractId) => loading[contractId] == true;
-  String? errorFor(String contractId) => errorByContract[contractId];
+  BudgetData? dataFor(String contractId) {
+    return byContract[contractId.trim()];
+  }
+
+  bool loadingFor(String contractId) {
+    return loading[contractId.trim()] == true;
+  }
+
+  String? errorFor(String contractId) {
+    return errorByContract[contractId.trim()];
+  }
 
   BudgetState copyWith({
     BudgetStatus? status,
@@ -37,16 +44,26 @@ class BudgetState extends Equatable {
     Map<String, bool>? loading,
     Map<String, String?>? errorByContract,
     String? lastContractId,
+    bool clearLastContractId = false,
   }) {
     return BudgetState(
       status: status ?? this.status,
       byContract: byContract ?? this.byContract,
       loading: loading ?? this.loading,
       errorByContract: errorByContract ?? this.errorByContract,
-      lastContractId: lastContractId ?? this.lastContractId,
+      lastContractId:
+      clearLastContractId ? null : lastContractId ?? this.lastContractId,
     );
   }
 
   @override
-  List<Object?> get props => [status, byContract, loading, errorByContract, lastContractId];
+  List<Object?> get props {
+    return <Object?>[
+      status,
+      byContract,
+      loading,
+      errorByContract,
+      lastContractId,
+    ];
+  }
 }

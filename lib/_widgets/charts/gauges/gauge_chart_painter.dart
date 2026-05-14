@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 class GaugeChartPainter extends CustomPainter {
@@ -13,29 +15,38 @@ class GaugeChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = (size.shortestSide / 2) - (strokeWidth / 2) - 2;
+    final Offset center = size.center(Offset.zero);
 
-    final trackPaint = Paint()
+    final double radius = (size.shortestSide / 2) - (strokeWidth / 2) - 2.0;
+
+    final Paint trackPaint = Paint()
       ..color = trackColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    final rect = Rect.fromCircle(center: center, radius: radius);
+    final Rect rect = Rect.fromCircle(
+      center: center,
+      radius: radius,
+    );
+
     canvas.drawArc(
       rect,
-      -3.14 / 2,
-      3.14 * 1.7,
+      -math.pi / 2,
+      math.pi * 1.7,
       false,
       trackPaint,
     );
 
-    final innerCirclePaint = Paint()
+    final Paint innerCirclePaint = Paint()
       ..color = innerFillColor
       ..style = PaintingStyle.fill;
 
-    canvas.drawCircle(center, radius * 0.35, innerCirclePaint);
+    canvas.drawCircle(
+      center,
+      radius * 0.35,
+      innerCirclePaint,
+    );
   }
 
   @override

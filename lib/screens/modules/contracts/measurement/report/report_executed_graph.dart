@@ -190,14 +190,12 @@ class ReportExecutedGraph extends StatelessWidget {
           const SizedBox(width: 12),
           LineChartChanged(
             headerTitle: 'Medições x Pagamentos',
-            headerSubtitle:
-            'Medido: ${SipGedFormatMoney.doubleToText(totalMedicoes)} | Pago: ${SipGedFormatMoney.doubleToText(totalPagoEfetivo)}',
+            headerSubtitle: 'Medido: ${SipGedFormatMoney.doubleToText(totalMedicoes)} | Pago: ${SipGedFormatMoney.doubleToText(totalPagoEfetivo)}',
             headerIcon: Icons.show_chart_rounded,
             labels: safeLabels,
             values: safeMeasurementValues,
             selectedIndex: safeSelectedIndex,
             larguraGrafico: availableWidth,
-            alturaGrafico: 294,
             showLegend: true,
             series: [
               LineSeries(

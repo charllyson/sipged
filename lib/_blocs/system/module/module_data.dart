@@ -12,19 +12,17 @@ enum ModuleEnum {
   processApostillesRecords,
   processMeasurementsRecords,
   processHiringBudget,
+  financialDashboard,
 
   operationMonitoringWork,
 
   planningProjectRegistration,
-  planningRightOfWayRecords,
 
   trafficAccidentsDashboard,
   trafficAccidentsRecords,
   trafficInfractionsDashboard,
   trafficInfractionsRecords,
 
-  financialDashboard,
-  financialCommitmentRecords,
 
   activeRoadRegistration,
   activeRoadNetwork,

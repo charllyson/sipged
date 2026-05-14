@@ -11,6 +11,14 @@ class CircleButtonChange extends StatelessWidget {
   final bool outlined;
   final Color? borderColor;
 
+  /// Quando true, o botão fica visualmente ativo.
+  final bool selected;
+
+  /// Cores opcionais para o estado ativo.
+  final Color? selectedBackgroundColor;
+  final Color? selectedIconColor;
+  final Color? selectedBorderColor;
+
   const CircleButtonChange({
     super.key,
     this.icon = Icons.arrow_back,
@@ -22,6 +30,10 @@ class CircleButtonChange extends StatelessWidget {
     this.tooltip = 'Voltar',
     this.outlined = false,
     this.borderColor,
+    this.selected = false,
+    this.selectedBackgroundColor,
+    this.selectedIconColor,
+    this.selectedBorderColor,
   });
 
   @override
@@ -29,23 +41,47 @@ class CircleButtonChange extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final bgColor =
+    final defaultBgColor =
         backgroundColor ?? (isDark ? Colors.grey.shade900 : Colors.white);
 
-    final iconClr = iconColor ?? (isDark ? Colors.white : Colors.black87);
+    final defaultIconColor =
+        iconColor ?? (isDark ? Colors.white : Colors.black87);
 
-    final effectiveBorderColor =
+    final defaultBorderColor =
         borderColor ?? theme.dividerColor.withValues(alpha: 0.28);
+
+    final bgColor = selected
+        ? (selectedBackgroundColor ?? Colors.white)
+        : defaultBgColor;
+
+    final iconClr = selected
+        ? (selectedIconColor ?? Colors.black87)
+        : defaultIconColor;
+
+    final effectiveBorderColor = selected
+        ? (selectedBorderColor ?? Colors.white)
+        : defaultBorderColor;
 
     final effectiveIconSize = iconSize ?? (radius * 0.78);
     final size = radius * 2;
 
-    Widget child = Container(
+    Widget child = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: bgColor,
+        boxShadow: selected
+            ? [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ]
+            : null,
       ),
       child: Material(
         type: MaterialType.transparency,
@@ -55,10 +91,14 @@ class CircleButtonChange extends StatelessWidget {
           customBorder: const CircleBorder(),
           onTap: onPressed ?? () => Navigator.of(context).maybePop(),
           child: Center(
-            child: Icon(
-              icon,
-              size: effectiveIconSize,
-              color: iconClr,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 160),
+              child: Icon(
+                icon,
+                key: ValueKey<IconData>(icon),
+                size: effectiveIconSize,
+                color: iconClr,
+              ),
             ),
           ),
         ),
@@ -66,14 +106,16 @@ class CircleButtonChange extends StatelessWidget {
     );
 
     if (outlined) {
-      child = Container(
+      child = AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
         width: size,
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
             color: effectiveBorderColor,
-            width: 1,
+            width: selected ? 1.4 : 1,
           ),
         ),
         child: child,

@@ -99,7 +99,7 @@ class LineChartChanged extends StatefulWidget {
     this.onPointTap,
     this.onPointTapSeries,
     this.larguraGrafico,
-    this.alturaGrafico = 240,
+    this.alturaGrafico = 295,
     this.tooltipFormatter,
     this.prefix,
     this.showLegend = true,

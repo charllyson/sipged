@@ -1,5 +1,4 @@
 // lib/screens/modules/contracts/budget/budget_page.dart
-// ajuste o caminho conforme onde esse arquivo está no seu projeto
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -22,9 +21,7 @@ import 'package:sipged/_blocs/system/permission/permission_state.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
-import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
 import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
 import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
 
@@ -150,6 +147,7 @@ class _BudgetPageState extends State<BudgetPage> {
         if (fullName.isNotEmpty) return fullName;
 
         final name = (meta['name'] ?? meta['nome'] ?? '').toString().trim();
+
         final surname =
         (meta['surname'] ?? meta['sobrenome'] ?? '').toString().trim();
 
@@ -201,7 +199,8 @@ class _BudgetPageState extends State<BudgetPage> {
       contract: widget.contractData,
       title: cleanTitle.isEmpty ? 'Orçamento' : cleanTitle,
       subtitle: cleanSubtitle?.isNotEmpty == true ? cleanSubtitle : null,
-      details: cleanDetails?.isNotEmpty == true ? cleanDetails : _contractSummary,
+      details:
+      cleanDetails?.isNotEmpty == true ? cleanDetails : _contractSummary,
       leadingLabel: 'Orçamento',
       module: 'contracts_budget',
       type: type,
@@ -265,8 +264,7 @@ class _BudgetPageState extends State<BudgetPage> {
 
     await cubit.ensureFor(cleanContractId);
 
-    final st = cubit.state;
-    final data = st.dataFor(cleanContractId);
+    final data = cubit.state.dataFor(cleanContractId);
 
     if (data == null || data.isEmpty) {
       ctrl.loadFromSnapshot(
@@ -277,7 +275,7 @@ class _BudgetPageState extends State<BudgetPage> {
       return;
     }
 
-    MagicAdapter.loadControllerFromDomain(
+    BudgetCubit.loadControllerFromDomain(
       controller: ctrl,
       data: data,
     );
@@ -285,7 +283,7 @@ class _BudgetPageState extends State<BudgetPage> {
 
   Future<void> _saveNow(
       BudgetCubit cubit,
-      bc.MagicTableController c,
+      bc.MagicTableController controller,
       String contractId,
       ) async {
     final cleanContractId = contractId.trim();
@@ -306,7 +304,9 @@ class _BudgetPageState extends State<BudgetPage> {
     setState(() => _saving = true);
 
     try {
-      final domain = MagicAdapter.buildDomainFromController(controller: c);
+      final domain = BudgetCubit.buildDomainFromController(
+        controller: controller,
+      );
 
       await cubit.saveDomain(
         contractId: cleanContractId,
@@ -370,6 +370,131 @@ class _BudgetPageState extends State<BudgetPage> {
     }
   }
 
+  Future<void> _handlePaste(
+      bc.MagicTableController controller,
+      ) async {
+    await controller.pasteFromClipboard();
+  }
+
+  Future<void> _handleSave(
+      BudgetCubit cubit,
+      bc.MagicTableController controller,
+      String contractId,
+      ) async {
+    if (!controller.hasData) {
+      await _showNotification(
+        title: 'Nada para salvar',
+        subtitle: 'Cole dados do Excel antes de salvar.',
+        type: NotificationStatus.info,
+        saveInBell: false,
+        sendPush: false,
+      );
+      return;
+    }
+
+    await _saveNow(
+      cubit,
+      controller,
+      contractId,
+    );
+  }
+
+  List<Widget> _buildFloatingActions({
+    required BuildContext context,
+    required bc.MagicTableController controller,
+    required BudgetCubit cubit,
+    required String contractId,
+    required bool isBusy,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return <Widget>[
+      _BudgetFloatingActionButton(
+        icon: Icons.content_paste_go_rounded,
+        title: 'Colar Excel',
+        subtitle: 'Ctrl + V',
+        enabled: !isBusy,
+        backgroundColor: colorScheme.surface,
+        foregroundColor: colorScheme.primary,
+        borderColor: colorScheme.outlineVariant,
+        onTap: () => _handlePaste(controller),
+      ),
+      const SizedBox(height: 10),
+      _BudgetFloatingActionButton(
+        icon: Icons.save_rounded,
+        title: _saving ? 'Salvando...' : 'Salvar',
+        subtitle: 'Firestore',
+        enabled: !isBusy,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        borderColor: colorScheme.primary,
+        onTap: () => _handleSave(
+          cubit,
+          controller,
+          contractId,
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildLoadingOverlay({
+    required BuildContext context,
+    required bool isSaving,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Stack(
+      children: <Widget>[
+        const ModalBarrier(
+          dismissible: false,
+          color: Colors.black38,
+        ),
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 16,
+            ),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: colorScheme.outlineVariant,
+              ),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(
+                  blurRadius: 18,
+                  spreadRadius: 1,
+                  color: Colors.black26,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const LoadingTreeDots(
+                  size: 28,
+                  centered: false,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  isSaving
+                      ? 'Salvando orçamento...'
+                      : 'Carregando orçamento...',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final contractId = _contractId;
@@ -381,136 +506,198 @@ class _BudgetPageState extends State<BudgetPage> {
       listener: (context, permissionState) {
         _handlePermissionStateChanged(permissionState);
       },
-      child: ChangeNotifierProvider<bc.MagicTableController>(
-        create: (_) => bc.MagicTableController(
-          cellPadHorizontal:
-          const EdgeInsets.symmetric(horizontal: 12).horizontal,
+      child: BlocProvider<BudgetCubit>(
+        key: ValueKey<String>(
+          'budget_cubit_${_activeTenantId}_$contractId',
         ),
-        builder: (context, _) {
-          final ctrl = context.watch<bc.MagicTableController>();
-          final cubit = context.read<BudgetCubit>();
+        create: (_) => BudgetCubit(
+          tenantId: _activeTenantId,
+        ),
+        child: ChangeNotifierProvider<bc.MagicTableController>(
+          create: (_) => bc.MagicTableController(
+            cellPadHorizontal: const EdgeInsets.symmetric(
+              horizontal: 12,
+            ).horizontal,
+          ),
+          builder: (context, _) {
+            final ctrl = context.watch<bc.MagicTableController>();
+            final cubit = context.read<BudgetCubit>();
 
-          final isLoading = context.select<BudgetCubit, bool>(
-                (c) => c.state.loadingFor(contractId),
-          );
+            final isLoading = context.select<BudgetCubit, bool>(
+                  (c) => c.state.loadingFor(contractId),
+            );
 
-          final isBusy = isLoading || _saving;
+            final isBusy = isLoading || _saving;
 
-          return Scaffold(
-            appBar: UpBar(
-              leading: const Padding(
-                padding: EdgeInsets.only(left: 12.0),
-                child: CircleButtonChange(),
+            return Scaffold(
+              appBar: UpBar(
+                leading: const Padding(
+                  padding: EdgeInsets.only(left: 12.0),
+                  child: CircleButtonChange(),
+                ),
               ),
-            ),
-            body: Stack(
-              children: [
-                const Positioned.fill(
-                  child: BackgroundChange(),
-                ),
-                Positioned.fill(
-                  child: MagicTableChanged(
-                    selectAllOnEdit: false,
-                    controller: ctrl,
-                    onInit: (c) => _load(cubit, c, contractId),
-                    allowAddColumn: false,
-                    allowRemoveColumn: false,
-                    allowAddRow: false,
-                    onRequestSaveAfterStructureChange: (c) {
-                      return _saveNow(cubit, c, contractId);
-                    },
-                    bottomScrollGap: 90,
-                    rightScrollGap: 60,
-                    floatingActionsBuilder: (ctx, c) {
-                      return [
-                        FloatingActionButton.small(
-                          backgroundColor: Colors.white,
-                          heroTag: 'pasteExcel',
-                          tooltip: 'Colar do Excel (Ctrl+V)',
-                          onPressed:
-                          isBusy ? null : () => c.pasteFromClipboard(),
-                          child: const Icon(Icons.paste),
-                        ),
-                        const SizedBox(height: 12),
-                        FloatingActionButton.small(
-                          backgroundColor: Colors.white,
-                          heroTag: 'saveBudget',
-                          tooltip: 'Salvar orçamento no Firestore',
-                          onPressed: isBusy
-                              ? null
-                              : () async {
-                            if (!c.hasData) {
-                              await _showNotification(
-                                title: 'Nada para salvar',
-                                subtitle:
-                                'Cole dados do Excel antes de salvar.',
-                                type: NotificationStatus.info,
-                                saveInBell: false,
-                                sendPush: false,
-                              );
-                              return;
-                            }
-
-                            await _saveNow(cubit, c, contractId);
-                          },
-                          child: const Icon(Icons.save),
-                        ),
-                      ];
-                    },
+              body: Stack(
+                children: <Widget>[
+                  const Positioned.fill(
+                    child: BackgroundChange(),
                   ),
-                ),
-                const Align(
-                  alignment: Alignment.bottomCenter,
-                  child: FootBar(),
-                ),
-                if (isBusy) ...[
-                  const ModalBarrier(
-                    dismissible: false,
-                    color: Colors.black38,
-                  ),
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
+                  Positioned.fill(
+                    child: MagicTableChanged(
+                      selectAllOnEdit: false,
+                      controller: ctrl,
+                      onInit: (c) => _load(
+                        cubit,
+                        c,
+                        contractId,
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                            color: Colors.black26,
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const LoadingTreeDots(
-                            size: 28,
-                            centered: false,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            _saving
-                                ? 'Salvando orçamento...'
-                                : 'Carregando orçamento...',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                      allowAddColumn: false,
+                      allowRemoveColumn: false,
+                      allowAddRow: false,
+                      onRequestSaveAfterStructureChange: (c) {
+                        return _saveNow(
+                          cubit,
+                          c,
+                          contractId,
+                        );
+                      },
+                      bottomScrollGap: 32,
+                      rightScrollGap: 190,
+                      floatingActionsBuilder: (ctx, c) {
+                        return _buildFloatingActions(
+                          context: ctx,
+                          controller: c,
+                          cubit: cubit,
+                          contractId: contractId,
+                          isBusy: isBusy,
+                        );
+                      },
                     ),
                   ),
+                  if (isBusy)
+                    _buildLoadingOverlay(
+                      context: context,
+                      isSaving: _saving,
+                    ),
                 ],
-              ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _BudgetFloatingActionButton extends StatelessWidget {
+  const _BudgetFloatingActionButton({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.enabled,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.borderColor,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool enabled;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final Color borderColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final effectiveBackgroundColor = enabled
+        ? backgroundColor
+        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.80);
+
+    final effectiveForegroundColor = enabled
+        ? foregroundColor
+        : theme.colorScheme.onSurface.withValues(alpha: 0.38);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(18),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: 164,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
+          decoration: BoxDecoration(
+            color: effectiveBackgroundColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: enabled
+                  ? borderColor.withValues(alpha: 0.70)
+                  : theme.colorScheme.outlineVariant.withValues(alpha: 0.50),
             ),
-          );
-        },
+            boxShadow: enabled
+                ? <BoxShadow>[
+              BoxShadow(
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+                color: Colors.black.withValues(alpha: 0.16),
+              ),
+            ]
+                : const <BoxShadow>[],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: effectiveForegroundColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  size: 19,
+                  color: effectiveForegroundColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: effectiveForegroundColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: effectiveForegroundColor.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

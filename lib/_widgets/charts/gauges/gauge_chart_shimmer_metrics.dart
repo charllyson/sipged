@@ -33,6 +33,8 @@ class GaugeChartShimmerMetrics {
     required double maxWidth,
     required double maxHeight,
     double? customRadius,
+    bool hasHeader = true,
+    bool hasFooter = true,
   }) {
     final bool ultraCompact = maxWidth <= 210 || maxHeight <= 180;
     final bool veryCompact = maxWidth <= 250 || maxHeight <= 210;
@@ -61,18 +63,24 @@ class GaugeChartShimmerMetrics {
         ? 5.0
         : 6.0;
 
-    final double reservedHeader = headerHeight * 2 + headerSpacing;
-    final double reservedFooter = footerHeight * 2 + footerSpacing;
+    final double reservedHeader =
+    hasHeader ? headerHeight + headerSpacing : 0.0;
+
+    final double reservedFooter =
+    hasFooter ? footerHeight + footerSpacing : 0.0;
 
     final double safeWidth = math.max(100.0, maxWidth);
     final double safeHeight = math.max(110.0, maxHeight);
 
-    final double rawDiameter = math.min(
+    final double rawDiameter = math
+        .min(
       safeWidth * 0.82,
       safeHeight - reservedHeader - reservedFooter,
-    ).clamp(64.0, 180.0);
+    )
+        .clamp(64.0, 180.0);
 
     final double autoRadius = rawDiameter / 2.0;
+
     final double resolvedRadius = customRadius != null
         ? math.min(customRadius, autoRadius)
         : autoRadius;
@@ -94,8 +102,8 @@ class GaugeChartShimmerMetrics {
       footerWidth: (safeWidth * 0.36).clamp(60.0, 120.0),
       headerSpacing: headerSpacing,
       footerSpacing: footerSpacing,
-      showHeader: true,
-      showFooter: true,
+      showHeader: hasHeader,
+      showFooter: hasFooter,
     );
   }
 }

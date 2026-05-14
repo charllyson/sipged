@@ -157,6 +157,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                       const SectionTitle(text: 'Acompanhamento físico'),
                       SpecificDashboardSchedules(
                         contract: widget.contractData,
+                        tenantId: tenantId,
                       ),
 
                       const SectionTitle(text: 'Métricas'),

@@ -1,5 +1,3 @@
-// lib/_utils/theme/sipged_theme.dart
-
 import 'package:flutter/material.dart';
 
 abstract final class SipGedTheme {
@@ -11,8 +9,11 @@ abstract final class SipGedTheme {
   static const Color secondaryColor = Color(0xFF091D68);
 
   // ===========================================================================
-  // CORES BASE DO SISTEMA
+  // CORES BASE
   // ===========================================================================
+
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color black = Color(0xFF000000);
 
   static const Color background = Colors.white;
   static const Color surface = Color(0xFFF7F8FA);
@@ -33,14 +34,59 @@ abstract final class SipGedTheme {
   static const Color transparent = Colors.transparent;
 
   // ===========================================================================
+  // LIGHT THEME COLORS
+  // ===========================================================================
+
+  static const Color lightPrimary = Color(0xFF0F172A);
+  static const Color lightSecondary = Color(0xFF1D4ED8);
+
+  static const Color lightScaffoldBackground = Color(0xFFFFFFFF);
+  static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color lightCanvas = Color(0xFFFFFFFF);
+  static const Color lightCard = Color(0xFFF8FAFC);
+  static const Color lightDivider = Color(0xFFE5E7EB);
+
+  static const Color lightTextPrimary = Color(0xFF111827);
+  static const Color lightTextSecondary = Color(0xFF6B7280);
+
+  // ===========================================================================
+  // DARK THEME COLORS
+  // ===========================================================================
+
+  static const Color darkPrimary = Color(0xFF60A5FA);
+  static const Color darkSecondary = Color(0xFF3B82F6);
+
+  static const Color darkScaffoldBackground = Color(0xFF0F172A);
+  static const Color darkSurface = Color(0xFF111827);
+  static const Color darkCanvas = Color(0xFF0F172A);
+  static const Color darkCard = Color(0xFF1F2937);
+  static const Color darkDivider = Color(0xFF374151);
+
+  static const Color darkTextPrimary = Color(0xFFF9FAFB);
+  static const Color darkTextSecondary = Color(0xFF9CA3AF);
+
+  // ===========================================================================
+  // CORES DOS MÓDULOS / DRAWER / HOME
+  // ===========================================================================
+
+  static const Color drawerSectionLabelColor = Colors.white;
+  static const Color drawerModuleLabelColor = Colors.white70;
+
+  static const Color contractsColor = Color(0xFF0EA5E9);
+  static const Color operationColor = Color(0xFF059669);
+  static const Color planningColor = Color(0xFF1E40AF);
+  static const Color trafficColor = Color(0xFFEA580C);
+  static const Color activeColor = Color(0xFF334155);
+
+  // ===========================================================================
   // FEEDBACK
   // ===========================================================================
 
-  static const Color success = Color(0xFF2E7D32);
-  static const Color warning = Color(0xFFF9A825);
+  static const Color success = Color(0xFF16A34A);
+  static const Color warning = Color(0xFFF59E0B);
   static const Color danger = Color(0xFFC62828);
-  static const Color error = danger;
-  static const Color info = Color(0xFF1565C0);
+  static const Color error = Color(0xFFDC2626);
+  static const Color info = Color(0xFF2563EB);
   static const Color disabled = Color(0xFF999999);
 
   // ===========================================================================
@@ -112,6 +158,218 @@ abstract final class SipGedTheme {
       default:
         return const Color(0xFF2DD4BF);
     }
+  }
+
+  // ===========================================================================
+  // THEME DATA - LIGHT
+  // ===========================================================================
+
+  static ThemeData get light {
+    const colorScheme = ColorScheme(
+      brightness: Brightness.light,
+      primary: lightPrimary,
+      onPrimary: Colors.white,
+      secondary: lightSecondary,
+      onSecondary: Colors.white,
+      error: error,
+      onError: Colors.white,
+      surface: lightSurface,
+      onSurface: lightTextPrimary,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      colorScheme: colorScheme,
+      primaryColor: lightPrimary,
+      scaffoldBackgroundColor: lightScaffoldBackground,
+      canvasColor: lightCanvas,
+      cardColor: lightCard,
+      dividerColor: lightDivider,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: lightPrimary.withValues(alpha: 0.04),
+
+      appBarTheme: const AppBarTheme(
+        backgroundColor: lightPrimary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+
+      snackBarTheme: const SnackBarThemeData(
+        backgroundColor: lightPrimary,
+        contentTextStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+
+      dividerTheme: const DividerThemeData(
+        color: lightDivider,
+        thickness: 1,
+      ),
+
+      cardTheme: const CardThemeData(
+        color: lightCard,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+      ),
+
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(color: lightTextPrimary),
+        bodyMedium: TextStyle(color: lightTextPrimary),
+        bodySmall: TextStyle(color: lightTextSecondary),
+        titleLarge: TextStyle(
+          color: lightTextPrimary,
+          fontWeight: FontWeight.w700,
+        ),
+        titleMedium: TextStyle(
+          color: lightTextPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+        titleSmall: TextStyle(
+          color: lightTextPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+        labelLarge: TextStyle(
+          color: lightTextPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: lightDivider),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: lightDivider),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: lightSecondary,
+            width: 1.4,
+          ),
+        ),
+      ),
+
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: lightSecondary,
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // THEME DATA - DARK
+  // ===========================================================================
+
+  static ThemeData get dark {
+    const colorScheme = ColorScheme(
+      brightness: Brightness.dark,
+      primary: darkPrimary,
+      onPrimary: Colors.white,
+      secondary: darkSecondary,
+      onSecondary: Colors.white,
+      error: error,
+      onError: Colors.white,
+      surface: darkSurface,
+      onSurface: darkTextPrimary,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: colorScheme,
+      primaryColor: darkPrimary,
+      scaffoldBackgroundColor: darkScaffoldBackground,
+      canvasColor: darkCanvas,
+      cardColor: darkCard,
+      dividerColor: darkDivider,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: darkPrimary.withValues(alpha: 0.08),
+
+      appBarTheme: const AppBarTheme(
+        backgroundColor: darkSurface,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+
+      snackBarTheme: const SnackBarThemeData(
+        backgroundColor: darkSurface,
+        contentTextStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+
+      dividerTheme: const DividerThemeData(
+        color: darkDivider,
+        thickness: 1,
+      ),
+
+      cardTheme: const CardThemeData(
+        color: darkCard,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+      ),
+
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(color: darkTextPrimary),
+        bodyMedium: TextStyle(color: darkTextPrimary),
+        bodySmall: TextStyle(color: darkTextSecondary),
+        titleLarge: TextStyle(
+          color: darkTextPrimary,
+          fontWeight: FontWeight.w700,
+        ),
+        titleMedium: TextStyle(
+          color: darkTextPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+        titleSmall: TextStyle(
+          color: darkTextPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+        labelLarge: TextStyle(
+          color: darkTextPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: darkCard,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: darkDivider),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: darkDivider),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: darkSecondary,
+            width: 1.4,
+          ),
+        ),
+      ),
+
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: darkSecondary,
+      ),
+    );
   }
 
   // ===========================================================================

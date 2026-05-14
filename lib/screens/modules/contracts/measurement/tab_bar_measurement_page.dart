@@ -22,7 +22,7 @@ import 'package:sipged/screens/modules/contracts/measurement/report/report_execu
 import 'package:sipged/screens/modules/contracts/measurement/adjustment/adjustment_measurement_page.dart';
 import 'package:sipged/screens/modules/contracts/measurement/revision/revision_measurement_page.dart';
 
-import 'package:sipged/screens/modules/operation/phys_fin/physfin_widget.dart';
+import 'package:sipged/screens/modules/contracts/measurement/cronograma/physfin_widget.dart';
 
 class TabBarMeasurementPage extends StatefulWidget {
   const TabBarMeasurementPage({
@@ -175,8 +175,9 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
       create: (_) {
         return ScheduleRoadCubit(
           repository: ScheduleRoadRepository(
-            //tenantId: _activeTenantId,
+            tenantId: _activeTenantId,
           ),
+          tenantId: _activeTenantId,
         )..warmup(
           contractId: contractId,
           initialServiceKey: 'geral',

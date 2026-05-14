@@ -74,14 +74,12 @@ import 'package:sipged/screens/modules/contracts/measurement/tab_bar_measurement
 import 'package:sipged/screens/modules/contracts/validity/validity_tab_bar.dart';
 
 import 'package:sipged/screens/modules/financial/dashboard/financial_dashboard_network_page.dart';
-import 'package:sipged/screens/modules/financial/tab_bar_financial_page.dart';
 
-import 'package:sipged/screens/modules/operation/schedule/horizontal/schedule_road_workspace_page.dart';
+import 'package:sipged/screens/modules/operation/schedule/linear/schedule_linear_workspace.dart';
 import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_controller.dart';
 import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_workspace_page.dart';
 
 import 'package:sipged/screens/modules/planning/geo/geo_network_page.dart';
-import 'package:sipged/screens/modules/planning/land/land_page.dart';
 
 import 'package:sipged/screens/modules/traffic/accidents/dashboard/accident_dashboard_page.dart';
 import 'package:sipged/screens/modules/traffic/accidents/records/accidents_records_network_page.dart';
@@ -335,10 +333,11 @@ class _MenuListPageState extends State<MenuListPage> {
         MaterialPageRoute(
           builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
             create: (_) => ScheduleRoadRepository(
-              //tenantId: tenantId,
+              tenantId: tenantId,
             ),
             child: BlocProvider<ScheduleRoadCubit>(
               create: (ctx) => ScheduleRoadCubit(
+                tenantId: tenantId,
                 repository: ctx.read<ScheduleRoadRepository>(),
               )..warmup(
                 contractId: contractId,
@@ -347,7 +346,7 @@ class _MenuListPageState extends State<MenuListPage> {
                 summarySubjectContract: resumoContrato,
               ),
               child: Scaffold(
-                body: ScheduleRoadWorkspacePage(
+                body: ScheduleLinearWorkspace(
                   contractData: contract,
                 ),
               ),
@@ -513,10 +512,11 @@ class _MenuListPageState extends State<MenuListPage> {
       MaterialPageRoute(
         builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
           create: (_) => ScheduleRoadRepository(
-            //tenantId: tenantId,
+            tenantId: tenantId,
           ),
           child: BlocProvider<ScheduleRoadCubit>(
             create: (ctx) => ScheduleRoadCubit(
+              tenantId: tenantId,
               repository: ctx.read<ScheduleRoadRepository>(),
             )..warmup(
               contractId: contractId,
@@ -797,24 +797,6 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleEnum.planningProjectRegistration:
         return const GeoNetworkPage();
 
-      case ModuleEnum.planningRightOfWayRecords:
-        return _buildContractsListPage(
-              (context, contract) {
-            context.read<ContractCubit>().select(contract);
-
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => LandPage(
-                  contractData: contract,
-                ),
-              ),
-            );
-          },
-          pageTitle: 'Faixa de Domínio',
-          moduleItem: item,
-          tenantId: tenantId,
-        );
-
       case ModuleEnum.trafficAccidentsDashboard:
         return const AccidentDashboardPage();
 
@@ -829,24 +811,6 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleEnum.financialDashboard:
         return FinancialDashboardNetworkPage();
-
-      case ModuleEnum.financialCommitmentRecords:
-        return _buildContractsListPage(
-              (context, contract) {
-            context.read<ContractCubit>().select(contract);
-
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => TabBarFinancialPage(
-                  contractData: contract,
-                ),
-              ),
-            );
-          },
-          pageTitle: 'Pagamentos',
-          moduleItem: item,
-          tenantId: tenantId,
-        );
 
       case ModuleEnum.activeRoadNetwork:
         return const ActiveRoadsNetworkPage();

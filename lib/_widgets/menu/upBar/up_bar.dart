@@ -7,7 +7,14 @@ import 'package:sipged/screens/common/notification/notification_bell.dart';
 
 class UpBar extends StatelessWidget implements PreferredSizeWidget {
   final double titleHeight;
+
+  /// Altura padrão da área de subtítulo.
   final double subtitleHeight;
+
+  /// Altura customizada da área onde ficam os subtitleWidgets.
+  ///
+  /// Se informado, sobrescreve [subtitleHeight].
+  final double? subtitleWidgetsHeight;
 
   final List<Widget>? titleWidgets;
   final List<Widget>? subtitleWidgets;
@@ -49,6 +56,7 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     this.titleHeight = 56,
     this.subtitleHeight = 30,
+    this.subtitleWidgetsHeight,
     this.titleWidgets,
     this.subtitleWidgets = const [],
     this.leading,
@@ -77,15 +85,19 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
 
   bool get _hasSubtitle => (subtitleWidgets?.isNotEmpty ?? false);
 
-  bool get _shouldReserveLeadingSlot =>
-      leading != null || leadingActions.isNotEmpty;
+  double get _effectiveSubtitleHeight {
+    return subtitleWidgetsHeight ?? subtitleHeight;
+  }
 
-  bool get _hasRightFixedItems => showNotificationBell || showPhotoMenu;
+  bool get _shouldReserveLeadingSlot {
+    return leading != null || leadingActions.isNotEmpty;
+  }
 
   double _safeTop(BuildContext context) {
     if (!includeSafeTop) return 0.0;
 
     final mediaTop = MediaQuery.maybeOf(context)?.padding.top;
+
     if (mediaTop != null && mediaTop >= 0) {
       return mediaTop;
     }
@@ -94,7 +106,7 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   double _contentHeight() {
-    return titleHeight + (_hasSubtitle ? subtitleHeight : 0.0);
+    return titleHeight + (_hasSubtitle ? _effectiveSubtitleHeight : 0.0);
   }
 
   double _totalHeight(BuildContext context) {
@@ -116,7 +128,7 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
     }
 
     return Size.fromHeight(
-      safeTop + titleHeight + (_hasSubtitle ? subtitleHeight : 0.0),
+      safeTop + titleHeight + (_hasSubtitle ? _effectiveSubtitleHeight : 0.0),
     );
   }
 
@@ -145,28 +157,17 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
   double _reservedRightWidth() {
     double width = sideGap;
 
-    if (actions.isNotEmpty) {
-      width += actions.length * actionSlotWidth;
-
-      if (actions.length > 1) {
-        width += (actions.length - 1) * actionSpacing;
-      }
-    }
-
-    if (actions.isNotEmpty && _hasRightFixedItems) {
-      width += 8.0;
-    }
-
-    final fixedCount = [
+    final int rightItemsCount = [
       if (showNotificationBell) 1,
+      ...actions,
       if (showPhotoMenu) 1,
     ].length;
 
-    if (fixedCount > 0) {
-      width += fixedCount * actionSlotWidth;
+    if (rightItemsCount > 0) {
+      width += rightItemsCount * actionSlotWidth;
 
-      if (fixedCount > 1) {
-        width += 8.0;
+      if (rightItemsCount > 1) {
+        width += (rightItemsCount - 1) * actionSpacing;
       }
     }
 
@@ -341,49 +342,40 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  if (actions.isNotEmpty)
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                      CrossAxisAlignment.center,
-                                      children: _withSpacing(
-                                        actions.map((e) {
-                                          return SizedBox.square(
-                                            dimension: actionSlotWidth,
-                                            child: Center(
-                                              child: Tight(child: e),
-                                            ),
-                                          );
-                                        }).toList(),
-                                        actionSpacing,
+                                children: _withSpacing(
+                                  [
+                                    if (showNotificationBell)
+                                      SizedBox.square(
+                                        dimension: actionSlotWidth,
+                                        child: Center(
+                                          child: notificationBell ??
+                                              NotificationBell(
+                                                userId: notificationUserId ??
+                                                    FirebaseAuth.instance
+                                                        .currentUser
+                                                        ?.uid,
+                                              ),
+                                        ),
                                       ),
-                                    ),
-                                  if (actions.isNotEmpty && _hasRightFixedItems)
-                                    const SizedBox(width: 8),
-                                  if (showNotificationBell)
-                                    SizedBox.square(
-                                      dimension: actionSlotWidth,
-                                      child: Center(
-                                        child: notificationBell ??
-                                            NotificationBell(
-                                              userId: notificationUserId ??
-                                                  FirebaseAuth.instance
-                                                      .currentUser?.uid,
-                                            ),
+                                    ...actions.map((e) {
+                                      return SizedBox.square(
+                                        dimension: actionSlotWidth,
+                                        child: Center(
+                                          child: Tight(child: e),
+                                        ),
+                                      );
+                                    }),
+                                    if (showPhotoMenu)
+                                      SizedBox.square(
+                                        dimension: actionSlotWidth,
+                                        child: Center(
+                                          child: photoMenu ??
+                                              const PopUpPhotoMenu(),
+                                        ),
                                       ),
-                                    ),
-                                  if (showNotificationBell && showPhotoMenu)
-                                    const SizedBox(width: 8),
-                                  if (showPhotoMenu)
-                                    SizedBox.square(
-                                      dimension: actionSlotWidth,
-                                      child: Center(
-                                        child:
-                                        photoMenu ?? const PopUpPhotoMenu(),
-                                      ),
-                                    ),
-                                ],
+                                  ],
+                                  actionSpacing,
+                                ),
                               ),
                             ),
                           ),
@@ -394,17 +386,17 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 if (_hasSubtitle)
                   SizedBox(
-                    height: subtitleHeight,
+                    height: _effectiveSubtitleHeight,
                     child: Padding(
                       padding: const EdgeInsets.only(left: 12, right: 12),
                       child: Align(
-                        alignment: Alignment.center,
+                        alignment: Alignment.topCenter,
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           physics: const BouncingScrollPhysics(),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: _withSpacing(
                               _normalizeCenterWidgets(
                                 subtitleWidgets ?? const [],

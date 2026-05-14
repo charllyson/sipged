@@ -1,6 +1,4 @@
 // lib/bootstrap.dart
-// ou o arquivo onde você mantém o bootstrapAndRunApp()
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -47,12 +45,6 @@ import 'package:sipged/_blocs/system/user/user_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_repository.dart';
-
-import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/budget/budget_repository.dart';
-
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
 
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_cubit.dart';
@@ -242,16 +234,6 @@ Future<void> bootstrapAndRunApp() async {
               ),
             ),
 
-            RepositoryProvider<BudgetRepository>(
-              create: (_) => BudgetRepository(),
-            ),
-
-            BlocProvider<BudgetCubit>(
-              create: (ctx) => BudgetCubit(
-                repository: ctx.read<BudgetRepository>(),
-              ),
-            ),
-
             RepositoryProvider<ContractRepository>(
               create: (_) => ContractRepository(),
             ),
@@ -259,16 +241,6 @@ Future<void> bootstrapAndRunApp() async {
             BlocProvider<ContractCubit>(
               create: (ctx) => ContractCubit(
                 repository: ctx.read<ContractRepository>(),
-              ),
-            ),
-
-            RepositoryProvider<ScheduleRoadRepository>(
-              create: (_) => ScheduleRoadRepository(),
-            ),
-
-            BlocProvider<ScheduleRoadCubit>(
-              create: (ctx) => ScheduleRoadCubit(
-                repository: ctx.read<ScheduleRoadRepository>(),
               ),
             ),
           ],

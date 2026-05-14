@@ -32,7 +32,7 @@ import 'package:sipged/_blocs/system/user/user_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
-import 'package:sipged/_utils/theme/app_theme.dart';
+import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/screens/common/login/sign_in/sign_in.dart';
@@ -683,8 +683,8 @@ class _GatePageState extends State<GatePage> {
       title: 'SIPGED',
       debugShowCheckedModeBanner: false,
       locale: const Locale('pt', 'BR'),
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      theme: SipGedTheme.light,
+      darkTheme: SipGedTheme.dark,
       themeMode: ThemeMode.light,
       supportedLocales: const [
         Locale('pt', 'BR'),

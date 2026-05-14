@@ -6,7 +6,12 @@ import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/charts/gauges/gauge_chart_metrics.dart';
 import 'package:sipged/_widgets/charts/gauges/gauge_chart_shimmer.dart';
 
-enum GaugeTextMode { explicit, percent, number, money }
+enum GaugeTextMode {
+  explicit,
+  percent,
+  number,
+  money,
+}
 
 class GaugeChartChange extends StatelessWidget {
   final double? centerLabel;
@@ -16,8 +21,18 @@ class GaugeChartChange extends StatelessWidget {
   final double? widthGraphic;
   final double? heightGraphic;
 
+  /// Cor do progresso do gauge.
   final Color? progressColor;
+
+  /// Cor da trilha interna do gauge.
+  ///
+  /// Mantido com esse nome para não quebrar chamadas existentes.
   final Color? backgroundColor;
+
+  /// Cor do card.
+  ///
+  /// Segue o mesmo padrão do BarChartChanged.
+  final Color? colorCard;
 
   final double? radius;
   final double? centerFontSize;
@@ -38,6 +53,7 @@ class GaugeChartChange extends StatelessWidget {
     this.heightGraphic,
     this.progressColor,
     this.backgroundColor,
+    this.colorCard = Colors.white,
     this.radius,
     this.centerFontSize,
     this.footerFontSize,
@@ -47,26 +63,33 @@ class GaugeChartChange extends StatelessWidget {
     this.footerMode,
   });
 
+  static const double _defaultCardWidth = 260.0;
+  static const double _defaultCardHeight = 295.0;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final bool isDark = theme.brightness == Brightness.dark;
 
     final bool noData =
-        (centerLabel == null) && (values == null || values!.isEmpty);
+        centerLabel == null && (values == null || values!.isEmpty);
 
-    final double resolvedHeight = heightGraphic ?? 255.0;
-    final double resolvedWidth = widthGraphic ?? 260.0;
+    final double resolvedWidth = widthGraphic ?? _defaultCardWidth;
+    final double resolvedHeight = heightGraphic ?? _defaultCardHeight;
 
-    final clampedPercent = (centerLabel ?? 0).clamp(0.0, 1.0);
-    final double valuesSum =
-    (values ?? const <double>[]).fold<double>(0.0, (a, b) => a + b);
+    final Color cardBackgroundColor = colorCard ?? Colors.white;
+
+    final double clampedPercent = (centerLabel ?? 0.0).clamp(0.0, 1.0);
+
+    final double valuesSum = (values ?? const <double>[])
+        .fold<double>(0.0, (previous, value) => previous + value);
 
     final GaugeTextMode headerM = headerMode ?? GaugeTextMode.explicit;
     final GaugeTextMode centerM = centerMode ?? GaugeTextMode.percent;
+
     final GaugeTextMode footerM =
     ((footerMode ?? GaugeTextMode.explicit) == GaugeTextMode.explicit &&
-        (footerLabel == null || footerLabel!.isEmpty))
+        (footerLabel == null || footerLabel!.trim().isEmpty))
         ? GaugeTextMode.money
         : (footerMode ?? GaugeTextMode.explicit);
 
@@ -123,12 +146,18 @@ class GaugeChartChange extends StatelessWidget {
             return BasicCard(
               isDark: isDark,
               width: double.infinity,
+              height: double.infinity,
               padding: metrics.cardPadding,
+              backgroundColor: cardBackgroundColor,
+              gradient: null,
+              enableShadow: true,
               child: SizedBox.expand(
                 child: GaugeCircularPercentShimmer(
                   width: maxWidth,
                   height: maxHeight,
                   customRadius: radius,
+                  hasHeader: headerText.trim().isNotEmpty,
+                  hasFooter: footerText.trim().isNotEmpty,
                 ),
               ),
             );
@@ -137,7 +166,11 @@ class GaugeChartChange extends StatelessWidget {
           return BasicCard(
             isDark: isDark,
             width: double.infinity,
+            height: double.infinity,
             padding: metrics.cardPadding,
+            backgroundColor: cardBackgroundColor,
+            gradient: null,
+            enableShadow: true,
             child: SizedBox.expand(
               child: Tooltip(
                 message: tooltipText,
@@ -150,19 +183,20 @@ class GaugeChartChange extends StatelessWidget {
                     circularStrokeCap: CircularStrokeCap.round,
                     progressColor:
                     progressColor ?? _getProgressColor(clampedPercent),
-                    backgroundColor:
-                    backgroundColor ?? Colors.grey.shade300,
+                    backgroundColor: backgroundColor ?? Colors.grey.shade300,
                     header: headerText.trim().isEmpty
                         ? null
                         : Padding(
-                      padding:
-                      EdgeInsets.only(bottom: metrics.headerSpacing),
+                      padding: EdgeInsets.only(
+                        bottom: metrics.headerSpacing,
+                      ),
                       child: Text(
                         headerText,
                         style: TextStyle(
                           fontSize: metrics.headerFontSize,
                           fontWeight: FontWeight.w600,
                           height: 1.0,
+                          color: Colors.black87,
                         ),
                         textAlign: TextAlign.center,
                         maxLines: 1,
@@ -184,6 +218,7 @@ class GaugeChartChange extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                             fontSize: metrics.centerFontSize,
                             height: 1.0,
+                            color: Colors.black87,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -192,13 +227,15 @@ class GaugeChartChange extends StatelessWidget {
                     footer: footerText.trim().isEmpty
                         ? null
                         : Padding(
-                      padding:
-                      EdgeInsets.only(top: metrics.footerSpacing),
+                      padding: EdgeInsets.only(
+                        top: metrics.footerSpacing,
+                      ),
                       child: Text(
                         footerText,
                         style: TextStyle(
                           fontSize: metrics.footerFontSize,
                           height: 1.0,
+                          color: Colors.black87,
                         ),
                         textAlign: TextAlign.center,
                         maxLines: 1,
@@ -224,10 +261,13 @@ class GaugeChartChange extends StatelessWidget {
     switch (mode) {
       case GaugeTextMode.explicit:
         return explicit;
+
       case GaugeTextMode.percent:
         return '${(percent * 100).toStringAsFixed(2)}%';
+
       case GaugeTextMode.number:
         return sum.toStringAsFixed(0);
+
       case GaugeTextMode.money:
         return SipGedFormatMoney.doubleToText(sum);
     }
@@ -236,14 +276,20 @@ class GaugeChartChange extends StatelessWidget {
   Color _getProgressColor(double percent) {
     if (percent <= 0.2) {
       return Colors.green;
-    } else if (percent <= 0.4) {
-      return Colors.blue.shade600;
-    } else if (percent <= 0.6) {
-      return Colors.yellow.shade800;
-    } else if (percent <= 0.8) {
-      return Colors.orange.shade800;
-    } else {
-      return Colors.red;
     }
+
+    if (percent <= 0.4) {
+      return Colors.blue.shade600;
+    }
+
+    if (percent <= 0.6) {
+      return Colors.yellow.shade800;
+    }
+
+    if (percent <= 0.8) {
+      return Colors.orange.shade800;
+    }
+
+    return Colors.red;
   }
 }

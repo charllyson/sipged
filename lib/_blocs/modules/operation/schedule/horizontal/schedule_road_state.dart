@@ -16,9 +16,20 @@ class ScheduleRoadState extends Equatable {
   final int totalEstacas;
   final String currentServiceKey;
 
+  /// Serviços configurados manualmente em:
+  /// /tenants/{tenantId}/contracts/{contractId}/schedule/lanes
+  ///
+  /// O primeiro item normalmente é o GERAL.
   final List<ScheduleRoadData> services;
+
+  /// Faixas configuradas manualmente em:
+  /// /tenants/{tenantId}/contracts/{contractId}/schedule/lanes
   final List<ScheduleRoadData> lanes;
+
+  /// Células/estacas salvas em:
+  /// /tenants/{tenantId}/contracts/{contractId}/schedule/cells/items
   final List<ScheduleRoadData> execucoes;
+
   final Map<int, Map<int, ScheduleRoadData>> execIndex;
 
   final DateTime? minDate;
@@ -89,11 +100,13 @@ class ScheduleRoadState extends Equatable {
     required List<LatLng>? points,
   }) {
     if (multiLine != null && multiLine.isNotEmpty) {
-      return multiLine.expand((s) => s).toList(growable: false);
+      return multiLine.expand((segment) => segment).toList(growable: false);
     }
+
     if (points != null && points.isNotEmpty) {
-      return List<LatLng>.from(points);
+      return List<LatLng>.from(points, growable: false);
     }
+
     return const <LatLng>[];
   }
 
@@ -134,14 +147,19 @@ class ScheduleRoadState extends Equatable {
     final nextLanes = lanes ?? this.lanes;
     final nextExecucoes = execucoes ?? this.execucoes;
     final nextExecIndex = execIndex ?? this.execIndex;
+
     final nextGeometryType =
     geometryType is _Unset ? this.geometryType : geometryType as String?;
+
     final nextMultiLine = multiLine is _Unset
         ? this.multiLine
         : multiLine as List<List<LatLng>>?;
+
     final nextPoints =
     points is _Unset ? this.points : points as List<LatLng>?;
+
     final nextAxis = axis is _Unset ? this.axis : axis as List<LatLng>;
+
     final nextServiceTotals = serviceTotals ?? this.serviceTotals;
     final nextPhysfinPeriods = physfinPeriods ?? this.physfinPeriods;
     final nextPhysfinGrid = physfinGrid ?? this.physfinGrid;
@@ -231,27 +249,88 @@ class ScheduleRoadState extends Equatable {
 
   bool get isBusy => busyReason != null || savingOrImporting;
 
-  UnmodifiableListView<LatLng> get axisView => UnmodifiableListView(axis);
+  UnmodifiableListView<LatLng> get axisView {
+    return UnmodifiableListView<LatLng>(axis);
+  }
 
-  bool get _isGeral => currentServiceKey.toLowerCase() == 'geral';
+  bool get isGeral => currentServiceKey.toLowerCase() == 'geral';
 
-  bool _laneEnabled(ScheduleRoadData l) =>
-      _isGeral ? true : l.isAllowed(currentServiceKey);
+  bool get hasServices => services.isNotEmpty;
 
-  bool _cellEnabled(ScheduleRoadData e) {
-    if (e.faixaIndex < 0 || e.faixaIndex >= lanes.length) return false;
-    return _laneEnabled(lanes[e.faixaIndex]);
+  bool get hasSpecificServices {
+    return services.any((service) => service.key.toLowerCase() != 'geral');
+  }
+
+  List<ScheduleRoadData> get specificServices {
+    return services
+        .where((service) => service.key.toLowerCase() != 'geral')
+        .toList(growable: false);
+  }
+
+  bool _laneEnabled(ScheduleRoadData lane) {
+    if (isGeral) return true;
+
+    return lane.isAllowed(currentServiceKey);
+  }
+
+  bool _cellEnabled(ScheduleRoadData cell) {
+    if (cell.faixaIndex < 0 || cell.faixaIndex >= lanes.length) {
+      return false;
+    }
+
+    if (isGeral) {
+      final serviceKey = cell.key.toLowerCase().trim();
+
+      if (serviceKey.isEmpty || serviceKey == 'geral') {
+        return true;
+      }
+
+      return lanes[cell.faixaIndex].isAllowed(serviceKey);
+    }
+
+    return _laneEnabled(lanes[cell.faixaIndex]);
+  }
+
+  int get enabledLaneCount {
+    if (lanes.isEmpty) return 0;
+
+    return lanes.where(_laneEnabled).length;
   }
 
   int get totalEsperado {
     if (lanes.isEmpty || totalEstacas <= 0) return 0;
-    final enabled = lanes.where(_laneEnabled).length;
+
+    if (isGeral) {
+      final serviceCount = specificServices.length;
+
+      if (serviceCount <= 0) {
+        return totalEstacas * lanes.length;
+      }
+
+      var total = 0;
+
+      for (final service in specificServices) {
+        final serviceKey = service.key.toLowerCase();
+
+        final enabledForService = lanes.where((lane) {
+          return lane.isAllowed(serviceKey);
+        }).length;
+
+        total += totalEstacas * enabledForService;
+      }
+
+      return total;
+    }
+
+    final enabled = enabledLaneCount;
+
     if (enabled <= 0) return 0;
+
     return totalEstacas * enabled;
   }
 
   String _canonStatus(String? raw) {
-    var t = (raw ?? '')
+    var text = (raw ?? '')
         .toLowerCase()
         .trim()
         .replaceAll('á', 'a')
@@ -269,68 +348,104 @@ class ScheduleRoadState extends Equatable {
         .replaceAll(RegExp(r'[\-_]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ');
 
-    if (t.contains('conclu')) return 'concluido';
-    if (t.contains('andament') || t.contains('in progress')) {
+    if (text.contains('conclu')) return 'concluido';
+
+    if (text.contains('andament') || text.contains('in progress')) {
       return 'em_andamento';
     }
-    if (t.contains('todo') || t.contains('a iniciar')) {
+
+    if (text.contains('todo') || text.contains('a iniciar')) {
       return 'a_iniciar';
     }
+
     return 'a_iniciar';
   }
 
-  int get concluidos => execucoes
-      .where((e) => _cellEnabled(e) && _canonStatus(e.status) == 'concluido')
-      .length;
+  int get concluidos {
+    return execucoes
+        .where(
+          (cell) =>
+      _cellEnabled(cell) && _canonStatus(cell.status) == 'concluido',
+    )
+        .length;
+  }
 
-  int get andamento => execucoes
-      .where((e) => _cellEnabled(e) && _canonStatus(e.status) == 'em_andamento')
-      .length;
+  int get andamento {
+    return execucoes
+        .where(
+          (cell) =>
+      _cellEnabled(cell) && _canonStatus(cell.status) == 'em_andamento',
+    )
+        .length;
+  }
 
   int get iniciados => concluidos + andamento;
 
-  int get aIniciarCount =>
-      (totalEsperado - iniciados) < 0 ? 0 : (totalEsperado - iniciados);
+  int get aIniciarCount {
+    final remaining = totalEsperado - iniciados;
+
+    return remaining < 0 ? 0 : remaining;
+  }
 
   double get pctConcluido {
     if (totalEsperado == 0) return 0;
+
     final raw = (concluidos / totalEsperado) * 100.0;
+
     if (raw > 0 && raw < 1) return 1.0;
-    return raw;
+
+    return raw.clamp(0.0, 100.0);
   }
 
   double get pctAndamento {
     if (totalEsperado == 0) return 0;
+
     final raw = (andamento / totalEsperado) * 100.0;
+
     if (raw > 0 && raw < 1) return 1.0;
-    return raw;
+
+    return raw.clamp(0.0, 100.0);
   }
 
   double get pctAIniciar {
     if (totalEsperado == 0) return 0;
-    final restante = 100.0 - pctConcluido - pctAndamento;
-    if (restante < 0) return 0;
-    return restante;
+
+    final remaining = 100.0 - pctConcluido - pctAndamento;
+
+    if (remaining < 0) return 0;
+
+    return remaining.clamp(0.0, 100.0);
   }
 
   ScheduleRoadData get currentServiceMeta {
     if (services.isEmpty) return ScheduleRoadData.emptyGeral;
 
     return services.firstWhere(
-          (o) => o.key == currentServiceKey,
-      orElse: () => services.first,
+          (service) => service.key == currentServiceKey,
+      orElse: () {
+        final geral = services.where((service) => service.key == 'geral');
+
+        if (geral.isNotEmpty) {
+          return geral.first;
+        }
+
+        return services.first;
+      },
     );
   }
 
-  String get titleForHeader =>
-      (currentServiceMeta.label.isNotEmpty
-          ? currentServiceMeta.label
-          : currentServiceMeta.key)
-          .toUpperCase();
+  String get titleForHeader {
+    final meta = currentServiceMeta;
+
+    final value = meta.label.isNotEmpty ? meta.label : meta.key;
+
+    return value.toUpperCase();
+  }
 
   Color get colorForHeader => currentServiceMeta.color;
 
   bool get canEditSingleCell => currentServiceKey != 'geral';
+
   bool get canBulkApply => currentServiceKey != 'geral';
 
   Set<String> selectionBetween(
@@ -344,22 +459,46 @@ class ScheduleRoadState extends Equatable {
     final f0 = faixaA <= faixaB ? faixaA : faixaB;
     final f1 = faixaA <= faixaB ? faixaB : faixaA;
 
-    final sel = <String>{};
+    final selection = <String>{};
+
     for (int e = e0; e <= e1; e++) {
       for (int f = f0; f <= f1; f++) {
-        sel.add('${e}_$f');
+        selection.add('${e}_$f');
       }
     }
-    return sel;
+
+    return selection;
   }
 
   List<String> fotosAtuaisFor(int estaca, int faixa) {
     final idxMap = execIndex[estaca];
     final found = idxMap != null ? idxMap[faixa] : null;
-    if (found != null) return List<String>.from(found.fotos, growable: false);
+
+    if (found != null) {
+      return List<String>.from(found.fotos, growable: false);
+    }
 
     final idx = execucoes.indexWhere(
-          (x) => x.numero == estaca && x.faixaIndex == faixa,
+          (cell) => cell.numero == estaca && cell.faixaIndex == faixa,
+    );
+
+    return idx == -1
+        ? const <String>[]
+        : List<String>.from(execucoes[idx].fotos, growable: false);
+  }
+
+  List<String> fotosAtuaisForService({
+    required String serviceKey,
+    required int estaca,
+    required int faixa,
+  }) {
+    final normalizedServiceKey = serviceKey.toLowerCase().trim();
+
+    final idx = execucoes.indexWhere(
+          (cell) =>
+      cell.key.toLowerCase() == normalizedServiceKey &&
+          cell.numero == estaca &&
+          cell.faixaIndex == faixa,
     );
 
     return idx == -1
@@ -369,12 +508,13 @@ class ScheduleRoadState extends Equatable {
 
   static const double _kMaxWhiteBlendOldest = 0.60;
 
-  DateTime? _dateForShade(ScheduleRoadData e) {
-    final dtTaken = e.takenAt ??
-        (e.takenAtMs != null
-            ? DateTime.fromMillisecondsSinceEpoch(e.takenAtMs!)
+  DateTime? _dateForShade(ScheduleRoadData cell) {
+    final dtTaken = cell.takenAt ??
+        (cell.takenAtMs != null
+            ? DateTime.fromMillisecondsSinceEpoch(cell.takenAtMs!)
             : null);
-    return dtTaken ?? e.updatedAt ?? e.createdAt;
+
+    return dtTaken ?? cell.updatedAt ?? cell.createdAt;
   }
 
   int _channel255(double normalized) {
@@ -382,54 +522,60 @@ class ScheduleRoadState extends Equatable {
   }
 
   Color _blendWithWhite(Color base, double amount) {
-    final a = amount.clamp(0.0, 1.0);
+    final alpha = amount.clamp(0.0, 1.0);
 
-    int mix(int c, int w, double alpha) =>
-        (c + ((w - c) * alpha)).round().clamp(0, 255);
+    int mix(int c, int w, double a) {
+      return (c + ((w - c) * a)).round().clamp(0, 255);
+    }
 
     final baseR = _channel255(base.r);
     final baseG = _channel255(base.g);
     final baseB = _channel255(base.b);
     final baseA = _channel255(base.a);
 
-    final r = mix(baseR, 255, a);
-    final g = mix(baseG, 255, a);
-    final b = mix(baseB, 255, a);
+    final r = mix(baseR, 255, alpha);
+    final g = mix(baseG, 255, alpha);
+    final b = mix(baseB, 255, alpha);
 
     return Color.fromARGB(baseA, r, g, b);
   }
 
-  Color _shadeRelative(Color base, DateTime? dt) {
+  Color _shadeRelative(Color base, DateTime? date) {
     final minDLocal = minDate;
     final maxDLocal = maxDate;
 
-    if (dt == null || minDLocal == null || maxDLocal == null) return base;
+    if (date == null || minDLocal == null || maxDLocal == null) {
+      return base;
+    }
 
     final totalMs =
         maxDLocal.millisecondsSinceEpoch - minDLocal.millisecondsSinceEpoch;
+
     if (totalMs <= 0) return base;
 
-    final posMs = dt.millisecondsSinceEpoch - minDLocal.millisecondsSinceEpoch;
+    final posMs = date.millisecondsSinceEpoch - minDLocal.millisecondsSinceEpoch;
     final t = (posMs / totalMs).clamp(0.0, 1.0);
 
     final blend = _kMaxWhiteBlendOldest * (1.0 - t);
+
     return _blendWithWhite(base, blend);
   }
 
-  Color squareColor(ScheduleRoadData e) {
-    final hasPhotos = e.fotos.isNotEmpty;
-    final raw = (e.status ?? '').trim();
-    final t = raw.isEmpty && hasPhotos ? 'em_andamento' : _canonStatus(raw);
+  Color squareColor(ScheduleRoadData cell) {
+    final hasPhotos = cell.fotos.isNotEmpty;
+    final raw = (cell.status ?? '').trim();
+
+    final status = raw.isEmpty && hasPhotos ? 'em_andamento' : _canonStatus(raw);
 
     late final Color base;
 
     if (currentServiceKey == 'geral') {
-      if (t == 'concluido' || t == 'em_andamento') {
-        final tag = (e.tipo != null && e.tipo!.trim().isNotEmpty)
-            ? e.tipo!
-            : ((e.key.isNotEmpty && e.key.toLowerCase() != 'geral')
-            ? e.key
-            : (e.label.isNotEmpty ? e.label : ''));
+      if (status == 'concluido' || status == 'em_andamento') {
+        final tag = (cell.tipo != null && cell.tipo!.trim().isNotEmpty)
+            ? cell.tipo!
+            : ((cell.key.isNotEmpty && cell.key.toLowerCase() != 'geral')
+            ? cell.key
+            : (cell.label.isNotEmpty ? cell.label : ''));
 
         base = tag.isNotEmpty
             ? ScheduleRoadStyle.colorForService(tag)
@@ -438,20 +584,23 @@ class ScheduleRoadState extends Equatable {
         base = Colors.grey.shade300;
       }
     } else {
-      switch (t) {
+      switch (status) {
         case 'concluido':
           base = Colors.green;
           break;
+
         case 'em_andamento':
           base = Colors.orange;
           break;
+
         default:
           base = Colors.grey.shade300;
       }
     }
 
-    final dt = _dateForShade(e);
-    return _shadeRelative(base, dt);
+    final date = _dateForShade(cell);
+
+    return _shadeRelative(base, date);
   }
 }
 

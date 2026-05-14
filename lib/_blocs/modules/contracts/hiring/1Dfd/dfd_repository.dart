@@ -1,9 +1,10 @@
 // lib/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart
 
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
@@ -537,8 +538,6 @@ class DfdRepository {
       Iterable<String> contractIds, {
         bool debug = false,
       }) async {
-    final stopwatch = Stopwatch()..start();
-
     final wantedIds = contractIds
         .map((id) => id.trim())
         .where((id) => id.isNotEmpty)
@@ -552,8 +551,7 @@ class DfdRepository {
       return output;
     }
 
-    final sectionsByContract =
-    <String, Map<String, Map<String, dynamic>>>{};
+    final sectionsByContract = <String, Map<String, Map<String, dynamic>>>{};
 
     const summarySections = <String>[
       DfdData.sectionIdentificacao,
@@ -561,16 +559,12 @@ class DfdRepository {
       DfdData.sectionLocalizacao,
     ];
 
-    var totalUsedDocs = 0;
-
     for (final sectionKey in summarySections) {
-      final usedDocs = await _loadSectionGroupIntoMap(
+      await _loadSectionGroupIntoMap(
         sectionKey: sectionKey,
         wantedContractIds: wantedIds,
         sectionsByContract: sectionsByContract,
       );
-
-      totalUsedDocs += usedDocs;
     }
 
     for (final contractId in wantedIds) {
@@ -591,19 +585,6 @@ class DfdRepository {
       output[contractId] = DfdData.fromSectionsMap(
         sections,
         contractId: contractId,
-      );
-    }
-
-    stopwatch.stop();
-
-    if (debug) {
-      debugPrint(
-        '[DfdRepository] readDataForContractsSummary | '
-            'tenantId=$tenantId | '
-            'contratos=${wantedIds.length} | '
-            'docsUsados=$totalUsedDocs | '
-            'comDfd=${output.values.whereType<DfdData>().length} | '
-            'tempo=${stopwatch.elapsedMilliseconds}ms',
       );
     }
 
@@ -689,15 +670,7 @@ class DfdRepository {
       ) async {
     final cleanNatureza = natureza.trim();
 
-    debugPrint('');
-    debugPrint(
-      '[DfdRepository][BENCHMARK] listBenchmarkSeedsByNaturezaIntervencao',
-    );
-    debugPrint('  tenantId=$tenantId');
-    debugPrint('  naturezaIntervencao=$cleanNatureza');
-
     if (cleanNatureza.isEmpty) {
-      debugPrint('  natureza vazia. Retornando lista vazia.');
       return <({String contractId, double km})>[];
     }
 
@@ -707,33 +680,21 @@ class DfdRepository {
         .where('naturezaIntervencao', isEqualTo: cleanNatureza)
         .get();
 
-    debugPrint('  docs encontrados=${qs.docs.length}');
-
     final out = <String, double>{};
 
     for (final doc in qs.docs) {
-      final path = doc.reference.path;
-      final pathParts = path.split('/');
+      final pathParts = doc.reference.path.split('/');
 
       final contractId = _contractIdFromTenantPathParts(pathParts);
 
       if (contractId == null || contractId.trim().isEmpty) {
-        debugPrint('  ignorado: contractId não localizado no path=$path');
         continue;
       }
 
       final data = doc.data();
       final km = _readDouble(data['extensaoKm']);
 
-      debugPrint(
-        '  doc path=$path | contractId=$contractId | '
-            'natureza=${data['naturezaIntervencao']} | '
-            'naturezaId=${data['naturezaIntervencaoId']} | '
-            'km=$km',
-      );
-
       if (km <= 0) {
-        debugPrint('  ignorado: km inválido para contractId=$contractId');
         continue;
       }
 
@@ -755,19 +716,6 @@ class DfdRepository {
       ..sort(
             (a, b) => a.contractId.compareTo(b.contractId),
       );
-
-    debugPrint('  seeds finais=${seeds.length}');
-
-    for (final seed in seeds.take(20)) {
-      debugPrint('  seed contractId=${seed.contractId} | km=${seed.km}');
-    }
-
-    if (seeds.length > 20) {
-      debugPrint('  ... mais ${seeds.length - 20} seed(s)');
-    }
-
-    debugPrint('[DfdRepository][BENCHMARK] END');
-    debugPrint('');
 
     return seeds;
   }
@@ -778,15 +726,7 @@ class DfdRepository {
       ) async {
     final cleanNaturezaId = naturezaIntervencaoId.trim();
 
-    debugPrint('');
-    debugPrint(
-      '[DfdRepository][BENCHMARK] listBenchmarkSeedsByNaturezaIntervencaoId',
-    );
-    debugPrint('  tenantId=$tenantId');
-    debugPrint('  naturezaIntervencaoId=$cleanNaturezaId');
-
     if (cleanNaturezaId.isEmpty) {
-      debugPrint('  naturezaIntervencaoId vazio. Retornando lista vazia.');
       return <({String contractId, double km})>[];
     }
 
@@ -796,33 +736,21 @@ class DfdRepository {
         .where('naturezaIntervencaoId', isEqualTo: cleanNaturezaId)
         .get();
 
-    debugPrint('  docs encontrados=${qs.docs.length}');
-
     final out = <String, double>{};
 
     for (final doc in qs.docs) {
-      final path = doc.reference.path;
-      final pathParts = path.split('/');
+      final pathParts = doc.reference.path.split('/');
 
       final contractId = _contractIdFromTenantPathParts(pathParts);
 
       if (contractId == null || contractId.trim().isEmpty) {
-        debugPrint('  ignorado: contractId não localizado no path=$path');
         continue;
       }
 
       final data = doc.data();
       final km = _readDouble(data['extensaoKm']);
 
-      debugPrint(
-        '  doc path=$path | contractId=$contractId | '
-            'natureza=${data['naturezaIntervencao']} | '
-            'naturezaId=${data['naturezaIntervencaoId']} | '
-            'km=$km',
-      );
-
       if (km <= 0) {
-        debugPrint('  ignorado: km inválido para contractId=$contractId');
         continue;
       }
 
@@ -844,19 +772,6 @@ class DfdRepository {
       ..sort(
             (a, b) => a.contractId.compareTo(b.contractId),
       );
-
-    debugPrint('  seeds finais=${seeds.length}');
-
-    for (final seed in seeds.take(20)) {
-      debugPrint('  seed contractId=${seed.contractId} | km=${seed.km}');
-    }
-
-    if (seeds.length > 20) {
-      debugPrint('  ... mais ${seeds.length - 20} seed(s)');
-    }
-
-    debugPrint('[DfdRepository][BENCHMARK] END');
-    debugPrint('');
 
     return seeds;
   }

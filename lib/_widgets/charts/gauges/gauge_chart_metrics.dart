@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 class GaugeChartMetrics {
@@ -52,60 +53,69 @@ class GaugeChartMetrics {
     final bool hasHeader = headerText.trim().isNotEmpty;
     final bool hasFooter = footerText.trim().isNotEmpty;
 
-    // =========================================================
-    // PADDING DINÂMICO E RESPONSIVO
-    // =========================================================
-    final double horizontalPadding = (maxWidth * 0.028).clamp(2.0, 14.0);
+    final EdgeInsets cardPadding = ultraCompact
+        ? const EdgeInsets.symmetric(horizontal: 8, vertical: 8)
+        : veryCompact
+        ? const EdgeInsets.symmetric(horizontal: 10, vertical: 10)
+        : compact
+        ? const EdgeInsets.symmetric(horizontal: 12, vertical: 12)
+        : const EdgeInsets.symmetric(horizontal: 14, vertical: 14);
 
-    double verticalPadding = (maxHeight * 0.055).clamp(4.0, 24.0);
-
-    if (hasHeader) {
-      verticalPadding += 1.5;
-    }
-
-    if (hasFooter) {
-      verticalPadding += 2.0;
-    }
-
-    if (ultraCompact) {
-      verticalPadding = math.min(verticalPadding, 10.0);
-    } else if (veryCompact) {
-      verticalPadding = math.min(verticalPadding, 14.0);
-    }
-
-    final EdgeInsets cardPadding = EdgeInsets.symmetric(
-      horizontal: horizontalPadding,
-      vertical: verticalPadding,
+    final double innerWidth = math.max(
+      100.0,
+      maxWidth - cardPadding.horizontal,
     );
 
-    final double innerWidth = math.max(100.0, maxWidth - cardPadding.horizontal);
-    final double innerHeight = math.max(110.0, maxHeight - cardPadding.vertical);
+    final double innerHeight = math.max(
+      110.0,
+      maxHeight - cardPadding.vertical,
+    );
 
-    final double headerFontSize = (math.min(innerWidth, innerHeight) * 0.055)
-        .clamp(9.5, 13.0);
+    final double headerFontSize = ultraCompact
+        ? 9.5
+        : veryCompact
+        ? 10.5
+        : compact
+        ? 11.5
+        : 13.0;
 
-    final double footerBaseFontSize = (math.min(innerWidth, innerHeight) * 0.050)
-        .clamp(9.0, 12.5);
+    final double footerBaseFontSize = ultraCompact
+        ? 9.0
+        : veryCompact
+        ? 10.0
+        : compact
+        ? 11.0
+        : 12.5;
 
     final double resolvedFooterFontSize = customFooterFontSize != null
         ? customFooterFontSize.clamp(8.0, 18.0).toDouble()
         : footerBaseFontSize;
 
     final double headerSpacing = hasHeader
-        ? (maxHeight * 0.012).clamp(2.0, 8.0)
+        ? ultraCompact
+        ? 3.0
+        : veryCompact
+        ? 4.0
+        : compact
+        ? 5.0
+        : 6.0
         : 0.0;
 
     final double footerSpacing = hasFooter
-        ? (maxHeight * 0.014).clamp(2.0, 10.0)
+        ? ultraCompact
+        ? 3.0
+        : veryCompact
+        ? 4.0
+        : compact
+        ? 5.0
+        : 6.0
         : 0.0;
 
-    final double reservedHeaderHeight = hasHeader
-        ? headerFontSize * 1.15
-        : 0.0;
+    final double reservedHeaderHeight =
+    hasHeader ? headerFontSize * 1.20 : 0.0;
 
-    final double reservedFooterHeight = hasFooter
-        ? resolvedFooterFontSize * 1.20
-        : 0.0;
+    final double reservedFooterHeight =
+    hasFooter ? resolvedFooterFontSize * 1.25 : 0.0;
 
     final double circleAreaHeight = math.max(
       70.0,
@@ -128,8 +138,10 @@ class GaugeChartMetrics {
         ? 0.96
         : 0.975;
 
-    final double resolvedDiameter =
-    (rawDiameter * diameterScale).clamp(64.0, rawDiameter);
+    final double resolvedDiameter = (rawDiameter * diameterScale).clamp(
+      64.0,
+      rawDiameter,
+    );
 
     final double autoRadius = resolvedDiameter / 2.0;
 

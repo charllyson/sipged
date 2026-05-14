@@ -1,5 +1,3 @@
-// lib/_widgets/map/map/map_change.dart
-
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -60,6 +58,9 @@ class MapChange extends StatefulWidget {
     this.showZoomSlider = true,
     this.showMapTypeButton = true,
     this.showRotationButton = true,
+    this.zoomSliderLeading,
+    this.zoomSliderLeadingSpacing = 12,
+    this.zoomSliderLeadingMaxWidth = 520,
     this.enableZoom = true,
     this.enablePan = true,
     this.enableRotation = true,
@@ -112,6 +113,19 @@ class MapChange extends StatefulWidget {
 
   /// Reservado para controle de rotação, caso você use em outra versão.
   final bool showRotationButton;
+
+  /// Widget posicionado visualmente à direita do SliderButton lateral.
+  ///
+  /// Mantive o nome [zoomSliderLeading] para não quebrar chamadas existentes.
+  /// Útil para injetar controles específicos da página, como menu de serviços,
+  /// botão de recentralizar, seleção múltipla etc.
+  final Widget? zoomSliderLeading;
+
+  /// Espaçamento horizontal entre o SliderButton e [zoomSliderLeading].
+  final double zoomSliderLeadingSpacing;
+
+  /// Largura máxima permitida para o widget ao lado direito do slider.
+  final double zoomSliderLeadingMaxWidth;
 
   /// Permite ou bloqueia zoom por gesto, scroll, duplo toque e controles.
   final bool enableZoom;
@@ -1229,12 +1243,42 @@ class _MapChangeState extends State<MapChange>
   }
 
   Widget _buildMapControls() {
-    final width = MediaQuery.sizeOf(context).width;
+    final size = MediaQuery.sizeOf(context);
+    final padding = MediaQuery.paddingOf(context);
+
+    final width = size.width;
     final isCompact = width < 600;
 
+    final right = isCompact ? 12.0 : 16.0;
+    final bottom = isCompact ? 16.0 : 16.0;
+
+    const sliderWidth = 33.0;
+
+    final hasSideWidget = widget.zoomSliderLeading != null;
+
+    final gap = hasSideWidget && widget.showZoomSlider
+        ? widget.zoomSliderLeadingSpacing
+        : 0.0;
+
+    final maxSideWidgetWidth = math.max(
+      0.0,
+      width -
+          padding.left -
+          padding.right -
+          right -
+          12.0 -
+          (widget.showZoomSlider ? sliderWidth : 0.0) -
+          gap,
+    );
+
+    final sideWidgetWidth = math.min(
+      widget.zoomSliderLeadingMaxWidth,
+      maxSideWidgetWidth,
+    );
+
     return Positioned(
-      right: isCompact ? 12 : 16,
-      bottom: isCompact ? 16 : 16,
+      right: right,
+      bottom: bottom,
       child: SafeArea(
         top: false,
         left: false,
@@ -1244,11 +1288,27 @@ class _MapChangeState extends State<MapChange>
           bottom: isCompact ? 8 : 0,
         ),
         child: RepaintBoundary(
-          child: SliderButton(
-            zoomListenable: _zoomVN,
-            minZoom: widget.minZoom ?? 3.0,
-            maxZoom: widget.maxZoom ?? 18.0,
-            onZoomChanged: _moveZoom,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (widget.showZoomSlider)
+                SliderButton(
+                  zoomListenable: _zoomVN,
+                  minZoom: widget.minZoom ?? 3.0,
+                  maxZoom: widget.maxZoom ?? 18.0,
+                  onZoomChanged: _moveZoom,
+                ),
+              if (widget.showZoomSlider && widget.zoomSliderLeading != null)
+                SizedBox(width: widget.zoomSliderLeadingSpacing),
+              if (widget.zoomSliderLeading != null)
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: sideWidgetWidth,
+                  ),
+                  child: widget.zoomSliderLeading!,
+                ),
+            ],
           ),
         ),
       ),
@@ -1398,15 +1458,12 @@ class _MapChangeState extends State<MapChange>
             ),
           ),
         ),
-
         if (widget.showSearch) _buildSearchControl(),
-
         if (widget.showControls && widget.showMapTypeButton)
           _buildMapTypeControl(),
-
-        if (widget.showControls && widget.showZoomSlider)
+        if (widget.showControls &&
+            (widget.showZoomSlider || widget.zoomSliderLeading != null))
           _buildMapControls(),
-
         _buildLoadingOverlay(),
       ],
     );

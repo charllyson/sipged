@@ -28,7 +28,6 @@ import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
 import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
 import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
 
@@ -133,8 +132,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     );
 
     _budgetCubit = BudgetCubit(
+      tenantId: _tenantId,
       repository: BudgetRepository(
-        //tenantId: _tenantId,
+        tenantId: _tenantId,
       ),
     );
 
@@ -608,8 +608,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     if (contractId == null || contractId.isEmpty) return;
     if (measurementId == null || measurementId.isEmpty) return;
 
-    MagicAdapter.buildDomainFromController(controller: _ctrl);
-
+    BudgetCubit.buildDomainFromController(controller: _ctrl);
     await _notifyMeasurementReportChangedIfNeeded();
   }
 
@@ -660,7 +659,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
           widths: const <double>[],
         );
       } else {
-        MagicAdapter.loadControllerFromDomain(
+        BudgetCubit.loadControllerFromDomain(
           controller: _ctrl,
           data: budget,
         );

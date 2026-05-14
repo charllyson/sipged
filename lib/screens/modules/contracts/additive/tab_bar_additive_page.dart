@@ -6,9 +6,10 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
-import 'package:sipged/screens/modules/operation/phys_fin/physfin_widget.dart';
+import 'package:sipged/screens/modules/contracts/measurement/cronograma/physfin_widget.dart';
 import 'package:sipged/screens/modules/contracts/additive/additive_page.dart';
 
 class TabBarAdditivePage extends StatelessWidget {
@@ -50,7 +51,10 @@ class TabBarAdditivePage extends StatelessWidget {
 
             return BlocProvider<ScheduleRoadCubit>(
               create: (_) => ScheduleRoadCubit(
-                repository: ScheduleRoadRepository(),
+                repository: ScheduleRoadRepository(
+                  tenantId: context.read<PermissionCubit>().state.activeTenantId!,
+                ),
+                tenantId: context.read<PermissionCubit>().state.activeTenantId!,
               )..warmup(
                 contractId: contract.id!,
                 initialServiceKey: 'geral',

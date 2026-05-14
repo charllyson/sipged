@@ -116,10 +116,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
     return tenantId.trim();
   }
 
-  void _debug(String message) {
-    debugPrint('[ListDemandPage] $message');
-  }
-
   void _assertDemandCubitsTenant({
     required DfdCubit dfdCubit,
     required EditalCubit editalCubit,
@@ -165,8 +161,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
     final signature = '$uid|$tenantId|$module';
 
     if (_lastLoadSignature == signature) return;
-
-    _debug('Contexto mudou: $signature');
 
     _lastLoadSignature = signature;
 
@@ -392,7 +386,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
   Future<void> _ensureDfdSummaryLoadedForContracts({
     required DfdCubit dfdCubit,
     required Set<String> ids,
-    bool debug = true,
+    bool debug = false,
   }) async {
     if (ids.isEmpty) return;
 
@@ -403,8 +397,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
     if (missingIds.isEmpty) return;
 
-    final stopwatch = Stopwatch()..start();
-
     try {
       final loaded = await dfdCubit.repo.readDataForContractsSummary(
         missingIds,
@@ -414,22 +406,9 @@ class _ListDemandPageState extends State<ListDemandPage> {
       for (final id in missingIds) {
         _dfdByContractId[id] = loaded[id];
       }
-    } catch (error) {
-      _debug(
-        'Erro ao carregar DFD em lote tenantId=${dfdCubit.tenantId}: $error',
-      );
-
+    } catch (_) {
       for (final id in missingIds) {
         _dfdByContractId[id] = null;
-      }
-    } finally {
-      stopwatch.stop();
-
-      if (debug) {
-        _debug(
-          'DFD summary carregado: ${missingIds.length} contrato(s) em '
-              '${stopwatch.elapsedMilliseconds}ms',
-        );
       }
     }
   }
@@ -438,7 +417,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
     required EditalCubit editalCubit,
     required PublicacaoExtratoCubit publicacaoCubit,
     required Set<String> ids,
-    bool debug = true,
   }) async {
     if (ids.isEmpty) return;
 
@@ -460,8 +438,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
     if (missingEditalIds.isEmpty && missingPublicacaoIds.isEmpty) {
       return;
     }
-
-    final stopwatch = Stopwatch()..start();
 
     try {
       final results = await Future.wait<Object?>([
@@ -488,29 +464,13 @@ class _ListDemandPageState extends State<ListDemandPage> {
       for (final id in missingPublicacaoIds) {
         _pubByContractId[id] = publicacaoResult[id];
       }
-    } catch (error) {
-      _debug(
-        'Erro ao carregar Edital/Publicação em lote '
-            'tenantId=${editalCubit.tenantId}: $error',
-      );
-
+    } catch (_) {
       for (final id in missingEditalIds) {
         _editalByContractId[id] = null;
       }
 
       for (final id in missingPublicacaoIds) {
         _pubByContractId[id] = null;
-      }
-    } finally {
-      stopwatch.stop();
-
-      if (debug) {
-        _debug(
-          'Edital/Publicação summary carregados em lote: '
-              '${missingEditalIds.length} edital + '
-              '${missingPublicacaoIds.length} publicação em '
-              '${stopwatch.elapsedMilliseconds}ms',
-        );
       }
     }
   }
@@ -536,8 +496,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
     _secondaryHydrating = true;
     final seq = ++_secondarySeq;
 
-    _debug('Hidratação secundária em lote agendada: ${ids.length} contrato(s).');
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || seq != _secondarySeq) return;
 
@@ -555,16 +513,12 @@ class _ListDemandPageState extends State<ListDemandPage> {
             _secondaryHydrating = false;
             _applyLocalSortIfAny();
           });
-
-          _debug('Hidratação secundária em lote concluída.');
-        }).catchError((Object error) {
+        }).catchError((Object _) {
           if (!mounted || seq != _secondarySeq) return;
 
           setState(() {
             _secondaryHydrating = false;
           });
-
-          _debug('Erro na hidratação secundária em lote: $error');
         }),
       );
     });
@@ -634,7 +588,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
     if (!mounted) return;
 
     final seq = ++_applySeq;
-    final stopwatch = Stopwatch()..start();
 
     final userCubit = context.read<UserCubit>();
     final permissionCubit = context.read<PermissionCubit>();
@@ -705,20 +658,12 @@ class _ListDemandPageState extends State<ListDemandPage> {
           cubitModule != _permissionModule;
 
       if (mustReloadContracts && !cubit.state.loading) {
-        final refreshWatch = Stopwatch()..start();
-
         await cubit.refresh(
           currentUser: currentUser,
           currentPermissions: permissions,
           tenantId: tenantId,
           permissionModule: _permissionModule,
           force: true,
-        );
-
-        refreshWatch.stop();
-
-        _debug(
-          'ContractCubit.refresh em ${refreshWatch.elapsedMilliseconds}ms',
         );
       }
 
@@ -737,10 +682,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
         for (final contract in base)
           if (_idToString(contract.id) != null) _idToString(contract.id)!,
       };
-
-      _debug(
-        'Contratos base=${baseAll.length}, visíveis=${base.length}, ids=${ids.length}',
-      );
 
       await _ensureDfdSummaryLoadedForContracts(
         dfdCubit: dfdCubit,
@@ -835,13 +776,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
       _applyLocalSortIfAny();
 
       await _syncExpansionAfterFilter();
-
-      stopwatch.stop();
-
-      _debug(
-        '_applyFilters reason=$reason finalizado em '
-            '${stopwatch.elapsedMilliseconds}ms',
-      );
     } finally {
       if (mounted && seq == _applySeq) {
         setState(() {
@@ -908,8 +842,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
   }) async {
     if (!mounted) return;
 
-    final stopwatch = Stopwatch()..start();
-
     setState(() {
       _loading = true;
     });
@@ -958,20 +890,12 @@ class _ListDemandPageState extends State<ListDemandPage> {
           cubitModule != _permissionModule;
 
       if (mustReloadContracts && !processState.loading) {
-        final refreshWatch = Stopwatch()..start();
-
         await cubit.refresh(
           currentUser: currentUser,
           currentPermissions: permissions,
           tenantId: tenantId,
           permissionModule: _permissionModule,
           force: true,
-        );
-
-        refreshWatch.stop();
-
-        _debug(
-          'Initial ContractCubit.refresh em ${refreshWatch.elapsedMilliseconds}ms',
         );
       }
 
@@ -982,12 +906,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
         reason: 'initial',
       );
     } finally {
-      stopwatch.stop();
-
-      _debug(
-        '_runInitialLoad finalizado em ${stopwatch.elapsedMilliseconds}ms',
-      );
-
       if (mounted) {
         setState(() {
           _loading = false;

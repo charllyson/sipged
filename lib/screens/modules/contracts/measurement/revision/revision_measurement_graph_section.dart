@@ -62,7 +62,6 @@ class RevisionMeasurementGraphSection extends StatelessWidget {
             values: safeValues,
             selectedIndex: safeSelectedIndex,
             larguraGrafico: math.max(MediaQuery.of(context).size.width - 300 - 52, 800),
-            alturaGrafico: 260,
             onPointTap: (index) {
               if (index >= 0 && index < safeValues.length && hasData) {
                 onSelectIndex?.call(index);
