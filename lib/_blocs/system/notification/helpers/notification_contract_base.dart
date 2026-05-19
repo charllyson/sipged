@@ -32,8 +32,6 @@ class NotificationContractBase {
     String? leadingLabel,
     String? module,
     NotificationStatus status = NotificationStatus.info,
-
-    /// Compatibilidade temporária.
     NotificationStatus? type,
     Duration duration = const Duration(seconds: 5),
     bool saveInBell = false,
@@ -64,13 +62,6 @@ class NotificationContractBase {
         clean(currentUser?.email) ??
         'Usuário';
 
-    final requestedChannels = resolveRequestedChannels(
-      saveInBell: saveInBell,
-      sendPush: sendPush,
-      delivery: delivery,
-      channels: channels,
-    );
-
     final recipients = resolveRecipients(
       contract: contract,
       targetUserIds: targetUserIds,
@@ -78,10 +69,25 @@ class NotificationContractBase {
       includeCurrentUser: includeCurrentUser,
     );
 
+    final callerDefinedDelivery = channels != null || delivery != null;
+
+    final requestedChannels = resolveRequestedChannels(
+      saveInBell: saveInBell,
+      sendPush: sendPush,
+      delivery: delivery,
+      channels: channels,
+      callerDefinedDelivery: callerDefinedDelivery,
+      hasRemoteRecipients: global || recipients.isNotEmpty,
+    );
+
     final contractId = clean(contract.id);
+
+    final tenantId = clean(extra['tenantId']?.toString()) ??
+        clean(extra['companyId']?.toString());
 
     final resolvedDisplay = await resolveContractDisplay(
       contract: contract,
+      tenantId: tenantId,
     );
 
     if (!context.mounted) return;
@@ -96,6 +102,8 @@ class NotificationContractBase {
     final resolvedExtra = NotificationData.sanitizeExtra(
       <String, dynamic>{
         ...extra,
+        'tenantId': ?tenantId,
+        'companyId': ?tenantId,
         'contractId': contractId,
         'contractNumber': contractNumber,
         'contractSummary': contractSummary,
@@ -145,6 +153,8 @@ class NotificationContractBase {
   static Set<NotificationChannel> resolveRequestedChannels({
     required bool saveInBell,
     required bool sendPush,
+    required bool callerDefinedDelivery,
+    required bool hasRemoteRecipients,
     NotificationDelivery? delivery,
     Set<NotificationChannel>? channels,
   }) {
@@ -156,6 +166,12 @@ class NotificationContractBase {
       if (sendPush) NotificationChannel.push,
     };
 
+    if (!callerDefinedDelivery && hasRemoteRecipients) {
+      resolvedChannels.add(NotificationChannel.local);
+      resolvedChannels.add(NotificationChannel.bell);
+      resolvedChannels.add(NotificationChannel.push);
+    }
+
     if (resolvedChannels.isEmpty) {
       resolvedChannels.add(NotificationChannel.local);
     }
@@ -163,24 +179,29 @@ class NotificationContractBase {
     return resolvedChannels;
   }
 
-  /// Resolve os dados corretos de exibição do contrato:
-  ///
-  /// - número: PublicacaoExtratoData.numeroContrato
-  /// - resumo: DfdData.descricaoObjeto
   static Future<({String? number, String? summary})> resolveContractDisplay({
     required ContractData contract,
+    String? tenantId,
   }) async {
     final contractId = clean(contract.id);
+    final cleanTenantId = clean(tenantId);
 
-    if (contractId == null) {
+    if (contractId == null || cleanTenantId == null) {
       return (
       number: clean(contract.displayNumber),
       summary: clean(contract.displaySummary),
       );
     }
 
-    final publicacao = await _loadPublicacaoExtrato(contractId);
-    final dfd = await _loadDfd(contractId);
+    final publicacao = await _loadPublicacaoExtrato(
+      tenantId: cleanTenantId,
+      contractId: contractId,
+    );
+
+    final dfd = await _loadDfd(
+      tenantId: cleanTenantId,
+      contractId: contractId,
+    );
 
     final number = clean(publicacao?.numeroContrato) ??
         clean(publicacao?.processo) ??
@@ -196,35 +217,23 @@ class NotificationContractBase {
     );
   }
 
-  static Future<PublicacaoExtratoData?> _loadPublicacaoExtrato(
-      String contractId,
-      ) async {
-    final candidatePaths = <String>[
-      'contracts/$contractId/hiring/10Publicacao',
-      'contracts/$contractId/hiring/publicacaoExtrato',
-      'contracts/$contractId/hiring/publicacao_extrato',
-      'contracts/$contractId/publicacaoExtrato/main',
-      'contracts/$contractId/publicacoes/extrato',
-    ];
+  static Future<PublicacaoExtratoData?> _loadPublicacaoExtrato({
+    required String tenantId,
+    required String contractId,
+  }) async {
+    final data = await _tryReadDocument(
+      'tenants/$tenantId/contracts/$contractId/hiring/main/publicacaoExtrato',
+    );
 
-    for (final path in candidatePaths) {
-      final data = await _tryReadDocument(path);
+    if (data == null) return null;
 
-      if (data == null) continue;
-
-      final parsed = _parsePublicacaoExtrato(data);
-
-      if (parsed != null) return parsed;
-    }
-
-    return null;
+    return _parsePublicacaoExtrato(data);
   }
 
   static PublicacaoExtratoData? _parsePublicacaoExtrato(
       Map<String, dynamic> data,
       ) {
     final sectionsData = data['sectionsData'];
-    final sections = data['sections'];
 
     if (sectionsData is Map) {
       return PublicacaoExtratoData.fromSectionsMap(
@@ -232,38 +241,23 @@ class NotificationContractBase {
       );
     }
 
-    if (sections is Map) {
-      return PublicacaoExtratoData.fromSectionsMap(
-        _toSectionsMap(sections),
-      );
-    }
-
     return PublicacaoExtratoData.fromFlatMap(data);
   }
 
-  static Future<DfdData?> _loadDfd(String contractId) async {
-    final candidatePaths = <String>[
-      'contracts/$contractId/hiring/00Dfd',
-      'contracts/$contractId/hiring/01Dfd',
-      'contracts/$contractId/hiring/dfd',
-      'contracts/$contractId/dfd/main',
-      'contracts/$contractId/demand/dfd',
-    ];
+  static Future<DfdData?> _loadDfd({
+    required String tenantId,
+    required String contractId,
+  }) async {
+    final data = await _tryReadDocument(
+      'tenants/$tenantId/contracts/$contractId/hiring/main/dfd',
+    );
 
-    for (final path in candidatePaths) {
-      final data = await _tryReadDocument(path);
+    if (data == null) return null;
 
-      if (data == null) continue;
-
-      final parsed = _parseDfd(
-        data,
-        contractId: contractId,
-      );
-
-      if (parsed != null) return parsed;
-    }
-
-    return null;
+    return _parseDfd(
+      data,
+      contractId: contractId,
+    );
   }
 
   static DfdData? _parseDfd(
@@ -271,18 +265,10 @@ class NotificationContractBase {
         required String contractId,
       }) {
     final sectionsData = data['sectionsData'];
-    final sections = data['sections'];
 
     if (sectionsData is Map) {
       return DfdData.fromSectionsMap(
         _toDynamicMap(sectionsData),
-        contractId: contractId,
-      );
-    }
-
-    if (sections is Map) {
-      return DfdData.fromSectionsMap(
-        _toDynamicMap(sections),
         contractId: contractId,
       );
     }
@@ -342,7 +328,6 @@ class NotificationContractBase {
     return result;
   }
 
-  /// Retorna todos os usuários que devem receber a notificação do contrato.
   static List<String> resolveRecipients({
     required ContractData contract,
     required Iterable<String> targetUserIds,
@@ -350,7 +335,6 @@ class NotificationContractBase {
     required bool includeCurrentUser,
   }) {
     final current = clean(currentUserId);
-
     final explicitRecipients = _cleanUserIds(targetUserIds);
 
     if (explicitRecipients.isNotEmpty) {
@@ -365,14 +349,8 @@ class NotificationContractBase {
       return _sortedUserIds(explicitRecipients);
     }
 
-    final recipients = <String>{};
-
-    recipients.addAll(
-      _recipientsFromPermissionContractId(contract.permissionContractId),
-    );
-
-    recipients.addAll(
-      _recipientsFromParticipantsInfo(contract.participantsInfo),
+    final recipients = _recipientsFromParticipantsInfo(
+      contract.participantsInfo,
     );
 
     if (includeCurrentUser && current != null) {
@@ -386,28 +364,8 @@ class NotificationContractBase {
     return _sortedUserIds(recipients);
   }
 
-  static Set<String> _recipientsFromPermissionContractId(
-      Map<String, Map<String, bool>> permissionContractId,
-      ) {
-    final recipients = <String>{};
-
-    for (final entry in permissionContractId.entries) {
-      final userId = clean(entry.key);
-
-      if (userId == null) continue;
-
-      final permissions = entry.value;
-
-      if (_hasAnyContractPermission(permissions)) {
-        recipients.add(userId);
-      }
-    }
-
-    return recipients;
-  }
-
   static Set<String> _recipientsFromParticipantsInfo(
-      Map<String, dynamic> participantsInfo,
+      Map<String, Map<String, dynamic>> participantsInfo,
       ) {
     final recipients = <String>{};
 
@@ -416,9 +374,9 @@ class NotificationContractBase {
 
       if (userId == null) continue;
 
-      final value = entry.value;
+      final meta = entry.value;
 
-      if (_participantLooksActive(value)) {
+      if (_participantCanReceiveNotification(meta)) {
         recipients.add(userId);
       }
     }
@@ -426,99 +384,16 @@ class NotificationContractBase {
     return recipients;
   }
 
-  static bool _participantLooksActive(dynamic value) {
-    if (value == null) return true;
+  static bool _participantCanReceiveNotification(
+      Map<String, dynamic> meta,
+      ) {
+    final active = meta['active'];
 
-    if (value is bool) return value;
-
-    if (value is Map) {
-      final active = _boolFromDynamic(
-        value['active'] ??
-            value['enabled'] ??
-            value['isActive'] ??
-            value['ativo'] ??
-            value['habilitado'],
-      );
-
-      final removed = _boolFromDynamic(
-        value['removed'] ??
-            value['deleted'] ??
-            value['isDeleted'] ??
-            value['removido'] ??
-            value['excluido'] ??
-            value['excluído'],
-      );
-
-      if (removed == true) return false;
-      if (active == false) return false;
-
-      return true;
+    if (active is bool) {
+      return active;
     }
 
     return true;
-  }
-
-  static bool _hasAnyContractPermission(Map<String, bool> permissions) {
-    if (permissions.isEmpty) return false;
-
-    const acceptedKeys = <String>{
-      'read',
-      'view',
-      'viewer',
-      'visualizar',
-      'visao',
-      'visão',
-      'ler',
-      'leitura',
-      'create',
-      'creator',
-      'criar',
-      'criacao',
-      'criação',
-      'edit',
-      'update',
-      'write',
-      'writer',
-      'editar',
-      'atualizar',
-      'alterar',
-      'escrever',
-      'gravacao',
-      'gravação',
-      'delete',
-      'remove',
-      'deletar',
-      'excluir',
-      'remover',
-      'admin',
-      'administrator',
-      'owner',
-      'manager',
-      'gestor',
-      'fiscal',
-      'administrador',
-      'proprietario',
-      'proprietário',
-      'responsavel',
-      'responsável',
-      'canread',
-      'canview',
-      'cancreate',
-      'canedit',
-      'canupdate',
-      'candelete',
-      'canmanage',
-    };
-
-    for (final entry in permissions.entries) {
-      final key = _normalizePermissionKey(entry.key);
-
-      if (acceptedKeys.contains(key) && entry.value == true) {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   static Set<String> _cleanUserIds(Iterable<String> values) {
@@ -535,61 +410,6 @@ class NotificationContractBase {
     return list;
   }
 
-  static bool? _boolFromDynamic(dynamic value) {
-    if (value == null) return null;
-
-    if (value is bool) return value;
-
-    if (value is num) {
-      if (value == 1) return true;
-      if (value == 0) return false;
-    }
-
-    final text = value.toString().trim().toLowerCase();
-
-    if (text.isEmpty) return null;
-
-    if (<String>{
-      'true',
-      '1',
-      'yes',
-      'sim',
-      's',
-      'ativo',
-      'active',
-      'enabled',
-      'habilitado',
-    }.contains(text)) {
-      return true;
-    }
-
-    if (<String>{
-      'false',
-      '0',
-      'no',
-      'nao',
-      'não',
-      'n',
-      'inativo',
-      'inactive',
-      'disabled',
-      'desabilitado',
-    }.contains(text)) {
-      return false;
-    }
-
-    return null;
-  }
-
-  static String _normalizePermissionKey(String value) {
-    return value
-        .trim()
-        .toLowerCase()
-        .replaceAll(' ', '')
-        .replaceAll('_', '')
-        .replaceAll('-', '');
-  }
-
   static String? resolveActorNameFromContract({
     required ContractData contract,
     required String? uid,
@@ -603,23 +423,17 @@ class NotificationContractBase {
     if (meta == null) return null;
 
     final fullName = clean(
-      (meta['fullName'] ??
-          meta['displayName'] ??
-          meta['nameComplete'] ??
-          meta['nomeCompleto'] ??
-          meta['nome'] ??
-          '')
-          .toString(),
+      meta['fullName']?.toString(),
     );
 
     if (fullName != null) return fullName;
 
     final name = clean(
-      (meta['name'] ?? meta['nome'] ?? '').toString(),
+      meta['name']?.toString(),
     );
 
     final surname = clean(
-      (meta['surname'] ?? meta['sobrenome'] ?? '').toString(),
+      meta['surname']?.toString(),
     );
 
     final composed = <String>[
@@ -630,7 +444,7 @@ class NotificationContractBase {
     if (composed.isNotEmpty) return composed;
 
     final email = clean(
-      (meta['email'] ?? '').toString(),
+      meta['email']?.toString(),
     );
 
     if (email != null) return email;

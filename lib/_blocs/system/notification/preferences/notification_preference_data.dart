@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_channel.dart';
-import 'package:sipged/_blocs/system/notification/notification_source.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_source.dart';
 
 class NotificationPreferenceData extends Equatable {
   const NotificationPreferenceData({

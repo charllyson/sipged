@@ -1,3 +1,5 @@
+// lib/screens/panels/specific-dashboard/specific_dashboard_schedules.dart
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -7,10 +9,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 // Schedule rodoviário
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_state.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_repository.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
 
 // Widget que renderiza GERAL + serviços
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_schedules_details.dart';
@@ -19,35 +21,42 @@ import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_sche
 import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
 class SpecificDashboardSchedules extends StatefulWidget {
-  final ContractData contract;
-  final String tenantId;
-
   const SpecificDashboardSchedules({
     super.key,
     required this.contract,
     required this.tenantId,
   });
 
+  final ContractData contract;
+  final String tenantId;
+
   @override
   State<SpecificDashboardSchedules> createState() =>
       _SpecificDashboardSchedulesState();
 }
 
-class _SpecificDashboardSchedulesState extends State<SpecificDashboardSchedules> {
+class _SpecificDashboardSchedulesState
+    extends State<SpecificDashboardSchedules> {
   /// Future cacheado para evitar recriação desnecessária a cada build.
   Future<List<ServiceStatusRow>>? _rowsFuture;
 
   /// Chave usada para saber quando o Future precisa ser recriado.
   String? _rowsFutureKey;
 
-  String get _contractId => (widget.contract.id ?? '').trim();
+  String get _contractId {
+    return (widget.contract.id ?? '').trim();
+  }
 
-  String get _tenantId => widget.tenantId.trim();
+  String get _tenantId {
+    return widget.tenantId.trim();
+  }
 
-  bool get _hasValidContextIds => _tenantId.isNotEmpty && _contractId.isNotEmpty;
+  bool get _hasValidContextIds {
+    return _tenantId.isNotEmpty && _contractId.isNotEmpty;
+  }
 
-  ScheduleRoadRepository _createRepository() {
-    return ScheduleRoadRepository(
+  ScheduleLinearRepository _createRepository() {
+    return ScheduleLinearRepository(
       tenantId: _tenantId,
     );
   }
@@ -55,15 +64,18 @@ class _SpecificDashboardSchedulesState extends State<SpecificDashboardSchedules>
   // =====================================================================
   // A INICIAR, EM ANDAMENTO, CONCLUÍDO
   // =====================================================================
+
   Future<List<ServiceStatusRow>> _computeRows({
     required int totalEstacas,
   }) async {
-    if (!_hasValidContextIds) return const <ServiceStatusRow>[];
+    if (!_hasValidContextIds) {
+      return const <ServiceStatusRow>[];
+    }
 
     final repo = _createRepository();
 
     final services = (await repo.loadAvailableServicesFromBudget(_contractId))
-        .where((s) => s.key.toLowerCase() != 'geral')
+        .where((service) => !service.isGeral)
         .toList(growable: false);
 
     final lanes = await repo.loadFaixas(_contractId);
@@ -75,8 +87,8 @@ class _SpecificDashboardSchedulesState extends State<SpecificDashboardSchedules>
     if (totalEstacas <= 0) {
       return services
           .map(
-            (s) => ServiceStatusRow(
-          label: s.label.toUpperCase(),
+            (service) => ServiceStatusRow(
+          label: service.label.toUpperCase(),
           pctConcluido: 0.0,
           pctAndamento: 0.0,
           pctAIniciar: 100.0,
@@ -88,8 +100,9 @@ class _SpecificDashboardSchedulesState extends State<SpecificDashboardSchedules>
     final rows = <ServiceStatusRow>[];
 
     for (final service in services) {
-      final enabledLaneCount =
-          lanes.where((lane) => lane.isAllowed(service.key)).length;
+      final enabledLaneCount = lanes.where((lane) {
+        return lane.isAllowed(service.key);
+      }).length;
 
       final laneCount = enabledLaneCount > 0 ? enabledLaneCount : lanes.length;
 
@@ -99,33 +112,40 @@ class _SpecificDashboardSchedulesState extends State<SpecificDashboardSchedules>
         contractId: _contractId,
         selectedServiceKey: service.key,
         serviceKeysForGeral: const <String>[],
-        metaForSelected: ScheduleRoadData(
-          numero: 0,
-          faixaIndex: 0,
-          key: service.key,
-          label: service.label,
-          icon: service.icon,
-          color: service.color,
-        ),
       );
 
       int concluidos = 0;
       int andamento = 0;
 
       for (final exec in execs) {
-        final status = _canonicalStatus(exec.status);
+        switch (exec.status) {
+          case ScheduleLinearCellStatus.concluido:
+            concluidos++;
+            break;
 
-        if (status == 'concluido') {
-          concluidos++;
-        } else if (status == 'em_andamento') {
-          andamento++;
+          case ScheduleLinearCellStatus.emAndamento:
+            andamento++;
+            break;
+
+          case ScheduleLinearCellStatus.aIniciar:
+            break;
         }
       }
 
-      final double pctConcluido = (concluidos / meta) * 100.0;
-      final double pctAndamento = (andamento / meta) * 100.0;
-      final double pctAIniciar =
-      (100.0 - pctConcluido - pctAndamento).clamp(0.0, 100.0);
+      final double pctConcluido = ((concluidos / meta) * 100.0).clamp(
+        0.0,
+        100.0,
+      );
+
+      final double pctAndamento = ((andamento / meta) * 100.0).clamp(
+        0.0,
+        100.0,
+      );
+
+      final double pctAIniciar = (100.0 - pctConcluido - pctAndamento).clamp(
+        0.0,
+        100.0,
+      );
 
       rows.add(
         ServiceStatusRow(
@@ -140,33 +160,6 @@ class _SpecificDashboardSchedulesState extends State<SpecificDashboardSchedules>
     return rows;
   }
 
-  String _canonicalStatus(String? raw) {
-    var value = (raw ?? '').toLowerCase().trim();
-
-    value = value
-        .replaceAll('á', 'a')
-        .replaceAll('à', 'a')
-        .replaceAll('â', 'a')
-        .replaceAll('ã', 'a')
-        .replaceAll('é', 'e')
-        .replaceAll('ê', 'e')
-        .replaceAll('í', 'i')
-        .replaceAll('ó', 'o')
-        .replaceAll('ô', 'o')
-        .replaceAll('õ', 'o')
-        .replaceAll('ú', 'u')
-        .replaceAll('ç', 'c')
-        .replaceAll(RegExp(r'[\s\-_]+'), ' ');
-
-    if (value.contains('conclu')) return 'concluido';
-
-    if (value.contains('andament') || value.contains('progress')) {
-      return 'em_andamento';
-    }
-
-    return 'a_iniciar';
-  }
-
   /// Garante que o Future só seja recriado quando mudar:
   /// - tenantId
   /// - contractId
@@ -175,14 +168,14 @@ class _SpecificDashboardSchedulesState extends State<SpecificDashboardSchedules>
   /// - revisão de execuções
   /// - revisão de serviços
   /// - revisão de faixas
-  Future<List<ServiceStatusRow>>? _ensureRowsFuture(ScheduleRoadState st) {
+  Future<List<ServiceStatusRow>>? _ensureRowsFuture(ScheduleLinearState st) {
     if (!_hasValidContextIds) {
       _rowsFutureKey = null;
       _rowsFuture = Future.value(const <ServiceStatusRow>[]);
       return _rowsFuture;
     }
 
-    final key = [
+    final key = <Object?>[
       _tenantId,
       _contractId,
       st.totalEstacas,
@@ -204,14 +197,15 @@ class _SpecificDashboardSchedulesState extends State<SpecificDashboardSchedules>
 
   /// Placeholder para manter a mesma altura de layout enquanto carrega.
   List<ServiceStatusRow> _placeholder() {
-    return List.generate(
+    return List<ServiceStatusRow>.generate(
       7,
-          (i) => const ServiceStatusRow(
+          (_) => const ServiceStatusRow(
         label: '···',
         pctConcluido: 0.0,
         pctAndamento: 0.0,
         pctAIniciar: 0.0,
       ),
+      growable: false,
     );
   }
 
@@ -222,7 +216,8 @@ class _SpecificDashboardSchedulesState extends State<SpecificDashboardSchedules>
     final oldContractId = (oldWidget.contract.id ?? '').trim();
     final newContractId = _contractId;
 
-    if (oldWidget.tenantId.trim() != _tenantId || oldContractId != newContractId) {
+    if (oldWidget.tenantId.trim() != _tenantId ||
+        oldContractId != newContractId) {
       _rowsFutureKey = null;
       _rowsFuture = null;
     }
@@ -231,9 +226,10 @@ class _SpecificDashboardSchedulesState extends State<SpecificDashboardSchedules>
   // =====================================================================
   // BUILD
   // =====================================================================
+
   @override
   Widget build(BuildContext context) {
-    final schedule = context.watch<ScheduleRoadCubit>().state;
+    final schedule = context.watch<ScheduleLinearCubit>().state;
 
     final geralValues = <double>[
       schedule.pctConcluido.isFinite ? schedule.pctConcluido : 0.0,
@@ -255,7 +251,7 @@ class _SpecificDashboardSchedulesState extends State<SpecificDashboardSchedules>
           return FutureBuilder<List<ServiceStatusRow>>(
             future: rowsFuture,
             builder: (context, snap) {
-              final bool stillLoading = schedule.loadingExecucoes ||
+              final stillLoading = schedule.loadingExecucoes ||
                   schedule.loadingServices ||
                   schedule.loadingLanes ||
                   !schedule.initialized ||

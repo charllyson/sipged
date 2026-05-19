@@ -300,11 +300,11 @@ class _SearchUserPermissionWidgetState
         ),
       );
     } finally {
-      if (!mounted) return;
-
-      setState(() {
-        _isAddingUser = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isAddingUser = false;
+        });
+      }
     }
   }
 

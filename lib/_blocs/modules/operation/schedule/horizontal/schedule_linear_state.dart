@@ -1,12 +1,16 @@
+// lib/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart
+
 import 'dart:collection';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
 
-class ScheduleRoadState extends Equatable {
+class ScheduleLinearState extends Equatable {
   final bool initialized;
 
   final String? contractId;
@@ -15,21 +19,11 @@ class ScheduleRoadState extends Equatable {
   final int totalEstacas;
   final String currentServiceKey;
 
-  /// Serviços configurados manualmente em:
-  /// /tenants/{tenantId}/contracts/{contractId}/schedule/lanes
-  ///
-  /// O primeiro item normalmente é o GERAL.
-  final List<ScheduleRoadData> services;
+  final List<ScheduleLinearServicesData> services;
+  final List<ScheduleLinearLaneData> lanes;
+  final List<ScheduleLinearCellData> execucoes;
 
-  /// Faixas configuradas manualmente em:
-  /// /tenants/{tenantId}/contracts/{contractId}/schedule/lanes
-  final List<ScheduleRoadData> lanes;
-
-  /// Células/estacas salvas em:
-  /// /tenants/{tenantId}/contracts/{contractId}/schedule/cells/items
-  final List<ScheduleRoadData> execucoes;
-
-  final Map<int, Map<int, ScheduleRoadData>> execIndex;
+  final Map<String, ScheduleLinearCellData> execIndex;
 
   final DateTime? minDate;
   final DateTime? maxDate;
@@ -60,16 +54,25 @@ class ScheduleRoadState extends Equatable {
   final int geometryRevision;
   final int physfinRevision;
 
-  const ScheduleRoadState({
+  /// Filtro visual por data.
+  ///
+  /// Quando ativo, somente células com status [ScheduleLinearCellStatus.concluido]
+  /// ou [ScheduleLinearCellStatus.emAndamento] e cuja chave esteja em
+  /// [dateFilterCellKeys] serão destacadas.
+  final bool dateFilterActive;
+  final Set<String> dateFilterCellKeys;
+  final String? dateFilterLabel;
+
+  const ScheduleLinearState({
     this.initialized = false,
     this.contractId,
     this.summarySubjectContract,
     this.totalEstacas = 0,
-    this.currentServiceKey = 'geral',
-    this.services = const <ScheduleRoadData>[],
-    this.lanes = const <ScheduleRoadData>[],
-    this.execucoes = const <ScheduleRoadData>[],
-    this.execIndex = const <int, Map<int, ScheduleRoadData>>{},
+    this.currentServiceKey = ScheduleLinearServicesData.geralKey,
+    this.services = const <ScheduleLinearServicesData>[],
+    this.lanes = const <ScheduleLinearLaneData>[],
+    this.execucoes = const <ScheduleLinearCellData>[],
+    this.execIndex = const <String, ScheduleLinearCellData>{},
     this.minDate,
     this.maxDate,
     this.loadingServices = false,
@@ -92,6 +95,9 @@ class ScheduleRoadState extends Equatable {
     this.execRevision = 0,
     this.geometryRevision = 0,
     this.physfinRevision = 0,
+    this.dateFilterActive = false,
+    this.dateFilterCellKeys = const <String>{},
+    this.dateFilterLabel,
   });
 
   static List<LatLng> axisFrom({
@@ -109,16 +115,24 @@ class ScheduleRoadState extends Equatable {
     return const <LatLng>[];
   }
 
-  ScheduleRoadState copyWith({
+  static Map<String, ScheduleLinearCellData> buildExecIndex(
+      List<ScheduleLinearCellData> cells,
+      ) {
+    return <String, ScheduleLinearCellData>{
+      for (final cell in cells) cell.cellKey: cell,
+    };
+  }
+
+  ScheduleLinearState copyWith({
     bool? initialized,
     String? contractId,
     String? summarySubjectContract,
     int? totalEstacas,
     String? currentServiceKey,
-    List<ScheduleRoadData>? services,
-    List<ScheduleRoadData>? lanes,
-    List<ScheduleRoadData>? execucoes,
-    Map<int, Map<int, ScheduleRoadData>>? execIndex,
+    List<ScheduleLinearServicesData>? services,
+    List<ScheduleLinearLaneData>? lanes,
+    List<ScheduleLinearCellData>? execucoes,
+    Map<String, ScheduleLinearCellData>? execIndex,
     DateTime? minDate,
     DateTime? maxDate,
     bool? loadingServices,
@@ -141,11 +155,16 @@ class ScheduleRoadState extends Equatable {
     int? execRevision,
     int? geometryRevision,
     int? physfinRevision,
+    bool? dateFilterActive,
+    Set<String>? dateFilterCellKeys,
+    Object? dateFilterLabel = const _Unset(),
   }) {
     final nextServices = services ?? this.services;
     final nextLanes = lanes ?? this.lanes;
     final nextExecucoes = execucoes ?? this.execucoes;
-    final nextExecIndex = execIndex ?? this.execIndex;
+
+    final nextExecIndex = execIndex ??
+        (execucoes != null ? buildExecIndex(execucoes) : this.execIndex);
 
     final nextGeometryType =
     geometryType is _Unset ? this.geometryType : geometryType as String?;
@@ -162,7 +181,7 @@ class ScheduleRoadState extends Equatable {
     final nextPhysfinPeriods = physfinPeriods ?? this.physfinPeriods;
     final nextPhysfinGrid = physfinGrid ?? this.physfinGrid;
 
-    return ScheduleRoadState(
+    return ScheduleLinearState(
       initialized: initialized ?? this.initialized,
       contractId: contractId ?? this.contractId,
       summarySubjectContract:
@@ -191,7 +210,8 @@ class ScheduleRoadState extends Equatable {
           ? this.selectedPolylineId
           : selectedPolylineId as String?,
       mapZoom: mapZoom ?? this.mapZoom,
-      busyReason: busyReason is _Unset ? this.busyReason : busyReason as String?,
+      busyReason:
+      busyReason is _Unset ? this.busyReason : busyReason as String?,
       servicesRevision: servicesRevision ??
           (services != null || serviceTotals != null
               ? this.servicesRevision + 1
@@ -202,7 +222,10 @@ class ScheduleRoadState extends Equatable {
           (execucoes != null ||
               execIndex != null ||
               minDate != null ||
-              maxDate != null
+              maxDate != null ||
+              dateFilterActive != null ||
+              dateFilterCellKeys != null ||
+              dateFilterLabel is! _Unset
               ? this.execRevision + 1
               : this.execRevision),
       geometryRevision: geometryRevision ??
@@ -217,11 +240,16 @@ class ScheduleRoadState extends Equatable {
           (physfinPeriods != null || physfinGrid != null
               ? this.physfinRevision + 1
               : this.physfinRevision),
+      dateFilterActive: dateFilterActive ?? this.dateFilterActive,
+      dateFilterCellKeys: dateFilterCellKeys ?? this.dateFilterCellKeys,
+      dateFilterLabel: dateFilterLabel is _Unset
+          ? this.dateFilterLabel
+          : dateFilterLabel as String?,
     );
   }
 
   @override
-  List<Object?> get props => [
+  List<Object?> get props => <Object?>[
     initialized,
     contractId,
     summarySubjectContract,
@@ -242,50 +270,99 @@ class ScheduleRoadState extends Equatable {
     execRevision,
     geometryRevision,
     physfinRevision,
+    dateFilterActive,
+    Object.hashAll(dateFilterCellKeys.toList()..sort()),
+    dateFilterLabel,
   ];
 
   bool get isBusy => busyReason != null || savingOrImporting;
+
+  bool get hasActiveDateFilter {
+    return dateFilterActive && dateFilterCellKeys.isNotEmpty;
+  }
+
+  int get dateFilterSignature {
+    return Object.hash(
+      dateFilterActive,
+      dateFilterLabel,
+      Object.hashAll(dateFilterCellKeys.toList()..sort()),
+    );
+  }
 
   UnmodifiableListView<LatLng> get axisView {
     return UnmodifiableListView<LatLng>(axis);
   }
 
-  bool get isGeral => currentServiceKey.toLowerCase() == 'geral';
+  bool get isGeral {
+    return currentServiceKey.toLowerCase() == ScheduleLinearServicesData.geralKey;
+  }
 
   bool get hasServices => services.isNotEmpty;
 
   bool get hasSpecificServices {
-    return services.any((service) => service.key.toLowerCase() != 'geral');
+    return services.any((service) => !service.isGeral);
   }
 
-  List<ScheduleRoadData> get specificServices {
-    return services
-        .where((service) => service.key.toLowerCase() != 'geral')
-        .toList(growable: false);
+  List<ScheduleLinearServicesData> get servicesByLayer {
+    return ScheduleLinearServicesData.sortByLayer(services);
   }
 
-  bool _laneEnabled(ScheduleRoadData lane) {
+  List<ScheduleLinearServicesData> get specificServices {
+    return services.where((service) => !service.isGeral).toList(growable: false);
+  }
+
+  List<ScheduleLinearServicesData> get specificServicesByLayer {
+    return ScheduleLinearServicesData.specificSortedByLayer(services);
+  }
+
+  List<ScheduleLinearServicesData> get specificServicesByDrawOrder {
+    final ordered = specificServicesByLayer;
+
+    return ordered.reversed.toList(growable: false);
+  }
+
+  Map<String, int> get serviceLayerOrderIndex {
+    return <String, int>{
+      for (final service in specificServicesByLayer)
+        service.key.toLowerCase().trim(): service.layerOrder,
+    };
+  }
+
+  ScheduleLinearServicesData? serviceMetaByKey(String serviceKey) {
+    final clean = serviceKey.toLowerCase().trim();
+
+    for (final service in services) {
+      if (service.key.toLowerCase().trim() == clean) {
+        return service;
+      }
+    }
+
+    return null;
+  }
+
+  bool _laneEnabled(ScheduleLinearLaneData lane) {
     if (isGeral) return true;
 
     return lane.isAllowed(currentServiceKey);
   }
 
-  bool _cellEnabled(ScheduleRoadData cell) {
+  bool _cellEnabled(ScheduleLinearCellData cell) {
     if (cell.faixaIndex < 0 || cell.faixaIndex >= lanes.length) {
       return false;
     }
 
     if (isGeral) {
-      final serviceKey = cell.key.toLowerCase().trim();
+      final serviceKey = cell.serviceKey.toLowerCase().trim();
 
-      if (serviceKey.isEmpty || serviceKey == 'geral') {
+      if (serviceKey.isEmpty || serviceKey == ScheduleLinearServicesData.geralKey) {
         return true;
       }
 
       return lanes[cell.faixaIndex].isAllowed(serviceKey);
     }
 
-    return _laneEnabled(lanes[cell.faixaIndex]);
+    return cell.serviceKey == currentServiceKey &&
+        _laneEnabled(lanes[cell.faixaIndex]);
   }
 
   int get enabledLaneCount {
@@ -326,43 +403,24 @@ class ScheduleRoadState extends Equatable {
     return totalEstacas * enabled;
   }
 
-  String _canonStatus(String? raw) {
-    final text = (raw ?? '')
-        .toLowerCase()
-        .trim()
-        .replaceAll('á', 'a')
-        .replaceAll('à', 'a')
-        .replaceAll('â', 'a')
-        .replaceAll('ã', 'a')
-        .replaceAll('é', 'e')
-        .replaceAll('ê', 'e')
-        .replaceAll('í', 'i')
-        .replaceAll('ó', 'o')
-        .replaceAll('ô', 'o')
-        .replaceAll('õ', 'o')
-        .replaceAll('ú', 'u')
-        .replaceAll('ç', 'c')
-        .replaceAll(RegExp(r'[\-_]+'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ');
+  bool isDoneOrInProgressCell(ScheduleLinearCellData cell) {
+    return cell.isConcluido || cell.isEmAndamento;
+  }
 
-    if (text.contains('conclu')) return 'concluido';
+  bool matchesActiveDateFilter(ScheduleLinearCellData cell) {
+    if (!dateFilterActive) return true;
 
-    if (text.contains('andament') || text.contains('in progress')) {
-      return 'em_andamento';
+    if (!isDoneOrInProgressCell(cell)) {
+      return false;
     }
 
-    if (text.contains('todo') || text.contains('a iniciar')) {
-      return 'a_iniciar';
-    }
-
-    return 'a_iniciar';
+    return dateFilterCellKeys.contains(cell.cellKey);
   }
 
   int get concluidos {
     return execucoes
         .where(
-          (cell) =>
-      _cellEnabled(cell) && _canonStatus(cell.status) == 'concluido',
+          (cell) => _cellEnabled(cell) && cell.isConcluido,
     )
         .length;
   }
@@ -370,8 +428,7 @@ class ScheduleRoadState extends Equatable {
   int get andamento {
     return execucoes
         .where(
-          (cell) =>
-      _cellEnabled(cell) && _canonStatus(cell.status) == 'em_andamento',
+          (cell) => _cellEnabled(cell) && cell.isEmAndamento,
     )
         .length;
   }
@@ -414,13 +471,13 @@ class ScheduleRoadState extends Equatable {
     return remaining.clamp(0.0, 100.0);
   }
 
-  ScheduleRoadData get currentServiceMeta {
-    if (services.isEmpty) return ScheduleRoadData.emptyGeral;
+  ScheduleLinearServicesData get currentServiceMeta {
+    if (services.isEmpty) return ScheduleLinearServicesData.emptyGeral;
 
     return services.firstWhere(
           (service) => service.key == currentServiceKey,
       orElse: () {
-        final geral = services.where((service) => service.key == 'geral');
+        final geral = services.where((service) => service.isGeral);
 
         if (geral.isNotEmpty) {
           return geral.first;
@@ -441,9 +498,9 @@ class ScheduleRoadState extends Equatable {
 
   Color get colorForHeader => currentServiceMeta.color;
 
-  bool get canEditSingleCell => currentServiceKey != 'geral';
+  bool get canEditSingleCell => !isGeral;
 
-  bool get canBulkApply => currentServiceKey != 'geral';
+  bool get canBulkApply => !isGeral;
 
   Set<String> selectionBetween(
       int estacaA,
@@ -467,21 +524,73 @@ class ScheduleRoadState extends Equatable {
     return selection;
   }
 
-  List<String> fotosAtuaisFor(int estaca, int faixa) {
-    final idxMap = execIndex[estaca];
-    final found = idxMap != null ? idxMap[faixa] : null;
+  String cellKeyFor({
+    required String serviceKey,
+    required int estaca,
+    required int faixa,
+  }) {
+    return '${serviceKey.trim()}_${faixa}_$estaca';
+  }
 
-    if (found != null) {
-      return List<String>.from(found.fotos, growable: false);
+  ScheduleLinearCellData? cellAt({
+    required String serviceKey,
+    required int estaca,
+    required int faixa,
+  }) {
+    return execIndex[cellKeyFor(
+      serviceKey: serviceKey,
+      estaca: estaca,
+      faixa: faixa,
+    )];
+  }
+
+  ScheduleLinearCellData? dominantCellForGeral({
+    required int estaca,
+    required int faixa,
+  }) {
+    if (!isGeral) {
+      return cellAt(
+        serviceKey: currentServiceKey,
+        estaca: estaca,
+        faixa: faixa,
+      );
     }
 
-    final idx = execucoes.indexWhere(
-          (cell) => cell.numero == estaca && cell.faixaIndex == faixa,
-    );
+    ScheduleLinearCellData? bestCell;
+    int? bestLayer;
 
-    return idx == -1
-        ? const <String>[]
-        : List<String>.from(execucoes[idx].fotos, growable: false);
+    for (final service in specificServicesByLayer) {
+      final serviceKey = service.key.toLowerCase().trim();
+
+      final cell = cellAt(
+        serviceKey: serviceKey,
+        estaca: estaca,
+        faixa: faixa,
+      );
+
+      if (cell == null) continue;
+
+      if (dateFilterActive && !matchesActiveDateFilter(cell)) {
+        continue;
+      }
+
+      final layer = service.layerOrder;
+
+      if (bestCell == null || bestLayer == null || layer < bestLayer) {
+        bestCell = cell;
+        bestLayer = layer;
+      }
+    }
+
+    return bestCell;
+  }
+
+  List<String> fotosAtuaisFor(int estaca, int faixa) {
+    return fotosAtuaisForService(
+      serviceKey: currentServiceKey,
+      estaca: estaca,
+      faixa: faixa,
+    );
   }
 
   List<String> fotosAtuaisForService({
@@ -491,21 +600,22 @@ class ScheduleRoadState extends Equatable {
   }) {
     final normalizedServiceKey = serviceKey.toLowerCase().trim();
 
-    final idx = execucoes.indexWhere(
-          (cell) =>
-      cell.key.toLowerCase() == normalizedServiceKey &&
-          cell.numero == estaca &&
-          cell.faixaIndex == faixa,
+    final found = cellAt(
+      serviceKey: normalizedServiceKey,
+      estaca: estaca,
+      faixa: faixa,
     );
 
-    return idx == -1
-        ? const <String>[]
-        : List<String>.from(execucoes[idx].fotos, growable: false);
+    if (found != null) {
+      return List<String>.from(found.fotos, growable: false);
+    }
+
+    return const <String>[];
   }
 
   static const double _kMaxWhiteBlendOldest = 0.60;
 
-  DateTime? _dateForShade(ScheduleRoadData cell) {
+  DateTime? _dateForShade(ScheduleLinearCellData cell) {
     final dtTaken = cell.takenAt ??
         (cell.takenAtMs != null
             ? DateTime.fromMillisecondsSinceEpoch(cell.takenAtMs!)
@@ -558,50 +668,48 @@ class ScheduleRoadState extends Equatable {
     return _blendWithWhite(base, blend);
   }
 
-  Color squareColor(ScheduleRoadData cell) {
-    final hasPhotos = cell.fotos.isNotEmpty;
-    final raw = (cell.status ?? '').trim();
+  ScheduleLinearServicesData? _serviceMetaForCell(ScheduleLinearCellData cell) {
+    final rawKey = cell.serviceKey.toLowerCase().trim();
 
-    final status = raw.isEmpty && hasPhotos ? 'em_andamento' : _canonStatus(raw);
+    for (final service in services) {
+      final serviceKey = service.key.toLowerCase().trim();
+
+      if (serviceKey.isEmpty || service.isGeral) continue;
+
+      if (rawKey == serviceKey) return service;
+    }
+
+    return null;
+  }
+
+  Color squareColor(ScheduleLinearCellData cell) {
+    if (dateFilterActive && !matchesActiveDateFilter(cell)) {
+      return const Color(0xFFE0E0E0);
+    }
 
     late final Color base;
 
-    if (currentServiceKey == 'geral') {
-      if (status == 'concluido' || status == 'em_andamento') {
-        final tag = (cell.tipo != null && cell.tipo!.trim().isNotEmpty)
-            ? cell.tipo!
-            : ((cell.key.isNotEmpty && cell.key.toLowerCase() != 'geral')
-            ? cell.key
-            : (cell.label.isNotEmpty ? cell.label : ''));
+    if (isGeral) {
+      if (cell.isConcluido || cell.isEmAndamento) {
+        final meta = _serviceMetaForCell(cell);
 
-        final meta = services.where((service) {
-          final key = service.key.toLowerCase().trim();
-          final label = service.label.toLowerCase().trim();
-          final normalizedTag = tag.toLowerCase().trim();
-
-          return key == normalizedTag || label == normalizedTag;
-        });
-
-        base = meta.isNotEmpty
-            ? meta.first.color
-            : tag.isNotEmpty
-            ? ScheduleRoadData.colorForService(tag)
-            : Colors.blueGrey.shade300;
+        base = meta?.color ?? ScheduleLinearServicesData.defaultServiceColor;
       } else {
-        base = Colors.grey.shade300;
+        base = const Color(0xFFE0E0E0);
       }
     } else {
-      switch (status) {
-        case 'concluido':
+      switch (cell.status) {
+        case ScheduleLinearCellStatus.concluido:
           base = Colors.green;
           break;
 
-        case 'em_andamento':
+        case ScheduleLinearCellStatus.emAndamento:
           base = Colors.orange;
           break;
 
-        default:
-          base = Colors.grey.shade300;
+        case ScheduleLinearCellStatus.aIniciar:
+          base = const Color(0xFFE0E0E0);
+          break;
       }
     }
 

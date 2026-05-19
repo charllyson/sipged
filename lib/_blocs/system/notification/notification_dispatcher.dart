@@ -8,7 +8,7 @@ import 'local/notification_local_cubit.dart';
 import 'notification_channel.dart';
 import 'notification_data.dart';
 import 'notification_delivery.dart';
-import 'notification_source.dart';
+import 'helpers/notification_source.dart';
 import 'preferences/notification_preference_data.dart';
 import 'preferences/notification_preferences_repository.dart';
 import 'remote/notification_remote_cubit.dart';

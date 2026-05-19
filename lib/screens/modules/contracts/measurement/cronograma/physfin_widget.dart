@@ -16,8 +16,9 @@ import 'package:sipged/_blocs/modules/contracts/measurement/physics_finance_cubi
 import 'package:sipged/_blocs/modules/contracts/measurement/physics_finance_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/physics_finance_state.dart';
 
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_state.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
@@ -64,6 +65,10 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
   bool _loadingTr = false;
   bool _saving = false;
+
+  String? _localGridSyncKey;
+  String? _termsBootstrapKey;
+  bool _termsBootstrapRunning = false;
 
   String get _contractId => widget.contractData.id?.trim() ?? '';
 
@@ -132,9 +137,18 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
   void didUpdateWidget(covariant PhysFinWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.contractData.id != widget.contractData.id) {
+    final oldContractId = oldWidget.contractData.id?.trim() ?? '';
+    final newContractId = widget.contractData.id?.trim() ?? '';
+
+    if (oldContractId != newContractId ||
+        oldWidget.chronogramMode != widget.chronogramMode) {
       _percentGrid.clear();
+      _localGridSyncKey = null;
+      _termsBootstrapKey = null;
+      _termsBootstrapRunning = false;
+
       _physicsFinanceCubit?.clear();
+
       _unawaited(_loadTrData());
     }
   }
@@ -150,6 +164,9 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
     if (cleanTenantId == null || cleanTenantId.isEmpty) {
       _percentGrid.clear();
+      _localGridSyncKey = null;
+      _termsBootstrapKey = null;
+      _termsBootstrapRunning = false;
 
       final oldCubit = _physicsFinanceCubit;
 
@@ -172,10 +189,18 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
       return;
     }
 
+    if (_tenantId?.trim() == cleanTenantId &&
+        _physicsFinanceCubit != null) {
+      return;
+    }
+
     try {
       final oldCubit = _physicsFinanceCubit;
 
       _percentGrid.clear();
+      _localGridSyncKey = null;
+      _termsBootstrapKey = null;
+      _termsBootstrapRunning = false;
 
       final newCubit = _createPhysicsFinanceCubit(cleanTenantId);
 
@@ -256,6 +281,10 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
   }
 
   String _serviceKey(dynamic service) {
+    if (service is ScheduleLinearServicesData) {
+      return service.key.trim();
+    }
+
     try {
       final dynamic value = service.key;
 
@@ -284,6 +313,14 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
   }
 
   String _serviceLabel(dynamic service) {
+    if (service is ScheduleLinearServicesData) {
+      final label = service.label.trim();
+
+      if (label.isNotEmpty) return label;
+
+      return service.key.trim();
+    }
+
     try {
       final dynamic value = service.labelText;
 
@@ -294,6 +331,14 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
     try {
       final dynamic value = service.labelSection;
+
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+    } catch (_) {}
+
+    try {
+      final dynamic value = service.label;
 
       if (value is String && value.trim().isNotEmpty) {
         return value.trim();
@@ -487,6 +532,10 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
           (index) => (index + 1) * 30,
     );
 
+    if (base.isEmpty) {
+      return List<int>.generate(12, (index) => (index + 1) * 30);
+    }
+
     if (base.last != maxDays) {
       if (base.last > maxDays) {
         base[base.length - 1] = maxDays;
@@ -498,34 +547,97 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     return base;
   }
 
+  List<double> _normalizePercentRow(
+      List<double> source,
+      int periods,
+      ) {
+    if (periods <= 0) {
+      return const <double>[];
+    }
+
+    if (source.length == periods) {
+      return List<double>.from(source);
+    }
+
+    if (source.length > periods) {
+      return List<double>.from(source.take(periods));
+    }
+
+    return <double>[
+      ...source,
+      ...List<double>.filled(periods - source.length, 0.0),
+    ];
+  }
+
   void _syncLocalGrid({
+    required String syncKey,
     required Map<String, List<double>> stateGrid,
     required List<dynamic> services,
     required int periods,
     required Map<String, List<double>> localGrid,
   }) {
+    if (periods <= 0) {
+      localGrid.clear();
+      _localGridSyncKey = syncKey;
+      return;
+    }
+
+    final bool forceSync = _localGridSyncKey != syncKey;
+
+    final serviceKeys = services
+        .map(_serviceKey)
+        .where((key) => key.trim().isNotEmpty)
+        .toSet();
+
+    localGrid.removeWhere((key, _) => !serviceKeys.contains(key));
+
     for (final service in services) {
       final String key = _serviceKey(service);
+
+      if (key.trim().isEmpty) continue;
 
       final List<double> saved = (stateGrid[key] ?? const <double>[])
           .map((value) => value.toDouble())
           .toList();
 
-      final List<double> normalized = saved.length == periods
-          ? List<double>.from(saved)
-          : saved.length > periods
-          ? List<double>.from(saved.take(periods))
-          : <double>[
-        ...saved,
-        ...List<double>.filled(periods - saved.length, 0.0),
-      ];
+      final List<double> normalized = _normalizePercentRow(saved, periods);
 
-      if (!localGrid.containsKey(key)) {
+      if (forceSync || !localGrid.containsKey(key)) {
         localGrid[key] = List<double>.from(normalized);
       } else if (localGrid[key]!.length != periods) {
-        localGrid[key] = List<double>.from(normalized);
+        localGrid[key] = _normalizePercentRow(localGrid[key]!, periods);
       }
     }
+
+    _localGridSyncKey = syncKey;
+  }
+
+  List<double> _ensurePercentRow({
+    required String serviceKey,
+    required int periods,
+  }) {
+    final cleanKey = serviceKey.trim();
+
+    if (cleanKey.isEmpty) {
+      return const <double>[];
+    }
+
+    final current = _percentGrid[cleanKey];
+
+    if (current == null) {
+      final created = List<double>.filled(periods, 0.0);
+      _percentGrid[cleanKey] = created;
+      return created;
+    }
+
+    if (current.length == periods) {
+      return current;
+    }
+
+    final normalized = _normalizePercentRow(current, periods);
+    _percentGrid[cleanKey] = normalized;
+
+    return normalized;
   }
 
   List<PhysFinRow> _buildRows({
@@ -778,6 +890,38 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     );
   }
 
+  void _ensureBootstrapTermsScheduled({
+    required String contractId,
+    required int periods,
+    required int termsCount,
+  }) {
+    if (!widget.chronogramMode) return;
+    if (contractId.trim().isEmpty) return;
+    if (periods <= 0) return;
+
+    final tenantId = _tenantId?.trim();
+
+    if (tenantId == null || tenantId.isEmpty) return;
+
+    final key = '$tenantId|$contractId|$periods|$termsCount';
+
+    if (_termsBootstrapKey == key || _termsBootstrapRunning) {
+      return;
+    }
+
+    _termsBootstrapKey = key;
+    _termsBootstrapRunning = true;
+
+    _unawaited(
+      _bootstrapTerms(
+        contractId: contractId,
+        periods: periods,
+      ).whenComplete(() {
+        _termsBootstrapRunning = false;
+      }),
+    );
+  }
+
   List<double> _getPercentsForItem(
       PhysicsFinanceState financeState,
       String itemId, {
@@ -800,6 +944,20 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
       itemIds: rows.map((row) => row.key),
       periods: periods,
     );
+  }
+
+  String _localSyncKeyFor({
+    required ScheduleLinearState roadState,
+    required List<int> periods,
+  }) {
+    return <String>[
+      _tenantId ?? '',
+      _contractId,
+      roadState.servicesRevision.toString(),
+      roadState.physfinRevision.toString(),
+      roadState.serviceTotals.hashCode.toString(),
+      periods.join(','),
+    ].join('|');
   }
 
   @override
@@ -851,17 +1009,18 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
       bottom: 10,
     );
 
-    final ScheduleRoadCubit scheduleRoadCubit = context.read<ScheduleRoadCubit>();
+    final ScheduleLinearCubit scheduleRoadCubit = context.read<ScheduleLinearCubit>();
 
     return Scaffold(
       body: Stack(
         children: [
           const BackgroundChange(),
-          BlocBuilder<ScheduleRoadCubit, ScheduleRoadState>(
+          BlocBuilder<ScheduleLinearCubit, ScheduleLinearState>(
             buildWhen: (previous, current) {
-              return previous.services != current.services ||
-                  previous.serviceTotals != current.serviceTotals ||
+              return previous.servicesRevision != current.servicesRevision ||
+                  previous.physfinRevision != current.physfinRevision ||
                   previous.loadingServices != current.loadingServices ||
+                  previous.serviceTotals != current.serviceTotals ||
                   previous.physfinGrid != current.physfinGrid ||
                   previous.physfinPeriods != current.physfinPeriods;
             },
@@ -916,8 +1075,8 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
                       : baseDays;
 
                   final List<dynamic> services = roadState.services
-                      .where((service) => _serviceKey(service) != 'geral')
-                      .toList();
+                      .where((service) => !service.isGeral)
+                      .toList(growable: false);
 
                   if (!roadState.loadingServices && services.isEmpty) {
                     return const Center(
@@ -929,18 +1088,23 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
                     );
                   }
 
+                  final syncKey = _localSyncKeyFor(
+                    roadState: roadState,
+                    periods: dias,
+                  );
+
                   _syncLocalGrid(
+                    syncKey: syncKey,
                     stateGrid: roadState.physfinGrid,
                     services: services,
                     periods: dias.length,
                     localGrid: _percentGrid,
                   );
 
-                  _unawaited(
-                    _bootstrapTerms(
-                      contractId: _contractId,
-                      periods: dias.length,
-                    ),
+                  _ensureBootstrapTermsScheduled(
+                    contractId: _contractId,
+                    periods: dias.length,
+                    termsCount: termLabels.length,
                   );
 
                   final bool waitingTerms = widget.chronogramMode &&
@@ -1078,15 +1242,33 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
                           if (picked == null) return;
 
+                          final row = _ensurePercentRow(
+                            serviceKey: serviceKey,
+                            periods: dias.length,
+                          );
+
+                          if (colIndex < 0 || colIndex >= row.length) {
+                            return;
+                          }
+
                           if (mounted) {
                             setState(() {
-                              _percentGrid[serviceKey]![colIndex] = picked;
+                              row[colIndex] = picked;
                             });
+                          } else {
+                            row[colIndex] = picked;
                           }
 
                           await scheduleRoadCubit.updatePhysFinGrid(
                             periods: dias,
-                            grid: _percentGrid,
+                            grid: Map<String, List<double>>.from(
+                              _percentGrid.map(
+                                    (key, value) => MapEntry(
+                                  key,
+                                  List<double>.from(value),
+                                ),
+                              ),
+                            ),
                           );
 
                           await _notifySaved(

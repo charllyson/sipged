@@ -1,4 +1,3 @@
-// lib/bootstrap.dart
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -16,8 +15,11 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import 'firebase_options_flavors.dart';
+import '_blocs/system/setup/firebase_options_flavors.dart';
 import 'gate_page.dart';
+
+import 'package:sipged/_blocs/system/connectivity/connectivity_cubit.dart';
+import 'package:sipged/_blocs/system/notification/global/global_banner_cubit.dart';
 
 import 'package:sipged/_blocs/system/module/module_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
@@ -129,6 +131,16 @@ Future<void> bootstrapAndRunApp() async {
       runApp(
         MultiProvider(
           providers: [
+            BlocProvider<GlobalBannerCubit>(
+              create: (_) => GlobalBannerCubit(),
+            ),
+
+            BlocProvider<ConnectivityCubit>(
+              create: (ctx) => ConnectivityCubit(
+                globalBannerCubit: ctx.read<GlobalBannerCubit>(),
+              ),
+            ),
+
             BlocProvider<ModuleCubit>(
               create: (_) => ModuleCubit(),
             ),
@@ -251,6 +263,7 @@ Future<void> bootstrapAndRunApp() async {
       );
     },
         (Object error, StackTrace stack) {
+      debugPrint('[Bootstrap Zone] $error');
       debugPrintStack(stackTrace: stack);
     },
   );

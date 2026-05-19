@@ -6,11 +6,15 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_contract_base.dart';
 import 'package:sipged/_blocs/system/notification/notification_channel.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
-import 'package:sipged/_blocs/system/notification/notification_source.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_source.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 class NotificationHiring {
   const NotificationHiring._();
+
+  static const String defaultSource = 'contract_notification';
+  static const String defaultModule = 'operation_process';
+  static const String defaultLabel = 'Contrato';
 
   static Future<void> show({
     required BuildContext context,
@@ -34,7 +38,24 @@ class NotificationHiring {
     NotificationDelivery? delivery,
     Set<NotificationChannel>? channels,
 
-    String source = 'contract_notification',
+    /// Origem principal.
+    ///
+    /// Exemplo:
+    /// contract_notification
+    String source = defaultSource,
+
+    /// Suborigem para preferências/canais.
+    ///
+    /// Exemplos:
+    /// contracts_hiring_dfd
+    /// contracts_hiring_etp
+    /// contracts_hiring_tr
+    /// contracts_hiring_edital
+    String? sourceKey,
+
+    /// Alias mais explícito usado pelas páginas novas.
+    ///
+    /// Quando informado, tem prioridade sobre sourceKey.
     String? notificationSource,
 
     String? actorId,
@@ -45,14 +66,32 @@ class NotificationHiring {
 
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
+    final resolvedSource = source.trim().isNotEmpty
+        ? source.trim()
+        : defaultSource;
+
+    final resolvedSourceKey = notificationSource?.trim().isNotEmpty == true
+        ? notificationSource!.trim()
+        : sourceKey?.trim().isNotEmpty == true
+        ? sourceKey!.trim()
+        : NotificationSubSource.contractsHiringDfd.key;
+
+    final resolvedModule = module?.trim().isNotEmpty == true
+        ? module!.trim()
+        : defaultModule;
+
+    final resolvedLeadingLabel = leadingLabel?.trim().isNotEmpty == true
+        ? leadingLabel!.trim()
+        : defaultLabel;
+
     await NotificationContractBase.show(
       context: context,
       contract: contract,
       title: title,
       subtitle: subtitle,
       details: details,
-      leadingLabel: leadingLabel,
-      module: module,
+      leadingLabel: resolvedLeadingLabel,
+      module: resolvedModule,
       status: status,
       type: type,
       duration: duration,
@@ -65,12 +104,20 @@ class NotificationHiring {
       targetUserIds: targetUserIds,
       includeCurrentUser: includeCurrentUser,
       global: global,
-      source: source,
-      sourceKey: NotificationContractBase.clean(notificationSource) ??
-          NotificationSubSource.contractsHiringDfd.key,
-      defaultModule: 'operation_process',
-      defaultLeadingLabel: 'Contrato',
-      extra: extra,
+      source: resolvedSource,
+      sourceKey: resolvedSourceKey,
+      defaultModule: defaultModule,
+      defaultLeadingLabel: defaultLabel,
+      extra: <String, dynamic>{
+        ...extra,
+
+        /// Identificação da origem.
+        'source': resolvedSource,
+        'sourceKey': resolvedSourceKey,
+        'subSource': resolvedSourceKey,
+        'notificationSource': resolvedSourceKey,
+        'module': resolvedModule,
+      },
     );
   }
 }

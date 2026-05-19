@@ -1,3 +1,5 @@
+// lib/screens/modules/contracts/hiring/list/list_demand_page.dart
+
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
@@ -21,6 +23,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_resolver.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -114,6 +117,47 @@ class _ListDemandPageState extends State<ListDemandPage> {
     }
 
     return tenantId.trim();
+  }
+
+  List<ContractData> _filterContractsVisibleByDocumentPermission({
+    required UserPermissionData permissions,
+    required Iterable<ContractData> contracts,
+    required String module,
+    required String tenantId,
+  }) {
+    final cleanTenantId = tenantId.trim();
+    final cleanModule = module.trim();
+
+    if (cleanTenantId.isEmpty || cleanModule.isEmpty) {
+      return const <ContractData>[];
+    }
+
+    if (permissions.isSuperUserForTenant(cleanTenantId)) {
+      return contracts.toList(growable: false);
+    }
+
+    if (!permissions.canAccessTenant(cleanTenantId)) {
+      return const <ContractData>[];
+    }
+
+    final canReadModule = permissions.canModuleString(
+      module: cleanModule,
+      action: 'read',
+      tenantId: cleanTenantId,
+    );
+
+    if (!canReadModule) {
+      return const <ContractData>[];
+    }
+
+    return contracts.where((contract) {
+      return SystemPermission.canContractDocOnly(
+        permissions: permissions,
+        contract: contract,
+        action: 'read',
+        tenantId: cleanTenantId,
+      );
+    }).toList(growable: false);
   }
 
   void _assertDemandCubitsTenant({
@@ -671,7 +715,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
       final baseAll = cubit.state.allProcesses;
 
-      final base = SystemPermission.filterVisibleContracts(
+      final base = _filterContractsVisibleByDocumentPermission(
         permissions: permissions,
         contracts: baseAll,
         module: _permissionModule,
@@ -985,11 +1029,24 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
     if (tenantId == null || permissions == null) return false;
 
-    return SystemPermission.canContract(
+    if (permissions.isSuperUserForTenant(tenantId)) {
+      return true;
+    }
+
+    final canDeleteModule = permissions.canModuleString(
+      module: _permissionModule,
+      action: 'delete',
+      tenantId: tenantId,
+    );
+
+    if (!canDeleteModule) {
+      return false;
+    }
+
+    return SystemPermission.canContractDocOnly(
       permissions: permissions,
       contract: item,
       action: 'delete',
-      module: _permissionModule,
       tenantId: tenantId,
     );
   }
@@ -1237,7 +1294,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Não há contratos vinculados a este módulo ou às suas permissões atuais.',
+                    'Não há contratos vinculados a este módulo ou às suas permissões documentais.',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.grey.shade600,

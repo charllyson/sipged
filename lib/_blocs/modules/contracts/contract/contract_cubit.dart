@@ -5,7 +5,6 @@ import 'contract_repository.dart';
 import 'contract_state.dart';
 
 import 'package:sipged/_blocs/system/module/module_catalog.dart';
-import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_resolver.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';

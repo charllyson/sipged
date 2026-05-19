@@ -80,7 +80,7 @@ class _TenantSelectionPageState extends State<TenantSelectionPage> {
     return items.join(' • ');
   }
 
-  SystemUserRole _roleForTenant(String tenantId) {
+  PermissionUser _roleForTenant(String tenantId) {
     return widget.permissionData.roleForTenant(tenantId);
   }
 

@@ -41,11 +41,11 @@ class PermissionState extends Equatable {
     return id != null && id.isNotEmpty;
   }
 
-  SystemUserRole get activeRole {
+  PermissionUser get activeRole {
     final data = current;
 
     if (data == null) {
-      return SystemUserRole.leitor;
+      return PermissionUser.leitor;
     }
 
     return data.roleForTenant(activeTenantId);

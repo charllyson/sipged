@@ -34,6 +34,7 @@ class PermissionCubit extends Cubit<PermissionState> {
     if (cleanUid.isEmpty) {
       emit(
         state.copyWith(
+          isLoading: false,
           hasLoaded: true,
           clearCurrent: true,
           clearActiveTenantId: true,
@@ -89,6 +90,7 @@ class PermissionCubit extends Cubit<PermissionState> {
     if (uid == null || uid.isEmpty) {
       emit(
         state.copyWith(
+          isLoading: false,
           hasLoaded: true,
           clearCurrent: true,
           clearActiveTenantId: true,
@@ -107,6 +109,8 @@ class PermissionCubit extends Cubit<PermissionState> {
     if (cleanUid.isEmpty) {
       emit(
         state.copyWith(
+          isLoading: false,
+          hasLoaded: true,
           realtimeEnabled: false,
           clearCurrent: true,
           clearActiveTenantId: true,
@@ -177,7 +181,9 @@ class PermissionCubit extends Cubit<PermissionState> {
   Future<void> persistActiveTenantForCurrentUser(String? tenantId) async {
     final uid = state.current?.uid.trim();
 
-    if (uid == null || uid.isEmpty) return;
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
 
     final cleanTenantId = _cleanTenantId(tenantId);
 
@@ -250,7 +256,9 @@ class PermissionCubit extends Cubit<PermissionState> {
   bool canAccessTenant(String? tenantId) {
     final cleanTenantId = _cleanTenantId(tenantId);
 
-    if (cleanTenantId == null) return false;
+    if (cleanTenantId == null) {
+      return false;
+    }
 
     return state.current?.canAccessTenant(cleanTenantId) == true;
   }
@@ -259,14 +267,20 @@ class PermissionCubit extends Cubit<PermissionState> {
     return state.current?.enabledTenantIds ?? const <String>[];
   }
 
-  SystemUserRole roleForActiveTenant() {
-    return state.current?.roleForTenant(state.activeTenantId) ??
-        SystemUserRole.leitor;
+  PermissionUser roleForActiveTenant() {
+    return roleForTenant(state.activeTenantId);
   }
 
-  SystemUserRole roleForTenant(String? tenantId) {
-    return state.current?.roleForTenant(_cleanTenantId(tenantId)) ??
-        SystemUserRole.leitor;
+  PermissionUser roleForTenant(String? tenantId) {
+    final data = state.current;
+
+    if (data == null) {
+      return PermissionUser.leitor;
+    }
+
+    return data.roleForTenant(
+      _cleanTenantId(tenantId),
+    );
   }
 
   bool isSuperUser({
@@ -274,10 +288,12 @@ class PermissionCubit extends Cubit<PermissionState> {
   }) {
     final data = state.current;
 
-    if (data == null) return false;
+    if (data == null) {
+      return false;
+    }
 
     return data.isSuperUserForTenant(
-      _cleanTenantId(tenantId) ?? _cleanTenantId(state.activeTenantId),
+      _tenantOrActive(tenantId),
     );
   }
 
@@ -294,7 +310,7 @@ class PermissionCubit extends Cubit<PermissionState> {
 
     return data.effectiveModulePermissions(
       module: cleanModule,
-      tenantId: _cleanTenantId(tenantId) ?? _cleanTenantId(state.activeTenantId),
+      tenantId: _tenantOrActive(tenantId),
     );
   }
 
@@ -305,7 +321,7 @@ class PermissionCubit extends Cubit<PermissionState> {
   }) {
     final data = state.current;
     final cleanModule = module.trim();
-    final cleanAction = action.trim().toLowerCase();
+    final cleanAction = action.trim();
 
     if (data == null || cleanModule.isEmpty || cleanAction.isEmpty) {
       return false;
@@ -314,7 +330,26 @@ class PermissionCubit extends Cubit<PermissionState> {
     return data.canModuleString(
       module: cleanModule,
       action: cleanAction,
-      tenantId: _cleanTenantId(tenantId) ?? _cleanTenantId(state.activeTenantId),
+      tenantId: _tenantOrActive(tenantId),
+    );
+  }
+
+  bool canModuleAction({
+    required String module,
+    required PermissionType action,
+    String? tenantId,
+  }) {
+    final data = state.current;
+    final cleanModule = module.trim();
+
+    if (data == null || cleanModule.isEmpty) {
+      return false;
+    }
+
+    return data.canModule(
+      module: cleanModule,
+      action: action,
+      tenantId: _tenantOrActive(tenantId),
     );
   }
 
@@ -335,7 +370,40 @@ class PermissionCubit extends Cubit<PermissionState> {
       contract: contract,
       action: action,
       module: module,
-      tenantId: _cleanTenantId(tenantId) ?? _cleanTenantId(state.activeTenantId),
+      tenantId: _tenantOrActive(tenantId),
+    );
+  }
+
+  bool canContractAction({
+    required ContractData contract,
+    required PermissionType action,
+    String module = ModuleCatalog.modContractsList,
+    String? tenantId,
+  }) {
+    return canContract(
+      contract: contract,
+      action: PermissionActionCodec.serialize(action),
+      module: module,
+      tenantId: tenantId,
+    );
+  }
+
+  bool canContractDocOnly({
+    required ContractData contract,
+    required String action,
+    String? tenantId,
+  }) {
+    final data = state.current;
+
+    if (data == null) {
+      return false;
+    }
+
+    return SystemPermission.canContractDocOnly(
+      permissions: data,
+      contract: contract,
+      action: action,
+      tenantId: _tenantOrActive(tenantId),
     );
   }
 
@@ -354,13 +422,13 @@ class PermissionCubit extends Cubit<PermissionState> {
       permissions: data,
       contracts: contracts,
       module: module,
-      tenantId: _cleanTenantId(tenantId) ?? _cleanTenantId(state.activeTenantId),
+      tenantId: _tenantOrActive(tenantId),
     );
   }
 
   Future<void> setGlobalRole({
     required String uid,
-    required SystemUserRole role,
+    required PermissionUser role,
   }) async {
     final cleanUid = uid.trim();
 
@@ -395,7 +463,7 @@ class PermissionCubit extends Cubit<PermissionState> {
     required String uid,
     required String tenantId,
     bool enabled = true,
-    SystemUserRole? role,
+    PermissionUser role = PermissionUser.leitor,
     String? label,
   }) async {
     final cleanUid = uid.trim();
@@ -476,7 +544,7 @@ class PermissionCubit extends Cubit<PermissionState> {
   Future<void> setTenantRole({
     required String uid,
     required String tenantId,
-    required SystemUserRole role,
+    required PermissionUser role,
   }) async {
     final cleanUid = uid.trim();
     final cleanTenantId = tenantId.trim();
@@ -584,18 +652,12 @@ class PermissionCubit extends Cubit<PermissionState> {
     }
   }
 
-  /// Concede acesso de tenant + módulo para outro usuário sem trocar o
-  /// PermissionState.current do usuário logado.
-  ///
-  /// Use este método quando o usuário logado está adicionando participantes
-  /// em um contrato. A permissão documental fica no contrato, mas a listagem
-  /// também precisa que o usuário tenha acesso ao tenant e ao módulo.
   Future<void> grantTenantModuleForUser({
     required String uid,
     required String tenantId,
     required String module,
     required PermissionSet permissions,
-    SystemUserRole role = SystemUserRole.colaborador,
+    PermissionUser role = PermissionUser.colaborador,
     String? label,
   }) async {
     final cleanUid = uid.trim();
@@ -622,12 +684,12 @@ class PermissionCubit extends Cubit<PermissionState> {
 
       final existing = await _repo.loadUserPermissions(cleanUid);
 
-      final existingOverride = existing
+      final existingPermission = existing
           ?.tenantPermission(cleanTenantId)
-          ?.overrideForModule(cleanModule) ??
+          ?.permissionForModule(cleanModule) ??
           PermissionSet.none;
 
-      final mergedPermissions = existingOverride.mergeAllow(permissions);
+      final mergedPermissions = existingPermission.mergeAllow(permissions);
 
       await _repo.setTenantModuleOverride(
         uid: cleanUid,
@@ -653,7 +715,9 @@ class PermissionCubit extends Cubit<PermissionState> {
   }
 
   void clearError() {
-    if (state.error == null) return;
+    if (state.error == null) {
+      return;
+    }
 
     emit(
       state.copyWith(
@@ -667,6 +731,28 @@ class PermissionCubit extends Cubit<PermissionState> {
     required String? preferredTenantId,
   }) {
     if (data == null || data.uid.trim().isEmpty) {
+      return null;
+    }
+
+    if (data.hasGlobalFreeAccess) {
+      final preferred = _cleanTenantId(preferredTenantId);
+
+      if (preferred != null) {
+        return preferred;
+      }
+
+      final fromData = _cleanTenantId(data.activeTenantId);
+
+      if (fromData != null) {
+        return fromData;
+      }
+
+      final enabled = data.enabledTenantIds;
+
+      if (enabled.isNotEmpty) {
+        return enabled.first;
+      }
+
       return null;
     }
 
@@ -685,220 +771,17 @@ class PermissionCubit extends Cubit<PermissionState> {
     final enabled = data.enabledTenantIds;
 
     if (enabled.isNotEmpty) {
-      return enabled.first.trim();
+      return enabled.first;
     }
 
     return null;
+  }
+
+  String? _tenantOrActive(String? tenantId) {
+    return _cleanTenantId(tenantId) ?? _cleanTenantId(state.activeTenantId);
   }
 
   String? _cleanTenantId(String? tenantId) {
-    final id = tenantId?.trim();
-
-    if (id == null || id.isEmpty) {
-      return null;
-    }
-
-    return id;
-  }
-}
-
-class SystemPermission {
-  const SystemPermission._();
-
-  static const List<String> _docPermissionKeys = <String>[
-    'read',
-    'create',
-    'edit',
-    'delete',
-    'approve',
-  ];
-
-  static PermissionSet docPermissionsOf({
-    required ContractData contract,
-    required String uid,
-  }) {
-    final cleanUid = uid.trim();
-
-    if (cleanUid.isEmpty) {
-      return PermissionSet.none;
-    }
-
-    final rawMap = contract.permissionContractId;
-
-    dynamic raw = rawMap[cleanUid];
-
-    raw ??= _findPermissionByTrimmedUid(
-      rawMap: rawMap,
-      uid: cleanUid,
-    );
-
-    return PermissionSet.fromDynamic(raw);
-  }
-
-  static dynamic _findPermissionByTrimmedUid({
-    required Map<String, dynamic> rawMap,
-    required String uid,
-  }) {
-    for (final entry in rawMap.entries) {
-      final key = entry.key.trim();
-
-      if (key == uid) {
-        return entry.value;
-      }
-    }
-
-    return null;
-  }
-
-  static bool canContractDocOnly({
-    required UserPermissionData permissions,
-    required ContractData contract,
-    required String action,
-    String? tenantId,
-  }) {
-    if (permissions.isSuperUserForTenant(_cleanTenantId(tenantId))) {
-      return true;
-    }
-
-    final uid = permissions.uid.trim();
-    final cleanAction = action.trim().toLowerCase();
-
-    if (uid.isEmpty || cleanAction.isEmpty) {
-      return false;
-    }
-
-    final docPerms = docPermissionsOf(
-      contract: contract,
-      uid: uid,
-    );
-
-    return docPerms.allowsString(cleanAction);
-  }
-
-  static bool canContract({
-    required UserPermissionData permissions,
-    required ContractData contract,
-    required String action,
-    String module = ModuleCatalog.modContractsList,
-    String? tenantId,
-  }) {
-    final cleanTenantId = _cleanTenantId(tenantId);
-    final cleanModule = module.trim();
-    final cleanAction = action.trim().toLowerCase();
-
-    if (cleanModule.isEmpty || cleanAction.isEmpty) {
-      return false;
-    }
-
-    if (cleanTenantId != null && cleanTenantId.isNotEmpty) {
-      if (!permissions.canAccessTenant(cleanTenantId)) {
-        return false;
-      }
-    }
-
-    if (permissions.isSuperUserForTenant(cleanTenantId)) {
-      return true;
-    }
-
-    final canModule = permissions.canModuleString(
-      module: cleanModule,
-      action: cleanAction,
-      tenantId: cleanTenantId,
-    );
-
-    if (!canModule) {
-      return false;
-    }
-
-    return canContractDocOnly(
-      permissions: permissions,
-      contract: contract,
-      action: cleanAction,
-      tenantId: cleanTenantId,
-    );
-  }
-
-  static List<ContractData> filterVisibleContracts({
-    required UserPermissionData permissions,
-    required Iterable<ContractData> contracts,
-    String module = ModuleCatalog.modContractsList,
-    String? tenantId,
-  }) {
-    final cleanTenantId = _cleanTenantId(tenantId);
-    final cleanModule = module.trim();
-
-    if (cleanModule.isEmpty) {
-      return const <ContractData>[];
-    }
-
-    if (cleanTenantId != null && cleanTenantId.isNotEmpty) {
-      if (!permissions.canAccessTenant(cleanTenantId)) {
-        return const <ContractData>[];
-      }
-    }
-
-    if (permissions.isSuperUserForTenant(cleanTenantId)) {
-      return contracts.toList(growable: false);
-    }
-
-    final canReadModule = permissions.canModuleString(
-      module: cleanModule,
-      action: 'read',
-      tenantId: cleanTenantId,
-    );
-
-    if (!canReadModule) {
-      return const <ContractData>[];
-    }
-
-    return contracts
-        .where(
-          (contract) => canContract(
-        permissions: permissions,
-        contract: contract,
-        action: 'read',
-        module: cleanModule,
-        tenantId: cleanTenantId,
-      ),
-    )
-        .toList(growable: false);
-  }
-
-  static Map<String, bool> initialDocPerms() {
-    return const <String, bool>{
-      'read': true,
-      'create': false,
-      'edit': false,
-      'delete': false,
-      'approve': false,
-    };
-  }
-
-  static Map<String, bool> emptyDocPerms() {
-    return const <String, bool>{
-      'read': false,
-      'create': false,
-      'edit': false,
-      'delete': false,
-      'approve': false,
-    };
-  }
-
-  static Map<String, bool> normalizeDocPerms(dynamic raw) {
-    final normalized = PermissionSet.fromDynamic(raw).toBoolMap();
-
-    return <String, bool>{
-      for (final key in _docPermissionKeys) key: normalized[key] == true,
-    };
-  }
-
-  static PermissionSet permissionSetFromDocPerms(dynamic raw) {
-    return PermissionSet.fromDynamic(
-      normalizeDocPerms(raw),
-    );
-  }
-
-  static String? _cleanTenantId(String? tenantId) {
     final id = tenantId?.trim();
 
     if (id == null || id.isEmpty) {

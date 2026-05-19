@@ -30,8 +30,9 @@ import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_me
 import 'package:sipged/_blocs/modules/operation/schedule/vertical/civil_schedule_bloc.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/vertical/civil_schedule_event.dart';
 
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_repository.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
 
@@ -119,6 +120,16 @@ class _MenuListPageState extends State<MenuListPage> {
     }
 
     return tenantId.trim();
+  }
+
+  double _extensaoDfdMetrosFromDfd(DfdData? dfd) {
+    final extensaoKm = (dfd?.extensaoKm ?? 0.0).toDouble();
+
+    if (extensaoKm <= 0) {
+      return 0.0;
+    }
+
+    return extensaoKm * 1000.0;
   }
 
   Widget _missingTenantPage() {
@@ -304,6 +315,7 @@ class _MenuListPageState extends State<MenuListPage> {
     if (!context.mounted) return;
 
     final tipoObra = (dfd?.tipoObra ?? '').trim().toUpperCase();
+    final extensaoDfdMetros = _extensaoDfdMetrosFromDfd(dfd);
 
     final resumoContrato = await _buildContractLabel(
       context,
@@ -325,24 +337,21 @@ class _MenuListPageState extends State<MenuListPage> {
       return;
     }
 
-    final km = dfd?.extensaoKm ?? 0.0;
-    final totalEstacas = ((km * 1000) / 20).ceil();
-
     if (tipoObra.contains('RODOV')) {
       navigator.push(
         MaterialPageRoute(
-          builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
-            create: (_) => ScheduleRoadRepository(
+          builder: (_) => RepositoryProvider<ScheduleLinearRepository>(
+            create: (_) => ScheduleLinearRepository(
               tenantId: tenantId,
             ),
-            child: BlocProvider<ScheduleRoadCubit>(
-              create: (ctx) => ScheduleRoadCubit(
+            child: BlocProvider<ScheduleLinearCubit>(
+              create: (ctx) => ScheduleLinearCubit(
                 tenantId: tenantId,
-                repository: ctx.read<ScheduleRoadRepository>(),
+                repository: ctx.read<ScheduleLinearRepository>(),
               )..warmup(
                 contractId: contractId,
-                totalEstacas: totalEstacas,
-                initialServiceKey: 'geral',
+                extensaoDfdMetros: extensaoDfdMetros,
+                initialServiceKey: ScheduleLinearServicesData.geralKey,
                 summarySubjectContract: resumoContrato,
               ),
               child: Scaffold(
@@ -497,9 +506,6 @@ class _MenuListPageState extends State<MenuListPage> {
 
     if (!context.mounted) return;
 
-    final km = dfd?.extensaoKm ?? 0.0;
-    final totalEstacas = ((km * 1000) / 20).ceil();
-
     final resumoContrato = await _buildContractLabel(
       context,
       contractId,
@@ -508,20 +514,22 @@ class _MenuListPageState extends State<MenuListPage> {
 
     if (!context.mounted) return;
 
+    final extensaoDfdMetros = _extensaoDfdMetrosFromDfd(dfd);
+
     navigator.push(
       MaterialPageRoute(
-        builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
-          create: (_) => ScheduleRoadRepository(
+        builder: (_) => RepositoryProvider<ScheduleLinearRepository>(
+          create: (_) => ScheduleLinearRepository(
             tenantId: tenantId,
           ),
-          child: BlocProvider<ScheduleRoadCubit>(
-            create: (ctx) => ScheduleRoadCubit(
+          child: BlocProvider<ScheduleLinearCubit>(
+            create: (ctx) => ScheduleLinearCubit(
               tenantId: tenantId,
-              repository: ctx.read<ScheduleRoadRepository>(),
+              repository: ctx.read<ScheduleLinearRepository>(),
             )..warmup(
               contractId: contractId,
-              totalEstacas: totalEstacas,
-              initialServiceKey: 'geral',
+              extensaoDfdMetros: extensaoDfdMetros,
+              initialServiceKey: ScheduleLinearServicesData.geralKey,
               summarySubjectContract: resumoContrato,
             ),
             child: pageBuilder(contract),

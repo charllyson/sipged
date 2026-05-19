@@ -1,9 +1,10 @@
+// lib/_blocs/modules/contracts/contract/contract_repository.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:sipged/_blocs/system/permission/permission_data.dart';
 
 import 'contract_data.dart';
-
-import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 
 class ContractRepository {
   ContractRepository({
@@ -16,14 +17,6 @@ class ContractRepository {
   final FirebaseAuth _auth;
 
   String get _currentUid => _auth.currentUser?.uid ?? '';
-
-  static const List<String> _permissionKeys = <String>[
-    'read',
-    'create',
-    'edit',
-    'delete',
-    'approve',
-  ];
 
   String _cleanTenantId(String tenantId) {
     final clean = tenantId.trim();
@@ -127,41 +120,28 @@ class ContractRepository {
     };
   }
 
-  List<FieldPath> _legacyPermissionLiteralPaths(String userId) {
-    final cleanUserId = userId.trim();
+  Map<String, dynamic> _normalizeParticipantMeta({
+    required Map<String, dynamic> meta,
+    Map<String, bool>? permissions,
+    String? role,
+    bool? active,
+  }) {
+    final normalized = Map<String, dynamic>.from(meta);
 
-    if (cleanUserId.isEmpty) return const <FieldPath>[];
+    final resolvedRole = role?.trim().isNotEmpty == true
+        ? role!.trim()
+        : normalized['role']?.toString().trim();
 
-    return <FieldPath>[
-      FieldPath(<String>['permissionContractId.$cleanUserId']),
-      for (final key in _permissionKeys)
-        FieldPath(<String>['permissionContractId.$cleanUserId.$key']),
-    ];
-  }
+    normalized['role'] =
+    resolvedRole == null || resolvedRole.isEmpty ? 'COLABORADOR' : resolvedRole;
 
-  List<FieldPath> _legacyParticipantLiteralPaths(String userId) {
-    final cleanUserId = userId.trim();
+    normalized['active'] = active ?? true;
 
-    if (cleanUserId.isEmpty) return const <FieldPath>[];
+    normalized['permissions'] = _norm(
+      permissions ?? normalized['permissions'],
+    );
 
-    return <FieldPath>[
-      FieldPath(<String>['participantsInfo.$cleanUserId']),
-      FieldPath(<String>['participantsInfo.$cleanUserId.role']),
-    ];
-  }
-
-  Map<Object, Object?> _legacyDeleteMapForUser(String userId) {
-    final data = <Object, Object?>{};
-
-    for (final path in _legacyPermissionLiteralPaths(userId)) {
-      data[path] = FieldValue.delete();
-    }
-
-    for (final path in _legacyParticipantLiteralPaths(userId)) {
-      data[path] = FieldValue.delete();
-    }
-
-    return data;
+    return normalized;
   }
 
   Future<void> _ensureContractParentDoc({
@@ -381,14 +361,21 @@ class ContractRepository {
       tenantId: cleanTenantId,
       contractId: cleanContractId,
       data: <Object, Object?>{
-        ..._legacyDeleteMapForUser(cleanUserId),
         FieldPath(
           <String>[
-            'permissionContractId',
+            'participantsInfo',
             cleanUserId,
+            'permissions',
             cleanPermissionType,
           ],
         ): value,
+        FieldPath(
+          <String>[
+            'participantsInfo',
+            cleanUserId,
+            'active',
+          ],
+        ): true,
       },
     );
   }
@@ -411,13 +398,20 @@ class ContractRepository {
       tenantId: cleanTenantId,
       contractId: cleanContractId,
       data: <Object, Object?>{
-        ..._legacyDeleteMapForUser(cleanUserId),
         FieldPath(
           <String>[
-            'permissionContractId',
+            'participantsInfo',
             cleanUserId,
+            'permissions',
           ],
         ): normalized,
+        FieldPath(
+          <String>[
+            'participantsInfo',
+            cleanUserId,
+            'active',
+          ],
+        ): true,
       },
     );
   }
@@ -441,8 +435,6 @@ class ContractRepository {
       tenantId: cleanTenantId,
       contractId: cleanContractId,
       data: <Object, Object?>{
-        FieldPath(<String>['participantsInfo.$cleanUserId.role']):
-        FieldValue.delete(),
         FieldPath(
           <String>[
             'participantsInfo',
@@ -450,6 +442,13 @@ class ContractRepository {
             'role',
           ],
         ): cleanRole,
+        FieldPath(
+          <String>[
+            'participantsInfo',
+            cleanUserId,
+            'active',
+          ],
+        ): true,
       },
     );
   }
@@ -463,11 +462,15 @@ class ContractRepository {
 
     if (contractId == null || contractId.isEmpty) return;
 
-    final normalizedMap = contractData.permissionContractId.map(
-          (uid, rawPerms) {
+    final normalizedParticipants = contractData.participantsInfo.map(
+          (uid, meta) {
+        final cleanUid = uid.trim();
+
         return MapEntry(
-          uid.trim(),
-          _norm(rawPerms),
+          cleanUid,
+          _normalizeParticipantMeta(
+            meta: Map<String, dynamic>.from(meta),
+          ),
         );
       },
     )..removeWhere((uid, _) => uid.isEmpty);
@@ -482,7 +485,7 @@ class ContractRepository {
       contractId: contractId,
     ).set(
       <String, dynamic>{
-        'permissionContractId': normalizedMap,
+        'participantsInfo': normalizedParticipants,
         ..._auditSetMap(),
       },
       SetOptions(merge: true),
@@ -502,35 +505,23 @@ class ContractRepository {
 
     if (cleanUserId.isEmpty) return;
 
-    final initPerms = _norm(
-      permMap ?? SystemPermission.initialDocPerms(),
+    final normalizedMeta = _normalizeParticipantMeta(
+      meta: Map<String, dynamic>.from(meta),
+      permissions: permMap ?? SystemPermission.initialDocPerms(),
+      role: meta['role']?.toString(),
+      active: true,
     );
-
-    final cleanMeta = Map<String, dynamic>.from(meta);
-
-    final role = cleanMeta['role']?.toString().trim();
-
-    if (role == null || role.isEmpty) {
-      cleanMeta['role'] = 'COLABORADOR';
-    }
 
     await _updateContractFields(
       tenantId: cleanTenantId,
       contractId: cleanContractId,
       data: <Object, Object?>{
-        ..._legacyDeleteMapForUser(cleanUserId),
-        FieldPath(
-          <String>[
-            'permissionContractId',
-            cleanUserId,
-          ],
-        ): initPerms,
         FieldPath(
           <String>[
             'participantsInfo',
             cleanUserId,
           ],
-        ): cleanMeta,
+        ): normalizedMeta,
       },
     );
   }
@@ -550,13 +541,6 @@ class ContractRepository {
       tenantId: cleanTenantId,
       contractId: cleanContractId,
       data: <Object, Object?>{
-        ..._legacyDeleteMapForUser(cleanUserId),
-        FieldPath(
-          <String>[
-            'permissionContractId',
-            cleanUserId,
-          ],
-        ): FieldValue.delete(),
         FieldPath(
           <String>[
             'participantsInfo',
@@ -579,18 +563,20 @@ class ContractRepository {
 
     if (cleanUserId.isEmpty) return;
 
+    final normalizedMeta = _normalizeParticipantMeta(
+      meta: Map<String, dynamic>.from(meta),
+    );
+
     await _updateContractFields(
       tenantId: cleanTenantId,
       contractId: cleanContractId,
       data: <Object, Object?>{
-        FieldPath(<String>['participantsInfo.$cleanUserId']):
-        FieldValue.delete(),
         FieldPath(
           <String>[
             'participantsInfo',
             cleanUserId,
           ],
-        ): Map<String, dynamic>.from(meta),
+        ): normalizedMeta,
       },
     );
   }

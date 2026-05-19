@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
@@ -15,7 +16,10 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
     this.moduleId = 'operation_measurements',
   })  : _repo = repository ??
       ReportExecutedRepository(
-        tenantId: initialTenantId,
+        tenantId: _cleanRequiredTenantId(
+          initialTenantId,
+          context: 'ReportExecutedCubit.repository',
+        ),
       ),
         _currentPermissions = initialPermissions,
         _tenantId = _cleanRequiredTenantId(
@@ -71,14 +75,12 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
   }
 
   String _requireTenantId() {
-    final clean = _tenantId.trim();
+    final clean = _cleanRequiredTenantId(
+      _tenantId,
+      context: 'ReportExecutedCubit._requireTenantId',
+    );
 
-    if (clean.isEmpty) {
-      throw Exception(
-        'tenantId é obrigatório para acessar medições.',
-      );
-    }
-
+    _tenantId = clean;
     _repo.setActiveTenantId(clean);
 
     return clean;
@@ -89,8 +91,11 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
     required String tenantId,
   }) {
     final previousTenantId = _tenantId;
+    final previousPermissions = _currentPermissions;
 
-    _currentPermissions = permissions ?? _currentPermissions;
+    if (permissions != null) {
+      _currentPermissions = permissions;
+    }
 
     _tenantId = _cleanRequiredTenantId(
       tenantId,
@@ -101,89 +106,118 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
 
     final currentContractId = state.contractId?.trim();
 
-    if (previousTenantId != _tenantId &&
+    final tenantChanged = previousTenantId != _tenantId;
+    final permissionsChanged =
+        permissions != null && previousPermissions != _currentPermissions;
+
+    if ((tenantChanged || permissionsChanged) &&
         currentContractId != null &&
         currentContractId.isNotEmpty) {
       Future.microtask(() => loadByContract(currentContractId));
     }
   }
 
-  bool get isEditable => _canWrite();
+  bool canReadContract(ContractData contract) {
+    return _canContractAction(
+      contract: contract,
+      action: 'read',
+    );
+  }
 
-  bool _canWrite() {
-    final permissions = _currentPermissions;
-
-    if (permissions == null) return false;
-
-    if (permissions.isGlobalSuperUser ||
-        permissions.isSuperUserForTenant(_tenantId)) {
-      return true;
-    }
-
-    return permissions.canModuleString(
-      module: moduleId,
+  bool canCreateContract(ContractData contract) {
+    return _canContractAction(
+      contract: contract,
       action: 'create',
-      tenantId: _tenantId,
-    ) ||
-        permissions.canModuleString(
-          module: moduleId,
-          action: 'edit',
-          tenantId: _tenantId,
-        ) ||
-        permissions.canModuleString(
-          module: moduleId,
-          action: 'delete',
-          tenantId: _tenantId,
-        );
+    );
   }
 
-  bool _canDelete() {
+  bool canEditContract(ContractData contract) {
+    return _canContractAction(
+      contract: contract,
+      action: 'edit',
+    );
+  }
+
+  bool canDeleteContract(ContractData contract) {
+    return _canContractAction(
+      contract: contract,
+      action: 'delete',
+    );
+  }
+
+  bool canApproveContract(ContractData contract) {
+    return _canContractAction(
+      contract: contract,
+      action: 'approve',
+    );
+  }
+
+  bool _canContractAction({
+    required ContractData contract,
+    required String action,
+  }) {
     final permissions = _currentPermissions;
+    final cleanAction = action.trim().toLowerCase();
 
-    if (permissions == null) return false;
-
-    if (permissions.isGlobalSuperUser ||
-        permissions.isSuperUserForTenant(_tenantId)) {
-      return true;
+    if (permissions == null || cleanAction.isEmpty) {
+      return false;
     }
 
-    return permissions.canModuleString(
+    _requireTenantId();
+
+    return SystemPermission.canContract(
+      permissions: permissions,
+      contract: contract,
+      action: cleanAction,
       module: moduleId,
-      action: 'delete',
       tenantId: _tenantId,
     );
   }
 
-  void _assertCanWrite() {
+  void _assertCanContractAction({
+    required ContractData contract,
+    required String action,
+    required String message,
+  }) {
     _requireTenantId();
 
-    if (_canWrite()) return;
+    if (_canContractAction(contract: contract, action: action)) {
+      return;
+    }
 
     throw Exception(
-      'Usuário sem permissão para alterar medições. '
-          'Módulo: $moduleId | tenantId: $_tenantId',
+      '$message '
+          'Ação: $action | Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
-  void _assertCanDelete() {
-    _requireTenantId();
-
-    if (_canDelete()) return;
-
-    throw Exception(
-      'Usuário sem permissão para apagar medições. '
-          'Módulo: $moduleId | tenantId: $_tenantId',
-    );
-  }
-
-  Future<void> loadByContract(String contractId) async {
+  Future<void> loadByContract(
+      String contractId, {
+        ContractData? contract,
+      }) async {
     _requireTenantId();
 
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) {
-      throw Exception(
-        'contractId é obrigatório para carregar medições.',
+      emit(
+        state.copyWith(
+          status: ReportExecutedStatus.success,
+          measurements: const <ReportExecutedData>[],
+          error: null,
+          contractId: null,
+          uploading: false,
+          uploadProgress: null,
+        ),
+      );
+      return;
+    }
+
+    if (contract != null) {
+      _assertCanContractAction(
+        contract: contract,
+        action: 'read',
+        message: 'Usuário sem permissão para visualizar medições.',
       );
     }
 
@@ -228,36 +262,76 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
 
   Future<List<ReportExecutedData>> getAllMeasurementsCollectionGroup() {
     _requireTenantId();
+
     return _repo.getAllMeasurementsCollectionGroup();
   }
 
-  Future<void> saveOrUpdate(ReportExecutedData data) async {
-    _assertCanWrite();
-
-    final contractId = (data.contractId ?? state.contractId)?.trim();
+  Future<void> saveOrUpdate({
+    required ContractData contract,
+    required ReportExecutedData data,
+  }) async {
+    final contractId =
+    (data.contractId ?? contract.id ?? state.contractId)?.trim();
 
     if (contractId == null || contractId.isEmpty) {
       throw Exception('contractId é obrigatório para salvar a medição.');
     }
 
+    final measurementId = data.id?.trim();
+    final isNew = measurementId == null || measurementId.isEmpty;
+    final action = isNew ? 'create' : 'edit';
+
+    _assertCanContractAction(
+      contract: contract,
+      action: action,
+      message: isNew
+          ? 'Usuário sem permissão para criar medições.'
+          : 'Usuário sem permissão para editar medições.',
+    );
+
+    emit(
+      state.copyWith(
+        status: ReportExecutedStatus.loading,
+        error: null,
+      ),
+    );
+
     try {
       await _repo.saveOrUpdateReport(
-        data.copyWith(contractId: contractId),
+        data.copyWith(
+          id: isNew ? null : measurementId,
+          contractId: contractId,
+        ),
       );
 
-      if (state.contractId == null || state.contractId == contractId) {
-        await loadByContract(contractId);
-      }
-    } catch (_) {
+      await loadByContract(
+        contractId,
+        contract: contract,
+      );
+    } catch (e) {
+      emit(
+        state.copyWith(
+          status: ReportExecutedStatus.failure,
+          error: e.toString(),
+          uploading: false,
+          uploadProgress: null,
+        ),
+      );
+
       rethrow;
     }
   }
 
   Future<void> delete({
+    required ContractData contract,
     required String contractId,
     required String measurementId,
   }) async {
-    _assertCanDelete();
+    _assertCanContractAction(
+      contract: contract,
+      action: 'delete',
+      message: 'Usuário sem permissão para apagar medições.',
+    );
 
     final cleanContractId = contractId.trim();
     final cleanMeasurementId = measurementId.trim();
@@ -266,16 +340,33 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
       throw Exception('contractId e measurementId são obrigatórios.');
     }
 
+    emit(
+      state.copyWith(
+        status: ReportExecutedStatus.loading,
+        error: null,
+      ),
+    );
+
     try {
       await _repo.deleteMeasurement(
         contractId: cleanContractId,
         measurementId: cleanMeasurementId,
       );
 
-      if (state.contractId == cleanContractId) {
-        await loadByContract(cleanContractId);
-      }
-    } catch (_) {
+      await loadByContract(
+        cleanContractId,
+        contract: contract,
+      );
+    } catch (e) {
+      emit(
+        state.copyWith(
+          status: ReportExecutedStatus.failure,
+          error: e.toString(),
+          uploading: false,
+          uploadProgress: null,
+        ),
+      );
+
       rethrow;
     }
   }
@@ -285,10 +376,15 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
   }
 
   Future<Attachment> pickAndUploadAttachment({
+    required ContractData contract,
     required String contractId,
     required String measurementId,
   }) async {
-    _assertCanWrite();
+    _assertCanContractAction(
+      contract: contract,
+      action: 'edit',
+      message: 'Usuário sem permissão para anexar arquivos em medições.',
+    );
 
     final cleanContractId = contractId.trim();
     final cleanMeasurementId = measurementId.trim();
@@ -306,7 +402,7 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
     );
 
     try {
-      final att = await _repo.pickAndUploadAttachment(
+      final attachment = await _repo.pickAndUploadAttachment(
         contractId: cleanContractId,
         measurementId: cleanMeasurementId,
         onProgress: (progress) {
@@ -321,9 +417,10 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
         },
       );
 
-      if (state.contractId == cleanContractId) {
-        await loadByContract(cleanContractId);
-      }
+      await loadByContract(
+        cleanContractId,
+        contract: contract,
+      );
 
       emit(
         state.copyWith(
@@ -333,7 +430,7 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
         ),
       );
 
-      return att;
+      return attachment;
     } catch (e) {
       emit(
         state.copyWith(
@@ -348,11 +445,16 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
   }
 
   Future<void> deleteAttachment({
+    required ContractData contract,
     required String contractId,
     required String measurementId,
     required Attachment attachment,
   }) async {
-    _assertCanWrite();
+    _assertCanContractAction(
+      contract: contract,
+      action: 'edit',
+      message: 'Usuário sem permissão para remover anexos de medição.',
+    );
 
     final cleanContractId = contractId.trim();
     final cleanMeasurementId = measurementId.trim();
@@ -361,24 +463,58 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
       throw Exception('contractId e measurementId são obrigatórios.');
     }
 
-    await _repo.deleteAttachment(
-      contractId: cleanContractId,
-      measurementId: cleanMeasurementId,
-      attachment: attachment,
+    emit(
+      state.copyWith(
+        uploading: true,
+        uploadProgress: null,
+        error: null,
+      ),
     );
 
-    if (state.contractId == cleanContractId) {
-      await loadByContract(cleanContractId);
+    try {
+      await _repo.deleteAttachment(
+        contractId: cleanContractId,
+        measurementId: cleanMeasurementId,
+        attachment: attachment,
+      );
+
+      await loadByContract(
+        cleanContractId,
+        contract: contract,
+      );
+
+      emit(
+        state.copyWith(
+          uploading: false,
+          uploadProgress: null,
+          error: null,
+        ),
+      );
+    } catch (e) {
+      emit(
+        state.copyWith(
+          uploading: false,
+          uploadProgress: null,
+          error: e.toString(),
+        ),
+      );
+
+      rethrow;
     }
   }
 
   Future<void> renameAttachmentLabel({
+    required ContractData contract,
     required String contractId,
     required String measurementId,
     required Attachment oldItem,
     required Attachment newItem,
   }) async {
-    _assertCanWrite();
+    _assertCanContractAction(
+      contract: contract,
+      action: 'edit',
+      message: 'Usuário sem permissão para renomear anexos de medição.',
+    );
 
     final cleanContractId = contractId.trim();
     final cleanMeasurementId = measurementId.trim();
@@ -387,15 +523,44 @@ class ReportExecutedCubit extends Cubit<ReportExecutedState> {
       throw Exception('contractId e measurementId são obrigatórios.');
     }
 
-    await _repo.renameAttachmentLabel(
-      contractId: cleanContractId,
-      measurementId: cleanMeasurementId,
-      oldItem: oldItem,
-      newItem: newItem,
+    emit(
+      state.copyWith(
+        uploading: true,
+        uploadProgress: null,
+        error: null,
+      ),
     );
 
-    if (state.contractId == cleanContractId) {
-      await loadByContract(cleanContractId);
+    try {
+      await _repo.renameAttachmentLabel(
+        contractId: cleanContractId,
+        measurementId: cleanMeasurementId,
+        oldItem: oldItem,
+        newItem: newItem,
+      );
+
+      await loadByContract(
+        cleanContractId,
+        contract: contract,
+      );
+
+      emit(
+        state.copyWith(
+          uploading: false,
+          uploadProgress: null,
+          error: null,
+        ),
+      );
+    } catch (e) {
+      emit(
+        state.copyWith(
+          uploading: false,
+          uploadProgress: null,
+          error: e.toString(),
+        ),
+      );
+
+      rethrow;
     }
   }
 }

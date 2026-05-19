@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_blocs/system/connectivity/connectivity_cubit.dart';
+
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_state.dart';
 
@@ -29,16 +31,19 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
-
 import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
+import 'package:sipged/screens/common/blocked_user_view.dart';
+import 'package:sipged/screens/common/notification/global_banner_host.dart';
+import 'package:sipged/screens/common/setup/tenant_scoped_app.dart';
+import 'package:sipged/screens/common/setup/initial_setup_page.dart';
+
 import 'package:sipged/screens/common/login/sign_in/sign_in.dart';
 import 'package:sipged/screens/common/login/sign_in/tenant_selection_page.dart';
-import 'package:sipged/screens/common/setup/initial_setup_page.dart';
-import 'package:sipged/screens/menus/menu_list_page.dart';
+
+import 'package:sipged/startup_context.dart';
+import 'package:sipged/startup_error_view.dart';
 
 const bool kForceInitialSetupOverlay = false;
 
@@ -50,7 +55,7 @@ class GatePage extends StatefulWidget {
 }
 
 class _GatePageState extends State<GatePage> {
-  Future<_StartupContext>? _startupLoadFuture;
+  Future<StartupContext>? _startupLoadFuture;
   Future<UserData?>? _userLoadFuture;
 
   String? _loadedUserUid;
@@ -60,6 +65,42 @@ class _GatePageState extends State<GatePage> {
   String? _notificationPreferencesInitializedUserId;
 
   bool _isActivatingTenant = false;
+
+  bool _isConnectionLikeError(Object? error) {
+    if (error == null) return false;
+    if (error is TimeoutException) return true;
+
+    final text = error.toString().toLowerCase();
+
+    return text.contains('timeout') ||
+        text.contains('network') ||
+        text.contains('offline') ||
+        text.contains('unavailable') ||
+        text.contains('failed to fetch') ||
+        text.contains('client is offline') ||
+        text.contains('deadline-exceeded') ||
+        text.contains('firebaseexception') && text.contains('unavailable');
+  }
+
+  void _markOfflineFromStartupFailure() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      context.read<ConnectivityCubit>().markOfflineFromFailure(
+        reason: 'startup',
+      );
+    });
+  }
+
+  void _markOnlineAfterStartupSuccess() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      context.read<ConnectivityCubit>().markOnlineAfterSuccess(
+        reason: 'startup',
+      );
+    });
+  }
 
   Future<UserData?> _loadUserOnce({
     required String uid,
@@ -72,7 +113,11 @@ class _GatePageState extends State<GatePage> {
         const Duration(seconds: 20),
         onTimeout: () {
           debugPrint('[GatePage] Timeout ao carregar usuário uid=$uid.');
-          return null;
+
+          throw TimeoutException(
+            'Tempo limite excedido ao carregar os dados do usuário.',
+            const Duration(seconds: 20),
+          );
         },
       );
     }
@@ -80,7 +125,7 @@ class _GatePageState extends State<GatePage> {
     return _userLoadFuture!;
   }
 
-  Future<_StartupContext> _loadStartupDataOnce({
+  Future<StartupContext> _loadStartupDataOnce({
     required String uid,
     required UserData userData,
   }) {
@@ -106,7 +151,7 @@ class _GatePageState extends State<GatePage> {
     return _startupLoadFuture!;
   }
 
-  Future<_StartupContext> _loadStartupData({
+  Future<StartupContext> _loadStartupData({
     required String uid,
     required UserData userData,
   }) async {
@@ -152,7 +197,7 @@ class _GatePageState extends State<GatePage> {
     );
 
     if (allowedTenants.isEmpty) {
-      return _StartupContext(
+      return StartupContext(
         userData: userData,
         permissionData: permissionData,
         availableTenants: availableTenants,
@@ -180,7 +225,7 @@ class _GatePageState extends State<GatePage> {
       );
     }
 
-    return _StartupContext(
+    return StartupContext(
       userData: userData,
       permissionData: permissionData,
       availableTenants: availableTenants,
@@ -210,8 +255,8 @@ class _GatePageState extends State<GatePage> {
   bool _canAccessAllTenants(perm.UserPermissionData permissionData) {
     return permissionData.hasGlobalFreeAccess ||
         permissionData.isGlobalSuperUser ||
-        permissionData.globalRole == perm.SystemUserRole.administrador ||
-        permissionData.globalRole == perm.SystemUserRole.desenvolvedor;
+        permissionData.globalRole == perm.PermissionUser.administrador ||
+        permissionData.globalRole == perm.PermissionUser.desenvolvedor;
   }
 
   List<TenantData> _filterAllowedTenants({
@@ -529,6 +574,17 @@ class _GatePageState extends State<GatePage> {
     );
   }
 
+  Widget _buildOfflineStartupFallback() {
+    _markOfflineFromStartupFailure();
+
+    return const Scaffold(
+      backgroundColor: Colors.white,
+      body: LoadingTreeDots(
+        message: Text('Aguardando conexão para sincronizar...'),
+      ),
+    );
+  }
+
   Widget _buildAuthenticatedArea({
     required UserData userData,
     required String uid,
@@ -536,12 +592,14 @@ class _GatePageState extends State<GatePage> {
     unawaited(_initializeNotificationPreferencesForUser(uid));
     unawaited(_initializePushForUser(uid));
 
-    return FutureBuilder<_StartupContext>(
+    return FutureBuilder<StartupContext>(
       future: _loadStartupDataOnce(
         uid: uid,
         userData: userData,
       ),
       builder: (context, startupSnapshot) {
+        final isOnline = context.watch<ConnectivityCubit>().state;
+
         if (startupSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: LoadingTreeDots(
@@ -551,14 +609,18 @@ class _GatePageState extends State<GatePage> {
         }
 
         if (startupSnapshot.hasError) {
-          debugPrint(
-            '[GatePage] Erro ao carregar configuração inicial: '
-                '${startupSnapshot.error}',
-          );
+          final error = startupSnapshot.error;
+          final isConnectionProblem = !isOnline || _isConnectionLikeError(error);
 
-          return _StartupErrorView(
+          debugPrint('[GatePage] Erro ao carregar configuração inicial: $error');
+
+          if (isConnectionProblem) {
+            return _buildOfflineStartupFallback();
+          }
+
+          return StartupErrorView(
             title: 'Não foi possível carregar a configuração.',
-            message: startupSnapshot.error?.toString() ??
+            message: error?.toString() ??
                 'Verifique sua conexão e tente recarregar o sistema.',
             onRetry: () {
               setState(() {
@@ -571,7 +633,11 @@ class _GatePageState extends State<GatePage> {
         final startup = startupSnapshot.data;
 
         if (startup == null) {
-          return _StartupErrorView(
+          if (!isOnline) {
+            return _buildOfflineStartupFallback();
+          }
+
+          return StartupErrorView(
             title: 'Configuração indisponível.',
             message: 'Não foi possível montar o contexto inicial do usuário.',
             onRetry: () {
@@ -582,8 +648,10 @@ class _GatePageState extends State<GatePage> {
           );
         }
 
+        _markOnlineAfterStartupSuccess();
+
         if (startup.allowedTenants.isEmpty) {
-          return _StartupErrorView(
+          return StartupErrorView(
             title: 'Nenhuma empresa disponível.',
             message: startup.permissionData.hasGlobalFreeAccess
                 ? 'Nenhuma empresa foi cadastrada em tenants.'
@@ -648,7 +716,7 @@ class _GatePageState extends State<GatePage> {
               );
             }
 
-            final base = _TenantScopedApp(
+            final base = TenantScopedApp(
               tenantId: selectedTenantId,
             );
 
@@ -696,8 +764,10 @@ class _GatePageState extends State<GatePage> {
         GlobalCupertinoLocalizations.delegate,
       ],
       builder: (context, child) {
-        return NotificationLocalHost(
-          child: child ?? const SizedBox.shrink(),
+        return GlobalBannerHost(
+          child: NotificationLocalHost(
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
       home: BlocBuilder<LoginCubit, LoginState>(
@@ -730,6 +800,8 @@ class _GatePageState extends State<GatePage> {
               userRepo: userRepo,
             ),
             builder: (context, userSnapshot) {
+              final isOnline = context.watch<ConnectivityCubit>().state;
+
               if (userSnapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
                   body: LoadingTreeDots(
@@ -739,12 +811,17 @@ class _GatePageState extends State<GatePage> {
               }
 
               if (userSnapshot.hasError) {
-                debugPrint(
-                  '[GatePage] Erro ao carregar usuário: '
-                      '${userSnapshot.error}',
-                );
+                final error = userSnapshot.error;
+                final isConnectionProblem =
+                    !isOnline || _isConnectionLikeError(error);
 
-                return _StartupErrorView(
+                debugPrint('[GatePage] Erro ao carregar usuário: $error');
+
+                if (isConnectionProblem) {
+                  return _buildOfflineStartupFallback();
+                }
+
+                return StartupErrorView(
                   title: 'Não foi possível carregar o usuário.',
                   message: 'Verifique sua conexão e tente recarregar o sistema.',
                   onRetry: () {
@@ -758,6 +835,10 @@ class _GatePageState extends State<GatePage> {
               final userData = userSnapshot.data;
 
               if (userData == null) {
+                if (!isOnline) {
+                  return _buildOfflineStartupFallback();
+                }
+
                 _resetCachedUser();
 
                 return const SignIn();
@@ -766,7 +847,7 @@ class _GatePageState extends State<GatePage> {
               if (userData.hasStatusRestriction) {
                 _resetCachedUser();
 
-                return _BlockedUserView(
+                return BlockedUserView(
                   userData: userData,
                   onSignOut: () async {
                     await context.read<LoginCubit>().signOut();
@@ -787,203 +868,6 @@ class _GatePageState extends State<GatePage> {
             },
           );
         },
-      ),
-    );
-  }
-}
-
-class _TenantScopedApp extends StatelessWidget {
-  const _TenantScopedApp({
-    required this.tenantId,
-  });
-
-  final String tenantId;
-
-  @override
-  Widget build(BuildContext context) {
-    final cleanTenantId = tenantId.trim();
-
-    if (cleanTenantId.isEmpty) {
-      return const Scaffold(
-        backgroundColor: Colors.white,
-        body: LoadingTreeDots(
-          message: Text('Empresa não selecionada...'),
-        ),
-      );
-    }
-
-    return MultiRepositoryProvider(
-      key: ValueKey<String>('tenant-repositories-$cleanTenantId'),
-      providers: [
-        RepositoryProvider<DfdRepository>(
-          create: (_) => DfdRepository(
-            tenantId: cleanTenantId,
-          ),
-        ),
-      ],
-      child: MultiBlocProvider(
-        key: ValueKey<String>('tenant-blocs-$cleanTenantId'),
-        providers: [
-          BlocProvider<DfdCubit>(
-            create: (ctx) => DfdCubit(
-              tenantId: cleanTenantId,
-              repository: ctx.read<DfdRepository>(),
-            ),
-          ),
-        ],
-        child: const MenuListPage(),
-      ),
-    );
-  }
-}
-
-class _StartupContext {
-  const _StartupContext({
-    required this.userData,
-    required this.permissionData,
-    required this.availableTenants,
-    required this.allowedTenants,
-    required this.selectedTenantId,
-  });
-
-  final UserData userData;
-  final perm.UserPermissionData permissionData;
-  final List<TenantData> availableTenants;
-  final List<TenantData> allowedTenants;
-  final String? selectedTenantId;
-}
-
-class _StartupErrorView extends StatelessWidget {
-  const _StartupErrorView({
-    required this.title,
-    required this.message,
-    required this.onRetry,
-  });
-
-  final String title;
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: 460,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      size: 42,
-                      color: Colors.orange,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      message,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: onRetry,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Tentar novamente'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BlockedUserView extends StatelessWidget {
-  const _BlockedUserView({
-    required this.userData,
-    required this.onSignOut,
-  });
-
-  final UserData userData;
-  final Future<void> Function() onSignOut;
-
-  @override
-  Widget build(BuildContext context) {
-    final statusLabel = userData.statusLabel;
-    final statusColor = userData.statusColor;
-    final statusIcon = userData.statusIcon;
-
-    final reason = userData.deletedReason ??
-        userData.blockedReason ??
-        userData.deactivatedReason ??
-        'A conta não está autorizada a acessar o sistema.';
-
-    return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: 460,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      statusIcon,
-                      size: 46,
-                      color: statusColor,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Usuário $statusLabel',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: statusColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      reason,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: onSignOut,
-                      icon: const Icon(Icons.logout_rounded),
-                      label: const Text('Sair'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

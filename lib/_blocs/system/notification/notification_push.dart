@@ -1,7 +1,6 @@
 // lib/_blocs/system/notification/notification_push.dart
 
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -13,7 +12,7 @@ import 'package:sipged/_blocs/system/notification/notification_channel.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/notification/remote/notification_remote_cubit.dart';
-import 'package:sipged/firebase_options_flavors.dart';
+import 'package:sipged/_blocs/system/setup/firebase_options_flavors.dart';
 
 @pragma('vm:entry-point')
 Future<void> sipgedFirebaseMessagingBackgroundHandler(
@@ -61,6 +60,7 @@ class NotificationPush {
 
     _currentUserId = cleanUserId;
 
+    await _requestPermission();
     await _configureLocalNotifications();
     await _configureForegroundPresentation();
 
@@ -81,6 +81,22 @@ class NotificationPush {
 
     if (initialMessage != null) {
       onMessageOpened?.call(initialMessage);
+    }
+  }
+
+  Future<void> _requestPermission() async {
+    try {
+      await _messaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+    } catch (e) {
+      debugPrint('[Push] Erro ao solicitar permissão de notificação: $e');
     }
   }
 
@@ -164,7 +180,7 @@ class NotificationPush {
       onDidReceiveNotificationResponse: (response) {},
     );
 
-    if (Platform.isAndroid) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
       await _localNotifications
           .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>()
@@ -239,6 +255,8 @@ class NotificationPush {
     final createdBy = _clean(data['createdBy']?.toString());
     final senderId = _clean(data['senderId']?.toString());
 
+    /// Evita duplicidade para o próprio usuário que disparou a ação.
+    /// Ele já recebe a notificação local diretamente pelo dispatcher.
     if (actorId == currentUserId) return true;
     if (createdBy == currentUserId) return true;
     if (senderId == currentUserId) return true;
@@ -284,9 +302,7 @@ class NotificationPush {
     }
 
     final action = _clean(data['action']?.toString());
-    final measurementId = _clean(data['measurementId']?.toString());
-    final contractId = _clean(data['contractId']?.toString());
-    final measurementOrder = _clean(data['measurementOrder']?.toString());
+
     final source = _clean(
       (data['notificationSource'] ??
           data['sourceKey'] ??
@@ -295,8 +311,54 @@ class NotificationPush {
           ?.toString(),
     );
 
+    final contractId = _clean(data['contractId']?.toString());
+
+    final measurementId = _clean(data['measurementId']?.toString());
+    final measurementOrder = _clean(data['measurementOrder']?.toString());
+
+    final paymentId = _clean(data['paymentId']?.toString());
+    final paymentOrder = _clean(data['paymentOrder']?.toString());
+
+    final validityId = _clean(data['validityId']?.toString());
+    final additiveId = _clean(data['additiveId']?.toString());
+    final apostilleId = _clean(data['apostilleId']?.toString());
+    final revisionId = _clean(data['revisionId']?.toString());
+    final adjustmentId = _clean(data['adjustmentId']?.toString());
+
+    if (source.isNotEmpty && action.isNotEmpty && paymentId.isNotEmpty) {
+      return '$source|$action|$paymentId';
+    }
+
     if (source.isNotEmpty && action.isNotEmpty && measurementId.isNotEmpty) {
       return '$source|$action|$measurementId';
+    }
+
+    if (source.isNotEmpty && action.isNotEmpty && validityId.isNotEmpty) {
+      return '$source|$action|$validityId';
+    }
+
+    if (source.isNotEmpty && action.isNotEmpty && additiveId.isNotEmpty) {
+      return '$source|$action|$additiveId';
+    }
+
+    if (source.isNotEmpty && action.isNotEmpty && apostilleId.isNotEmpty) {
+      return '$source|$action|$apostilleId';
+    }
+
+    if (source.isNotEmpty && action.isNotEmpty && revisionId.isNotEmpty) {
+      return '$source|$action|$revisionId';
+    }
+
+    if (source.isNotEmpty && action.isNotEmpty && adjustmentId.isNotEmpty) {
+      return '$source|$action|$adjustmentId';
+    }
+
+    if (source.isNotEmpty &&
+        action.isNotEmpty &&
+        contractId.isNotEmpty &&
+        measurementId.isNotEmpty &&
+        paymentOrder.isNotEmpty) {
+      return '$source|$action|$contractId|$measurementId|$paymentOrder';
     }
 
     if (source.isNotEmpty &&
@@ -329,7 +391,8 @@ class NotificationPush {
 
     final body = message.notification?.body ??
         data['body']?.toString() ??
-        data['subtitle']?.toString();
+        data['subtitle']?.toString() ??
+        data['details']?.toString();
 
     final status = NotificationStatusExtension.fromString(
       data['status']?.toString() ?? data['type']?.toString(),
@@ -347,7 +410,9 @@ class NotificationPush {
       createdAt: DateTime.now(),
       persistInFirebase: false,
       sendPush: false,
-      extra: Map<String, dynamic>.from(data),
+      extra: NotificationData.sanitizeExtra(
+        Map<String, dynamic>.from(data),
+      ),
     );
   }
 
@@ -396,13 +461,20 @@ class NotificationPush {
   String _platformName() {
     if (kIsWeb) return 'web';
 
-    if (Platform.isAndroid) return 'android';
-    if (Platform.isIOS) return 'ios';
-    if (Platform.isMacOS) return 'macos';
-    if (Platform.isWindows) return 'windows';
-    if (Platform.isLinux) return 'linux';
-
-    return 'unknown';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'android';
+      case TargetPlatform.iOS:
+        return 'ios';
+      case TargetPlatform.macOS:
+        return 'macos';
+      case TargetPlatform.windows:
+        return 'windows';
+      case TargetPlatform.linux:
+        return 'linux';
+      case TargetPlatform.fuchsia:
+        return 'fuchsia';
+    }
   }
 
   String _clean(String? value) {

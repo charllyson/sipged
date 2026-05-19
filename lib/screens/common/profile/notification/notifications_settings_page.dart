@@ -6,7 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_channel.dart';
-import 'package:sipged/_blocs/system/notification/notification_source.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_source.dart';
 import 'package:sipged/_blocs/system/notification/preferences/notification_preference_data.dart';
 import 'package:sipged/_blocs/system/notification/preferences/notification_preferences_cubit.dart';
 import 'package:sipged/_blocs/system/notification/preferences/notification_preferences_state.dart';

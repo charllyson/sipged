@@ -1,7 +1,54 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
-enum PermissionAction {
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
+import 'package:sipged/_blocs/system/module/module_catalog.dart';
+
+/// ============================================================================
+/// PERMISSION DATA MODEL
+///
+/// Schema canônico esperado no Firestore:
+///
+/// users_permissions/{uid}
+/// {
+///   "globalRole": "LEITOR",
+///   "activeTenantId": "tenant_123",
+///   "globalModuleOverrides": {
+///     "module_id": {
+///       "read": true,
+///       "create": false,
+///       "edit": false,
+///       "delete": false,
+///       "approve": false
+///     }
+///   },
+///   "tenantAccess": {
+///     "tenant_123": {
+///       "enabled": true,
+///       "role": "GESTOR_REGIONAL",
+///       "label": "Empresa A",
+///       "moduleOverrides": {
+///         "contracts_list": {
+///           "read": true,
+///           "create": true,
+///           "edit": false,
+///           "delete": false,
+///           "approve": false
+///         }
+///       }
+///     }
+///   }
+/// }
+///
+/// Regras principais:
+/// - Administrador e Desenvolvedor têm acesso total.
+/// - Usuário precisa ter acesso ao tenant.
+/// - Para módulos gerais, vale a permissão do módulo.
+/// - Para contratos, a permissão documental do contrato pode liberar a ação.
+/// - A permissão de módulo funciona como fallback para telas gerais.
+/// ============================================================================
+
+enum PermissionType {
   read,
   create,
   edit,
@@ -9,7 +56,7 @@ enum PermissionAction {
   approve,
 }
 
-enum SystemUserRole {
+enum PermissionUser {
   administrador,
   desenvolvedor,
   gestorRegional,
@@ -18,117 +65,123 @@ enum SystemUserRole {
   leitor,
 }
 
+/// ============================================================================
+/// ROLE CODEC
+/// ============================================================================
+
 class SystemRoleCodec {
   const SystemRoleCodec._();
 
-  static const Map<SystemUserRole, String> _ids = {
-    SystemUserRole.administrador: 'ADMINISTRADOR',
-    SystemUserRole.desenvolvedor: 'DESENVOLVEDOR',
-    SystemUserRole.gestorRegional: 'GESTOR_REGIONAL',
-    SystemUserRole.fiscal: 'FISCAL',
-    SystemUserRole.colaborador: 'COLABORADOR',
-    SystemUserRole.leitor: 'LEITOR',
+  static const Map<PermissionUser, String> _ids = {
+    PermissionUser.administrador: 'ADMINISTRADOR',
+    PermissionUser.desenvolvedor: 'DESENVOLVEDOR',
+    PermissionUser.gestorRegional: 'GESTOR_REGIONAL',
+    PermissionUser.fiscal: 'FISCAL',
+    PermissionUser.colaborador: 'COLABORADOR',
+    PermissionUser.leitor: 'LEITOR',
   };
 
-  static const Map<SystemUserRole, String> _labels = {
-    SystemUserRole.administrador: 'Administrador',
-    SystemUserRole.desenvolvedor: 'Desenvolvedor',
-    SystemUserRole.gestorRegional: 'Gestor Regional',
-    SystemUserRole.fiscal: 'Fiscal',
-    SystemUserRole.colaborador: 'Colaborador',
-    SystemUserRole.leitor: 'Leitor',
+  static const Map<PermissionUser, String> _labels = {
+    PermissionUser.administrador: 'Administrador',
+    PermissionUser.desenvolvedor: 'Desenvolvedor',
+    PermissionUser.gestorRegional: 'Gestor Regional',
+    PermissionUser.fiscal: 'Fiscal',
+    PermissionUser.colaborador: 'Colaborador',
+    PermissionUser.leitor: 'Leitor',
   };
 
-  static String serialize(SystemUserRole role) {
-    return _ids[role] ?? _ids[SystemUserRole.leitor]!;
+  static String serialize(PermissionUser role) {
+    return _ids[role]!;
   }
 
-  static String label(SystemUserRole role) {
-    return _labels[role] ?? _labels[SystemUserRole.leitor]!;
+  static String label(PermissionUser role) {
+    return _labels[role]!;
   }
 
-  static SystemUserRole parse(String? raw) {
-    final value = (raw ?? '').trim();
+  static PermissionUser? tryParse(String? value) {
+    final text = value?.trim();
 
-    if (value.isEmpty) {
-      return SystemUserRole.leitor;
-    }
-
-    final upper = value.toUpperCase().trim();
-
-    if (upper == 'CONVIDADO' || upper == 'GUEST') {
-      return SystemUserRole.leitor;
+    if (text == null || text.isEmpty) {
+      return null;
     }
 
     for (final entry in _ids.entries) {
-      if (entry.value == upper) {
+      if (entry.value == text) {
         return entry.key;
       }
     }
 
-    final normalized = upper
-        .replaceAll('-', '_')
-        .replaceAll(' ', '_')
-        .replaceAll('__', '_')
-        .trim();
-
-    for (final entry in _ids.entries) {
-      if (entry.value == normalized) {
-        return entry.key;
-      }
-    }
-
-    for (final role in SystemUserRole.values) {
-      if (role.name.toLowerCase() == value.toLowerCase()) {
+    for (final role in PermissionUser.values) {
+      if (role.name == text) {
         return role;
       }
     }
 
-    switch (normalized) {
-      case 'ADMIN':
-      case 'ADM':
-      case 'ADMINISTRADOR':
-      case 'ADMINISTRATOR':
-      case 'SUPER_ADMIN':
-      case 'SUPERADMIN':
-      case 'SUPER_USER':
-      case 'SUPERUSER':
-        return SystemUserRole.administrador;
+    return null;
+  }
 
-      case 'DEV':
-      case 'DEVELOPER':
-      case 'DESENVOLVEDOR':
-        return SystemUserRole.desenvolvedor;
+  static PermissionUser parseOrDefault(
+      String? value, {
+        PermissionUser fallback = PermissionUser.leitor,
+      }) {
+    return tryParse(value) ?? fallback;
+  }
 
-      case 'GESTORREGIONAL':
-      case 'GESTOR_REGIONAL':
-      case 'REGIONAL_MANAGER':
-      case 'MANAGER_REGIONAL':
-        return SystemUserRole.gestorRegional;
+  static bool isSuperUser(PermissionUser role) {
+    return role == PermissionUser.administrador ||
+        role == PermissionUser.desenvolvedor;
+  }
+}
 
-      case 'FISCAL':
-      case 'INSPECTOR':
-        return SystemUserRole.fiscal;
+/// ============================================================================
+/// ACTION CODEC
+/// ============================================================================
 
-      case 'COLABORADOR':
-      case 'EDITOR':
-      case 'CONTRIBUTOR':
-      case 'COLLABORATOR':
-        return SystemUserRole.colaborador;
+class PermissionActionCodec {
+  const PermissionActionCodec._();
 
-      case 'LEITOR':
-      case 'VIEWER':
-      case 'READER':
-      default:
-        return SystemUserRole.leitor;
+  static String serialize(PermissionType action) {
+    switch (action) {
+      case PermissionType.read:
+        return 'read';
+      case PermissionType.create:
+        return 'create';
+      case PermissionType.edit:
+        return 'edit';
+      case PermissionType.delete:
+        return 'delete';
+      case PermissionType.approve:
+        return 'approve';
     }
   }
 
-  static bool isSuperUser(SystemUserRole role) {
-    return role == SystemUserRole.administrador ||
-        role == SystemUserRole.desenvolvedor;
+  static PermissionType? tryParse(String? value) {
+    final text = value?.trim().toLowerCase();
+
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+
+    for (final action in PermissionType.values) {
+      if (action.name == text) {
+        return action;
+      }
+    }
+
+    return null;
+  }
+
+  static PermissionType parseOrDefault(
+      String? value, {
+        PermissionType fallback = PermissionType.read,
+      }) {
+    return tryParse(value) ?? fallback;
   }
 }
+
+/// ============================================================================
+/// PERMISSION SET
+/// ============================================================================
 
 class PermissionSet extends Equatable {
   final bool read;
@@ -145,18 +198,18 @@ class PermissionSet extends Equatable {
     this.approve = false,
   });
 
-  static const none = PermissionSet();
+  static const PermissionSet none = PermissionSet();
 
-  static const full = PermissionSet(
+  static const PermissionSet readOnly = PermissionSet(
+    read: true,
+  );
+
+  static const PermissionSet full = PermissionSet(
     read: true,
     create: true,
     edit: true,
     delete: true,
     approve: true,
-  );
-
-  static const readOnly = PermissionSet(
-    read: true,
   );
 
   bool get isNone {
@@ -167,27 +220,33 @@ class PermissionSet extends Equatable {
     return read && create && edit && delete && approve;
   }
 
-  bool allows(PermissionAction action) {
+  bool allows(PermissionType action) {
     switch (action) {
-      case PermissionAction.read:
+      case PermissionType.read:
         return read || create || edit || delete || approve;
 
-      case PermissionAction.create:
+      case PermissionType.create:
         return create || edit || delete || approve;
 
-      case PermissionAction.edit:
+      case PermissionType.edit:
         return edit || delete || approve;
 
-      case PermissionAction.delete:
+      case PermissionType.delete:
         return delete || approve;
 
-      case PermissionAction.approve:
+      case PermissionType.approve:
         return approve;
     }
   }
 
   bool allowsString(String action) {
-    return allows(PermissionActionCodec.parse(action));
+    final parsedAction = PermissionActionCodec.tryParse(action);
+
+    if (parsedAction == null) {
+      return false;
+    }
+
+    return allows(parsedAction);
   }
 
   PermissionSet mergeAllow(PermissionSet other) {
@@ -216,7 +275,7 @@ class PermissionSet extends Equatable {
     );
   }
 
-  Map<String, bool> toBoolMap() {
+  Map<String, bool> toMap() {
     return <String, bool>{
       'read': read,
       'create': create,
@@ -226,400 +285,212 @@ class PermissionSet extends Equatable {
     };
   }
 
-  Map<String, dynamic> toMap() {
-    return Map<String, dynamic>.from(toBoolMap());
-  }
-
-  static bool _readBool(dynamic value) {
-    if (value is bool) return value;
-    if (value is num) return value != 0;
-
-    final text = value?.toString().trim().toLowerCase();
-
-    return text == 'true' ||
-        text == '1' ||
-        text == 'sim' ||
-        text == 'yes' ||
-        text == 'y' ||
-        text == 's';
-  }
-
-  static String _normalizeKey(String raw) {
-    final key = raw.trim().toLowerCase();
-
-    switch (key) {
-      case 'read':
-      case 'ler':
-      case 'view':
-      case 'viewer':
-      case 'visualizar':
-        return 'read';
-
-      case 'create':
-      case 'criar':
-      case 'write':
-      case 'add':
-      case 'insert':
-      case 'inserir':
-      case 'cadastrar':
-        return 'create';
-
-      case 'edit':
-      case 'editar':
-      case 'update':
-      case 'atualizar':
-      case 'change':
-      case 'alterar':
-        return 'edit';
-
-      case 'delete':
-      case 'deletar':
-      case 'remove':
-      case 'remover':
-      case 'excluir':
-      case 'apagar':
-        return 'delete';
-
-      case 'approve':
-      case 'aprovar':
-      case 'approval':
-      case 'approved':
-      case 'autorizar':
-      case 'authorize':
-      case 'authorized':
-        return 'approve';
-
-      default:
-        return key;
-    }
-  }
-
   factory PermissionSet.fromMap(Map<String, dynamic>? map) {
-    final m = map ?? const <String, dynamic>{};
-
-    final normalized = <String, bool>{
-      'read': false,
-      'create': false,
-      'edit': false,
-      'delete': false,
-      'approve': false,
-    };
-
-    for (final entry in m.entries) {
-      final key = _normalizeKey(entry.key);
-
-      if (!normalized.containsKey(key)) continue;
-
-      normalized[key] = _readBool(entry.value);
-    }
-
-    return PermissionSet(
-      read: normalized['read'] ?? false,
-      create: normalized['create'] ?? false,
-      edit: normalized['edit'] ?? false,
-      delete: normalized['delete'] ?? false,
-      approve: normalized['approve'] ?? false,
-    );
-  }
-
-  factory PermissionSet.fromDynamic(dynamic raw) {
-    if (raw == null) {
+    if (map == null) {
       return PermissionSet.none;
     }
 
-    if (raw is PermissionSet) {
-      return raw;
+    return PermissionSet(
+      read: map['read'] == true,
+      create: map['create'] == true,
+      edit: map['edit'] == true,
+      delete: map['delete'] == true,
+      approve: map['approve'] == true,
+    );
+  }
+
+  factory PermissionSet.fromBoolMap(Map<String, bool>? map) {
+    if (map == null) {
+      return PermissionSet.none;
     }
 
-    if (raw is Map) {
-      final map = <String, dynamic>{};
+    return PermissionSet(
+      read: map['read'] == true,
+      create: map['create'] == true,
+      edit: map['edit'] == true,
+      delete: map['delete'] == true,
+      approve: map['approve'] == true,
+    );
+  }
 
-      raw.forEach((key, value) {
-        final cleanKey = key?.toString().trim();
-
-        if (cleanKey == null || cleanKey.isEmpty) return;
-
-        map[cleanKey] = value;
-      });
-
-      return PermissionSet.fromMap(map);
+  factory PermissionSet.fromDynamic(dynamic value) {
+    if (value == null) {
+      return PermissionSet.none;
     }
 
-    if (raw is Iterable) {
-      final map = <String, dynamic>{};
-
-      for (final item in raw) {
-        final key = item?.toString().trim();
-
-        if (key == null || key.isEmpty) continue;
-
-        map[key] = true;
-      }
-
-      return PermissionSet.fromMap(map);
+    if (value is PermissionSet) {
+      return value;
     }
 
-    if (raw is String) {
-      final map = <String, dynamic>{};
+    if (value is Map<String, dynamic>) {
+      return PermissionSet.fromMap(value);
+    }
 
-      final parts = raw
-          .split(RegExp(r'[,;|\n]'))
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty);
-
-      for (final part in parts) {
-        map[part] = true;
-      }
-
-      return PermissionSet.fromMap(map);
+    if (value is Map) {
+      return PermissionSet.fromMap(
+        value.map(
+              (key, mapValue) {
+            return MapEntry(
+              key.toString(),
+              mapValue,
+            );
+          },
+        ),
+      );
     }
 
     return PermissionSet.none;
   }
 
   @override
-  List<Object?> get props => [
-    read,
-    create,
-    edit,
-    delete,
-    approve,
-  ];
-}
-
-class PermissionActionCodec {
-  const PermissionActionCodec._();
-
-  static PermissionAction parse(String raw) {
-    switch (raw.trim().toLowerCase()) {
-      case 'create':
-      case 'criar':
-      case 'write':
-      case 'add':
-      case 'insert':
-      case 'cadastrar':
-        return PermissionAction.create;
-
-      case 'edit':
-      case 'update':
-      case 'editar':
-      case 'atualizar':
-      case 'change':
-      case 'alterar':
-        return PermissionAction.edit;
-
-      case 'delete':
-      case 'remove':
-      case 'excluir':
-      case 'apagar':
-      case 'deletar':
-      case 'remover':
-        return PermissionAction.delete;
-
-      case 'approve':
-      case 'approval':
-      case 'approved':
-      case 'aprovar':
-      case 'autorizar':
-      case 'authorize':
-      case 'authorized':
-        return PermissionAction.approve;
-
-      case 'read':
-      case 'view':
-      case 'visualizar':
-      case 'ler':
-      default:
-        return PermissionAction.read;
-    }
-  }
-
-  static String serialize(PermissionAction action) {
-    switch (action) {
-      case PermissionAction.read:
-        return 'read';
-
-      case PermissionAction.create:
-        return 'create';
-
-      case PermissionAction.edit:
-        return 'edit';
-
-      case PermissionAction.delete:
-        return 'delete';
-
-      case PermissionAction.approve:
-        return 'approve';
-    }
+  List<Object?> get props {
+    return <Object?>[
+      read,
+      create,
+      edit,
+      delete,
+      approve,
+    ];
   }
 }
+
+/// ============================================================================
+/// TENANT PERMISSION DATA
+/// ============================================================================
 
 class TenantPermissionData extends Equatable {
   final String tenantId;
   final bool enabled;
-  final SystemUserRole? role;
+  final PermissionUser role;
   final String? label;
   final Map<String, PermissionSet> moduleOverrides;
-  final Map<String, dynamic> extra;
 
   const TenantPermissionData({
     required this.tenantId,
     this.enabled = true,
-    this.role,
+    this.role = PermissionUser.leitor,
     this.label,
     this.moduleOverrides = const <String, PermissionSet>{},
-    this.extra = const <String, dynamic>{},
   });
 
   factory TenantPermissionData.fromMap({
     required String tenantId,
     required Map<String, dynamic>? map,
   }) {
-    final raw = Map<String, dynamic>.from(map ?? const <String, dynamic>{});
+    final data = map ?? const <String, dynamic>{};
 
-    final enabledRaw = raw.remove('enabled') ??
-        raw.remove('active') ??
-        raw.remove('allowed') ??
-        true;
-
-    final enabled = _readEnabled(enabledRaw);
-
-    final roleRaw = raw.remove('role') ??
-        raw.remove('baseRole') ??
-        raw.remove('baseProfile');
-
-    final labelRaw = raw.remove('label') ??
-        raw.remove('companyName') ??
-        raw.remove('fantasyName');
-
+    final rawModules = data['moduleOverrides'];
     final moduleOverrides = <String, PermissionSet>{};
 
-    final rawModuleOverrides = raw.remove('moduleOverrides') ??
-        raw.remove('modules') ??
-        raw.remove('permissions');
+    if (rawModules is Map) {
+      rawModules.forEach((key, value) {
+        final moduleId = key.toString().trim();
 
-    if (rawModuleOverrides is Map) {
-      rawModuleOverrides.forEach((key, value) {
-        final module = key.toString().trim();
+        if (moduleId.isEmpty) {
+          return;
+        }
 
-        if (module.isEmpty) return;
-
-        moduleOverrides[module] = PermissionSet.fromDynamic(value);
+        moduleOverrides[moduleId] = PermissionSet.fromDynamic(value);
       });
     }
 
-    final roleText = roleRaw?.toString().trim();
-    final labelText = labelRaw?.toString().trim();
+    final labelText = data['label']?.toString().trim();
 
     return TenantPermissionData(
       tenantId: tenantId.trim(),
-      enabled: enabled,
-      role: roleText == null || roleText.isEmpty
-          ? null
-          : SystemRoleCodec.parse(roleText),
+      enabled: data['enabled'] == true,
+      role: SystemRoleCodec.parseOrDefault(
+        data['role']?.toString(),
+      ),
       label: labelText == null || labelText.isEmpty ? null : labelText,
       moduleOverrides: moduleOverrides,
-      extra: raw,
     );
   }
 
-  static bool _readEnabled(dynamic value) {
-    if (value is bool) return value;
-    if (value is num) return value != 0;
-
-    final text = value?.toString().trim().toLowerCase();
-
-    if (text == null || text.isEmpty) return true;
-
-    if (text == 'false' ||
-        text == '0' ||
-        text == 'nao' ||
-        text == 'não' ||
-        text == 'no' ||
-        text == 'n' ||
-        text == 'disabled' ||
-        text == 'inactive') {
-      return false;
-    }
-
-    return true;
-  }
-
   Map<String, dynamic> toMap() {
-    return {
+    return <String, dynamic>{
       'enabled': enabled,
-      if (role != null) 'role': SystemRoleCodec.serialize(role!),
+      'role': SystemRoleCodec.serialize(role),
       if (label != null && label!.trim().isNotEmpty) 'label': label!.trim(),
-      if (moduleOverrides.isNotEmpty)
-        'moduleOverrides': {
-          for (final entry in moduleOverrides.entries)
-            entry.key: entry.value.toMap(),
-        },
-      ...extra,
+      'moduleOverrides': <String, dynamic>{
+        for (final entry in moduleOverrides.entries)
+          entry.key: entry.value.toMap(),
+      },
     };
   }
 
   TenantPermissionData copyWith({
     String? tenantId,
     bool? enabled,
-    SystemUserRole? role,
-    bool clearRole = false,
+    PermissionUser? role,
     String? label,
     bool clearLabel = false,
     Map<String, PermissionSet>? moduleOverrides,
-    Map<String, dynamic>? extra,
   }) {
     return TenantPermissionData(
       tenantId: tenantId ?? this.tenantId,
       enabled: enabled ?? this.enabled,
-      role: clearRole ? null : role ?? this.role,
+      role: role ?? this.role,
       label: clearLabel ? null : label ?? this.label,
       moduleOverrides: moduleOverrides ?? this.moduleOverrides,
-      extra: extra ?? this.extra,
     );
   }
 
-  PermissionSet overrideForModule(String module) {
-    return moduleOverrides[module.trim()] ?? PermissionSet.none;
+  PermissionSet permissionForModule(String module) {
+    final moduleId = module.trim();
+
+    if (moduleId.isEmpty) {
+      return PermissionSet.none;
+    }
+
+    return moduleOverrides[moduleId] ?? PermissionSet.none;
+  }
+
+  bool hasModule(String module) {
+    return !permissionForModule(module).isNone;
   }
 
   @override
-  List<Object?> get props => [
-    tenantId,
-    enabled,
-    role,
-    label,
-    moduleOverrides,
-    extra,
-  ];
+  List<Object?> get props {
+    return <Object?>[
+      tenantId,
+      enabled,
+      role,
+      label,
+      moduleOverrides,
+    ];
+  }
 }
+
+/// ============================================================================
+/// USER PERMISSION DATA
+/// ============================================================================
 
 class UserPermissionData extends Equatable {
   final String uid;
-  final SystemUserRole globalRole;
+  final PermissionUser globalRole;
   final Map<String, PermissionSet> globalModuleOverrides;
   final Map<String, TenantPermissionData> tenantAccess;
   final String? activeTenantId;
-  final Map<String, dynamic> extra;
 
   const UserPermissionData({
     required this.uid,
-    this.globalRole = SystemUserRole.leitor,
+    this.globalRole = PermissionUser.leitor,
     this.globalModuleOverrides = const <String, PermissionSet>{},
     this.tenantAccess = const <String, TenantPermissionData>{},
     this.activeTenantId,
-    this.extra = const <String, dynamic>{},
   });
 
   const UserPermissionData.empty()
       : uid = '',
-        globalRole = SystemUserRole.leitor,
+        globalRole = PermissionUser.leitor,
         globalModuleOverrides = const <String, PermissionSet>{},
         tenantAccess = const <String, TenantPermissionData>{},
-        activeTenantId = null,
-        extra = const <String, dynamic>{};
+        activeTenantId = null;
 
-  bool get isEmpty => uid.trim().isEmpty;
+  bool get isEmpty {
+    return uid.trim().isEmpty;
+  }
 
   bool get isGlobalSuperUser {
     return SystemRoleCodec.isSuperUser(globalRole);
@@ -650,19 +521,129 @@ class UserPermissionData extends Equatable {
     return ids;
   }
 
-  Map<String, SystemUserRole> get tenantRoles {
-    return {
+  Map<String, PermissionUser> get tenantRoles {
+    return <String, PermissionUser>{
       for (final entry in tenantAccess.entries)
-        if (entry.value.enabled) entry.key: entry.value.role ?? globalRole,
+        if (entry.value.enabled) entry.key: entry.value.role,
     };
   }
 
   Map<String, Map<String, PermissionSet>> get tenantModuleOverrides {
-    return {
+    return <String, Map<String, PermissionSet>>{
       for (final entry in tenantAccess.entries)
         if (entry.value.moduleOverrides.isNotEmpty)
           entry.key: entry.value.moduleOverrides,
     };
+  }
+
+  factory UserPermissionData.fromMap({
+    required String uid,
+    required Map<String, dynamic>? map,
+  }) {
+    if (map == null) {
+      return UserPermissionData(
+        uid: uid.trim(),
+      );
+    }
+
+    final globalModuleOverrides = <String, PermissionSet>{};
+    final rawGlobalModules = map['globalModuleOverrides'];
+
+    if (rawGlobalModules is Map) {
+      rawGlobalModules.forEach((key, value) {
+        final moduleId = key.toString().trim();
+
+        if (moduleId.isEmpty) {
+          return;
+        }
+
+        globalModuleOverrides[moduleId] = PermissionSet.fromDynamic(value);
+      });
+    }
+
+    final tenantAccess = <String, TenantPermissionData>{};
+    final rawTenantAccess = map['tenantAccess'];
+
+    if (rawTenantAccess is Map) {
+      rawTenantAccess.forEach((key, value) {
+        final tenantId = key.toString().trim();
+
+        if (tenantId.isEmpty) {
+          return;
+        }
+
+        if (value is Map) {
+          tenantAccess[tenantId] = TenantPermissionData.fromMap(
+            tenantId: tenantId,
+            map: value.map(
+                  (mapKey, mapValue) {
+                return MapEntry(
+                  mapKey.toString(),
+                  mapValue,
+                );
+              },
+            ),
+          );
+        }
+      });
+    }
+
+    final activeTenantText = map['activeTenantId']?.toString().trim();
+
+    return UserPermissionData(
+      uid: uid.trim(),
+      globalRole: SystemRoleCodec.parseOrDefault(
+        map['globalRole']?.toString(),
+      ),
+      globalModuleOverrides: globalModuleOverrides,
+      tenantAccess: tenantAccess,
+      activeTenantId: activeTenantText == null || activeTenantText.isEmpty
+          ? null
+          : activeTenantText,
+    );
+  }
+
+  factory UserPermissionData.fromDoc(
+      DocumentSnapshot<Map<String, dynamic>> doc,
+      ) {
+    return UserPermissionData.fromMap(
+      uid: doc.id,
+      map: doc.data(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'globalRole': SystemRoleCodec.serialize(globalRole),
+      if (activeTenantId != null && activeTenantId!.trim().isNotEmpty)
+        'activeTenantId': activeTenantId!.trim(),
+      'globalModuleOverrides': <String, dynamic>{
+        for (final entry in globalModuleOverrides.entries)
+          entry.key: entry.value.toMap(),
+      },
+      'tenantAccess': <String, dynamic>{
+        for (final entry in tenantAccess.entries) entry.key: entry.value.toMap(),
+      },
+    };
+  }
+
+  UserPermissionData copyWith({
+    String? uid,
+    PermissionUser? globalRole,
+    Map<String, PermissionSet>? globalModuleOverrides,
+    Map<String, TenantPermissionData>? tenantAccess,
+    String? activeTenantId,
+    bool clearActiveTenantId = false,
+  }) {
+    return UserPermissionData(
+      uid: uid ?? this.uid,
+      globalRole: globalRole ?? this.globalRole,
+      globalModuleOverrides:
+      globalModuleOverrides ?? this.globalModuleOverrides,
+      tenantAccess: tenantAccess ?? this.tenantAccess,
+      activeTenantId:
+      clearActiveTenantId ? null : activeTenantId ?? this.activeTenantId,
+    );
   }
 
   List<String> selectableTenantIds({
@@ -685,7 +666,7 @@ class UserPermissionData extends Equatable {
     }
 
     final list = enabledTenantIds
-        .where((id) => available.contains(id))
+        .where((tenantId) => available.contains(tenantId))
         .toSet()
         .toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
@@ -693,271 +674,10 @@ class UserPermissionData extends Equatable {
     return list;
   }
 
-  factory UserPermissionData.fromMap({
-    required String uid,
-    required Map<String, dynamic>? map,
-  }) {
-    if (map == null) {
-      return UserPermissionData(
-        uid: uid,
-      );
-    }
-
-    final raw = Map<String, dynamic>.from(map);
-
-    final roleRaw = raw.remove('globalRole') ??
-        raw.remove('baseRole') ??
-        raw.remove('baseProfile') ??
-        raw.remove('role');
-
-    final globalRole = SystemRoleCodec.parse(roleRaw?.toString());
-
-    final activeTenantId = _cleanString(
-      raw.remove('activeTenantId') ??
-          raw.remove('currentTenantId') ??
-          raw.remove('selectedTenantId') ??
-          raw.remove('tenantId') ??
-          raw.remove('companyId') ??
-          raw.remove('currentCompanyId'),
-    );
-
-    final globalModuleOverrides = <String, PermissionSet>{};
-
-    final rawGlobalModuleOverrides =
-        raw.remove('moduleOverrides') ?? raw.remove('globalModuleOverrides');
-
-    if (rawGlobalModuleOverrides is Map) {
-      rawGlobalModuleOverrides.forEach((key, value) {
-        final module = key.toString().trim();
-
-        if (module.isEmpty) return;
-
-        globalModuleOverrides[module] = PermissionSet.fromDynamic(value);
-      });
-    }
-
-    final tenantAccess = <String, TenantPermissionData>{};
-
-    final rawTenantAccess = raw.remove('tenantAccess') ??
-        raw.remove('tenantsAccess') ??
-        raw.remove('companyAccess') ??
-        raw.remove('companiesAccess');
-
-    if (rawTenantAccess is Map) {
-      rawTenantAccess.forEach((key, value) {
-        final tenantId = key.toString().trim();
-
-        if (tenantId.isEmpty) return;
-
-        if (value is Map) {
-          tenantAccess[tenantId] = TenantPermissionData.fromMap(
-            tenantId: tenantId,
-            map: Map<String, dynamic>.from(value),
-          );
-        } else if (value == true) {
-          tenantAccess[tenantId] = TenantPermissionData(
-            tenantId: tenantId,
-            enabled: true,
-          );
-        } else if (value == false) {
-          tenantAccess[tenantId] = TenantPermissionData(
-            tenantId: tenantId,
-            enabled: false,
-          );
-        }
-      });
-    }
-
-    final rawTenantIds = raw.remove('tenantIds') ??
-        raw.remove('allowedTenantIds') ??
-        raw.remove('accessibleTenantIds') ??
-        raw.remove('companyIds') ??
-        raw.remove('allowedCompanyIds') ??
-        raw.remove('accessibleCompanyIds') ??
-        raw.remove('tenants') ??
-        raw.remove('companies');
-
-    for (final tenantId in _stringListFromDynamic(rawTenantIds)) {
-      tenantAccess.putIfAbsent(
-        tenantId,
-            () => TenantPermissionData(
-          tenantId: tenantId,
-          enabled: true,
-        ),
-      );
-    }
-
-    final rawTenantRoles = raw.remove('tenantRoles');
-
-    if (rawTenantRoles is Map) {
-      rawTenantRoles.forEach((key, value) {
-        final tenantId = key.toString().trim();
-
-        if (tenantId.isEmpty) return;
-
-        final existing = tenantAccess[tenantId];
-
-        tenantAccess[tenantId] = (existing ??
-            TenantPermissionData(
-              tenantId: tenantId,
-              enabled: true,
-            ))
-            .copyWith(
-          enabled: true,
-          role: SystemRoleCodec.parse(value?.toString()),
-        );
-      });
-    }
-
-    final rawTenantModuleOverrides = raw.remove('tenantModuleOverrides');
-
-    if (rawTenantModuleOverrides is Map) {
-      rawTenantModuleOverrides.forEach((tenantKey, modulesRaw) {
-        final tenantId = tenantKey.toString().trim();
-
-        if (tenantId.isEmpty || modulesRaw is! Map) return;
-
-        final moduleOverrides = <String, PermissionSet>{};
-
-        modulesRaw.forEach((moduleKey, permissionRaw) {
-          final module = moduleKey.toString().trim();
-
-          if (module.isEmpty) return;
-
-          moduleOverrides[module] = PermissionSet.fromDynamic(permissionRaw);
-        });
-
-        final existing = tenantAccess[tenantId];
-
-        tenantAccess[tenantId] = (existing ??
-            TenantPermissionData(
-              tenantId: tenantId,
-              enabled: true,
-            ))
-            .copyWith(
-          enabled: true,
-          moduleOverrides: {
-            ...?existing?.moduleOverrides,
-            ...moduleOverrides,
-          },
-        );
-      });
-    }
-
-    return UserPermissionData(
-      uid: uid.trim(),
-      globalRole: globalRole,
-      globalModuleOverrides: globalModuleOverrides,
-      tenantAccess: tenantAccess,
-      activeTenantId: activeTenantId,
-      extra: raw,
-    );
-  }
-
-  factory UserPermissionData.fromDoc(
-      DocumentSnapshot<Map<String, dynamic>> doc,
-      ) {
-    return UserPermissionData.fromMap(
-      uid: doc.id,
-      map: doc.data(),
-    );
-  }
-
-  static String? _cleanString(dynamic value) {
-    final text = value?.toString().trim();
-
-    if (text == null || text.isEmpty) return null;
-
-    return text;
-  }
-
-  static List<String> _stringListFromDynamic(dynamic value) {
-    final values = <String>{};
-
-    void addValue(dynamic item) {
-      if (item == null) return;
-
-      if (item is String) {
-        final parts = item.split(RegExp(r'[,;|\n]'));
-
-        for (final part in parts) {
-          final clean = part.trim();
-
-          if (clean.isNotEmpty) {
-            values.add(clean);
-          }
-        }
-
-        return;
-      }
-
-      if (item is Iterable) {
-        for (final child in item) {
-          addValue(child);
-        }
-
-        return;
-      }
-
-      if (item is Map) {
-        item.forEach((key, mapValue) {
-          final cleanKey = key?.toString().trim() ?? '';
-
-          if (cleanKey.isEmpty) return;
-
-          if (mapValue == true) {
-            values.add(cleanKey);
-            return;
-          }
-
-          if (mapValue is Map) {
-            final enabled = mapValue['enabled'] == true ||
-                mapValue['active'] == true ||
-                mapValue['allowed'] == true;
-
-            if (enabled) {
-              values.add(cleanKey);
-            }
-          }
-        });
-      }
-    }
-
-    addValue(value);
-
-    final list = values.toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
-    return list;
-  }
-
-  Map<String, dynamic> toMap() {
-    final tenantIds = enabledTenantIds;
-
-    return {
-      'baseRole': SystemRoleCodec.serialize(globalRole),
-      'globalRole': SystemRoleCodec.serialize(globalRole),
-      if (activeTenantId != null && activeTenantId!.trim().isNotEmpty)
-        'activeTenantId': activeTenantId!.trim(),
-      if (globalModuleOverrides.isNotEmpty)
-        'moduleOverrides': {
-          for (final entry in globalModuleOverrides.entries)
-            entry.key: entry.value.toMap(),
-        },
-      if (tenantAccess.isNotEmpty)
-        'tenantAccess': {
-          for (final entry in tenantAccess.entries)
-            entry.key: entry.value.toMap(),
-        },
-      'tenantIds': tenantIds,
-      ...extra,
-    };
-  }
-
   TenantPermissionData? tenantPermission(String? tenantId) {
-    final id = tenantId?.trim();
+    final id = _cleanId(tenantId);
 
-    if (id == null || id.isEmpty) {
+    if (id == null) {
       return null;
     }
 
@@ -965,9 +685,9 @@ class UserPermissionData extends Equatable {
   }
 
   bool canAccessTenant(String? tenantId) {
-    final id = tenantId?.trim();
+    final id = _cleanId(tenantId);
 
-    if (id == null || id.isEmpty) {
+    if (id == null) {
       return false;
     }
 
@@ -978,24 +698,24 @@ class UserPermissionData extends Equatable {
     return tenantAccess[id]?.enabled == true;
   }
 
-  SystemUserRole roleForTenant(String? tenantId) {
-    final id = tenantId?.trim();
+  PermissionUser roleForTenant(String? tenantId) {
+    final id = _cleanId(tenantId);
 
     if (hasGlobalFreeAccess) {
       return globalRole;
     }
 
-    if (id == null || id.isEmpty) {
-      return globalRole;
+    if (id == null) {
+      return PermissionUser.leitor;
     }
 
-    final access = tenantAccess[id];
+    final tenant = tenantAccess[id];
 
-    if (access?.enabled == false) {
-      return SystemUserRole.leitor;
+    if (tenant == null || tenant.enabled == false) {
+      return PermissionUser.leitor;
     }
 
-    return access?.role ?? globalRole;
+    return tenant.role;
   }
 
   bool isSuperUserForTenant(String? tenantId) {
@@ -1013,69 +733,9 @@ class UserPermissionData extends Equatable {
       return PermissionSet.full;
     }
 
-    final id = tenantId?.trim();
+    final id = _cleanId(tenantId);
 
-    if (id != null && id.isNotEmpty && !canAccessTenant(id)) {
-      return PermissionSet.none;
-    }
-
-    final role = roleForTenant(id);
-
-    switch (role) {
-      case SystemUserRole.administrador:
-      case SystemUserRole.desenvolvedor:
-        return PermissionSet.full;
-
-      case SystemUserRole.gestorRegional:
-      case SystemUserRole.fiscal:
-      case SystemUserRole.colaborador:
-      case SystemUserRole.leitor:
-        return PermissionSet.none;
-    }
-  }
-
-  PermissionSet moduleOverride({
-    required String module,
-    String? tenantId,
-  }) {
-    final cleanModule = module.trim();
-
-    if (cleanModule.isEmpty) {
-      return PermissionSet.none;
-    }
-
-    final id = tenantId?.trim();
-
-    if (id != null && id.isNotEmpty) {
-      final tenant = tenantAccess[id];
-
-      if (tenant == null || tenant.enabled != true) {
-        return PermissionSet.none;
-      }
-
-      return tenant.overrideForModule(cleanModule);
-    }
-
-    return globalModuleOverrides[cleanModule] ?? PermissionSet.none;
-  }
-
-  PermissionSet effectiveModulePermissions({
-    required String module,
-    String? tenantId,
-  }) {
-    final cleanModule = module.trim();
-
-    if (cleanModule.isEmpty) {
-      return PermissionSet.none;
-    }
-
-    if (hasGlobalFreeAccess) {
-      return PermissionSet.full;
-    }
-
-    final id = tenantId?.trim();
-
-    if (id == null || id.isEmpty) {
+    if (id == null) {
       return PermissionSet.none;
     }
 
@@ -1083,22 +743,87 @@ class UserPermissionData extends Equatable {
       return PermissionSet.none;
     }
 
+    final role = roleForTenant(id);
+
+    if (SystemRoleCodec.isSuperUser(role)) {
+      return PermissionSet.full;
+    }
+
+    return PermissionSet.none;
+  }
+
+  PermissionSet modulePermission({
+    required String module,
+    String? tenantId,
+  }) {
+    final moduleId = module.trim();
+
+    if (moduleId.isEmpty) {
+      return PermissionSet.none;
+    }
+
+    if (hasGlobalFreeAccess) {
+      return PermissionSet.full;
+    }
+
+    final id = _cleanId(tenantId);
+
+    if (id == null) {
+      return globalModuleOverrides[moduleId] ?? PermissionSet.none;
+    }
+
+    final tenant = tenantAccess[id];
+
+    if (tenant == null || tenant.enabled == false) {
+      return PermissionSet.none;
+    }
+
+    final tenantModulePermission = tenant.permissionForModule(moduleId);
+
+    if (!tenantModulePermission.isNone) {
+      return tenantModulePermission;
+    }
+
+    return globalModuleOverrides[moduleId] ?? PermissionSet.none;
+  }
+
+  PermissionSet effectiveModulePermissions({
+    required String module,
+    String? tenantId,
+  }) {
+    final moduleId = module.trim();
+
+    if (moduleId.isEmpty) {
+      return PermissionSet.none;
+    }
+
+    if (hasGlobalFreeAccess) {
+      return PermissionSet.full;
+    }
+
+    final id = _cleanId(tenantId);
+
+    if (id == null || !canAccessTenant(id)) {
+      return PermissionSet.none;
+    }
+
     final base = defaultPermissionsForTenant(id);
+    final moduleSpecific = modulePermission(
+      module: moduleId,
+      tenantId: id,
+    );
 
-    final tenantOverride =
-        tenantAccess[id]?.overrideForModule(cleanModule) ?? PermissionSet.none;
-
-    return base.mergeAllow(tenantOverride);
+    return base.mergeAllow(moduleSpecific);
   }
 
   bool canModule({
     required String module,
-    required PermissionAction action,
+    required PermissionType action,
     String? tenantId,
   }) {
-    final cleanModule = module.trim();
+    final moduleId = module.trim();
 
-    if (cleanModule.isEmpty) {
+    if (moduleId.isEmpty) {
       return false;
     }
 
@@ -1106,9 +831,9 @@ class UserPermissionData extends Equatable {
       return true;
     }
 
-    final id = tenantId?.trim();
+    final id = _cleanId(tenantId);
 
-    if (id == null || id.isEmpty) {
+    if (id == null) {
       return false;
     }
 
@@ -1117,7 +842,7 @@ class UserPermissionData extends Equatable {
     }
 
     final effective = effectiveModulePermissions(
-      module: cleanModule,
+      module: moduleId,
       tenantId: id,
     );
 
@@ -1129,41 +854,322 @@ class UserPermissionData extends Equatable {
     required String action,
     String? tenantId,
   }) {
+    final parsedAction = PermissionActionCodec.tryParse(action);
+
+    if (parsedAction == null) {
+      return false;
+    }
+
     return canModule(
       module: module,
-      action: PermissionActionCodec.parse(action),
+      action: parsedAction,
       tenantId: tenantId,
     );
   }
 
-  UserPermissionData copyWith({
-    String? uid,
-    SystemUserRole? globalRole,
-    Map<String, PermissionSet>? globalModuleOverrides,
-    Map<String, TenantPermissionData>? tenantAccess,
-    String? activeTenantId,
-    bool clearActiveTenantId = false,
-    Map<String, dynamic>? extra,
-  }) {
-    return UserPermissionData(
-      uid: uid ?? this.uid,
-      globalRole: globalRole ?? this.globalRole,
-      globalModuleOverrides:
-      globalModuleOverrides ?? this.globalModuleOverrides,
-      tenantAccess: tenantAccess ?? this.tenantAccess,
-      activeTenantId:
-      clearActiveTenantId ? null : activeTenantId ?? this.activeTenantId,
-      extra: extra ?? this.extra,
-    );
+  static String? _cleanId(String? value) {
+    final text = value?.trim();
+
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+
+    return text;
   }
 
   @override
-  List<Object?> get props => [
-    uid,
-    globalRole,
-    globalModuleOverrides,
-    tenantAccess,
-    activeTenantId,
-    extra,
+  List<Object?> get props {
+    return <Object?>[
+      uid,
+      globalRole,
+      globalModuleOverrides,
+      tenantAccess,
+      activeTenantId,
+    ];
+  }
+}
+
+/// ============================================================================
+/// SYSTEM PERMISSION
+///
+/// Centraliza regras de autorização do sistema.
+/// ============================================================================
+
+class SystemPermission {
+  const SystemPermission._();
+
+  static const List<String> docPermissionKeys = <String>[
+    'read',
+    'create',
+    'edit',
+    'delete',
+    'approve',
   ];
+
+  static Map<String, bool> initialDocPerms() {
+    return const <String, bool>{
+      'read': true,
+      'create': false,
+      'edit': false,
+      'delete': false,
+      'approve': false,
+    };
+  }
+
+  static Map<String, bool> emptyDocPerms() {
+    return const <String, bool>{
+      'read': false,
+      'create': false,
+      'edit': false,
+      'delete': false,
+      'approve': false,
+    };
+  }
+
+  static Map<String, bool> normalizeDocPerms(dynamic raw) {
+    if (raw is! Map) {
+      return emptyDocPerms();
+    }
+
+    return <String, bool>{
+      'read': raw['read'] == true,
+      'create': raw['create'] == true,
+      'edit': raw['edit'] == true,
+      'delete': raw['delete'] == true,
+      'approve': raw['approve'] == true,
+    };
+  }
+
+  static PermissionSet permissionSetFromDocPerms(dynamic raw) {
+    return PermissionSet.fromBoolMap(
+      normalizeDocPerms(raw),
+    );
+  }
+
+  static Map<String, dynamic>? participantInfoOf({
+    required ContractData contract,
+    required String uid,
+  }) {
+    final cleanUid = uid.trim();
+
+    if (cleanUid.isEmpty) {
+      return null;
+    }
+
+    return contract.participantsInfo[cleanUid];
+  }
+
+  static PermissionSet docPermissionsOf({
+    required ContractData contract,
+    required String uid,
+  }) {
+    final cleanUid = uid.trim();
+
+    if (cleanUid.isEmpty) {
+      return PermissionSet.none;
+    }
+
+    final participant = participantInfoOf(
+      contract: contract,
+      uid: cleanUid,
+    );
+
+    if (participant == null) {
+      return PermissionSet.none;
+    }
+
+    if (participant['active'] == false) {
+      return PermissionSet.none;
+    }
+
+    return permissionSetFromDocPerms(
+      participant['permissions'],
+    );
+  }
+
+  static bool hasContractParticipant({
+    required ContractData contract,
+    required String uid,
+  }) {
+    final participant = participantInfoOf(
+      contract: contract,
+      uid: uid,
+    );
+
+    if (participant == null) {
+      return false;
+    }
+
+    return participant['active'] != false;
+  }
+
+  static bool canContractDocOnly({
+    required UserPermissionData permissions,
+    required ContractData contract,
+    required String action,
+    String? tenantId,
+  }) {
+    final cleanTenantId = _cleanId(tenantId);
+
+    if (permissions.isSuperUserForTenant(cleanTenantId)) {
+      return true;
+    }
+
+    final cleanAction = action.trim().toLowerCase();
+
+    if (cleanAction.isEmpty) {
+      return false;
+    }
+
+    final parsedAction = PermissionActionCodec.tryParse(cleanAction);
+
+    if (parsedAction == null) {
+      return false;
+    }
+
+    final uid = permissions.uid.trim();
+
+    if (uid.isEmpty) {
+      return false;
+    }
+
+    final docPerms = docPermissionsOf(
+      contract: contract,
+      uid: uid,
+    );
+
+    return docPerms.allows(parsedAction);
+  }
+
+  static bool canContractByModuleOnly({
+    required UserPermissionData permissions,
+    required String action,
+    required String module,
+    String? tenantId,
+  }) {
+    final cleanTenantId = _cleanId(tenantId);
+    final cleanModule = module.trim();
+    final cleanAction = action.trim().toLowerCase();
+
+    if (cleanTenantId == null || cleanModule.isEmpty || cleanAction.isEmpty) {
+      return false;
+    }
+
+    if (permissions.isSuperUserForTenant(cleanTenantId)) {
+      return true;
+    }
+
+    if (!permissions.canAccessTenant(cleanTenantId)) {
+      return false;
+    }
+
+    final parsedAction = PermissionActionCodec.tryParse(cleanAction);
+
+    if (parsedAction == null) {
+      return false;
+    }
+
+    return permissions.canModule(
+      module: cleanModule,
+      action: parsedAction,
+      tenantId: cleanTenantId,
+    );
+  }
+
+  static bool canContract({
+    required UserPermissionData permissions,
+    required ContractData contract,
+    required String action,
+    String module = ModuleCatalog.modContractsList,
+    String? tenantId,
+  }) {
+    final cleanTenantId = _cleanId(tenantId);
+    final cleanModule = module.trim();
+    final cleanAction = action.trim().toLowerCase();
+
+    if (cleanModule.isEmpty || cleanAction.isEmpty) {
+      return false;
+    }
+
+    final parsedAction = PermissionActionCodec.tryParse(cleanAction);
+
+    if (parsedAction == null) {
+      return false;
+    }
+
+    if (permissions.isSuperUserForTenant(cleanTenantId)) {
+      return true;
+    }
+
+    if (cleanTenantId == null) {
+      return false;
+    }
+
+    if (!permissions.canAccessTenant(cleanTenantId)) {
+      return false;
+    }
+
+    final canByDocument = canContractDocOnly(
+      permissions: permissions,
+      contract: contract,
+      action: cleanAction,
+      tenantId: cleanTenantId,
+    );
+
+    if (canByDocument) {
+      return true;
+    }
+
+    return permissions.canModule(
+      module: cleanModule,
+      action: parsedAction,
+      tenantId: cleanTenantId,
+    );
+  }
+
+  static List<ContractData> filterVisibleContracts({
+    required UserPermissionData permissions,
+    required Iterable<ContractData> contracts,
+    String module = ModuleCatalog.modContractsList,
+    String? tenantId,
+  }) {
+    final cleanTenantId = _cleanId(tenantId);
+    final cleanModule = module.trim();
+
+    if (cleanModule.isEmpty) {
+      return const <ContractData>[];
+    }
+
+    if (permissions.isSuperUserForTenant(cleanTenantId)) {
+      return contracts.toList(growable: false);
+    }
+
+    if (cleanTenantId == null) {
+      return const <ContractData>[];
+    }
+
+    if (!permissions.canAccessTenant(cleanTenantId)) {
+      return const <ContractData>[];
+    }
+
+    return contracts.where((contract) {
+      return canContract(
+        permissions: permissions,
+        contract: contract,
+        action: PermissionActionCodec.serialize(PermissionType.read),
+        module: cleanModule,
+        tenantId: cleanTenantId,
+      );
+    }).toList(growable: false);
+  }
+
+  static String? _cleanId(String? value) {
+    final text = value?.trim();
+
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+
+    return text;
+  }
 }

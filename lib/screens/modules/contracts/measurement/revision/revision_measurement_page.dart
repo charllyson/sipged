@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
-
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
@@ -17,12 +16,10 @@ import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_me
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_state.dart';
 
 import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
-import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
-import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
@@ -30,7 +27,6 @@ import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:sipged/_widgets/texts/divider_text.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'revision_measurement_form_section.dart';
@@ -45,13 +41,11 @@ class RevisionMeasurement extends StatelessWidget {
 
   final ContractData contractData;
 
-  String _resolveRequiredTenantId(PermissionState permissionState) {
+  String? _resolveTenantId(PermissionState permissionState) {
     final tenantId = permissionState.activeTenantId?.trim();
 
     if (tenantId == null || tenantId.isEmpty) {
-      throw ArgumentError(
-        'tenantId é obrigatório para RevisionMeasurement.',
-      );
+      return null;
     }
 
     return tenantId;
@@ -73,7 +67,16 @@ class RevisionMeasurement extends StatelessWidget {
             previous.current != current.current;
       },
       builder: (context, permissionState) {
-        final tenantId = _resolveRequiredTenantId(permissionState);
+        final tenantId = _resolveTenantId(permissionState);
+
+        if (tenantId == null) {
+          return const Center(
+            child: Text(
+              'Empresa ativa não selecionada para carregar revisões.',
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
 
         return BlocProvider<RevisionMeasurementCubit>(
           key: ValueKey<String>(
@@ -87,7 +90,10 @@ class RevisionMeasurement extends StatelessWidget {
               initialPermissions: permissionState.current,
               initialTenantId: tenantId,
               moduleId: 'operation_measurements_revisions',
-            )..loadByContract(contractId);
+            )..loadByContract(
+              contractId,
+              contract: contractData,
+            );
           },
           child: BlocListener<PermissionCubit, PermissionState>(
             listenWhen: (previous, current) {
@@ -95,7 +101,9 @@ class RevisionMeasurement extends StatelessWidget {
                   previous.activeTenantId != current.activeTenantId;
             },
             listener: (context, permissionState) {
-              final nextTenantId = _resolveRequiredTenantId(permissionState);
+              final nextTenantId = _resolveTenantId(permissionState);
+
+              if (nextTenantId == null) return;
 
               context.read<RevisionMeasurementCubit>().updatePermissions(
                 permissions: permissionState.current,
@@ -123,8 +131,9 @@ class _RevisionMeasurementView extends StatefulWidget {
   final String tenantId;
 
   @override
-  State<_RevisionMeasurementView> createState() =>
-      _RevisionMeasurementViewState();
+  State<_RevisionMeasurementView> createState() {
+    return _RevisionMeasurementViewState();
+  }
 }
 
 class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
@@ -138,6 +147,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   DfdData? _dfdData;
 
   bool formValidated = false;
+
   int? _selectedSideIndex;
 
   String get _contractId => widget.contractData.id?.trim() ?? '';
@@ -149,7 +159,9 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
       return descricaoObjeto;
     }
 
-    if (_contractId.isNotEmpty) return 'Contrato $_contractId';
+    if (_contractId.isNotEmpty) {
+      return 'Contrato $_contractId';
+    }
 
     return 'Contrato sem identificação';
   }
@@ -168,10 +180,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   void initState() {
     super.initState();
 
-    _dfdRepository = DfdRepository(
-      tenantId: widget.tenantId,
-    );
-
+    _configureRepositories();
     _loadDfdDisplayData();
 
     orderCtrl.addListener(_validateForm);
@@ -187,13 +196,13 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     final oldContractId = oldWidget.contractData.id?.trim() ?? '';
     final newContractId = widget.contractData.id?.trim() ?? '';
 
-    if (oldWidget.tenantId != widget.tenantId || oldContractId != newContractId) {
-      _dfdRepository = DfdRepository(
-        tenantId: widget.tenantId,
-      );
+    if (oldWidget.tenantId != widget.tenantId ||
+        oldContractId != newContractId) {
+      _configureRepositories();
 
       setState(() {
         _dfdData = null;
+        _selectedSideIndex = null;
       });
 
       _loadDfdDisplayData();
@@ -221,6 +230,14 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     super.dispose();
   }
 
+  void _configureRepositories() {
+    final tenantId = widget.tenantId.trim();
+
+    _dfdRepository = DfdRepository(
+      tenantId: tenantId,
+    );
+  }
+
   Future<void> _loadDfdDisplayData() async {
     final contractId = _contractId;
 
@@ -240,37 +257,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     }
   }
 
-  String _resolveActorName(String? uid) {
+  String _currentActorLabel() {
     final currentUser = FirebaseAuth.instance.currentUser;
-    final cleanUid = uid?.trim();
-
-    if (cleanUid != null && cleanUid.isNotEmpty) {
-      final meta = widget.contractData.participantsInfo[cleanUid];
-
-      if (meta != null) {
-        final fullName = (meta['fullName'] ??
-            meta['displayName'] ??
-            meta['nameComplete'] ??
-            '')
-            .toString()
-            .trim();
-
-        if (fullName.isNotEmpty) return fullName;
-
-        final name = (meta['name'] ?? '').toString().trim();
-        final surname = (meta['surname'] ?? '').toString().trim();
-
-        final composed = [name, surname]
-            .where((item) => item.trim().isNotEmpty)
-            .join(' ')
-            .trim();
-
-        if (composed.isNotEmpty) return composed;
-
-        final email = (meta['email'] ?? '').toString().trim();
-        if (email.isNotEmpty) return email;
-      }
-    }
 
     final displayName = currentUser?.displayName?.trim() ?? '';
     if (displayName.isNotEmpty) return displayName;
@@ -279,94 +267,6 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
-  }
-
-  String _resolveActorPhotoUrl(String? uid) {
-    final cleanUid = uid?.trim();
-
-    if (cleanUid != null && cleanUid.isNotEmpty) {
-      final users = context.read<UserCubit>().state.all;
-
-      for (final item in users) {
-        if ((item.uid ?? '').trim() == cleanUid) {
-          final photo = item.urlPhoto?.trim() ?? '';
-          if (photo.isNotEmpty) return photo;
-        }
-      }
-
-      final meta = widget.contractData.participantsInfo[cleanUid];
-
-      if (meta != null) {
-        final photo = (meta['urlPhoto'] ??
-            meta['photoUrl'] ??
-            meta['photoURL'] ??
-            meta['profilePhotoUrl'] ??
-            '')
-            .toString()
-            .trim();
-
-        if (photo.isNotEmpty) return photo;
-      }
-    }
-
-    final firebasePhoto =
-        FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '';
-
-    if (firebasePhoto.isNotEmpty) return firebasePhoto;
-
-    return '';
-  }
-
-  DateTime? _parseDateTimeFromExtra(dynamic value) {
-    if (value == null) return null;
-
-    if (value is DateTime) return value;
-
-    final text = value.toString().trim();
-
-    if (text.isEmpty) return null;
-
-    final iso = DateTime.tryParse(text);
-
-    if (iso != null) return iso;
-
-    final parts = text.split('/');
-
-    if (parts.length == 3) {
-      final day = int.tryParse(parts[0]);
-      final month = int.tryParse(parts[1]);
-      final year = int.tryParse(parts[2]);
-
-      if (day != null && month != null && year != null) {
-        final parsed = DateTime(year, month, day);
-
-        if (parsed.day == day &&
-            parsed.month == month &&
-            parsed.year == year) {
-          return parsed;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  num? _parseNumFromExtra(dynamic value) {
-    if (value == null) return null;
-
-    if (value is num) return value;
-
-    final text = value.toString().trim();
-
-    if (text.isEmpty) return null;
-
-    final normalized = text
-        .replaceAll('R\$', '')
-        .replaceAll('.', '')
-        .replaceAll(',', '.')
-        .trim();
-
-    return num.tryParse(normalized);
   }
 
   Future<void> _notify({
@@ -382,67 +282,48 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   }) async {
     if (!mounted) return;
 
-    const route = 'operation_measurements_revisions';
-    const notificationSource = 'measurementsRevision';
-
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
-    final actorName = _resolveActorName(currentUserId);
-    final actorPhotoUrl = _resolveActorPhotoUrl(currentUserId);
-
-    final delivery = saveInBell || sendPush
-        ? NotificationDelivery.localBellAndPush
-        : NotificationDelivery.localOnly;
-
     await NotificationMeasurements.show(
       context: context,
       contract: widget.contractData,
       title: title,
       subtitle: subtitle ?? _contractSummary,
       details: details,
-      leadingLabel: 'Revisão',
-      module: route,
-      notificationSource: notificationSource,
-      source: 'revision_measurement_notification',
       kind: NotificationMeasurementKind.revision,
       status: type ?? status,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
-      actorId: currentUserId,
-      actorName: actorName,
+      actorId: FirebaseAuth.instance.currentUser?.uid,
       includeCurrentUser: true,
-      delivery: delivery,
+      tenantId: widget.tenantId,
+      companyId: widget.tenantId,
+      contractId: _contractId,
+      contractNumber: _contractNumber,
+      processNumber: _contractNumber,
+      processoAdministrativo: _dfdData?.processoAdministrativo,
+      contractTitle: _contractSummary,
+      contractSummary: _contractSummary,
+      descricaoObjeto: _dfdData?.descricaoObjeto,
+      nomeDemanda: _contractSummary,
+      revisionId: extra['revisionId']?.toString(),
+      revisionNumber: extra['revisionProcess']?.toString(),
+      revisionOrder: extra['revisionOrder']?.toString(),
+      revisionDate: _parseDateTimeFromExtra(extra['revisionDate']),
+      revisionValue: extra['revisionValue'] is num
+          ? extra['revisionValue'] as num
+          : null,
       measurementId: extra['revisionId']?.toString(),
       measurementNumber: extra['revisionProcess']?.toString(),
       measurementOrder: extra['revisionOrder']?.toString(),
-      measurementDate: _parseDateTimeFromExtra(extra['revisionDate']),
-      revisionValue: _parseNumFromExtra(extra['revisionValue']),
-      extra: <String, dynamic>{
-        'tenantId': widget.tenantId,
-        'companyId': widget.tenantId,
-        'route': route,
-        'module': route,
-        'source': 'revision_measurement_notification',
-        'sourceKey': notificationSource,
-        'subSource': notificationSource,
-        'notificationSource': notificationSource,
-        'actorId': currentUserId,
-        'actorName': actorName,
-        if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
-        if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
-        if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
-        if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
-        'contractId': _contractId,
-        'contractNumber': _contractNumber,
-        'processNumber': _contractNumber,
-        'processoAdministrativo': _dfdData?.processoAdministrativo,
-        'contractTitle': _contractSummary,
-        'contractSummary': _contractSummary,
-        'descricaoObjeto': _dfdData?.descricaoObjeto,
-        'nomeDemanda': _contractSummary,
-        'measurementKind': NotificationMeasurementKind.revision.name,
-        ...extra,
-      },
+      measurementValue: extra['revisionValue'] is num
+          ? extra['revisionValue'] as num
+          : null,
+      action: extra['action']?.toString(),
+      attachmentLabel: extra['attachmentLabel']?.toString(),
+      attachmentUrl: extra['attachmentUrl']?.toString(),
+      oldAttachmentLabel: extra['oldAttachmentLabel']?.toString(),
+      newAttachmentLabel: extra['newAttachmentLabel']?.toString(),
+      extra: extra,
     );
   }
 
@@ -475,6 +356,18 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     }
   }
 
+  DateTime? _parseDateTimeFromExtra(dynamic value) {
+    if (value == null) return null;
+
+    if (value is DateTime) return value;
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    return DateTime.tryParse(text);
+  }
+
   void _validateForm() {
     final ok = orderCtrl.text.trim().isNotEmpty &&
         processCtrl.text.trim().isNotEmpty &&
@@ -482,7 +375,9 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
         dateCtrl.text.trim().isNotEmpty;
 
     if (formValidated != ok && mounted) {
-      setState(() => formValidated = ok);
+      setState(() {
+        formValidated = ok;
+      });
     }
   }
 
@@ -491,13 +386,14 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
     final maxOrder = state.revisions
         .map((item) => item.order ?? 0)
-        .fold<int>(0, (previous, current) => math.max(previous, current));
+        .fold<int>(0, (prev, curr) => math.max(prev, curr));
 
     return maxOrder + 1;
   }
 
   void _fillFieldsFromSelected(RevisionMeasurementState state) {
     final selected = state.selected;
+
     _selectedSideIndex = null;
 
     if (selected == null) {
@@ -526,7 +422,9 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   }
 
   int? _parseInt(String text) {
-    return int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), ''));
+    return int.tryParse(
+      text.replaceAll(RegExp(r'[^0-9]'), ''),
+    );
   }
 
   double _parseCurrency(String text) {
@@ -559,57 +457,6 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     return items.whereType<Attachment>().toList();
   }
 
-  Future<bool> _persistRename({
-    required RevisionMeasurementCubit cubit,
-    required RevisionMeasurementData? selected,
-    required List<Attachment> current,
-    required int index,
-    required Attachment oldItem,
-    required Attachment newItem,
-  }) async {
-    try {
-      if (index < 0 || index >= current.length) return false;
-
-      final next = List<Attachment>.from(current);
-      next[index] = newItem;
-
-      await cubit.updateAttachments(next);
-
-      final actorName = _resolveActorName(
-        FirebaseAuth.instance.currentUser?.uid,
-      );
-
-      await _safeNotify(
-        title: 'Anexo de revisão renomeado',
-        subtitle: _contractSummary,
-        details: '${newItem.label} renomeado por $actorName.',
-        status: NotificationStatus.success,
-        saveInBell: true,
-        sendPush: true,
-        extra: <String, dynamic>{
-          'action': 'revision_attachment_renamed',
-          'revisionId': selected?.id,
-          'revisionOrder': selected?.order,
-          'oldAttachmentLabel': oldItem.label,
-          'newAttachmentLabel': newItem.label,
-          'attachmentUrl': newItem.url,
-        },
-      );
-
-      return true;
-    } catch (e) {
-      await _safeNotify(
-        title: 'Falha ao renomear anexo',
-        subtitle: _contractSummary,
-        details: '$e',
-        status: NotificationStatus.error,
-        duration: const Duration(seconds: 6),
-      );
-
-      return false;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<RevisionMeasurementCubit>();
@@ -637,28 +484,27 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
           );
         }
 
-        final revisions = state.revisions;
-
-        final labels = revisions
-            .map((measurement) => (measurement.order ?? 0).toString())
+        final labels = state.revisions
+            .map((item) => (item.order ?? 0).toString())
             .toList();
 
-        final values = revisions
-            .map((measurement) => measurement.value ?? 0.0)
+        final values = state.revisions
+            .map((item) => item.value ?? 0.0)
             .toList();
 
-        final total = cubit.sum(revisions);
+        final total = state.revisions.fold<double>(
+          0.0,
+              (previousTotal, item) => previousTotal + (item.value ?? 0.0),
+        );
 
-        final double totalApostilles = 0.0;
-        final double totalAdditives = 0.0;
-        final double valorTotalDisponivel = totalApostilles + totalAdditives;
-        final double saldo = valorTotalDisponivel - total;
+        final valorTotalDisponivel = total;
+        final saldo = valorTotalDisponivel - total;
 
         final selectedIndex = state.selectedIndex;
         final nextOrder = _computeNextOrder(state);
 
-        final usedOrders = revisions
-            .map((measurement) => measurement.order)
+        final usedOrders = state.revisions
+            .map((item) => item.order)
             .whereType<int>()
             .toSet()
             .toList()
@@ -669,10 +515,16 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
           if (!usedOrders.contains(nextOrder)) nextOrder.toString(),
         ];
 
-        final greyOrderItems =
-        usedOrders.map((order) => order.toString()).toSet();
+        final greyOrderItems = usedOrders.map((order) => order.toString()).toSet();
 
         final attachments = state.attachments;
+
+        final canCreate = cubit.canCreateContract(widget.contractData);
+        final canEdit = cubit.canEditContract(widget.contractData);
+        final canDelete = cubit.canDeleteContract(widget.contractData);
+
+        final canEditCurrentForm = state.selected == null ? canCreate : canEdit;
+        final canEditAttachments = state.selected != null && canEdit;
 
         return Stack(
           children: [
@@ -683,9 +535,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SectionTitle(
-                          text: 'Gráfico das revisões de medição',
-                        ),
+                        const SectionTitle(text: 'Gráfico das revisões'),
                         RevisionMeasurementGraphSection(
                           labels: labels,
                           values: values,
@@ -694,13 +544,13 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                           selectedIndex: selectedIndex,
                           onSelectIndex: cubit.selectByIndex,
                         ),
-                        const DividerText(
-                          text: 'Cadastrar revisões de medição',
+                        const SectionTitle(
+                          text: 'Cadastrar revisão no sistema',
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: RevisionMeasurementFormSection(
-                            isEditable: cubit.isEditable,
+                            isEditable: canEditCurrentForm,
                             formValidated: formValidated,
                             selectedRevisionMeasurement: state.selected,
                             currentRevisionMeasurementId: state.selected?.id,
@@ -712,14 +562,26 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                             sideLoading: state.uploading,
                             sideUploadProgress: state.uploadProgress,
                             onSave: () async {
+                              if (!canEditCurrentForm) {
+                                await _safeNotify(
+                                  title: 'Sem permissão para salvar revisão',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  'Você não possui permissão para criar ou editar revisão neste contrato.',
+                                  status: NotificationStatus.error,
+                                );
+                                return;
+                              }
+
                               final ok = await confirmDialog(
                                 context,
-                                'Deseja salvar esta medição de revisão?',
+                                'Deseja salvar esta revisão?',
                               );
 
                               if (!ok) return;
 
                               final parsedOrder = _parseInt(orderCtrl.text);
+
                               final effectiveOrder =
                               (parsedOrder == null || parsedOrder <= 0)
                                   ? _computeNextOrder(state)
@@ -763,13 +625,12 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               );
 
                               try {
-                                final savedId = await cubit.saveOrUpdate(
+                                final revisionId = await cubit.saveOrUpdate(
+                                  contract: widget.contractData,
                                   data: data,
                                 );
 
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
-                                );
+                                final actorName = _currentActorLabel();
 
                                 await _safeNotify(
                                   title: isNew
@@ -786,12 +647,11 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                     'action': isNew
                                         ? 'revision_created'
                                         : 'revision_updated',
-                                    'revisionId': savedId,
+                                    'revisionId': revisionId,
                                     'revisionOrder': data.order,
                                     'revisionProcess': data.numberprocess,
                                     'revisionValue': data.value,
-                                    'revisionDate':
-                                    data.date?.toIso8601String(),
+                                    'revisionDate': data.date?.toIso8601String(),
                                   },
                                 );
                               } catch (e) {
@@ -806,19 +666,23 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                             },
                             onClear: () {
                               cubit.clearSelection();
-                              setState(() => _selectedSideIndex = null);
+
+                              setState(() {
+                                _selectedSideIndex = null;
+                              });
                             },
                             sideItems: attachments,
                             selectedSideIndex: _selectedSideIndex,
-                            onAddSideItem: state.selected != null &&
-                                state.selected?.id != null
+                            onAddSideItem: canEditAttachments &&
+                                state.selected?.id != null &&
+                                contractId != null &&
+                                contractId.isNotEmpty
                                 ? () async {
-                              final selected = state.selected;
-
                               try {
-                                final uploaded =
-                                await cubit.addAttachmentWithPicker(
+                                await cubit.pickAndUploadAttachment(
                                   contract: widget.contractData,
+                                  contractId: contractId,
+                                  revisionId: state.selected!.id!,
                                 );
 
                                 if (!mounted) return;
@@ -826,20 +690,22 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 setState(() {
                                   _selectedSideIndex =
                                   cubit.state.attachments.isNotEmpty
-                                      ? cubit.state.attachments
-                                      .length -
+                                      ? cubit.state.attachments.length -
                                       1
                                       : null;
                                 });
 
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
-                                );
+                                final uploaded =
+                                cubit.state.attachments.isNotEmpty
+                                    ? cubit.state.attachments.last
+                                    : null;
+
+                                final actorName = _currentActorLabel();
 
                                 await _safeNotify(
                                   title: 'Arquivo anexado à revisão',
                                   subtitle: _contractSummary,
-                                  details: uploaded.label.isNotEmpty
+                                  details: uploaded != null
                                       ? '${uploaded.label} anexado por $actorName.'
                                       : 'Upload concluído por $actorName.',
                                   status: NotificationStatus.success,
@@ -848,15 +714,16 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                   extra: <String, dynamic>{
                                     'action':
                                     'revision_attachment_created',
-                                    'revisionId': selected?.id,
-                                    'revisionOrder': selected?.order,
-                                    'attachmentLabel': uploaded.label,
-                                    'attachmentUrl': uploaded.url,
+                                    'revisionId': state.selected!.id,
+                                    'revisionOrder':
+                                    state.selected!.order,
+                                    'attachmentLabel': uploaded?.label,
+                                    'attachmentUrl': uploaded?.url,
                                   },
                                 );
                               } catch (e) {
                                 await _safeNotify(
-                                  title: 'Erro ao anexar arquivo',
+                                  title: 'Falha ao anexar arquivo',
                                   subtitle: _contractSummary,
                                   details: '$e',
                                   status: NotificationStatus.error,
@@ -866,12 +733,25 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                             }
                                 : null,
                             onTapSideItem: (index) {
-                              setState(() => _selectedSideIndex = index);
+                              cubit.selectAttachmentIndex(index);
+
+                              setState(() {
+                                _selectedSideIndex = index;
+                              });
                             },
-                            onDeleteSideItem: (index) async {
+                            onDeleteSideItem: canEditAttachments
+                                ? (index) async {
+                              if (contractId == null ||
+                                  contractId.isEmpty) {
+                                return;
+                              }
+
                               final selected = state.selected;
 
-                              if (index < 0 || index >= attachments.length) {
+                              if (selected?.id == null) return;
+
+                              if (index < 0 ||
+                                  index >= attachments.length) {
                                 return;
                               }
 
@@ -879,24 +759,29 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
                               final ok = await confirmDialog(
                                 context,
-                                'Remover este anexo?',
+                                'Remover este arquivo?',
                               );
 
                               if (!ok) return;
 
                               try {
-                                await cubit.deleteAttachmentAt(index);
-
-                                if (mounted) {
-                                  setState(() => _selectedSideIndex = null);
-                                }
-
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
+                                await cubit.deleteAttachment(
+                                  contract: widget.contractData,
+                                  contractId: contractId,
+                                  revisionId: selected!.id!,
+                                  attachment: attachment,
                                 );
 
+                                if (mounted) {
+                                  setState(() {
+                                    _selectedSideIndex = null;
+                                  });
+                                }
+
+                                final actorName = _currentActorLabel();
+
                                 await _safeNotify(
-                                  title: 'Anexo removido da revisão',
+                                  title: 'Arquivo removido da revisão',
                                   subtitle: _contractSummary,
                                   details:
                                   '${attachment.label} removido por $actorName.',
@@ -904,56 +789,128 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
-                                    'action': 'revision_attachment_deleted',
-                                    'revisionId': selected?.id,
-                                    'revisionOrder': selected?.order,
+                                    'action':
+                                    'revision_attachment_deleted',
+                                    'revisionId': selected.id,
+                                    'revisionOrder': selected.order,
                                     'attachmentLabel': attachment.label,
                                     'attachmentUrl': attachment.url,
                                   },
                                 );
                               } catch (e) {
                                 await _safeNotify(
-                                  title: 'Erro ao remover anexo',
+                                  title: 'Erro ao remover arquivo',
                                   subtitle: _contractSummary,
                                   details: '$e',
                                   status: NotificationStatus.error,
                                   duration: const Duration(seconds: 6),
                                 );
                               }
-                            },
+                            }
+                                : null,
                             onRenamePersist: ({
                               required int index,
                               required Attachment oldItem,
                               required Attachment newItem,
                             }) async {
-                              return _persistRename(
-                                cubit: cubit,
-                                selected: state.selected,
-                                current: List<Attachment>.from(attachments),
-                                index: index,
-                                oldItem: oldItem,
-                                newItem: newItem,
-                              );
+                              if (!canEditAttachments) {
+                                await _safeNotify(
+                                  title:
+                                  'Sem permissão para renomear anexo',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  'Você não possui permissão de edição neste contrato.',
+                                  status: NotificationStatus.error,
+                                );
+
+                                return false;
+                              }
+
+                              if (contractId == null || contractId.isEmpty) {
+                                return false;
+                              }
+
+                              final selected = state.selected;
+
+                              if (selected?.id == null) return false;
+
+                              try {
+                                await cubit.renameAttachmentLabel(
+                                  contract: widget.contractData,
+                                  contractId: contractId,
+                                  revisionId: selected!.id!,
+                                  oldItem: oldItem,
+                                  newItem: newItem,
+                                );
+
+                                final actorName = _currentActorLabel();
+
+                                await _safeNotify(
+                                  title: 'Anexo de revisão renomeado',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  '${newItem.label} renomeado por $actorName.',
+                                  status: NotificationStatus.success,
+                                  saveInBell: true,
+                                  sendPush: true,
+                                  extra: <String, dynamic>{
+                                    'action': 'revision_attachment_renamed',
+                                    'revisionId': selected.id,
+                                    'revisionOrder': selected.order,
+                                    'oldAttachmentLabel': oldItem.label,
+                                    'newAttachmentLabel': newItem.label,
+                                    'attachmentUrl': newItem.url,
+                                  },
+                                );
+
+                                return true;
+                              } catch (e) {
+                                await _safeNotify(
+                                  title: 'Falha ao renomear anexo',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
+                                  status: NotificationStatus.error,
+                                  duration: const Duration(seconds: 6),
+                                );
+
+                                return false;
+                              }
                             },
-                            onSideItemsChanged: (newItems) async {
+                            onSideItemsChanged: canEditAttachments
+                                ? (newItems) async {
                               final next = _onlyAttachments(newItems);
 
-                              await cubit.updateAttachments(next);
+                              try {
+                                await cubit.updateAttachments(
+                                  contract: widget.contractData,
+                                  attachments: next,
+                                );
 
-                              if (!mounted) return;
+                                if (!mounted) return;
 
-                              setState(() {
-                                if (next.isEmpty) {
-                                  _selectedSideIndex = null;
-                                } else {
-                                  _selectedSideIndex =
-                                      (_selectedSideIndex ?? 0).clamp(
-                                        0,
-                                        next.length - 1,
-                                      );
-                                }
-                              });
-                            },
+                                setState(() {
+                                  if (next.isEmpty) {
+                                    _selectedSideIndex = null;
+                                  } else {
+                                    _selectedSideIndex =
+                                        (_selectedSideIndex ?? 0).clamp(
+                                          0,
+                                          next.length - 1,
+                                        );
+                                  }
+                                });
+                              } catch (e) {
+                                await _safeNotify(
+                                  title:
+                                  'Erro ao atualizar anexos da revisão',
+                                  subtitle: _contractSummary,
+                                  details: '$e',
+                                  status: NotificationStatus.error,
+                                  duration: const Duration(seconds: 6),
+                                );
+                              }
+                            }
+                                : null,
                             orderOptions: orderOptions,
                             greyOrderItems: greyOrderItems,
                             onChangedOrder: (value) {
@@ -961,9 +918,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
                               if (picked == null || picked <= 0) return;
 
-                              final index = revisions.indexWhere(
-                                    (measurement) =>
-                                (measurement.order ?? -1) == picked,
+                              final index = state.revisions.indexWhere(
+                                    (item) => (item.order ?? -1) == picked,
                               );
 
                               if (index >= 0) {
@@ -980,7 +936,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                         ),
                         RevisionMeasurementTableSection(
                           onTapItem: (RevisionMeasurementData data) {
-                            final index = revisions.indexWhere(
+                            final index = state.revisions.indexWhere(
                                   (item) => item.id == data.id,
                             );
 
@@ -989,9 +945,20 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                             }
                           },
                           onDelete: (id) async {
+                            if (!canDelete) {
+                              await _safeNotify(
+                                title: 'Sem permissão para apagar revisão',
+                                subtitle: _contractSummary,
+                                details:
+                                'Você não possui permissão de exclusão neste contrato.',
+                                status: NotificationStatus.error,
+                              );
+                              return;
+                            }
+
                             final ok = await confirmDialog(
                               context,
-                              'Deseja realmente apagar esta medição de revisão?',
+                              'Deseja realmente apagar esta revisão?',
                             );
 
                             if (!ok) return;
@@ -1007,20 +974,21 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               return;
                             }
 
-                            final deleted = revisions.firstWhere(
+                            final deleted = state.revisions.firstWhere(
                                   (item) => item.id == id,
-                              orElse: () => RevisionMeasurementData(id: id),
+                              orElse: () {
+                                return RevisionMeasurementData(id: id);
+                              },
                             );
 
                             try {
                               await cubit.delete(
+                                contract: widget.contractData,
                                 contractId: contractId,
                                 revisionId: id,
                               );
 
-                              final actorName = _resolveActorName(
-                                FirebaseAuth.instance.currentUser?.uid,
-                              );
+                              final actorName = _currentActorLabel();
 
                               await _safeNotify(
                                 title: 'Revisão apagada',
@@ -1051,13 +1019,11 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               );
                             }
                           },
-                          measurementsData: revisions,
-                          valorInicial: 0.0,
-                          valorAditivos: 0.0,
+                          revisionMeasurementsData: state.revisions,
                           valorTotal: valorTotalDisponivel,
-                          saldo: saldo,
+                          balance: saldo,
                           contractData: widget.contractData,
-                          selectedMeasurement: state.selected,
+                          selectedRevisionMeasurement: state.selected,
                         ),
                         const SizedBox(height: 20),
                       ],

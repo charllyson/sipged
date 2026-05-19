@@ -17,7 +17,10 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     this.moduleId = 'operation_measurements_adjustments',
   })  : _repo = repository ??
       AdjustmentMeasurementRepository(
-        tenantId: initialTenantId,
+        tenantId: _cleanRequiredTenantId(
+          initialTenantId,
+          context: 'AdjustmentMeasurementCubit.repository',
+        ),
       ),
         _currentPermissions = initialPermissions,
         _tenantId = _cleanRequiredTenantId(
@@ -49,6 +52,10 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     return clean;
   }
 
+  String _cleanId(String? value) {
+    return (value ?? '').trim();
+  }
+
   void _syncRepositoryTenant() {
     _repo.setActiveTenantId(_tenantId);
   }
@@ -73,14 +80,12 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
   }
 
   String _requireTenantId() {
-    final clean = _tenantId.trim();
+    final clean = _cleanRequiredTenantId(
+      _tenantId,
+      context: 'AdjustmentMeasurementCubit._requireTenantId',
+    );
 
-    if (clean.isEmpty) {
-      throw Exception(
-        'tenantId é obrigatório para acessar reajustes de medição.',
-      );
-    }
-
+    _tenantId = clean;
     _repo.setActiveTenantId(clean);
 
     return clean;
@@ -91,8 +96,11 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     required String tenantId,
   }) {
     final previousTenantId = _tenantId;
+    final previousPermissions = _currentPermissions;
 
-    _currentPermissions = permissions ?? _currentPermissions;
+    if (permissions != null) {
+      _currentPermissions = permissions;
+    }
 
     _tenantId = _cleanRequiredTenantId(
       tenantId,
@@ -103,101 +111,133 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
 
     final currentContractId = state.contractId?.trim();
 
-    if (previousTenantId != _tenantId &&
+    final tenantChanged = previousTenantId != _tenantId;
+    final permissionsChanged =
+        permissions != null && previousPermissions != _currentPermissions;
+
+    if ((tenantChanged || permissionsChanged) &&
         currentContractId != null &&
         currentContractId.isNotEmpty) {
       Future.microtask(() => loadByContract(currentContractId));
     }
   }
 
-  bool get isEditable => _canWrite();
+  bool canReadContract(ContractData contract) {
+    return _canContractAction(
+      contract: contract,
+      action: 'read',
+    );
+  }
 
-  bool _canWrite() {
-    final permissions = _currentPermissions;
-
-    if (permissions == null) return false;
-
-    if (permissions.isGlobalSuperUser ||
-        permissions.isSuperUserForTenant(_tenantId)) {
-      return true;
-    }
-
-    return permissions.canModuleString(
-      module: moduleId,
+  bool canCreateContract(ContractData contract) {
+    return _canContractAction(
+      contract: contract,
       action: 'create',
-      tenantId: _tenantId,
-    ) ||
-        permissions.canModuleString(
-          module: moduleId,
-          action: 'edit',
-          tenantId: _tenantId,
-        ) ||
-        permissions.canModuleString(
-          module: moduleId,
-          action: 'delete',
-          tenantId: _tenantId,
-        );
+    );
   }
 
-  bool _canDelete() {
+  bool canEditContract(ContractData contract) {
+    return _canContractAction(
+      contract: contract,
+      action: 'edit',
+    );
+  }
+
+  bool canDeleteContract(ContractData contract) {
+    return _canContractAction(
+      contract: contract,
+      action: 'delete',
+    );
+  }
+
+  bool canApproveContract(ContractData contract) {
+    return _canContractAction(
+      contract: contract,
+      action: 'approve',
+    );
+  }
+
+  bool _canContractAction({
+    required ContractData contract,
+    required String action,
+  }) {
     final permissions = _currentPermissions;
+    final cleanAction = action.trim().toLowerCase();
 
-    if (permissions == null) return false;
-
-    if (permissions.isGlobalSuperUser ||
-        permissions.isSuperUserForTenant(_tenantId)) {
-      return true;
+    if (permissions == null || cleanAction.isEmpty) {
+      return false;
     }
 
-    return permissions.canModuleString(
+    _requireTenantId();
+
+    return SystemPermission.canContract(
+      permissions: permissions,
+      contract: contract,
+      action: cleanAction,
       module: moduleId,
-      action: 'delete',
       tenantId: _tenantId,
     );
   }
 
-  void _assertCanWrite() {
+  void _assertCanContractAction({
+    required ContractData contract,
+    required String action,
+    required String message,
+  }) {
     _requireTenantId();
 
-    if (_canWrite()) return;
+    if (_canContractAction(contract: contract, action: action)) {
+      return;
+    }
 
     throw Exception(
-      'Usuário sem permissão para alterar reajustes. '
-          'Módulo: $moduleId | tenantId: $_tenantId',
+      '$message '
+          'Ação: $action | Módulo: $moduleId | tenantId: $_tenantId',
     );
   }
 
-  void _assertCanDelete() {
-    _requireTenantId();
-
-    if (_canDelete()) return;
-
-    throw Exception(
-      'Usuário sem permissão para apagar reajustes. '
-          'Módulo: $moduleId | tenantId: $_tenantId',
-    );
-  }
-
-  Future<void> loadByContract(String contractId) async {
+  Future<void> loadByContract(
+      String contractId, {
+        ContractData? contract,
+      }) async {
     _requireTenantId();
 
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) {
-      throw Exception(
-        'contractId é obrigatório para carregar reajustes de medição.',
+      emit(
+        state.copyWith(
+          status: AdjustmentMeasurementStatus.loaded,
+          adjustments: const <AdjustmentMeasurementData>[],
+          errorMessage: null,
+          contractId: null,
+          selected: null,
+          selectedIndex: null,
+          attachments: const <Attachment>[],
+          selectedAttachmentIndex: null,
+          isSaving: false,
+          uploading: false,
+          uploadProgress: null,
+        ),
+      );
+      return;
+    }
+
+    if (contract != null) {
+      _assertCanContractAction(
+        contract: contract,
+        action: 'read',
+        message: 'Usuário sem permissão para visualizar reajustes.',
       );
     }
+
+    final previousSelectedId = state.selected?.id?.trim();
 
     emit(
       state.copyWith(
         status: AdjustmentMeasurementStatus.loading,
         errorMessage: null,
         contractId: cleanContractId,
-        selected: null,
-        selectedIndex: null,
-        attachments: const <Attachment>[],
-        selectedAttachmentIndex: null,
         isSaving: false,
         uploading: false,
         uploadProgress: null,
@@ -209,15 +249,29 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
         uidContract: cleanContractId,
       );
 
+      AdjustmentMeasurementData? selected;
+      int? selectedIndex;
+
+      if (previousSelectedId != null && previousSelectedId.isNotEmpty) {
+        final index = list.indexWhere((item) {
+          return item.id?.trim() == previousSelectedId;
+        });
+
+        if (index >= 0) {
+          selected = list[index];
+          selectedIndex = index;
+        }
+      }
+
       emit(
         state.copyWith(
           status: AdjustmentMeasurementStatus.loaded,
           adjustments: list,
           errorMessage: null,
           contractId: cleanContractId,
-          selected: null,
-          selectedIndex: null,
-          attachments: const <Attachment>[],
+          selected: selected,
+          selectedIndex: selectedIndex,
+          attachments: selected?.attachments ?? const <Attachment>[],
           selectedAttachmentIndex: null,
           isSaving: false,
           uploading: false,
@@ -241,6 +295,7 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
 
   Future<List<AdjustmentMeasurementData>> getAllAdjustmentsCollectionGroup() {
     _requireTenantId();
+
     return _repo.getAllAdjustmentsCollectionGroup();
   }
 
@@ -248,14 +303,26 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     return _repo.sumAdjustments(list);
   }
 
-  Future<void> saveOrUpdate(AdjustmentMeasurementData data) async {
-    _assertCanWrite();
-
-    final contractId = (data.contractId ?? state.contractId)?.trim();
+  Future<void> saveOrUpdate({
+    required ContractData contract,
+    required AdjustmentMeasurementData data,
+  }) async {
+    final contractId = (data.contractId ?? contract.id ?? state.contractId)?.trim();
 
     if (contractId == null || contractId.isEmpty) {
       throw Exception('contractId é obrigatório em AdjustmentMeasurementData.');
     }
+
+    final isNew = data.id == null || data.id!.trim().isEmpty;
+    final action = isNew ? 'create' : 'edit';
+
+    _assertCanContractAction(
+      contract: contract,
+      action: action,
+      message: isNew
+          ? 'Usuário sem permissão para criar reajustes.'
+          : 'Usuário sem permissão para editar reajustes.',
+    );
 
     emit(
       state.copyWith(
@@ -271,21 +338,17 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
         adj: data.copyWith(contractId: contractId),
       );
 
-      if (state.contractId == null || state.contractId == contractId) {
-        await loadByContract(contractId);
-      } else {
-        emit(
-          state.copyWith(
-            status: AdjustmentMeasurementStatus.loaded,
-            isSaving: false,
-          ),
-        );
-      }
+      await loadByContract(
+        contractId,
+        contract: contract,
+      );
     } catch (e) {
       emit(
         state.copyWith(
           status: AdjustmentMeasurementStatus.error,
           isSaving: false,
+          uploading: false,
+          uploadProgress: null,
           errorMessage: e.toString(),
         ),
       );
@@ -295,10 +358,15 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
   }
 
   Future<void> delete({
+    required ContractData contract,
     required String contractId,
     required String adjustmentId,
   }) async {
-    _assertCanDelete();
+    _assertCanContractAction(
+      contract: contract,
+      action: 'delete',
+      message: 'Usuário sem permissão para apagar reajustes.',
+    );
 
     final cleanContractId = contractId.trim();
     final cleanAdjustmentId = adjustmentId.trim();
@@ -321,21 +389,19 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
         adjustmentId: cleanAdjustmentId,
       );
 
-      if (state.contractId == null || state.contractId == cleanContractId) {
-        await loadByContract(cleanContractId);
-      } else {
-        emit(
-          state.copyWith(
-            status: AdjustmentMeasurementStatus.loaded,
-            isSaving: false,
-          ),
-        );
-      }
+      await loadByContract(
+        cleanContractId,
+        contract: contract,
+      );
+
+      clearSelection();
     } catch (e) {
       emit(
         state.copyWith(
           status: AdjustmentMeasurementStatus.error,
           isSaving: false,
+          uploading: false,
+          uploadProgress: null,
           errorMessage: e.toString(),
         ),
       );
@@ -357,8 +423,8 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
       state.copyWith(
         selected: selected,
         selectedIndex: index,
-        attachments: attachments,
-        selectedAttachmentIndex: null,
+        attachments: List<Attachment>.from(attachments),
+        selectedAttachmentIndex: attachments.isNotEmpty ? 0 : null,
       ),
     );
   }
@@ -391,8 +457,15 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     );
   }
 
-  Future<void> updateAttachments(List<Attachment> attachments) async {
-    _assertCanWrite();
+  Future<void> updateAttachments({
+    required ContractData contract,
+    required List<Attachment> attachments,
+  }) async {
+    _assertCanContractAction(
+      contract: contract,
+      action: 'edit',
+      message: 'Usuário sem permissão para atualizar anexos de reajuste.',
+    );
 
     final selected = state.selected;
     final contractId = state.contractId?.trim();
@@ -401,7 +474,7 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
       throw Exception('contractId é obrigatório para atualizar anexos.');
     }
 
-    if (selected?.id == null || selected!.id!.trim().isEmpty) {
+    if (selected == null || selected.id == null || selected.id!.trim().isEmpty) {
       throw Exception('Selecione/salve o reajuste antes de atualizar anexos.');
     }
 
@@ -413,35 +486,24 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     );
 
     try {
+      final nextAttachments = List<Attachment>.from(attachments);
+
       await _repo.setAttachments(
         contractId: contractId,
         adjustmentId: selected.id!,
-        attachments: attachments,
+        attachments: nextAttachments,
       );
 
-      final updatedSelected = selected.copyWith(
-        attachments: attachments,
-      );
-
-      final updatedList = state.adjustments.map((item) {
-        if (item.id == updatedSelected.id) return updatedSelected;
-        return item;
-      }).toList();
-
-      emit(
-        state.copyWith(
-          isSaving: false,
-          attachments: attachments,
-          adjustments: updatedList,
-          selected: updatedSelected,
-          selectedAttachmentIndex: null,
-          errorMessage: null,
-        ),
+      _applyUpdatedAttachmentsToState(
+        selected: selected,
+        attachments: nextAttachments,
       );
     } catch (e) {
       emit(
         state.copyWith(
           isSaving: false,
+          uploading: false,
+          uploadProgress: null,
           errorMessage: e.toString(),
         ),
       );
@@ -454,28 +516,45 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     required ContractData contract,
     required String contractId,
     required String adjustmentId,
+    String label = '',
+    void Function(double progress)? onProgress,
   }) async {
-    _assertCanWrite();
+    _assertCanContractAction(
+      contract: contract,
+      action: 'edit',
+      message: 'Usuário sem permissão para anexar arquivos em reajustes.',
+    );
 
     final cleanContractId = contractId.trim();
     final cleanAdjustmentId = adjustmentId.trim();
 
-    if (cleanContractId.isEmpty) {
-      throw Exception('contractId é obrigatório para anexar arquivo.');
-    }
-
-    if (cleanAdjustmentId.isEmpty) {
-      throw Exception('adjustmentId é obrigatório para anexar arquivo.');
+    if (cleanContractId.isEmpty || cleanAdjustmentId.isEmpty) {
+      throw Exception('contractId e adjustmentId são obrigatórios.');
     }
 
     final selected = state.selected;
 
-    if (selected == null || selected.id == null || selected.id!.trim().isEmpty) {
+    if (selected == null || selected.id?.trim() != cleanAdjustmentId) {
+      final index = state.adjustments.indexWhere((item) {
+        return item.id?.trim() == cleanAdjustmentId;
+      });
+
+      if (index >= 0) {
+        selectByIndex(index);
+      }
+    }
+
+    final currentSelected = state.selected;
+
+    if (currentSelected == null ||
+        currentSelected.id == null ||
+        currentSelected.id!.trim().isEmpty) {
       throw Exception('Selecione/salve o reajuste antes de anexar arquivos.');
     }
 
     emit(
       state.copyWith(
+        isSaving: true,
         uploading: true,
         uploadProgress: 0.0,
         errorMessage: null,
@@ -487,13 +566,13 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
 
       final att = await _repo.uploadAttachmentBytes(
         contract: contract,
-        adjustment: selected.copyWith(
+        adjustment: currentSelected.copyWith(
           id: cleanAdjustmentId,
           contractId: cleanContractId,
         ),
         bytes: bytes,
         originalName: name,
-        label: '',
+        label: label,
         onProgress: (progress) {
           final value = progress.isNaN ? 0.0 : progress.clamp(0.0, 1.0);
 
@@ -503,13 +582,12 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
               uploadProgress: value.toDouble(),
             ),
           );
+
+          onProgress?.call(value.toDouble());
         },
       );
 
-      final next = <Attachment>[
-        ...state.attachments,
-        att,
-      ];
+      final next = List<Attachment>.from(state.attachments)..add(att);
 
       await _repo.setAttachments(
         contractId: cleanContractId,
@@ -517,31 +595,17 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
         attachments: next,
       );
 
-      final updatedSelected = selected.copyWith(
+      _applyUpdatedAttachmentsToState(
+        selected: currentSelected,
         attachments: next,
-      );
-
-      final updatedList = state.adjustments.map((item) {
-        if (item.id == updatedSelected.id) return updatedSelected;
-        return item;
-      }).toList();
-
-      emit(
-        state.copyWith(
-          uploading: false,
-          uploadProgress: null,
-          attachments: next,
-          selectedAttachmentIndex: next.isEmpty ? null : next.length - 1,
-          selected: updatedSelected,
-          adjustments: updatedList,
-          errorMessage: null,
-        ),
+        selectedAttachmentIndex: next.length - 1,
       );
 
       return att;
     } catch (e) {
       emit(
         state.copyWith(
+          isSaving: false,
           uploading: false,
           uploadProgress: null,
           errorMessage: e.toString(),
@@ -553,17 +617,16 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
   }
 
   Future<void> deleteAttachment({
+    required ContractData contract,
     required String contractId,
     required String adjustmentId,
     required Attachment attachment,
   }) async {
-    _assertCanWrite();
-
-    final selected = state.selected;
-
-    if (selected == null) {
-      throw Exception('Nenhum reajuste selecionado para remover anexo.');
-    }
+    _assertCanContractAction(
+      contract: contract,
+      action: 'edit',
+      message: 'Usuário sem permissão para remover anexos de reajuste.',
+    );
 
     final cleanContractId = contractId.trim();
     final cleanAdjustmentId = adjustmentId.trim();
@@ -572,10 +635,37 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
       throw Exception('contractId e adjustmentId são obrigatórios.');
     }
 
+    final selected = state.selected;
+
+    if (selected == null || selected.id?.trim() != cleanAdjustmentId) {
+      final index = state.adjustments.indexWhere((item) {
+        return item.id?.trim() == cleanAdjustmentId;
+      });
+
+      if (index >= 0) {
+        selectByIndex(index);
+      }
+    }
+
+    final currentSelected = state.selected;
+
+    if (currentSelected == null) {
+      throw Exception('Nenhum reajuste selecionado para remover anexo.');
+    }
+
     final next = List<Attachment>.from(state.attachments)
-      ..removeWhere(
-            (item) => item.id == attachment.id && item.url == attachment.url,
-      );
+      ..removeWhere((item) {
+        final sameId =
+            item.id.trim().isNotEmpty && item.id.trim() == attachment.id.trim();
+
+        final samePath = item.path.trim().isNotEmpty &&
+            item.path.trim() == attachment.path.trim();
+
+        final sameUrl = item.url.trim().isNotEmpty &&
+            item.url.trim() == attachment.url.trim();
+
+        return sameId || samePath || sameUrl;
+      });
 
     emit(
       state.copyWith(
@@ -592,29 +682,16 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
         nextAttachments: next,
       );
 
-      final updatedSelected = selected.copyWith(
+      _applyUpdatedAttachmentsToState(
+        selected: currentSelected,
         attachments: next,
-      );
-
-      final updatedList = state.adjustments.map((item) {
-        if (item.id == updatedSelected.id) return updatedSelected;
-        return item;
-      }).toList();
-
-      emit(
-        state.copyWith(
-          isSaving: false,
-          attachments: next,
-          selectedAttachmentIndex: null,
-          selected: updatedSelected,
-          adjustments: updatedList,
-          errorMessage: null,
-        ),
       );
     } catch (e) {
       emit(
         state.copyWith(
           isSaving: false,
+          uploading: false,
+          uploadProgress: null,
           errorMessage: e.toString(),
         ),
       );
@@ -624,18 +701,17 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
   }
 
   Future<void> renameAttachmentLabel({
+    required ContractData contract,
     required String contractId,
     required String adjustmentId,
     required Attachment oldItem,
     required Attachment newItem,
   }) async {
-    _assertCanWrite();
-
-    final selected = state.selected;
-
-    if (selected == null) {
-      throw Exception('Nenhum reajuste selecionado para renomear anexo.');
-    }
+    _assertCanContractAction(
+      contract: contract,
+      action: 'edit',
+      message: 'Usuário sem permissão para renomear anexos de reajuste.',
+    );
 
     final cleanContractId = contractId.trim();
     final cleanAdjustmentId = adjustmentId.trim();
@@ -644,11 +720,38 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
       throw Exception('contractId e adjustmentId são obrigatórios.');
     }
 
+    final selected = state.selected;
+
+    if (selected == null || selected.id?.trim() != cleanAdjustmentId) {
+      final index = state.adjustments.indexWhere((item) {
+        return item.id?.trim() == cleanAdjustmentId;
+      });
+
+      if (index >= 0) {
+        selectByIndex(index);
+      }
+    }
+
+    final currentSelected = state.selected;
+
+    if (currentSelected == null) {
+      throw Exception('Nenhum reajuste selecionado para renomear anexo.');
+    }
+
     final next = List<Attachment>.from(state.attachments);
 
-    final index = next.indexWhere(
-          (item) => item.id == oldItem.id && item.url == oldItem.url,
-    );
+    final index = next.indexWhere((item) {
+      final sameId =
+          item.id.trim().isNotEmpty && item.id.trim() == oldItem.id.trim();
+
+      final samePath = item.path.trim().isNotEmpty &&
+          item.path.trim() == oldItem.path.trim();
+
+      final sameUrl =
+          item.url.trim().isNotEmpty && item.url.trim() == oldItem.url.trim();
+
+      return sameId || samePath || sameUrl;
+    });
 
     if (index < 0) {
       throw Exception('Anexo não encontrado para renomear.');
@@ -670,28 +773,17 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
         attachments: next,
       );
 
-      final updatedSelected = selected.copyWith(
+      _applyUpdatedAttachmentsToState(
+        selected: currentSelected,
         attachments: next,
-      );
-
-      final updatedList = state.adjustments.map((item) {
-        if (item.id == updatedSelected.id) return updatedSelected;
-        return item;
-      }).toList();
-
-      emit(
-        state.copyWith(
-          isSaving: false,
-          attachments: next,
-          selected: updatedSelected,
-          adjustments: updatedList,
-          errorMessage: null,
-        ),
+        selectedAttachmentIndex: index,
       );
     } catch (e) {
       emit(
         state.copyWith(
           isSaving: false,
+          uploading: false,
+          uploadProgress: null,
           errorMessage: e.toString(),
         ),
       );
@@ -700,8 +792,14 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     }
   }
 
-  Future<void> clearLegacyPdfUrl() async {
-    _assertCanWrite();
+  Future<void> clearLegacyPdfUrl({
+    required ContractData contract,
+  }) async {
+    _assertCanContractAction(
+      contract: contract,
+      action: 'edit',
+      message: 'Usuário sem permissão para limpar PDF legado de reajuste.',
+    );
 
     final selected = state.selected;
     final contractId = state.contractId?.trim();
@@ -710,7 +808,7 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
       throw Exception('contractId é obrigatório para limpar PDF legado.');
     }
 
-    if (selected?.id == null || selected!.id!.trim().isEmpty) {
+    if (selected == null || selected.id == null || selected.id!.trim().isEmpty) {
       throw Exception('Selecione/salve o reajuste antes de limpar PDF legado.');
     }
 
@@ -733,7 +831,10 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
       );
 
       final updatedList = state.adjustments.map((item) {
-        if (item.id == updatedSelected.id) return updatedSelected;
+        if (_cleanId(item.id) == _cleanId(updatedSelected.id)) {
+          return updatedSelected;
+        }
+
         return item;
       }).toList();
 
@@ -749,11 +850,58 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
       emit(
         state.copyWith(
           isSaving: false,
+          uploading: false,
+          uploadProgress: null,
           errorMessage: e.toString(),
         ),
       );
 
       rethrow;
     }
+  }
+
+  void _applyUpdatedAttachmentsToState({
+    required AdjustmentMeasurementData selected,
+    required List<Attachment> attachments,
+    int? selectedAttachmentIndex,
+  }) {
+    final nextAttachments = List<Attachment>.from(attachments);
+
+    final updatedSelected = selected.copyWith(
+      attachments: nextAttachments,
+    );
+
+    final updatedList = state.adjustments.map((item) {
+      if (_cleanId(item.id) == _cleanId(updatedSelected.id)) {
+        return updatedSelected;
+      }
+
+      return item;
+    }).toList();
+
+    final resolvedSelectedAttachmentIndex = nextAttachments.isEmpty
+        ? null
+        : (selectedAttachmentIndex ?? state.selectedAttachmentIndex ?? 0)
+        .clamp(0, nextAttachments.length - 1)
+        .toInt();
+
+    final resolvedSelectedIndex = updatedList.indexWhere((item) {
+      return _cleanId(item.id) == _cleanId(updatedSelected.id);
+    });
+
+    emit(
+      state.copyWith(
+        status: AdjustmentMeasurementStatus.loaded,
+        isSaving: false,
+        uploading: false,
+        uploadProgress: null,
+        attachments: nextAttachments,
+        adjustments: updatedList,
+        selected: updatedSelected,
+        selectedIndex: resolvedSelectedIndex >= 0 ? resolvedSelectedIndex : null,
+        selectedAttachmentIndex: resolvedSelectedAttachmentIndex,
+        errorMessage: null,
+      ),
+    );
   }
 }

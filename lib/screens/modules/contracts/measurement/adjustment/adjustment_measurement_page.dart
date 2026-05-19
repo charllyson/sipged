@@ -1,3 +1,5 @@
+// lib/screens/modules/contracts/measurement/adjustment/adjustment_measurement_page.dart
+
 import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,12 +17,10 @@ import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustmen
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_state.dart';
 
 import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
-import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
-import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
@@ -42,13 +42,11 @@ class AdjustmentMeasurement extends StatelessWidget {
 
   final ContractData contractData;
 
-  String _resolveRequiredTenantId(PermissionState permissionState) {
+  String? _resolveTenantId(PermissionState permissionState) {
     final tenantId = permissionState.activeTenantId?.trim();
 
     if (tenantId == null || tenantId.isEmpty) {
-      throw ArgumentError(
-        'tenantId é obrigatório para AdjustmentMeasurement.',
-      );
+      return null;
     }
 
     return tenantId;
@@ -70,7 +68,16 @@ class AdjustmentMeasurement extends StatelessWidget {
             previous.current != current.current;
       },
       builder: (context, permissionState) {
-        final tenantId = _resolveRequiredTenantId(permissionState);
+        final tenantId = _resolveTenantId(permissionState);
+
+        if (tenantId == null) {
+          return const Center(
+            child: Text(
+              'Empresa ativa não selecionada para carregar reajustes.',
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
 
         return BlocProvider<AdjustmentMeasurementCubit>(
           key: ValueKey<String>(
@@ -84,7 +91,10 @@ class AdjustmentMeasurement extends StatelessWidget {
               initialPermissions: permissionState.current,
               initialTenantId: tenantId,
               moduleId: 'operation_measurements_adjustments',
-            )..loadByContract(contractId);
+            )..loadByContract(
+              contractId,
+              contract: contractData,
+            );
           },
           child: BlocListener<PermissionCubit, PermissionState>(
             listenWhen: (previous, current) {
@@ -92,7 +102,9 @@ class AdjustmentMeasurement extends StatelessWidget {
                   previous.activeTenantId != current.activeTenantId;
             },
             listener: (context, permissionState) {
-              final nextTenantId = _resolveRequiredTenantId(permissionState);
+              final nextTenantId = _resolveTenantId(permissionState);
+
+              if (nextTenantId == null) return;
 
               context.read<AdjustmentMeasurementCubit>().updatePermissions(
                 permissions: permissionState.current,
@@ -172,13 +184,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
   void initState() {
     super.initState();
 
-    _dfdRepository = DfdRepository(
-      tenantId: widget.tenantId,
-    );
-
-    _apostillesRepository = ApostillesRepository(
-      tenantId: widget.tenantId,
-    );
+    _configureRepositories();
 
     _loadDfdDisplayData();
     _loadApostillesValue();
@@ -196,18 +202,14 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
     final oldContractId = oldWidget.contractData.id?.trim() ?? '';
     final newContractId = widget.contractData.id?.trim() ?? '';
 
-    if (oldWidget.tenantId != widget.tenantId || oldContractId != newContractId) {
-      _dfdRepository = DfdRepository(
-        tenantId: widget.tenantId,
-      );
-
-      _apostillesRepository = ApostillesRepository(
-        tenantId: widget.tenantId,
-      );
+    if (oldWidget.tenantId != widget.tenantId ||
+        oldContractId != newContractId) {
+      _configureRepositories();
 
       setState(() {
         _dfdData = null;
         _totalApostillesValue = 0.0;
+        _selectedSideIndex = null;
       });
 
       _loadDfdDisplayData();
@@ -234,6 +236,18 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
       ..dispose();
 
     super.dispose();
+  }
+
+  void _configureRepositories() {
+    final tenantId = widget.tenantId.trim();
+
+    _dfdRepository = DfdRepository(
+      tenantId: tenantId,
+    );
+
+    _apostillesRepository = ApostillesRepository(
+      tenantId: tenantId,
+    );
   }
 
   Future<void> _loadDfdDisplayData() async {
@@ -269,7 +283,9 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
     }
 
     try {
-      final total = await _apostillesRepository.getAllApostillesValue(contractId);
+      final total = await _apostillesRepository.getAllApostillesValue(
+        contractId,
+      );
 
       if (!mounted) return;
 
@@ -288,137 +304,16 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
     }
   }
 
-  String _resolveActorName(String? uid) {
+  String _currentActorLabel() {
     final currentUser = FirebaseAuth.instance.currentUser;
-    final cleanUid = uid?.trim();
-
-    if (cleanUid != null && cleanUid.isNotEmpty) {
-      final meta = widget.contractData.participantsInfo[cleanUid];
-
-      if (meta != null) {
-        final fullName = (meta['fullName'] ??
-            meta['displayName'] ??
-            meta['nameComplete'] ??
-            '')
-            .toString()
-            .trim();
-
-        if (fullName.isNotEmpty) return fullName;
-
-        final name = (meta['name'] ?? '').toString().trim();
-        final surname = (meta['surname'] ?? '').toString().trim();
-
-        final composed = [name, surname]
-            .where((item) => item.trim().isNotEmpty)
-            .join(' ')
-            .trim();
-
-        if (composed.isNotEmpty) return composed;
-
-        final email = (meta['email'] ?? '').toString().trim();
-
-        if (email.isNotEmpty) return email;
-      }
-    }
 
     final displayName = currentUser?.displayName?.trim() ?? '';
-
     if (displayName.isNotEmpty) return displayName;
 
     final email = currentUser?.email?.trim() ?? '';
-
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
-  }
-
-  String _resolveActorPhotoUrl(String? uid) {
-    final cleanUid = uid?.trim();
-
-    if (cleanUid != null && cleanUid.isNotEmpty) {
-      final users = context.read<UserCubit>().state.all;
-
-      for (final item in users) {
-        if ((item.uid ?? '').trim() == cleanUid) {
-          final photo = item.urlPhoto?.trim() ?? '';
-
-          if (photo.isNotEmpty) return photo;
-        }
-      }
-
-      final meta = widget.contractData.participantsInfo[cleanUid];
-
-      if (meta != null) {
-        final photo = (meta['urlPhoto'] ??
-            meta['photoUrl'] ??
-            meta['photoURL'] ??
-            meta['profilePhotoUrl'] ??
-            '')
-            .toString()
-            .trim();
-
-        if (photo.isNotEmpty) return photo;
-      }
-    }
-
-    final firebasePhoto =
-        FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '';
-
-    if (firebasePhoto.isNotEmpty) return firebasePhoto;
-
-    return '';
-  }
-
-  DateTime? _parseDateTimeFromExtra(dynamic value) {
-    if (value == null) return null;
-
-    if (value is DateTime) return value;
-
-    final text = value.toString().trim();
-
-    if (text.isEmpty) return null;
-
-    final iso = DateTime.tryParse(text);
-
-    if (iso != null) return iso;
-
-    final parts = text.split('/');
-
-    if (parts.length == 3) {
-      final day = int.tryParse(parts[0]);
-      final month = int.tryParse(parts[1]);
-      final year = int.tryParse(parts[2]);
-
-      if (day != null && month != null && year != null) {
-        final parsed = DateTime(year, month, day);
-
-        if (parsed.day == day &&
-            parsed.month == month &&
-            parsed.year == year) {
-          return parsed;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  num? _parseNumFromExtra(dynamic value) {
-    if (value == null) return null;
-
-    if (value is num) return value;
-
-    final text = value.toString().trim();
-
-    if (text.isEmpty) return null;
-
-    final normalized = text
-        .replaceAll('R\$', '')
-        .replaceAll('.', '')
-        .replaceAll(',', '.')
-        .trim();
-
-    return num.tryParse(normalized);
   }
 
   Future<void> _notify({
@@ -434,68 +329,54 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
   }) async {
     if (!mounted) return;
 
-    const route = 'operation_measurements_adjustments';
-    const notificationSource = 'measurementsAdjustments';
-
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
-    final actorName = _resolveActorName(currentUserId);
-    final actorPhotoUrl = _resolveActorPhotoUrl(currentUserId);
-
-    final delivery = saveInBell || sendPush
-        ? NotificationDelivery.localBellAndPush
-        : NotificationDelivery.localOnly;
-
     await NotificationMeasurements.show(
       context: context,
       contract: widget.contractData,
       title: title,
       subtitle: subtitle ?? _contractSummary,
       details: details,
-      leadingLabel: 'Reajuste',
-      module: route,
-      notificationSource: notificationSource,
-      source: 'adjustment_measurement_notification',
       kind: NotificationMeasurementKind.adjustment,
       status: type ?? status,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
-      actorId: currentUserId,
-      actorName: actorName,
+      actorId: FirebaseAuth.instance.currentUser?.uid,
       includeCurrentUser: true,
-      delivery: delivery,
-      measurementId: extra['adjustmentId']?.toString(),
-      measurementNumber: extra['adjustmentProcess']?.toString(),
-      measurementOrder: extra['adjustmentOrder']?.toString(),
-      measurementDate: _parseDateTimeFromExtra(extra['adjustmentDate']),
-      adjustmentValue: _parseNumFromExtra(extra['adjustmentValue']),
-      extra: <String, dynamic>{
-        'tenantId': widget.tenantId,
-        'companyId': widget.tenantId,
-        'route': route,
-        'module': route,
-        'source': 'adjustment_measurement_notification',
-        'sourceKey': notificationSource,
-        'subSource': notificationSource,
-        'notificationSource': notificationSource,
-        'actorId': currentUserId,
-        'actorName': actorName,
-        if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
-        if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
-        if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
-        if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
-        'contractId': _contractId,
-        'contractNumber': _contractNumber,
-        'processNumber': _contractNumber,
-        'processoAdministrativo': _dfdData?.processoAdministrativo,
-        'contractTitle': _contractSummary,
-        'contractSummary': _contractSummary,
-        'descricaoObjeto': _dfdData?.descricaoObjeto,
-        'nomeDemanda': _contractSummary,
-        'measurementKind': NotificationMeasurementKind.adjustment.name,
-        ...extra,
-      },
+      tenantId: widget.tenantId,
+      companyId: widget.tenantId,
+      contractId: _contractId,
+      contractNumber: _contractNumber,
+      processNumber: _contractNumber,
+      processoAdministrativo: _dfdData?.processoAdministrativo,
+      contractTitle: _contractSummary,
+      contractSummary: _contractSummary,
+      descricaoObjeto: _dfdData?.descricaoObjeto,
+      nomeDemanda: _contractSummary,
+      adjustmentId: extra['adjustmentId']?.toString(),
+      adjustmentNumber: extra['adjustmentProcess']?.toString(),
+      adjustmentOrder: extra['adjustmentOrder']?.toString(),
+      adjustmentDate: _parseExtraDate(extra['adjustmentDate']),
+      adjustmentValue:
+      extra['adjustmentValue'] is num ? extra['adjustmentValue'] as num : null,
+      action: extra['action']?.toString(),
+      attachmentLabel: extra['attachmentLabel']?.toString(),
+      attachmentUrl: extra['attachmentUrl']?.toString(),
+      oldAttachmentLabel: extra['oldAttachmentLabel']?.toString(),
+      newAttachmentLabel: extra['newAttachmentLabel']?.toString(),
+      extra: extra,
     );
+  }
+
+  DateTime? _parseExtraDate(dynamic value) {
+    if (value == null) return null;
+
+    if (value is DateTime) return value;
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    return DateTime.tryParse(text);
   }
 
   Future<void> _safeNotify({
@@ -551,11 +432,11 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
   }
 
   void _fillFieldsFromSelected(AdjustmentMeasurementState state) {
-    final sel = state.selected;
+    final selected = state.selected;
 
     _selectedSideIndex = null;
 
-    if (sel == null) {
+    if (selected == null) {
       orderCtrl.text = _computeNextOrder(state).toString();
       processCtrl.clear();
       valueCtrl.clear();
@@ -564,15 +445,15 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
       return;
     }
 
-    orderCtrl.text = (sel.order ?? '').toString();
-    processCtrl.text = sel.numberprocess ?? '';
-    valueCtrl.text = SipGedFormatMoney.brlNoSymbol(sel.value);
+    orderCtrl.text = (selected.order ?? '').toString();
+    processCtrl.text = selected.numberprocess ?? '';
+    valueCtrl.text = SipGedFormatMoney.brlNoSymbol(selected.value);
 
-    if (sel.date != null) {
-      final d = sel.date!;
+    if (selected.date != null) {
+      final date = selected.date!;
 
       dateCtrl.text =
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+      '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
     } else {
       dateCtrl.clear();
     }
@@ -581,7 +462,9 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
   }
 
   int? _parseInt(String text) {
-    return int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), ''));
+    return int.tryParse(
+      text.replaceAll(RegExp(r'[^0-9]'), ''),
+    );
   }
 
   double _parseCurrency(String text) {
@@ -593,17 +476,17 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
     if (parts.length != 3) return null;
 
-    final d = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    final y = int.tryParse(parts[2]);
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
 
-    if (d == null || m == null || y == null) return null;
-    if (m < 1 || m > 12) return null;
-    if (d < 1 || d > 31) return null;
+    if (day == null || month == null || year == null) return null;
+    if (month < 1 || month > 12) return null;
+    if (day < 1 || day > 31) return null;
 
-    final date = DateTime(y, m, d);
+    final date = DateTime(year, month, day);
 
-    if (date.day != d || date.month != m || date.year != y) {
+    if (date.day != day || date.month != month || date.year != year) {
       return null;
     }
 
@@ -641,24 +524,29 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
           );
         }
 
+        final canCreate = cubit.canCreateContract(widget.contractData);
+        final canEdit = cubit.canEditContract(widget.contractData);
+        final canDelete = cubit.canDeleteContract(widget.contractData);
+
+        final canEditCurrentForm = state.selected == null ? canCreate : canEdit;
+        final canEditAttachments = state.selected != null && canEdit;
+
         final labels = state.adjustments
             .map((item) => (item.order ?? 0).toString())
             .toList();
 
-        final values = state.adjustments
-            .map((item) => item.value ?? 0.0)
-            .toList();
+        final values = state.adjustments.map((item) => item.value ?? 0.0).toList();
 
         final total = state.adjustments.fold<double>(
           0.0,
               (previousTotal, item) => previousTotal + (item.value ?? 0.0),
         );
 
-        final double totalApostilles = _totalApostillesValue;
-        final double totalAdditives = 0.0;
+        final totalApostilles = _totalApostillesValue;
+        final totalAdditives = 0.0;
 
-        final double valorTotalDisponivel = totalApostilles;
-        final double saldo = valorTotalDisponivel - total;
+        final valorTotalDisponivel = totalApostilles;
+        final saldo = valorTotalDisponivel - total;
 
         final selectedIndex = state.selectedIndex;
         final nextOrder = _computeNextOrder(state);
@@ -675,8 +563,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
           if (!usedOrders.contains(nextOrder)) nextOrder.toString(),
         ];
 
-        final greyOrderItems =
-        usedOrders.map((order) => order.toString()).toSet();
+        final greyOrderItems = usedOrders.map((order) => order.toString()).toSet();
 
         final attachments = state.attachments;
 
@@ -704,7 +591,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: AdjustmentMeasurementFormSection(
-                            isEditable: cubit.isEditable,
+                            isEditable: canEditCurrentForm,
                             formValidated: formValidated,
                             selectedAdjustmentMeasurement: state.selected,
                             currentAdjustmentMeasurementId: state.selected?.id,
@@ -716,6 +603,17 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                             sideLoading: state.uploading,
                             sideUploadProgress: state.uploadProgress,
                             onSave: () async {
+                              if (!canEditCurrentForm) {
+                                await _safeNotify(
+                                  title: 'Sem permissão para salvar reajuste',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  'Você não possui permissão para criar ou editar reajuste neste contrato.',
+                                  status: NotificationStatus.error,
+                                );
+                                return;
+                              }
+
                               final ok = await confirmDialog(
                                 context,
                                 'Deseja salvar este reajuste?',
@@ -726,7 +624,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                               final parsedOrder = _parseInt(orderCtrl.text);
 
                               final effectiveOrder =
-                              (parsedOrder == null || parsedOrder <= 0)
+                              parsedOrder == null || parsedOrder <= 0
                                   ? _computeNextOrder(state)
                                   : parsedOrder;
 
@@ -768,11 +666,12 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                               );
 
                               try {
-                                await cubit.saveOrUpdate(data);
-
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
+                                await cubit.saveOrUpdate(
+                                  contract: widget.contractData,
+                                  data: data,
                                 );
+
+                                final actorName = _currentActorLabel();
 
                                 await _safeNotify(
                                   title: isNew
@@ -789,7 +688,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                     'action': isNew
                                         ? 'adjustment_created'
                                         : 'adjustment_updated',
-                                    'adjustmentId': data.id,
+                                    'adjustmentId': data.id ?? state.selected?.id,
                                     'adjustmentOrder': data.order,
                                     'adjustmentProcess': data.numberprocess,
                                     'adjustmentValue': data.value,
@@ -816,7 +715,8 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                             },
                             sideItems: attachments,
                             selectedSideIndex: _selectedSideIndex,
-                            onAddSideItem: state.selected != null &&
+                            onAddSideItem: canEditAttachments &&
+                                state.selected != null &&
                                 state.selected?.id != null &&
                                 contractId != null &&
                                 contractId.isNotEmpty
@@ -843,9 +743,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                     ? cubit.state.attachments.last
                                     : null;
 
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
-                                );
+                                final actorName = _currentActorLabel();
 
                                 await _safeNotify(
                                   title: 'Arquivo anexado ao reajuste',
@@ -882,14 +780,16 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 _selectedSideIndex = index;
                               });
                             },
-                            onDeleteSideItem: (index) async {
-                              if (contractId == null || contractId.isEmpty) {
+                            onDeleteSideItem: canEditAttachments
+                                ? (index) async {
+                              if (contractId == null ||
+                                  contractId.isEmpty) {
                                 return;
                               }
 
-                              final sel = state.selected;
+                              final selected = state.selected;
 
-                              if (sel?.id == null) return;
+                              if (selected?.id == null) return;
 
                               if (index < 0 || index >= attachments.length) {
                                 return;
@@ -906,8 +806,9 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
                               try {
                                 await cubit.deleteAttachment(
+                                  contract: widget.contractData,
                                   contractId: contractId,
-                                  adjustmentId: sel!.id!,
+                                  adjustmentId: selected!.id!,
                                   attachment: attachment,
                                 );
 
@@ -917,9 +818,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                   });
                                 }
 
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
-                                );
+                                final actorName = _currentActorLabel();
 
                                 await _safeNotify(
                                   title: 'Arquivo removido do reajuste',
@@ -932,8 +831,8 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                   extra: <String, dynamic>{
                                     'action':
                                     'adjustment_attachment_deleted',
-                                    'adjustmentId': sel.id,
-                                    'adjustmentOrder': sel.order,
+                                    'adjustmentId': selected.id,
+                                    'adjustmentOrder': selected.order,
                                     'attachmentLabel': attachment.label,
                                     'attachmentUrl': attachment.url,
                                   },
@@ -947,31 +846,42 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                   duration: const Duration(seconds: 6),
                                 );
                               }
-                            },
+                            }
+                                : null,
                             onRenamePersist: ({
                               required int index,
                               required Attachment oldItem,
                               required Attachment newItem,
                             }) async {
+                              if (!canEditAttachments) {
+                                await _safeNotify(
+                                  title: 'Sem permissão para renomear anexo',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  'Você não possui permissão de edição neste contrato.',
+                                  status: NotificationStatus.error,
+                                );
+                                return false;
+                              }
+
                               if (contractId == null || contractId.isEmpty) {
                                 return false;
                               }
 
-                              final sel = state.selected;
+                              final selected = state.selected;
 
-                              if (sel?.id == null) return false;
+                              if (selected?.id == null) return false;
 
                               try {
                                 await cubit.renameAttachmentLabel(
+                                  contract: widget.contractData,
                                   contractId: contractId,
-                                  adjustmentId: sel!.id!,
+                                  adjustmentId: selected!.id!,
                                   oldItem: oldItem,
                                   newItem: newItem,
                                 );
 
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
-                                );
+                                final actorName = _currentActorLabel();
 
                                 await _safeNotify(
                                   title: 'Anexo de reajuste renomeado',
@@ -984,8 +894,8 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                   extra: <String, dynamic>{
                                     'action':
                                     'adjustment_attachment_renamed',
-                                    'adjustmentId': sel.id,
-                                    'adjustmentOrder': sel.order,
+                                    'adjustmentId': selected.id,
+                                    'adjustmentOrder': selected.order,
                                     'oldAttachmentLabel': oldItem.label,
                                     'newAttachmentLabel': newItem.label,
                                     'attachmentUrl': newItem.url,
@@ -1005,10 +915,14 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 return false;
                               }
                             },
-                            onSideItemsChanged: (newItems) async {
+                            onSideItemsChanged: canEditAttachments
+                                ? (newItems) async {
                               final next = _onlyAttachments(newItems);
 
-                              await cubit.updateAttachments(next);
+                              await cubit.updateAttachments(
+                                contract: widget.contractData,
+                                attachments: next,
+                              );
 
                               if (!mounted) return;
 
@@ -1023,7 +937,8 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                       );
                                 }
                               });
-                            },
+                            }
+                                : null,
                             orderOptions: orderOptions,
                             greyOrderItems: greyOrderItems,
                             onChangedOrder: (value) {
@@ -1058,6 +973,17 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                             }
                           },
                           onDelete: (id) async {
+                            if (!canDelete) {
+                              await _safeNotify(
+                                title: 'Sem permissão para apagar reajuste',
+                                subtitle: _contractSummary,
+                                details:
+                                'Você não possui permissão de exclusão neste contrato.',
+                                status: NotificationStatus.error,
+                              );
+                              return;
+                            }
+
                             final ok = await confirmDialog(
                               context,
                               'Deseja realmente apagar este reajuste?',
@@ -1085,13 +1011,12 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
                             try {
                               await cubit.delete(
+                                contract: widget.contractData,
                                 contractId: contractId,
                                 adjustmentId: id,
                               );
 
-                              final actorName = _resolveActorName(
-                                FirebaseAuth.instance.currentUser?.uid,
-                              );
+                              final actorName = _currentActorLabel();
 
                               await _safeNotify(
                                 title: 'Reajuste apagado',

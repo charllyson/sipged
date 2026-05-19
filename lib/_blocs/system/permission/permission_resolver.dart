@@ -1,3 +1,5 @@
+// lib/_blocs/system/permission/permission_resolver.dart
+
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -35,29 +37,6 @@ class PermissionResolver {
       return current;
     }
 
-    final rawFromSnap = user.userSnap?.data();
-
-    if (rawFromSnap != null) {
-      return UserPermissionData.fromMap(
-        uid: uid,
-        map: rawFromSnap,
-      );
-    }
-
-    final rawFromUser = <String, dynamic>{
-      if (user.baseRole != null && user.baseRole!.trim().isNotEmpty)
-        'baseRole': user.baseRole!.trim(),
-      if (user.baseProfile != null && user.baseProfile!.trim().isNotEmpty)
-        'baseProfile': user.baseProfile!.trim(),
-    };
-
-    if (rawFromUser.isNotEmpty) {
-      return UserPermissionData.fromMap(
-        uid: uid,
-        map: rawFromUser,
-      );
-    }
-
     return UserPermissionData(
       uid: uid,
     );
@@ -87,9 +66,9 @@ class PermissionResolver {
       return false;
     }
 
-    return permissions.canModuleString(
+    return permissions.canModule(
       module: cleanModule,
-      action: 'read',
+      action: PermissionType.read,
       tenantId: cleanTenantId(tenantId),
     );
   }
@@ -97,22 +76,41 @@ class PermissionResolver {
   static bool canModule({
     required UserPermissionData? permissions,
     required String? module,
+    required PermissionType action,
+    required String? tenantId,
+  }) {
+    final cleanModule = module?.trim();
+
+    if (permissions == null || cleanModule == null || cleanModule.isEmpty) {
+      return false;
+    }
+
+    return permissions.canModule(
+      module: cleanModule,
+      action: action,
+      tenantId: cleanTenantId(tenantId),
+    );
+  }
+
+  static bool canModuleString({
+    required UserPermissionData? permissions,
+    required String? module,
     required String action,
     required String? tenantId,
   }) {
     final cleanModule = module?.trim();
-    final cleanAction = action.trim().toLowerCase();
+    final parsedAction = PermissionActionCodec.tryParse(action);
 
     if (permissions == null ||
         cleanModule == null ||
         cleanModule.isEmpty ||
-        cleanAction.isEmpty) {
+        parsedAction == null) {
       return false;
     }
 
-    return permissions.canModuleString(
+    return permissions.canModule(
       module: cleanModule,
-      action: cleanAction,
+      action: parsedAction,
       tenantId: cleanTenantId(tenantId),
     );
   }

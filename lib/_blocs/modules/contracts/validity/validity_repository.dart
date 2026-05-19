@@ -106,7 +106,6 @@ class ValidityRepository {
   ContractData _fallbackContract(String contractId) {
     return ContractData(
       id: contractId.trim(),
-      permissionContractId: const <String, Map<String, bool>>{},
       participantsInfo: const <String, Map<String, dynamic>>{},
     );
   }
@@ -183,12 +182,6 @@ class ValidityRepository {
       return ContractData.fromDocument(snapshot: snapshot);
     }
 
-    final ordersSnap = await _ordersCol(cleanUid).limit(1).get();
-
-    if (ordersSnap.docs.isNotEmpty) {
-      return _fallbackContract(cleanUid);
-    }
-
     return _fallbackContract(cleanUid);
   }
 
@@ -207,12 +200,6 @@ class ValidityRepository {
       return ContractData.fromDocument(snapshot: snapshot);
     }
 
-    final ordersSnap = await _ordersCol(cleanContractId).limit(1).get();
-
-    if (ordersSnap.docs.isNotEmpty) {
-      return _fallbackContract(cleanContractId);
-    }
-
     return _fallbackContract(cleanContractId);
   }
 
@@ -229,6 +216,7 @@ class ValidityRepository {
 
     await contractRef.set(
       <String, dynamic>{
+        'id': uidContract,
         'tenantId': tenantId,
         'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -335,6 +323,7 @@ class ValidityRepository {
 
     await _contractDoc(contractId).set(
       <String, dynamic>{
+        'id': contractId,
         'tenantId': tenantId,
         'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -461,9 +450,8 @@ class ValidityRepository {
       throw Exception('contractId é obrigatório para buscar aditivos.');
     }
 
-    final snap = await _additivesCol(cleanContractId)
-        .orderBy('additiveorder')
-        .get();
+    final snap =
+    await _additivesCol(cleanContractId).orderBy('additiveorder').get();
 
     final list = snap.docs
         .map((doc) => AdditivesData.fromDocument(snapshot: doc))
@@ -535,7 +523,7 @@ class ValidityRepository {
     return 'tenants/$tenantId/contracts/$contractId/orders/$validityId/';
   }
 
-  String _legacyFileName(
+  String _pdfFileName(
       ContractData contract,
       ValidityData validity, {
         PublicacaoExtratoData? extrato,
@@ -543,7 +531,7 @@ class ValidityRepository {
     final contrato = _sanitize(
       extrato?.numeroContrato?.trim().isNotEmpty == true
           ? extrato!.numeroContrato!
-          : 'contrato',
+          : contract.id ?? 'contrato',
     );
 
     final ordem = (validity.orderNumber ?? 0).toString().padLeft(3, '0');
@@ -557,12 +545,12 @@ class ValidityRepository {
     return '$contrato-$ordem-$tipo.pdf';
   }
 
-  String _legacyPathFor(
+  String _pdfPathFor(
       ContractData contract,
       ValidityData validity, {
         PublicacaoExtratoData? extrato,
       }) {
-    return '${_folderFor(contract, validity)}${_legacyFileName(
+    return '${_folderFor(contract, validity)}${_pdfFileName(
       contract,
       validity,
       extrato: extrato,
@@ -712,6 +700,7 @@ class ValidityRepository {
 
     await _contractDoc(cleanContractId).set(
       <String, dynamic>{
+        'id': cleanContractId,
         'tenantId': tenantId,
         'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -760,13 +749,13 @@ class ValidityRepository {
       return List<Attachment>.from(currentAttachments);
     }
 
-    final legacyPdfUrl = validity.pdfUrl?.trim() ?? '';
+    final existingPdfUrl = validity.pdfUrl?.trim() ?? '';
 
-    if (legacyPdfUrl.isNotEmpty) {
+    if (existingPdfUrl.isNotEmpty) {
       final attachment = Attachment(
-        id: 'legacy-pdf',
+        id: 'pdf-principal',
         label: 'Documento da validade',
-        url: legacyPdfUrl,
+        url: existingPdfUrl,
         path: '',
         ext: '.pdf',
         createdAt: DateTime.now(),
@@ -849,7 +838,7 @@ class ValidityRepository {
     final tenantId = _requireTenantId();
 
     final ref = _storage.ref(
-      _legacyPathFor(
+      _pdfPathFor(
         contract,
         validity,
         extrato: extrato,
@@ -973,6 +962,7 @@ class ValidityRepository {
 
     await _contractDoc(cleanContractId).set(
       <String, dynamic>{
+        'id': cleanContractId,
         'tenantId': tenantId,
         'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -1018,7 +1008,7 @@ class ValidityRepository {
       try {
         await _storage
             .ref(
-          _legacyPathFor(
+          _pdfPathFor(
             contract,
             validity,
             extrato: extrato,
@@ -1061,7 +1051,7 @@ class ValidityRepository {
     try {
       await _storage
           .ref(
-        _legacyPathFor(
+        _pdfPathFor(
           contract,
           validity,
           extrato: extrato,
@@ -1083,7 +1073,7 @@ class ValidityRepository {
     try {
       return await _storage
           .ref(
-        _legacyPathFor(
+        _pdfPathFor(
           contract,
           validity,
           extrato: extrato,

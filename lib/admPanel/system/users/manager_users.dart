@@ -1,3 +1,5 @@
+// lib/admPanel/system/users/manager_users.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -35,6 +37,12 @@ class _ManagerUsersState extends State<ManagerUsers> {
 
   bool _didInit = false;
   bool _openingCreateUser = false;
+  bool _loadingPermissions = false;
+
+  String? _permissionsLoadError;
+
+  final Map<String, perm.UserPermissionData> _permissionsByUid =
+  <String, perm.UserPermissionData>{};
 
   @override
   void initState() {
@@ -45,15 +53,7 @@ class _ManagerUsersState extends State<ManagerUsers> {
 
       _didInit = true;
 
-      final userCubit = context.read<UserCubit>();
-      final tenantCubit = context.read<TenantCubit>();
-
-      await Future.wait([
-        userCubit.ensureLoaded(
-          listenRealtime: true,
-        ),
-        tenantCubit.ensureAvailableTenantsLoaded(),
-      ]);
+      await _reloadAll();
     });
   }
 
@@ -63,21 +63,91 @@ class _ManagerUsersState extends State<ManagerUsers> {
     await context.read<UserCubit>().ensureLoaded(
       listenRealtime: true,
     );
-  }
 
-  Future<void> _reloadTenants() async {
     if (!mounted) return;
 
-    await context.read<TenantCubit>().loadAvailableTenants();
+    final users = context.read<UserCubit>().state.all;
+
+    await _reloadPermissionsForUsers(users);
   }
+
 
   Future<void> _reloadAll() async {
     if (!mounted) return;
 
+    final userCubit = context.read<UserCubit>();
+    final tenantCubit = context.read<TenantCubit>();
+
     await Future.wait([
-      _reloadUsers(),
-      _reloadTenants(),
+      userCubit.ensureLoaded(
+        listenRealtime: true,
+      ),
+      tenantCubit.ensureAvailableTenantsLoaded(),
     ]);
+
+    if (!mounted) return;
+
+    await _reloadPermissionsForUsers(userCubit.state.all);
+  }
+
+  Future<void> _reloadPermissionsForUsers(List<UserData> users) async {
+    if (!mounted) return;
+
+    final uids = users
+        .map((user) => (user.uid ?? '').trim())
+        .where((uid) => uid.isNotEmpty)
+        .toSet()
+        .toList();
+
+    if (uids.isEmpty) {
+      setState(() {
+        _permissionsByUid.clear();
+        _permissionsLoadError = null;
+        _loadingPermissions = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _loadingPermissions = true;
+      _permissionsLoadError = null;
+    });
+
+    try {
+      final entries = await Future.wait(
+        uids.map(
+              (uid) async {
+            final data = await _permissionRepo.loadUserPermissions(uid);
+
+            return MapEntry<String, perm.UserPermissionData>(
+              uid,
+              data ??
+                  perm.UserPermissionData(
+                    uid: uid,
+                  ),
+            );
+          },
+        ),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _permissionsByUid
+          ..clear()
+          ..addEntries(entries);
+
+        _loadingPermissions = false;
+        _permissionsLoadError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingPermissions = false;
+        _permissionsLoadError = e.toString();
+      });
+    }
   }
 
   void _showMessage(String message) {
@@ -224,56 +294,95 @@ class _ManagerUsersState extends State<ManagerUsers> {
 
   perm.UserPermissionData _permissionsOf(UserData user) {
     final uid = (user.uid ?? '').trim();
-    final raw = user.userSnap?.data();
 
-    if (raw is Map<String, dynamic>) {
-      return perm.UserPermissionData.fromMap(
-        uid: uid,
-        map: raw,
-      );
+    if (uid.isEmpty) {
+      return const perm.UserPermissionData.empty();
     }
 
-    return perm.UserPermissionData(
-      uid: uid,
-    );
+    return _permissionsByUid[uid] ??
+        perm.UserPermissionData(
+          uid: uid,
+        );
   }
 
   List<String> _tenantIdsOf(UserData user) {
-    return context.read<UserCubit>().tenantIdsOf(user);
+    final permissions = _permissionsOf(user);
+
+    return permissions.enabledTenantIds;
   }
 
   String _tenantLabel(TenantData tenant) {
     final companyName = (tenant.companyName ?? '').trim();
-    if (companyName.isNotEmpty) return companyName;
+
+    if (companyName.isNotEmpty) {
+      return companyName;
+    }
 
     final fantasyName = (tenant.fantasyName ?? '').trim();
-    if (fantasyName.isNotEmpty) return fantasyName;
+
+    if (fantasyName.isNotEmpty) {
+      return fantasyName;
+    }
 
     final label = tenant.label.trim();
-    if (label.isNotEmpty) return label;
+
+    if (label.isNotEmpty) {
+      return label;
+    }
 
     return tenant.id;
+  }
+
+  String? _tenantLabelById(String tenantId) {
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanTenantId.isEmpty) {
+      return null;
+    }
+
+    final tenants = context.read<TenantCubit>().state.availableTenants;
+
+    for (final tenant in tenants) {
+      if (tenant.id.trim() == cleanTenantId) {
+        return _tenantLabel(tenant);
+      }
+    }
+
+    return null;
   }
 
   Future<void> _ensureUserTenantAccess({
     required UserData user,
     required String tenantId,
+    perm.PermissionUser role = perm.PermissionUser.leitor,
   }) async {
     final uid = (user.uid ?? '').trim();
     final cleanTenantId = tenantId.trim();
 
-    if (uid.isEmpty || cleanTenantId.isEmpty) return;
+    if (uid.isEmpty || cleanTenantId.isEmpty) {
+      return;
+    }
 
-    await context.read<UserCubit>().addTenantToUser(
+    final current = _permissionsOf(user);
+    final existingTenant = current.tenantPermission(cleanTenantId);
+
+    if (existingTenant?.enabled == true) {
+      return;
+    }
+
+    await _permissionRepo.setTenantAccess(
       uid: uid,
       tenantId: cleanTenantId,
+      enabled: true,
+      role: existingTenant?.role ?? role,
+      label: existingTenant?.label ?? _tenantLabelById(cleanTenantId),
     );
   }
 
   Future<void> _persistRole({
     required UserData user,
     required String tenantId,
-    required perm.SystemUserRole picked,
+    required perm.PermissionUser picked,
   }) async {
     final uid = (user.uid ?? '').trim();
     final cleanTenantId = tenantId.trim();
@@ -283,18 +392,19 @@ class _ManagerUsersState extends State<ManagerUsers> {
       return;
     }
 
-    await _ensureUserTenantAccess(
-      user: user,
-      tenantId: cleanTenantId,
-    );
+    try {
+      await _permissionRepo.setTenantAccess(
+        uid: uid,
+        tenantId: cleanTenantId,
+        enabled: true,
+        role: picked,
+        label: _tenantLabelById(cleanTenantId),
+      );
 
-    await _permissionRepo.setTenantRole(
-      uid: uid,
-      tenantId: cleanTenantId,
-      role: picked,
-    );
-
-    await _reloadUsers();
+      await _reloadUsers();
+    } catch (e) {
+      _showMessage('Erro ao alterar tipo de usuário: $e');
+    }
   }
 
   perm.PermissionSet _copyPermissionByAction({
@@ -302,24 +412,27 @@ class _ManagerUsersState extends State<ManagerUsers> {
     required String action,
     required bool value,
   }) {
-    switch (action.trim().toLowerCase()) {
-      case 'read':
+    final parsedAction = perm.PermissionActionCodec.tryParse(action);
+
+    if (parsedAction == null) {
+      return current;
+    }
+
+    switch (parsedAction) {
+      case perm.PermissionType.read:
         return current.copyWith(read: value);
 
-      case 'create':
+      case perm.PermissionType.create:
         return current.copyWith(create: value);
 
-      case 'edit':
+      case perm.PermissionType.edit:
         return current.copyWith(edit: value);
 
-      case 'delete':
+      case perm.PermissionType.delete:
         return current.copyWith(delete: value);
 
-      case 'approve':
+      case perm.PermissionType.approve:
         return current.copyWith(approve: value);
-
-      default:
-        return current;
     }
   }
 
@@ -339,34 +452,43 @@ class _ManagerUsersState extends State<ManagerUsers> {
       return;
     }
 
-    if (allow) {
+    final parsedAction = perm.PermissionActionCodec.tryParse(action);
+
+    if (parsedAction == null) {
+      _showMessage('Ação de permissão inválida.');
+      return;
+    }
+
+    try {
       await _ensureUserTenantAccess(
         user: user,
         tenantId: cleanTenantId,
       );
+
+      final permissions = _permissionsOf(user);
+
+      final currentPermission = permissions
+          .tenantPermission(cleanTenantId)
+          ?.permissionForModule(cleanModule) ??
+          perm.PermissionSet.none;
+
+      final updated = _copyPermissionByAction(
+        current: currentPermission,
+        action: perm.PermissionActionCodec.serialize(parsedAction),
+        value: allow,
+      );
+
+      await _permissionRepo.setTenantModuleOverride(
+        uid: uid,
+        tenantId: cleanTenantId,
+        module: cleanModule,
+        permissions: updated,
+      );
+
+      await _reloadUsers();
+    } catch (e) {
+      _showMessage('Erro ao alterar permissão do módulo: $e');
     }
-
-    final permissions = _permissionsOf(user);
-
-    final currentOverride = permissions.moduleOverride(
-      module: cleanModule,
-      tenantId: cleanTenantId,
-    );
-
-    final updated = _copyPermissionByAction(
-      current: currentOverride,
-      action: action,
-      value: allow,
-    );
-
-    await _permissionRepo.setTenantModuleOverride(
-      uid: uid,
-      tenantId: cleanTenantId,
-      module: cleanModule,
-      permissions: updated,
-    );
-
-    await _reloadUsers();
   }
 
   Future<void> _persistGroupRead({
@@ -383,42 +505,46 @@ class _ManagerUsersState extends State<ManagerUsers> {
       return;
     }
 
-    if (allow) {
+    try {
       await _ensureUserTenantAccess(
         user: user,
         tenantId: cleanTenantId,
       );
+
+      final permissions = _permissionsOf(user);
+      final futures = <Future<void>>[];
+
+      for (final rawModule in modules) {
+        final module = rawModule.trim();
+
+        if (module.isEmpty) {
+          continue;
+        }
+
+        final currentPermission = permissions
+            .tenantPermission(cleanTenantId)
+            ?.permissionForModule(module) ??
+            perm.PermissionSet.none;
+
+        final updated = currentPermission.copyWith(
+          read: allow,
+        );
+
+        futures.add(
+          _permissionRepo.setTenantModuleOverride(
+            uid: uid,
+            tenantId: cleanTenantId,
+            module: module,
+            permissions: updated,
+          ),
+        );
+      }
+
+      await Future.wait(futures);
+      await _reloadUsers();
+    } catch (e) {
+      _showMessage('Erro ao alterar permissões do grupo: $e');
     }
-
-    final permissions = _permissionsOf(user);
-    final futures = <Future<void>>[];
-
-    for (final rawModule in modules) {
-      final module = rawModule.trim();
-
-      if (module.isEmpty) continue;
-
-      final currentOverride = permissions.moduleOverride(
-        module: module,
-        tenantId: cleanTenantId,
-      );
-
-      final updated = currentOverride.copyWith(
-        read: allow,
-      );
-
-      futures.add(
-        _permissionRepo.setTenantModuleOverride(
-          uid: uid,
-          tenantId: cleanTenantId,
-          module: module,
-          permissions: updated,
-        ),
-      );
-    }
-
-    await Future.wait(futures);
-    await _reloadUsers();
   }
 
   Future<void> _persistTenantAccess({
@@ -429,15 +555,33 @@ class _ManagerUsersState extends State<ManagerUsers> {
     final uid = (user.uid ?? '').trim();
     final cleanTenantId = tenantId.trim();
 
-    if (uid.isEmpty || cleanTenantId.isEmpty) return;
+    if (uid.isEmpty || cleanTenantId.isEmpty) {
+      return;
+    }
 
-    await context.read<UserCubit>().toggleTenantAccessForUser(
-      uid: uid,
-      tenantId: cleanTenantId,
-      allow: allow,
-    );
+    try {
+      if (allow) {
+        final current = _permissionsOf(user);
+        final existingTenant = current.tenantPermission(cleanTenantId);
 
-    await _reloadUsers();
+        await _permissionRepo.setTenantAccess(
+          uid: uid,
+          tenantId: cleanTenantId,
+          enabled: true,
+          role: existingTenant?.role ?? perm.PermissionUser.leitor,
+          label: existingTenant?.label ?? _tenantLabelById(cleanTenantId),
+        );
+      } else {
+        await _permissionRepo.removeTenantAccess(
+          uid: uid,
+          tenantId: cleanTenantId,
+        );
+      }
+
+      await _reloadUsers();
+    } catch (e) {
+      _showMessage('Erro ao alterar acesso à empresa: $e');
+    }
   }
 
   Widget _buildLoadingPage() {
@@ -491,6 +635,23 @@ class _ManagerUsersState extends State<ManagerUsers> {
     );
   }
 
+  Widget _buildPermissionsLoadingOverlay() {
+    if (!_loadingPermissions) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Container(
+          color: Colors.white.withValues(alpha: 0.20),
+          child: const Center(
+            child: LoadingTreeDots(size: 90),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent({
     required UserState userState,
     required TenantState tenantState,
@@ -526,6 +687,18 @@ class _ManagerUsersState extends State<ManagerUsers> {
           const BackgroundChange(),
           CustomScrollView(
             slivers: [
+              if (_permissionsLoadError != null &&
+                  _permissionsLoadError!.trim().isNotEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: ManagerUsersErrorPanel(
+                      message:
+                      'Erro ao carregar permissões:\n$_permissionsLoadError',
+                      onRetry: _reloadAll,
+                    ),
+                  ),
+                ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
                 sliver: SliverList.separated(
@@ -554,7 +727,7 @@ class _ManagerUsersState extends State<ManagerUsers> {
                       },
                       onPickRole: ({
                         required String tenantId,
-                        required perm.SystemUserRole picked,
+                        required perm.PermissionUser picked,
                       }) {
                         return _persistRole(
                           user: user,
@@ -604,6 +777,7 @@ class _ManagerUsersState extends State<ManagerUsers> {
               ),
             ],
           ),
+          _buildPermissionsLoadingOverlay(),
         ],
       ),
     );
@@ -621,7 +795,10 @@ class _ManagerUsersState extends State<ManagerUsers> {
             final loadingTenants =
                 tenantState.isLoading && !tenantState.hasLoadedAvailableTenants;
 
-            if (loadingUsers || loadingTenants) {
+            final loadingInitialPermissions =
+                _loadingPermissions && _permissionsByUid.isEmpty;
+
+            if (loadingUsers || loadingTenants || loadingInitialPermissions) {
               return _buildLoadingPage();
             }
 

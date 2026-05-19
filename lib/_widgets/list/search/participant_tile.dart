@@ -164,17 +164,17 @@ class _ParticipantTileState extends State<ParticipantTile> {
     try {
       await widget.onTogglePerm?.call(cleanKey, value);
     } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _perms[cleanKey] = oldValue;
-      });
+      if (mounted) {
+        setState(() {
+          _perms[cleanKey] = oldValue;
+        });
+      }
     } finally {
-      if (!mounted) return;
-
-      setState(() {
-        _savingPermKey = null;
-      });
+      if (mounted) {
+        setState(() {
+          _savingPermKey = null;
+        });
+      }
     }
   }
 
@@ -197,17 +197,17 @@ class _ParticipantTileState extends State<ParticipantTile> {
     try {
       await widget.onChangeRole?.call(cleanRole);
     } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _role = oldRole;
-      });
+      if (mounted) {
+        setState(() {
+          _role = oldRole;
+        });
+      }
     } finally {
-      if (!mounted) return;
-
-      setState(() {
-        _savingRole = false;
-      });
+      if (mounted) {
+        setState(() {
+          _savingRole = false;
+        });
+      }
     }
   }
 
@@ -368,7 +368,9 @@ class _ParticipantTileState extends State<ParticipantTile> {
       ),
       backgroundColor: selected ? greenBg : redBg,
       selectedColor: selected ? greenBg : redBg,
-      disabledColor: selected ? greenBg.withValues(alpha: 0.72) : redBg.withValues(alpha: 0.72),
+      disabledColor: selected
+          ? greenBg.withValues(alpha: 0.72)
+          : redBg.withValues(alpha: 0.72),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(999),
         side: BorderSide(
@@ -458,9 +460,8 @@ class _ParticipantTileState extends State<ParticipantTile> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final localWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : widget.maxWidth;
+        final localWidth =
+        constraints.maxWidth.isFinite ? constraints.maxWidth : widget.maxWidth;
 
         final compact = localWidth < 420 || widget.maxWidth < 420;
 

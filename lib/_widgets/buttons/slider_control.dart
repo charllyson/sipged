@@ -1,3 +1,5 @@
+// lib/_widgets/buttons/slider_button.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -6,9 +8,9 @@ class SliderButton extends StatelessWidget {
     super.key,
     required this.zoomListenable,
     required this.onZoomChanged,
-    this.minZoom = 3,
-    this.maxZoom = 18,
-    this.step = 1,
+    this.minZoom = 8,
+    this.maxZoom = 48,
+    this.step = 2,
     this.sliderHeight = 130,
     this.buttonWidth = 33,
     this.buttonHeight = 33,

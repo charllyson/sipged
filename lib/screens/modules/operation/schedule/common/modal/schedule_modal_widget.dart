@@ -5,23 +5,39 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_state.dart';
-import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
 
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/sheets/draggable_sheet/draggable_sheet.dart';
+
+import 'package:sipged/screens/modules/operation/schedule/common/header/schedule_status.dart';
 import 'package:sipged/screens/modules/operation/schedule/common/modal/schedule_modal_buttons.dart';
 import 'package:sipged/screens/modules/operation/schedule/common/modal/schedule_modal_date.dart';
 import 'package:sipged/screens/modules/operation/schedule/common/modal/schedule_modal_header.dart';
 import 'package:sipged/screens/modules/operation/schedule/common/modal/schedule_modal_photo.dart';
 import 'package:sipged/screens/modules/operation/schedule/common/modal/schedule_modal_status.dart';
-
 import 'package:sipged/screens/modules/operation/schedule/common/schedule_type.dart';
-import 'package:sipged/screens/modules/operation/schedule/common/header/schedule_status.dart';
-
-import 'package:sipged/_widgets/sheets/draggable_sheet/draggable_sheet.dart';
-import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 class ScheduleModalWidget extends StatefulWidget {
+  const ScheduleModalWidget({
+    super.key,
+    required this.currentUserId,
+    required this.tipoLabel,
+    required this.type,
+    required this.targets,
+    this.initialName,
+    this.initialStatus = ScheduleStatus.aIniciar,
+    this.initialTakenAt,
+    this.initialComment,
+    this.initialProgress,
+    this.onDelete,
+    this.onClose,
+  });
+
   final String currentUserId;
   final String tipoLabel;
 
@@ -39,25 +55,9 @@ class ScheduleModalWidget extends StatefulWidget {
 
   /// Mantido por compatibilidade.
   ///
-  /// Atenção:
-  /// este callback NÃO é mais chamado automaticamente ao cancelar/fechar,
-  /// para evitar disparar salvamento/notificação indevidos.
+  /// Este callback não é chamado automaticamente ao cancelar/fechar,
+  /// para evitar salvamento/notificação indevidos.
   final VoidCallback? onClose;
-
-  const ScheduleModalWidget({
-    super.key,
-    required this.currentUserId,
-    required this.tipoLabel,
-    required this.type,
-    required this.targets,
-    this.initialName,
-    this.initialStatus = ScheduleStatus.aIniciar,
-    this.initialTakenAt,
-    this.initialComment,
-    this.initialProgress,
-    this.onDelete,
-    this.onClose,
-  });
 
   int get _applyCount => targets.length;
 
@@ -79,6 +79,7 @@ class ScheduleModalWidget extends StatefulWidget {
 
 class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
   late final TextEditingController _commentCtrl;
+
   late DateTime _selectedDate;
   late ScheduleStatus _status;
   late double _progress;
@@ -100,35 +101,56 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
 
   bool get _isBusy => _picking || _saving;
 
-  double _initialProgressForStatus(ScheduleStatus status) {
-    switch (status) {
-      case ScheduleStatus.aIniciar:
-        return 0;
-
-      case ScheduleStatus.emAndamento:
-        return 1;
-
-      case ScheduleStatus.concluido:
-        return 100;
-    }
-  }
-
-  String _statusToString(ScheduleStatus status) {
-    switch (status) {
-      case ScheduleStatus.aIniciar:
-        return 'a_iniciar';
-
-      case ScheduleStatus.emAndamento:
-        return 'em_andamento';
-
-      case ScheduleStatus.concluido:
-        return 'concluido';
-    }
-  }
-
   bool get _hasComment => _commentCtrl.text.trim().isNotEmpty;
 
   bool get _hasPhotos => _existingUrls.isNotEmpty || _newPhotos.isNotEmpty;
+
+  double _initialProgressForStatus(ScheduleStatus status) {
+    switch (status) {
+      case ScheduleStatus.aIniciar:
+        return 0.0;
+
+      case ScheduleStatus.emAndamento:
+        return 1.0;
+
+      case ScheduleStatus.concluido:
+        return 100.0;
+    }
+  }
+
+  ScheduleLinearCellStatus _toCellStatus(ScheduleStatus status) {
+    switch (status) {
+      case ScheduleStatus.aIniciar:
+        return ScheduleLinearCellStatus.aIniciar;
+
+      case ScheduleStatus.emAndamento:
+        return ScheduleLinearCellStatus.emAndamento;
+
+      case ScheduleStatus.concluido:
+        return ScheduleLinearCellStatus.concluido;
+    }
+  }
+
+  String _effectiveServiceKey(ScheduleLinearState state) {
+    final current = state.currentServiceKey.trim();
+
+    if (current.isNotEmpty && current != ScheduleLinearServicesData.geralKey) {
+      return current;
+    }
+
+    return '';
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade700,
+      ),
+    );
+  }
 
   void _closeOnly(BuildContext context) {
     if (_isBusy) return;
@@ -136,18 +158,24 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
     Navigator.of(
       context,
       rootNavigator: false,
-    ).maybePop();
+    ).maybePop(false);
+  }
+
+  void _closeSaved(BuildContext context) {
+    Navigator.of(
+      context,
+      rootNavigator: false,
+    ).pop(true);
   }
 
   void _bumpProgressIfNeeded() {
     if (_progressTouched) return;
     if (!_hasComment && !_hasPhotos) return;
     if (_progress > 0) return;
-
     if (!mounted) return;
 
     setState(() {
-      _progress = 1;
+      _progress = 1.0;
     });
   }
 
@@ -168,7 +196,7 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
     _status = widget.initialStatus;
 
     if (widget.initialProgress != null) {
-      _progress = widget.initialProgress!.clamp(0, 100).toDouble();
+      _progress = widget.initialProgress!.clamp(0.0, 100.0).toDouble();
       _progressTouched = true;
     } else {
       _progress = _initialProgressForStatus(widget.initialStatus);
@@ -180,46 +208,59 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
     _selectedDate =
         widget.initialTakenAt ?? DateTime(now.year, now.month, now.day);
 
-    if (!_isMulti && widget.targets.isNotEmpty) {
-      final cubit = context.read<ScheduleRoadCubit>();
-      final state = cubit.state;
-      final target = widget.targets.first;
-
-      final fotos = state.fotosAtuaisFor(
-        target.estaca,
-        target.faixaIndex,
-      );
-
-      _existingUrls = List<String>.from(fotos);
-
-      final data = state.execIndex[target.estaca]?[target.faixaIndex];
-
-      if (data != null) {
-        final metaMap = <String, Map<String, dynamic>>{};
-
-        for (final meta in data.fotosMeta) {
-          final url = (meta['url'] as String?) ?? '';
-
-          if (url.isNotEmpty) {
-            metaMap[url] = Map<String, dynamic>.from(meta);
-          }
-        }
-
-        _existingMetaByUrl = metaMap;
-
-        if ((widget.initialComment ?? '').trim().isEmpty &&
-            (data.comentario ?? '').trim().isNotEmpty) {
-          _commentCtrl.text = data.comentario!;
-        }
-
-        if (widget.initialTakenAt == null && data.primaryDate != null) {
-          _selectedDate = data.primaryDate!;
-        }
-      }
-    }
+    _hydrateSingleTargetInitialData();
 
     if (_hasComment || _hasPhotos) {
       _bumpProgressIfNeeded();
+    }
+  }
+
+  void _hydrateSingleTargetInitialData() {
+    if (_isMulti || widget.targets.isEmpty) return;
+
+    final cubit = context.read<ScheduleLinearCubit>();
+    final state = cubit.state;
+    final target = widget.targets.first;
+
+    final serviceKey = _effectiveServiceKey(state);
+
+    if (serviceKey.isEmpty) return;
+
+    final fotos = state.fotosAtuaisForService(
+      serviceKey: serviceKey,
+      estaca: target.estaca,
+      faixa: target.faixaIndex,
+    );
+
+    _existingUrls = List<String>.from(fotos);
+
+    final ScheduleLinearCellData? data = state.cellAt(
+      serviceKey: serviceKey,
+      estaca: target.estaca,
+      faixa: target.faixaIndex,
+    );
+
+    if (data == null) return;
+
+    final metaMap = <String, Map<String, dynamic>>{};
+
+    for (final meta in data.fotosMeta) {
+      final url = (meta['url'] as String?) ?? '';
+
+      if (url.isNotEmpty) {
+        metaMap[url] = Map<String, dynamic>.from(meta);
+      }
+    }
+
+    _existingMetaByUrl = metaMap;
+
+    if ((widget.initialComment ?? '').trim().isEmpty &&
+        (data.comentario ?? '').trim().isNotEmpty) {
+      _commentCtrl.text = data.comentario!;
+    }
+
+    if (widget.initialTakenAt == null && data.primaryDate != null) {
+      _selectedDate = data.primaryDate!;
     }
   }
 
@@ -232,12 +273,16 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
   }
 
   void _setDate(DateTime date) {
+    if (_selectedDate == date) return;
+
     setState(() {
       _selectedDate = date;
     });
   }
 
   void _setStatus(ScheduleStatus status) {
+    if (_status == status && _progressTouched) return;
+
     setState(() {
       _status = status;
 
@@ -248,9 +293,13 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
   }
 
   void _setProgress(double value) {
+    final next = value.clamp(0.0, 100.0).toDouble();
+
+    if (_progressTouched && _progress == next) return;
+
     setState(() {
       _progressTouched = true;
-      _progress = value.clamp(0, 100).toDouble();
+      _progress = next;
     });
   }
 
@@ -283,16 +332,29 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
 
       if (result == null) return;
 
+      final addedBytes = <Uint8List>[];
+      final addedNames = <String>[];
+
       for (final file in result.files) {
         final bytes = file.bytes;
 
-        if (bytes == null) continue;
+        if (bytes == null || bytes.isEmpty) continue;
 
-        await _addNewPhotoBytes(
-          bytes,
-          file.name.isNotEmpty ? file.name : 'file.jpg',
-        );
+        addedBytes.add(bytes);
+        addedNames.add(file.name.isNotEmpty ? file.name : 'file.jpg');
       }
+
+      if (addedBytes.isEmpty) return;
+
+      setState(() {
+        for (int i = 0; i < addedBytes.length; i++) {
+          _newPhotos.add(addedBytes[i]);
+          _newMetas.add(const pm.CarouselMetadata());
+          _newNames.add(addedNames[i]);
+        }
+      });
+
+      _bumpProgressIfNeeded();
     } finally {
       if (mounted) {
         setState(() {
@@ -323,69 +385,99 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
     });
   }
 
+  List<ScheduleLinearApplyTarget> _buildApplyTargets({
+    required ScheduleLinearCubit cubit,
+    required String serviceKey,
+  }) {
+    if (_isMulti) {
+      return widget.targets.map((target) {
+        final urls = cubit.state.fotosAtuaisForService(
+          serviceKey: serviceKey,
+          estaca: target.estaca,
+          faixa: target.faixaIndex,
+        );
+
+        return ScheduleLinearApplyTarget(
+          estaca: target.estaca,
+          faixaIndex: target.faixaIndex,
+          finalPhotoUrls: List<String>.from(urls),
+        );
+      }).toList(growable: false);
+    }
+
+    return widget.targets.map((target) {
+      return ScheduleLinearApplyTarget(
+        estaca: target.estaca,
+        faixaIndex: target.faixaIndex,
+        finalPhotoUrls: List<String>.from(_existingUrls),
+      );
+    }).toList(growable: false);
+  }
+
   Future<void> _handleConfirm(
       BuildContext context,
       VoidCallback closeOnly,
       ) async {
     if (_saving || _picking) return;
 
-    final cubit = context.read<ScheduleRoadCubit>();
+    final cubit = context.read<ScheduleLinearCubit>();
+    final state = cubit.state;
+    final serviceKey = _effectiveServiceKey(state);
+
+    if (serviceKey.isEmpty) {
+      _showError(
+        'Selecione um serviço específico antes de salvar a execução. O modo GERAL é apenas leitura.',
+      );
+      return;
+    }
+
+    if (widget.targets.isEmpty) {
+      _showError('Nenhum item selecionado para aplicar.');
+      return;
+    }
 
     setState(() {
       _saving = true;
     });
-
-    var success = false;
 
     try {
       final comment = _commentCtrl.text.trim().isEmpty
           ? null
           : _commentCtrl.text.trim();
 
-      final statusString = _statusToString(_status);
+      final cellStatus = _toCellStatus(_status);
       final takenAt = _selectedDate;
 
-      for (int i = 0; i < widget.targets.length; i++) {
-        final target = widget.targets[i];
+      final applyTargets = _buildApplyTargets(
+        cubit: cubit,
+        serviceKey: serviceKey,
+      );
 
-        final List<String> finalUrls;
+      await cubit.applySquareChangesBatch(
+        serviceKey: serviceKey,
+        targets: applyTargets,
+        status: cellStatus,
+        comentario: comment,
+        takenAtForNew: takenAt,
+        newFilesBytes: _isMulti ? const <Uint8List>[] : _newPhotos,
+        newFileNames: _isMulti ? null : _newNames,
+        newPhotoMetas: _isMulti ? const <pm.CarouselMetadata>[] : _newMetas,
+        currentUserId: widget.currentUserId,
+      );
 
-        if (_isMulti) {
-          finalUrls = cubit.state.fotosAtuaisFor(
-            target.estaca,
-            target.faixaIndex,
-          );
-        } else {
-          finalUrls = List<String>.from(_existingUrls);
-        }
+      final hasError =
+          cubit.state.error != null && cubit.state.error!.trim().isNotEmpty;
 
-        await cubit.applySquareToCell(
-          estaca: target.estaca,
-          faixaIndex: target.faixaIndex,
-          tipoLabel: widget.tipoLabel,
-          status: statusString,
-          comentario: comment,
-          takenAt: takenAt,
-          finalPhotoUrls: finalUrls,
-          newFilesBytes: _isMulti ? const <Uint8List>[] : _newPhotos,
-          newFileNames: _isMulti ? null : _newNames,
-          newPhotoMetas:
-          _isMulti ? const <pm.CarouselMetadata>[] : _newMetas,
-          currentUserId: widget.currentUserId,
-          reloadAfter: i == widget.targets.length - 1,
-        );
+      if (!context.mounted) return;
+
+      if (!hasError) {
+        _closeSaved(context);
       }
-
-      success = true;
     } finally {
       if (mounted) {
         setState(() {
           _saving = false;
         });
-      }
-
-      if (success && mounted) {
-        closeOnly();
       }
     }
   }
@@ -394,7 +486,7 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
   Widget build(BuildContext context) {
     final canPopNow = !_saving && !_picking;
 
-    return BlocListener<ScheduleRoadCubit, ScheduleRoadState>(
+    return BlocListener<ScheduleLinearCubit, ScheduleLinearState>(
       listenWhen: (previous, current) {
         return previous.error != current.error;
       },
@@ -418,7 +510,7 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
             minChildSize: 0.4,
             maxChildSize: 0.95,
             builder: (sheetContext, scrollController) {
-              final clampedProgress = _progress.clamp(0, 100).toDouble();
+              final clampedProgress = _progress.clamp(0.0, 100.0).toDouble();
 
               void closeOnly() {
                 _closeOnly(sheetContext);
@@ -436,19 +528,16 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
                 headerIconColor: Colors.blueGrey,
                 titleColor: Colors.black87,
                 footerBackgroundColor: Colors.grey.shade50,
-
-                /// Fechar pelo X não salva e não dispara callback externo.
                 onClose: closeOnly,
-
                 body: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
+                  children: <Widget>[
                     ScheduleScheduleHeader(
                       type: widget.type,
                       name: widget.initialName ?? '',
                       targets: widget.targets,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 8.0),
                     ScheduleModalStatus(
                       showSlider: true,
                       status: _status,
@@ -457,14 +546,14 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
                       onStatusChanged: _setStatus,
                       onProgressChanged: _setProgress,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 12.0),
                     ScheduleModalDate(
                       labelPrefix: 'Data do serviço:',
                       selectedDate: _selectedDate,
                       enabled: !_isBusy,
                       onChanged: _setDate,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 12.0),
                     ScheduleModalPhoto(
                       isMulti: _isMulti,
                       picking: _picking,
@@ -473,17 +562,16 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
                       existingMetaByUrl: _existingMetaByUrl,
                       newPhotos: _newPhotos,
                       newMetas: _newMetas,
-                      onAddNewPhotoBytes:
-                      _isMulti ? null : _addNewPhotoBytes,
+                      onAddNewPhotoBytes: _isMulti ? null : _addNewPhotoBytes,
                       onPickPhotos: _isMulti || !kIsWeb ? null : _pickPhotos,
                       onRemoveNew: _isMulti ? null : _removeNewAt,
                       onRemoveExisting: _isMulti ? null : _removeExistingAt,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 12.0),
                     Padding(
                       padding: const EdgeInsets.only(
-                        left: 12,
-                        right: 12,
+                        left: 12.0,
+                        right: 12.0,
                       ),
                       child: CustomTextField(
                         controller: _commentCtrl,
@@ -492,7 +580,7 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
                         labelText: 'Comentário (opcional)',
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 12.0),
                   ],
                 ),
                 bottomArea: ScheduleModalButtons(

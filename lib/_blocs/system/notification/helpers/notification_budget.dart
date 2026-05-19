@@ -6,11 +6,15 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_contract_base.dart';
 import 'package:sipged/_blocs/system/notification/notification_channel.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
-import 'package:sipged/_blocs/system/notification/notification_source.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_source.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 class NotificationBudget {
   const NotificationBudget._();
+
+  static const String defaultSource = 'budget_notification';
+  static const String defaultModule = 'contracts_budget';
+  static const String defaultLabel = 'Orçamento';
 
   static Future<void> show({
     required BuildContext context,
@@ -40,6 +44,23 @@ class NotificationBudget {
     bool includeCurrentUser = true,
     bool global = false,
 
+    /// Origem principal.
+    ///
+    /// Exemplo:
+    /// budget_notification
+    String? source,
+
+    /// Suborigem para preferências/canais.
+    ///
+    /// Exemplo:
+    /// budget_general
+    String? sourceKey,
+
+    /// Alias mais explícito usado pelas páginas novas.
+    ///
+    /// Quando informado, tem prioridade sobre sourceKey.
+    String? notificationSource,
+
     String? budgetId,
     String? budgetName,
     String? budgetVersion,
@@ -47,14 +68,32 @@ class NotificationBudget {
 
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
+    final resolvedSource = source?.trim().isNotEmpty == true
+        ? source!.trim()
+        : defaultSource;
+
+    final resolvedSourceKey = notificationSource?.trim().isNotEmpty == true
+        ? notificationSource!.trim()
+        : sourceKey?.trim().isNotEmpty == true
+        ? sourceKey!.trim()
+        : NotificationSubSource.budgetGeneral.key;
+
+    final resolvedModule = module?.trim().isNotEmpty == true
+        ? module!.trim()
+        : defaultModule;
+
+    final resolvedLeadingLabel = leadingLabel?.trim().isNotEmpty == true
+        ? leadingLabel!.trim()
+        : defaultLabel;
+
     await NotificationContractBase.show(
       context: context,
       contract: contract,
       title: title,
       subtitle: subtitle,
       details: details,
-      leadingLabel: leadingLabel,
-      module: module,
+      leadingLabel: resolvedLeadingLabel,
+      module: resolvedModule,
       status: status,
       type: type,
       duration: duration,
@@ -67,12 +106,21 @@ class NotificationBudget {
       targetUserIds: targetUserIds,
       includeCurrentUser: includeCurrentUser,
       global: global,
-      source: 'budget_notification',
-      sourceKey: NotificationSubSource.budgetGeneral.key,
-      defaultModule: 'contracts_budget',
-      defaultLeadingLabel: 'Orçamento',
+      source: resolvedSource,
+      sourceKey: resolvedSourceKey,
+      defaultModule: defaultModule,
+      defaultLeadingLabel: defaultLabel,
       extra: <String, dynamic>{
         ...extra,
+
+        /// Identificação da origem.
+        'source': resolvedSource,
+        'sourceKey': resolvedSourceKey,
+        'subSource': resolvedSourceKey,
+        'notificationSource': resolvedSourceKey,
+        'module': resolvedModule,
+
+        /// Dados do orçamento.
         'budgetId': budgetId,
         'budgetName': budgetName,
         'budgetVersion': budgetVersion,

@@ -37,7 +37,7 @@ class PermissionUserCard extends StatefulWidget {
 
   final Future<void> Function({
   required String tenantId,
-  required perm.SystemUserRole picked,
+  required perm.PermissionUser picked,
   }) onPickRole;
 
   final Future<void> Function({
@@ -154,7 +154,7 @@ class _PermissionUserCardState extends State<PermissionUserCard> {
     return linkedTenants.isNotEmpty ? linkedTenants.first : null;
   }
 
-  perm.SystemUserRole get _effectiveBaseRole {
+  perm.PermissionUser get _effectiveBaseRole {
     return widget.userPermissions.roleForTenant(
       _cleanSelectedTenantId,
     );
@@ -307,7 +307,7 @@ class _PermissionUserCardState extends State<PermissionUserCard> {
     }
   }
 
-  Future<void> _handleRolePicked(perm.SystemUserRole picked) async {
+  Future<void> _handleRolePicked(perm.PermissionUser picked) async {
     final tenantId = _cleanSelectedTenantId;
 
     if (tenantId == null || _savingTenantAccess || _savingPermission) return;

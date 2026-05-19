@@ -1,14 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
 
 class ScheduleGhost extends StatelessWidget {
-  final double w;
-  final double columnHeight;
-  final double headerHeight;
-  final double kCellVPad;
-  final List<ScheduleRoadData> faixas;
-
   const ScheduleGhost({
     super.key,
     required this.w,
@@ -18,13 +12,19 @@ class ScheduleGhost extends StatelessWidget {
     required this.faixas,
   });
 
+  final double w;
+  final double columnHeight;
+  final double headerHeight;
+  final double kCellVPad;
+  final List<ScheduleLinearLaneData> faixas;
+
   String _posLabelForIndex(int i) {
     const pattern = ['LE', 'LE', 'CE', 'LD', 'LD'];
     return pattern[i % pattern.length];
   }
 
-  String _resolvedPos(ScheduleRoadData faixa, int index) {
-    final fromData = (faixa.pos ?? '').trim();
+  String _resolvedPos(ScheduleLinearLaneData faixa, int index) {
+    final fromData = (faixa.pos).trim();
 
     if (fromData.isNotEmpty) {
       return fromData;
@@ -39,21 +39,12 @@ class ScheduleGhost extends StatelessWidget {
     return _posLabelForIndex(index);
   }
 
-  String _resolvedLaneLabel(ScheduleRoadData faixa, int index) {
-    final label = faixa.laneLabel.trim();
+  Color _resolvedLaneColor(ScheduleLinearLaneData faixa) {
+    return faixa.color;
+  }
 
-    if (label.isNotEmpty) {
-      return label;
-    }
-
-    final pos = _resolvedPos(faixa, index);
-    final nome = (faixa.nome ?? faixa.nameCtrl?.text ?? '').trim();
-
-    if (nome.isEmpty) {
-      return pos;
-    }
-
-    return '$pos - $nome';
+  double _resolvedLaneHeight(ScheduleLinearLaneData faixa) {
+    return faixa.altura;
   }
 
   @override
@@ -72,11 +63,9 @@ class ScheduleGhost extends StatelessWidget {
                   Padding(
                     padding: EdgeInsets.symmetric(vertical: kCellVPad),
                     child: Container(
-                      height: faixas[i].altura ?? 20.0,
+                      height: _resolvedLaneHeight(faixas[i]),
                       decoration: BoxDecoration(
-                        color: ScheduleRoadData.colorForFaixa(
-                          _resolvedLaneLabel(faixas[i], i),
-                        ),
+                        color: _resolvedLaneColor(faixas[i]),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),

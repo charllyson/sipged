@@ -70,7 +70,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
 
   DfdData? _dfdData;
 
-  final Map<String, Map<String, dynamic>> _items = <String, Map<String, dynamic>>{};
+  final Map<String, Map<String, dynamic>> _items =
+  <String, Map<String, dynamic>>{};
+
   final Map<String, double> _lastSavedPeriod = <String, double>{};
 
   static const String _kItemKey = 'item_key';
@@ -93,7 +95,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
   bool _hasPendingMeasurementChanges = false;
   DateTime? _lastPushNotificationAt;
 
-  String get _contractId => widget.contractData.id?.trim() ?? '';
+  String get _contractId {
+    return widget.contractData.id?.trim() ?? '';
+  }
 
   String get _contractSummary {
     final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
@@ -192,22 +196,20 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
             meta['displayName'] ??
             meta['nameComplete'] ??
             meta['nomeCompleto'] ??
-            meta['nome'] ??
+            meta['name'] ??
             '')
             .toString()
             .trim();
 
         if (fullName.isNotEmpty) return fullName;
 
-        final name = (meta['name'] ?? meta['nome'] ?? '').toString().trim();
-
-        final surname =
-        (meta['surname'] ?? meta['sobrenome'] ?? '').toString().trim();
+        final name = (meta['name'] ?? '').toString().trim();
+        final surname = (meta['surname'] ?? '').toString().trim();
 
         final composed = <String>[
           name,
           surname,
-        ].where((item) => item.trim().isNotEmpty).join(' ').trim();
+        ].where((item) => item.isNotEmpty).join(' ').trim();
 
         if (composed.isNotEmpty) return composed;
 
@@ -226,52 +228,6 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
-  }
-
-  List<String> _contractNotificationRecipients({
-    required String? currentUserId,
-  }) {
-    final current = currentUserId?.trim();
-    final ids = <String>{};
-
-    for (final entry in widget.contractData.permissionContractId.entries) {
-      final userId = entry.key.trim();
-
-      if (userId.isEmpty) continue;
-
-      final perms = entry.value;
-
-      final canRead = perms['read'] == true ||
-          perms['view'] == true ||
-          perms['create'] == true ||
-          perms['edit'] == true ||
-          perms['update'] == true ||
-          perms['delete'] == true ||
-          perms['admin'] == true ||
-          perms['owner'] == true;
-
-      if (!canRead) continue;
-
-      if (current != null && current.isNotEmpty && userId == current) {
-        continue;
-      }
-
-      ids.add(userId);
-    }
-
-    for (final userId in widget.contractData.participantsInfo.keys) {
-      final clean = userId.trim();
-
-      if (clean.isEmpty) continue;
-
-      if (current != null && current.isNotEmpty && clean == current) {
-        continue;
-      }
-
-      ids.add(clean);
-    }
-
-    return ids.toList();
   }
 
   DateTime? _parseDateTimeFromExtra(dynamic value) {
@@ -339,12 +295,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     if (!mounted) return;
 
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
-
     final actorName = _resolveActorName(currentUserId);
-
-    final recipients = _contractNotificationRecipients(
-      currentUserId: currentUserId,
-    );
 
     final measurement = widget.measurement;
 
@@ -359,7 +310,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       subtitle: subtitle,
       details: details ?? _contractSummary,
       leadingLabel: 'Boletim',
-      module: 'contracts_measurement_report',
+      module: NotificationMeasurementKind.bulletin.module,
       kind: NotificationMeasurementKind.bulletin,
       status: type,
       duration: duration,
@@ -367,7 +318,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       sendPush: sendPush,
       actorId: currentUserId,
       actorName: actorName,
-      targetUserIds: recipients,
+      targetUserIds: const <String>[],
       includeCurrentUser: true,
       delivery: delivery,
       measurementId: extra['measurementId']?.toString() ?? measurement?.id,
@@ -379,15 +330,26 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       _parseDateTimeFromExtra(extra['measurementDate']) ?? measurement?.date,
       measurementValue:
       _parseNumFromExtra(extra['measurementValue']) ?? measurement?.value,
+      tenantId: _tenantId,
+      companyId: _tenantId,
+      contractId: _contractId,
+      contractNumber: _contractNumber,
+      processNumber: _contractNumber,
+      processoAdministrativo: _dfdData?.processoAdministrativo,
+      contractTitle: _contractSummary,
+      contractSummary: _contractSummary,
+      descricaoObjeto: _dfdData?.descricaoObjeto,
+      nomeDemanda: _contractSummary,
+      action: extra['action']?.toString(),
       extra: <String, dynamic>{
         'tenantId': _tenantId,
         'companyId': _tenantId,
-        'route': 'contracts_measurement_report',
-        'module': 'contracts_measurement_report',
-        'source': 'measurement_report_notification',
-        'sourceKey': 'contracts_measurement_report',
-        'subSource': 'contracts_measurement_report',
-        'notificationSource': 'contracts_measurement_report',
+        'route': NotificationMeasurementKind.bulletin.module,
+        'module': NotificationMeasurementKind.bulletin.module,
+        'source': NotificationMeasurementKind.bulletin.defaultSource,
+        'sourceKey': NotificationMeasurementKind.bulletin.sourceKey,
+        'subSource': NotificationMeasurementKind.bulletin.sourceKey,
+        'notificationSource': NotificationMeasurementKind.bulletin.sourceKey,
         'actorId': currentUserId,
         'actorName': actorName,
         'contractId': _contractId,
@@ -399,13 +361,15 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         'descricaoObjeto': _dfdData?.descricaoObjeto,
         'nomeDemanda': _contractSummary,
         'measurementKind': NotificationMeasurementKind.bulletin.name,
+        'measurementKindValue': NotificationMeasurementKind.bulletin.value,
+        'measurementKindLabel': NotificationMeasurementKind.bulletin.label,
         'measurementId': measurement?.id,
         'measurementOrder': measurement?.order,
         'measurementProcess': measurement?.numberprocess,
         'measurementDate': measurement?.date?.toIso8601String(),
         'measurementValue': measurement?.value,
         ...extra,
-      },
+      }..removeWhere((key, value) => value == null),
     );
   }
 
@@ -609,6 +573,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     if (measurementId == null || measurementId.isEmpty) return;
 
     BudgetCubit.buildDomainFromController(controller: _ctrl);
+
     await _notifyMeasurementReportChangedIfNeeded();
   }
 
@@ -824,16 +789,15 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
   void _applySchemaWithGroups() {
     if (!_ctrl.hasData) return;
 
-    final legacyCols = <bc.ColumnMeta>[];
+    final contractColumns = <bc.ColumnMeta>[];
 
     for (int c = 0; c < _ctrl.colCount; c++) {
-      final title = (c < _ctrl.headers.length)
-          ? _ctrl.headers[c]
-          : _ctrl.excelColName(c);
+      final title =
+      (c < _ctrl.headers.length) ? _ctrl.headers[c] : _ctrl.excelColName(c);
 
-      final key = (c == 0) ? _kItemKey : 'legacy_$c';
+      final key = (c == 0) ? _kItemKey : 'contract_column_$c';
 
-      legacyCols.add(
+      contractColumns.add(
         bc.ColumnMeta(
           key: key,
           title: title,
@@ -875,7 +839,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     }
 
     final metas = <bc.ColumnMeta>[
-      ...legacyCols,
+      ...contractColumns,
       bc.ColumnMeta(
         key: _kQtyPrev,
         title: 'Acumulado Anterior',

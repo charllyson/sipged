@@ -51,7 +51,9 @@ class _ValidityPageState extends State<ValidityPage> {
 
   DfdData? _dfdData;
 
-  String get _contractId => widget.contractData.id?.trim() ?? '';
+  String get _contractId {
+    return widget.contractData.id?.trim() ?? '';
+  }
 
   String get _contractTitle {
     final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
@@ -192,10 +194,10 @@ class _ValidityPageState extends State<ValidityPage> {
         final name = (meta['name'] ?? '').toString().trim();
         final surname = (meta['surname'] ?? '').toString().trim();
 
-        final composed = <String>[name, surname]
-            .where((item) => item.trim().isNotEmpty)
-            .join(' ')
-            .trim();
+        final composed = <String>[
+          name,
+          surname,
+        ].where((item) => item.isNotEmpty).join(' ').trim();
 
         if (composed.isNotEmpty) return composed;
 
@@ -214,52 +216,6 @@ class _ValidityPageState extends State<ValidityPage> {
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
-  }
-
-  List<String> _contractNotificationRecipients({
-    required String? currentUserId,
-  }) {
-    final current = currentUserId?.trim();
-    final ids = <String>{};
-
-    for (final entry in widget.contractData.permissionContractId.entries) {
-      final userId = entry.key.trim();
-
-      if (userId.isEmpty) continue;
-
-      final perms = entry.value;
-
-      final canRead = perms['read'] == true ||
-          perms['view'] == true ||
-          perms['create'] == true ||
-          perms['edit'] == true ||
-          perms['update'] == true ||
-          perms['delete'] == true ||
-          perms['admin'] == true ||
-          perms['owner'] == true;
-
-      if (!canRead) continue;
-
-      if (current != null && current.isNotEmpty && userId == current) {
-        continue;
-      }
-
-      ids.add(userId);
-    }
-
-    for (final userId in widget.contractData.participantsInfo.keys) {
-      final clean = userId.trim();
-
-      if (clean.isEmpty) continue;
-
-      if (current != null && current.isNotEmpty && clean == current) {
-        continue;
-      }
-
-      ids.add(clean);
-    }
-
-    return ids.toList();
   }
 
   DateTime? _parseDateTimeFromExtra(dynamic value) {
@@ -315,14 +271,9 @@ class _ValidityPageState extends State<ValidityPage> {
     if (!context.mounted) return;
 
     const route = 'contracts_validity';
-    const notificationSource = 'contracts_validity';
 
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     final actorName = _resolveActorName(currentUserId);
-
-    final recipients = _contractNotificationRecipients(
-      currentUserId: currentUserId,
-    );
 
     final delivery = saveInBell || sendPush
         ? NotificationDelivery.localBellAndPush
@@ -337,7 +288,7 @@ class _ValidityPageState extends State<ValidityPage> {
       leadingLabel: 'Validade',
       module: route,
       source: 'validity_notification',
-      notificationSource: notificationSource,
+      notificationSource: route,
       status: type ?? status,
       duration: duration,
       saveInBell: saveInBell,
@@ -345,7 +296,7 @@ class _ValidityPageState extends State<ValidityPage> {
       delivery: delivery,
       actorId: currentUserId,
       actorName: actorName,
-      targetUserIds: recipients,
+      targetUserIds: const <String>[],
       includeCurrentUser: true,
       validityId: extra['validityId']?.toString(),
       validityOrder:
@@ -358,15 +309,25 @@ class _ValidityPageState extends State<ValidityPage> {
       validityEndDate: _parseDateTimeFromExtra(
         extra['validityEndDate'],
       ),
+      tenantId: _activeTenantId,
+      companyId: _activeTenantId,
+      contractId: _contractId,
+      contractNumber: _contractNumber,
+      processNumber: _contractNumber,
+      processoAdministrativo: _dfdData?.processoAdministrativo,
+      contractTitle: _contractTitle,
+      contractSummary: _contractTitle,
+      descricaoObjeto: _dfdData?.descricaoObjeto,
+      action: extra['action']?.toString(),
       extra: <String, dynamic>{
         'tenantId': _activeTenantId,
         'companyId': _activeTenantId,
         'route': route,
         'module': route,
         'source': 'validity_notification',
-        'sourceKey': notificationSource,
-        'subSource': notificationSource,
-        'notificationSource': notificationSource,
+        'sourceKey': route,
+        'subSource': route,
+        'notificationSource': route,
         'actorId': currentUserId,
         'actorName': actorName,
         'contractId': _contractId,
@@ -377,7 +338,7 @@ class _ValidityPageState extends State<ValidityPage> {
         'contractSummary': _contractTitle,
         'descricaoObjeto': _dfdData?.descricaoObjeto,
         ...extra,
-      },
+      }..removeWhere((key, value) => value == null),
     );
   }
 

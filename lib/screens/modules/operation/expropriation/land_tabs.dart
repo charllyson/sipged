@@ -19,6 +19,7 @@ import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/screens/modules/operation/expropriation/land_map.dart';
 import 'package:sipged/screens/modules/operation/expropriation/land_property.dart';
 import 'package:sipged/screens/modules/operation/expropriation/land_table.dart';
+import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 
 class LandTabs extends StatefulWidget {
   final ContractData? contractData;

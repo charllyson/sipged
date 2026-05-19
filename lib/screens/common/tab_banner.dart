@@ -1,3 +1,5 @@
+// lib/_widgets/tabs/tab_banner.dart
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -8,7 +10,6 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
-import 'package:sipged/_blocs/system/user/user_state.dart';
 
 import 'package:sipged/_widgets/images/mini_avatars/mini_avatars.dart';
 
@@ -93,84 +94,67 @@ class _TabBannerState extends State<TabBanner> {
   }
 
   UserData? _currentUser() {
-    final st = context.read<UserCubit>().state;
-    return widget.userData ?? st.current;
+    final userState = context.read<UserCubit>().state;
+
+    return widget.userData ?? userState.current;
   }
 
-  UserPermissionData? _permissionDataForUser(UserData? user) {
-    if (user == null) return null;
+  UserPermissionData? _currentPermissionData() {
+    final user = _currentUser();
+
+    if (user == null) {
+      return null;
+    }
 
     final uid = (user.uid ?? '').trim();
 
-    if (uid.isEmpty) return null;
+    if (uid.isEmpty) {
+      return null;
+    }
 
     final permissionState = context.read<PermissionCubit>().state;
     final currentPermissions = permissionState.current;
 
-    if (currentPermissions != null && currentPermissions.uid.trim() == uid) {
-      return currentPermissions;
+    if (currentPermissions == null) {
+      return null;
     }
 
-    return UserPermissionData.fromMap(
-      uid: uid,
-      map: user.userSnap?.data(),
-    );
+    if (currentPermissions.uid.trim() != uid) {
+      return null;
+    }
+
+    return currentPermissions;
+  }
+
+  String? _activeTenantId() {
+    return context.read<PermissionCubit>().state.activeTenantId?.trim();
   }
 
   bool _can(String action, {ContractData? c}) {
-    final user = _currentUser();
-    final permissionData = _permissionDataForUser(user);
+    final permissionData = _currentPermissionData();
 
-    if (permissionData == null) return false;
-
-    final permissionCubit = context.read<PermissionCubit>();
-    final activeTenantId = permissionCubit.state.activeTenantId;
+    if (permissionData == null) {
+      return false;
+    }
 
     return SystemPermission.canContract(
       permissions: permissionData,
       contract: c ?? _contractData,
       action: action,
-      tenantId: activeTenantId,
-    );
-  }
-
-  SystemUserRole _roleForUser(UserData? user, String uid) {
-    if (user == null) {
-      return SystemUserRole.leitor;
-    }
-
-    final snapData = user.userSnap?.data();
-
-    if (snapData != null) {
-      return UserPermissionData.fromMap(
-        uid: (user.uid ?? uid).trim(),
-        map: snapData,
-      ).globalRole;
-    }
-
-    return SystemRoleCodec.parse(
-      user.baseRole ?? user.baseProfile,
+      tenantId: _activeTenantId(),
     );
   }
 
   List<String> _participantIdsOf(ContractData contract) {
-    final ids = <String>{};
+    final ids = contract.participantsInfo.keys
+        .map((uid) => uid.trim())
+        .where((uid) => uid.isNotEmpty)
+        .toSet()
+        .toList();
 
-    for (final uid in contract.permissionContractId.keys) {
-      final clean = uid.trim();
-      if (clean.isNotEmpty) ids.add(clean);
-    }
+    ids.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    for (final uid in contract.participantsInfo.keys) {
-      final clean = uid.trim();
-      if (clean.isNotEmpty) ids.add(clean);
-    }
-
-    final list = ids.toList();
-
-    list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
-    return list;
+    return ids;
   }
 
   Map<String, bool> _participantPermsOf({
@@ -183,53 +167,41 @@ class _TabBannerState extends State<TabBanner> {
       return SystemPermission.emptyDocPerms();
     }
 
-    final raw = contract.permissionContractId[cleanUid];
-
-    final normalized = SystemPermission.normalizeDocPerms(raw);
-
-    final hasAnyValue = normalized.values.any((value) => value == true);
-
-    if (hasAnyValue) {
-      return normalized;
-    }
-
     final info = contract.participantsInfo[cleanUid];
 
-    if (info != null) {
-      final infoPerms = info['permissions'] ?? info['perms'];
-
-      final normalizedInfo = SystemPermission.normalizeDocPerms(infoPerms);
-
-      final infoHasAnyValue =
-      normalizedInfo.values.any((value) => value == true);
-
-      if (infoHasAnyValue) {
-        return normalizedInfo;
-      }
+    if (info == null) {
+      return SystemPermission.emptyDocPerms();
     }
 
-    return normalized;
+    return SystemPermission.normalizeDocPerms(
+      info['permissions'],
+    );
   }
 
   String _participantRoleOf({
     required ContractData contract,
     required String uid,
-    required UserState userState,
   }) {
     final cleanUid = uid.trim();
+
+    if (cleanUid.isEmpty) {
+      return SystemRoleCodec.serialize(PermissionUser.leitor);
+    }
 
     final info = contract.participantsInfo[cleanUid];
 
     final storedRole = info?['role']?.toString().trim();
 
-    if (storedRole != null && storedRole.isNotEmpty) {
-      return storedRole;
+    if (storedRole == null || storedRole.isEmpty) {
+      return SystemRoleCodec.serialize(PermissionUser.leitor);
     }
 
-    final user = userState.byId[cleanUid];
-    final role = _roleForUser(user, cleanUid);
+    final parsedRole = SystemRoleCodec.parseOrDefault(
+      storedRole,
+      fallback: PermissionUser.leitor,
+    );
 
-    return SystemRoleCodec.serialize(role);
+    return SystemRoleCodec.serialize(parsedRole);
   }
 
   String _normalizeForCompare(String value) {
@@ -386,15 +358,32 @@ class _TabBannerState extends State<TabBanner> {
   }
 
   Map<String, bool> _initialParticipantPerms() {
-    return SystemPermission.normalizeDocPerms(
-      const {
-        'read': true,
-        'create': false,
-        'edit': false,
-        'delete': false,
-        'approve': false,
-      },
-    );
+    return SystemPermission.initialDocPerms();
+  }
+
+  Map<String, dynamic> _initialParticipantMeta({
+    required UserData user,
+  }) {
+    final name = user.name?.trim();
+    final surname = user.surname?.trim();
+    final email = user.email?.trim();
+    final photoUrl = user.urlPhoto?.trim();
+
+    final fullName = <String>[
+      if (name != null && name.isNotEmpty) name,
+      if (surname != null && surname.isNotEmpty) surname,
+    ].join(' ').trim();
+
+    return <String, dynamic>{
+      'role': SystemRoleCodec.serialize(PermissionUser.colaborador),
+      'active': true,
+      'permissions': _initialParticipantPerms(),
+      if (name != null && name.isNotEmpty) 'name': name,
+      if (surname != null && surname.isNotEmpty) 'surname': surname,
+      if (fullName.isNotEmpty) 'displayName': fullName,
+      if (email != null && email.isNotEmpty) 'email': email,
+      if (photoUrl != null && photoUrl.isNotEmpty) 'photoUrl': photoUrl,
+    };
   }
 
   Future<void> _openParticipantsDialogFromBanner(
@@ -433,7 +422,6 @@ class _TabBannerState extends State<TabBanner> {
           return _participantRoleOf(
             contract: _contractData,
             uid: uid,
-            userState: userState,
           );
         },
         getPerms: (uid) {
@@ -442,11 +430,11 @@ class _TabBannerState extends State<TabBanner> {
             uid: uid,
           );
         },
-        roleOptions: const [
-          'GESTOR_REGIONAL',
-          'FISCAL',
-          'COLABORADOR',
-          'LEITOR',
+        roleOptions: <String>[
+          SystemRoleCodec.serialize(PermissionUser.gestorRegional),
+          SystemRoleCodec.serialize(PermissionUser.fiscal),
+          SystemRoleCodec.serialize(PermissionUser.colaborador),
+          SystemRoleCodec.serialize(PermissionUser.leitor),
         ],
         onUserAdded: canEditParticipants
             ? (uid, user) async {
@@ -458,9 +446,7 @@ class _TabBannerState extends State<TabBanner> {
             contractId: contractId,
             userId: uid,
             permMap: _initialParticipantPerms(),
-            meta: const {
-              'role': 'COLABORADOR',
-            },
+            meta: _initialParticipantMeta(user: user),
           );
 
           if (!mounted) return;
@@ -474,10 +460,15 @@ class _TabBannerState extends State<TabBanner> {
 
           if (contractId == null || contractId.isEmpty) return;
 
+          final selectedIds = uids
+              .map((uid) => uid.trim())
+              .where((uid) => uid.isNotEmpty)
+              .toSet();
+
           final currentIds = _participantIdsOf(_contractData);
 
           for (final uid in currentIds) {
-            if (!uids.contains(uid)) {
+            if (!selectedIds.contains(uid)) {
               await contractCubit.removeParticipant(
                 contractId: contractId,
                 userId: uid,
@@ -496,10 +487,14 @@ class _TabBannerState extends State<TabBanner> {
 
           if (contractId == null || contractId.isEmpty) return;
 
+          final parsedAction = PermissionActionCodec.tryParse(permKey);
+
+          if (parsedAction == null) return;
+
           await contractCubit.updateContractPermissions(
             contractId: contractId,
             userId: uid,
-            permissionType: permKey,
+            permissionType: PermissionActionCodec.serialize(parsedAction),
             value: value,
           );
 
@@ -517,7 +512,7 @@ class _TabBannerState extends State<TabBanner> {
           await contractCubit.setParticipantPerms(
             contractId: contractId,
             userId: uid,
-            permsMap: newPerms,
+            permsMap: SystemPermission.normalizeDocPerms(newPerms),
           );
 
           if (!mounted) return;
@@ -531,10 +526,15 @@ class _TabBannerState extends State<TabBanner> {
 
           if (contractId == null || contractId.isEmpty) return;
 
+          final parsedRole = SystemRoleCodec.parseOrDefault(
+            newRole,
+            fallback: PermissionUser.leitor,
+          );
+
           await contractCubit.setParticipantRole(
             contractId: contractId,
             userId: uid,
-            role: newRole,
+            role: SystemRoleCodec.serialize(parsedRole),
           );
 
           if (!mounted) return;

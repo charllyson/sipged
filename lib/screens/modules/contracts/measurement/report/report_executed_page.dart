@@ -19,12 +19,10 @@ import 'package:sipged/_blocs/modules/financial/payments/report/report_paid_data
 import 'package:sipged/_blocs/modules/financial/payments/report/report_paid_repository.dart';
 
 import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
-import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
-import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
@@ -47,13 +45,11 @@ class ReportExecutedPage extends StatelessWidget {
 
   final ContractData contractData;
 
-  String _resolveRequiredTenantId(PermissionState permissionState) {
+  String? _resolveTenantId(PermissionState permissionState) {
     final tenantId = permissionState.activeTenantId?.trim();
 
     if (tenantId == null || tenantId.isEmpty) {
-      throw ArgumentError(
-        'tenantId é obrigatório para ReportExecutedPage.',
-      );
+      return null;
     }
 
     return tenantId;
@@ -78,7 +74,22 @@ class ReportExecutedPage extends StatelessWidget {
             previous.current != current.current;
       },
       builder: (context, permissionState) {
-        final tenantId = _resolveRequiredTenantId(permissionState);
+        final tenantId = _resolveTenantId(permissionState);
+
+        if (tenantId == null) {
+          return const Center(
+            child: Text(
+              'Empresa ativa não selecionada para carregar medições.',
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+
+        if (permissionState.current == null) {
+          return const Center(
+            child: LoadingTreeDots(size: 110),
+          );
+        }
 
         return BlocProvider<ReportExecutedCubit>(
           key: ValueKey<String>('report-executed-$tenantId-$contractId'),
@@ -90,7 +101,10 @@ class ReportExecutedPage extends StatelessWidget {
               initialPermissions: permissionState.current,
               initialTenantId: tenantId,
               moduleId: 'operation_measurements',
-            )..loadByContract(contractId);
+            )..loadByContract(
+              contractId,
+              contract: contractData,
+            );
           },
           child: BlocListener<PermissionCubit, PermissionState>(
             listenWhen: (previous, current) {
@@ -98,7 +112,9 @@ class ReportExecutedPage extends StatelessWidget {
                   previous.activeTenantId != current.activeTenantId;
             },
             listener: (context, permissionState) {
-              final nextTenantId = _resolveRequiredTenantId(permissionState);
+              final nextTenantId = _resolveTenantId(permissionState);
+
+              if (nextTenantId == null) return;
 
               context.read<ReportExecutedCubit>().updatePermissions(
                 permissions: permissionState.current,
@@ -126,7 +142,9 @@ class _ReportMeasurementView extends StatefulWidget {
   final String tenantId;
 
   @override
-  State<_ReportMeasurementView> createState() => _ReportMeasurementViewState();
+  State<_ReportMeasurementView> createState() {
+    return _ReportMeasurementViewState();
+  }
 }
 
 class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
@@ -165,7 +183,9 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       return descricaoObjeto;
     }
 
-    if (_contractId.isNotEmpty) return 'Contrato $_contractId';
+    if (_contractId.isNotEmpty) {
+      return 'Contrato $_contractId';
+    }
 
     return 'Contrato sem identificação';
   }
@@ -185,7 +205,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     super.initState();
 
     _configureRepositories();
-
     _loadDfdAggregatesAndPayments();
 
     orderCtrl.addListener(_validateForm);
@@ -201,7 +220,8 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     final oldContractId = oldWidget.contractData.id?.trim() ?? '';
     final newContractId = widget.contractData.id?.trim() ?? '';
 
-    if (oldWidget.tenantId != widget.tenantId || oldContractId != newContractId) {
+    if (oldWidget.tenantId != widget.tenantId ||
+        oldContractId != newContractId) {
       _configureRepositories();
 
       setState(() {
@@ -213,6 +233,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         _selectedMeasurement = null;
         _sideItems = <Attachment>[];
         _selectedSideIndex = null;
+        formValidated = false;
       });
 
       _loadDfdAggregatesAndPayments();
@@ -356,7 +377,9 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
   double _sumPaymentsTotal(List<ReportPaidData> payments) {
     return payments.fold<double>(
       0.0,
-          (previousTotal, payment) => previousTotal + _totalPaymentValue(payment),
+          (previousTotal, payment) {
+        return previousTotal + _totalPaymentValue(payment);
+      },
     );
   }
 
@@ -366,7 +389,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     final measurementId = measurement.id?.trim() ?? '';
     final measurementOrder = measurement.order;
 
-    final list = _payments.where((payment) {
+    return _payments.where((payment) {
       final paymentMeasurementId = payment.measurementId?.trim() ?? '';
 
       if (measurementId.isNotEmpty && paymentMeasurementId == measurementId) {
@@ -387,8 +410,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
       return false;
     }).toList();
-
-    return list;
   }
 
   List<double> _buildPaymentValuesForMeasurements(
@@ -401,37 +422,8 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     }).toList();
   }
 
-  String _resolveActorName(String? uid) {
+  String _currentActorLabel() {
     final currentUser = FirebaseAuth.instance.currentUser;
-    final cleanUid = uid?.trim();
-
-    if (cleanUid != null && cleanUid.isNotEmpty) {
-      final meta = widget.contractData.participantsInfo[cleanUid];
-
-      if (meta != null) {
-        final fullName = (meta['fullName'] ??
-            meta['displayName'] ??
-            meta['nameComplete'] ??
-            '')
-            .toString()
-            .trim();
-
-        if (fullName.isNotEmpty) return fullName;
-
-        final name = (meta['name'] ?? '').toString().trim();
-        final surname = (meta['surname'] ?? '').toString().trim();
-
-        final composed = [name, surname]
-            .where((item) => item.trim().isNotEmpty)
-            .join(' ')
-            .trim();
-
-        if (composed.isNotEmpty) return composed;
-
-        final email = (meta['email'] ?? '').toString().trim();
-        if (email.isNotEmpty) return email;
-      }
-    }
 
     final displayName = currentUser?.displayName?.trim() ?? '';
     if (displayName.isNotEmpty) return displayName;
@@ -440,91 +432,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     if (email.isNotEmpty) return email;
 
     return 'Usuário';
-  }
-
-  String _resolveActorPhotoUrl(String? uid) {
-    final cleanUid = uid?.trim();
-
-    if (cleanUid != null && cleanUid.isNotEmpty) {
-      final users = context.read<UserCubit>().state.all;
-
-      for (final item in users) {
-        if ((item.uid ?? '').trim() == cleanUid) {
-          final photo = item.urlPhoto?.trim() ?? '';
-          if (photo.isNotEmpty) return photo;
-        }
-      }
-
-      final meta = widget.contractData.participantsInfo[cleanUid];
-
-      if (meta != null) {
-        final photo = (meta['urlPhoto'] ??
-            meta['photoUrl'] ??
-            meta['photoURL'] ??
-            meta['profilePhotoUrl'] ??
-            '')
-            .toString()
-            .trim();
-
-        if (photo.isNotEmpty) return photo;
-      }
-    }
-
-    final firebasePhoto =
-        FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '';
-
-    if (firebasePhoto.isNotEmpty) return firebasePhoto;
-
-    return '';
-  }
-
-  DateTime? _parseDateTimeFromExtra(dynamic value) {
-    if (value == null) return null;
-
-    if (value is DateTime) return value;
-
-    final text = value.toString().trim();
-    if (text.isEmpty) return null;
-
-    final iso = DateTime.tryParse(text);
-    if (iso != null) return iso;
-
-    final parts = text.split('/');
-
-    if (parts.length == 3) {
-      final day = int.tryParse(parts[0]);
-      final month = int.tryParse(parts[1]);
-      final year = int.tryParse(parts[2]);
-
-      if (day != null && month != null && year != null) {
-        final parsed = DateTime(year, month, day);
-
-        if (parsed.day == day &&
-            parsed.month == month &&
-            parsed.year == year) {
-          return parsed;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  num? _parseNumFromExtra(dynamic value) {
-    if (value == null) return null;
-
-    if (value is num) return value;
-
-    final text = value.toString().trim();
-    if (text.isEmpty) return null;
-
-    final normalized = text
-        .replaceAll('R\$', '')
-        .replaceAll('.', '')
-        .replaceAll(',', '.')
-        .trim();
-
-    return num.tryParse(normalized);
   }
 
   Future<void> _notify({
@@ -540,72 +447,43 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
   }) async {
     if (!mounted) return;
 
-    const route = 'operation_measurements';
-    const notificationSource = 'measurements';
-
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
-    final actorName = _resolveActorName(currentUserId);
-    final actorPhotoUrl = _resolveActorPhotoUrl(currentUserId);
-
-    final delivery = saveInBell || sendPush
-        ? NotificationDelivery.localBellAndPush
-        : NotificationDelivery.localOnly;
-
     await NotificationMeasurements.show(
       context: context,
       contract: widget.contractData,
       title: title,
       subtitle: subtitle ?? _contractSummary,
       details: details,
-      leadingLabel: 'Medição',
-      module: route,
-      notificationSource: notificationSource,
-      source: 'measurement_notification',
       kind: NotificationMeasurementKind.bulletin,
       status: type ?? status,
       duration: duration,
       saveInBell: saveInBell,
       sendPush: sendPush,
-      actorId: currentUserId,
-      actorName: actorName,
+      actorId: FirebaseAuth.instance.currentUser?.uid,
       includeCurrentUser: true,
-      delivery: delivery,
+      tenantId: widget.tenantId,
+      companyId: widget.tenantId,
+      contractId: _contractId,
+      contractNumber: _contractNumber,
+      processNumber: _contractNumber,
+      processoAdministrativo: _dfdData?.processoAdministrativo,
+      contractTitle: _contractSummary,
+      contractSummary: _contractSummary,
+      descricaoObjeto: _dfdData?.descricaoObjeto,
+      nomeDemanda: _contractSummary,
       measurementId:
       extra['measurementId']?.toString() ?? _selectedMeasurement?.id,
       measurementNumber: extra['measurementProcess']?.toString() ??
           _selectedMeasurement?.numberprocess,
       measurementOrder: extra['measurementOrder']?.toString() ??
           _selectedMeasurement?.order?.toString(),
-      measurementDate: _parseDateTimeFromExtra(extra['measurementDate']) ??
-          _selectedMeasurement?.date,
-      measurementValue: _parseNumFromExtra(extra['measurementValue']) ??
-          _selectedMeasurement?.value,
-      extra: <String, dynamic>{
-        'tenantId': widget.tenantId,
-        'companyId': widget.tenantId,
-        'route': route,
-        'module': route,
-        'source': 'measurement_notification',
-        'sourceKey': notificationSource,
-        'subSource': notificationSource,
-        'notificationSource': notificationSource,
-        'actorId': currentUserId,
-        'actorName': actorName,
-        if (actorPhotoUrl.isNotEmpty) 'actorPhotoUrl': actorPhotoUrl,
-        if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
-        if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
-        if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
-        'contractId': _contractId,
-        'contractNumber': _contractNumber,
-        'processNumber': _contractNumber,
-        'processoAdministrativo': _dfdData?.processoAdministrativo,
-        'contractTitle': _contractSummary,
-        'contractSummary': _contractSummary,
-        'descricaoObjeto': _dfdData?.descricaoObjeto,
-        'nomeDemanda': _contractSummary,
-        'measurementKind': NotificationMeasurementKind.bulletin.name,
-        ...extra,
-      },
+      measurementDate: _selectedMeasurement?.date,
+      measurementValue: _selectedMeasurement?.value,
+      action: extra['action']?.toString(),
+      attachmentLabel: extra['attachmentLabel']?.toString(),
+      attachmentUrl: extra['attachmentUrl']?.toString(),
+      oldAttachmentLabel: extra['oldAttachmentLabel']?.toString(),
+      newAttachmentLabel: extra['newAttachmentLabel']?.toString(),
+      extra: extra,
     );
   }
 
@@ -645,7 +523,9 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         dateCtrl.text.trim().isNotEmpty;
 
     if (formValidated != ok && mounted) {
-      setState(() => formValidated = ok);
+      setState(() {
+        formValidated = ok;
+      });
     }
   }
 
@@ -750,7 +630,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         _selectedSideIndex = null;
       } else {
         final index = _selectedSideIndex ?? 0;
-        _selectedSideIndex = index.clamp(0, _sideItems.length - 1);
+        _selectedSideIndex = index.clamp(0, _sideItems.length - 1).toInt();
       }
 
       if (_selectedMeasurement != null) {
@@ -765,6 +645,16 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
     final cubit = context.read<ReportExecutedCubit>();
 
+    if (!cubit.canEditContract(widget.contractData)) {
+      await _safeNotify(
+        title: 'Sem permissão para remover anexo',
+        subtitle: _contractSummary,
+        details: 'Você não possui permissão de edição neste contrato.',
+        status: NotificationStatus.error,
+      );
+      return;
+    }
+
     final ok = await confirmDialog(
       context,
       'Remover este arquivo?',
@@ -776,7 +666,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
     if (measurement == null ||
         measurement.id == null ||
-        measurement.id!.isEmpty) {
+        measurement.id!.trim().isEmpty) {
       return;
     }
 
@@ -784,6 +674,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
     try {
       await cubit.deleteAttachment(
+        contract: widget.contractData,
         contractId: _contractId,
         measurementId: measurement.id!,
         attachment: attachment,
@@ -797,16 +688,14 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         if (_sideItems.isEmpty) {
           _selectedSideIndex = null;
         } else {
-          _selectedSideIndex = index.clamp(0, _sideItems.length - 1);
+          _selectedSideIndex = index.clamp(0, _sideItems.length - 1).toInt();
         }
 
         _selectedMeasurement!.attachments =
         _sideItems.isEmpty ? null : List<Attachment>.from(_sideItems);
       });
 
-      final actorName = _resolveActorName(
-        FirebaseAuth.instance.currentUser?.uid,
-      );
+      final actorName = _currentActorLabel();
 
       await _safeNotify(
         title: 'Arquivo removido da medição',
@@ -833,6 +722,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -883,6 +773,17 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         final measurements = state.measurements;
         final uploading = state.uploading;
         final uploadProgress = state.uploadProgress;
+
+        final canCreate = cubit.canCreateContract(widget.contractData);
+        final canEdit = cubit.canEditContract(widget.contractData);
+        final canDelete = cubit.canDeleteContract(widget.contractData);
+
+        final formEditable = _selectedMeasurement == null ? canCreate : canEdit;
+
+        final canEditAttachments = _selectedMeasurement != null &&
+            _selectedMeasurement?.id != null &&
+            _selectedMeasurement!.id!.trim().isNotEmpty &&
+            canEdit;
 
         final labels = measurements
             .map((measurement) => (measurement.order ?? 0).toString())
@@ -967,7 +868,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: ReportExecutedForm(
-                            isEditable: cubit.isEditable,
+                            isEditable: formEditable,
                             formValidated: formValidated,
                             selectedReportMeasurement: _selectedMeasurement,
                             currentReportMeasurementId:
@@ -992,12 +893,13 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 null,
                               );
                             },
-                            onAddSideItem: () async {
+                            onAddSideItem: canEditAttachments
+                                ? () async {
                               final measurement = _selectedMeasurement;
 
                               if (measurement == null ||
                                   measurement.id == null ||
-                                  measurement.id!.isEmpty) {
+                                  measurement.id!.trim().isEmpty) {
                                 await _safeNotify(
                                   title: 'Salve a medição primeiro',
                                   subtitle: _contractSummary,
@@ -1011,6 +913,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                               try {
                                 final attachment =
                                 await cubit.pickAndUploadAttachment(
+                                  contract: widget.contractData,
                                   contractId: contractId,
                                   measurementId: measurement.id!,
                                 );
@@ -1018,15 +921,17 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 if (!mounted) return;
 
                                 setState(() {
-                                  _sideItems = [..._sideItems, attachment];
-                                  _selectedSideIndex = _sideItems.length - 1;
+                                  _sideItems = [
+                                    ..._sideItems,
+                                    attachment,
+                                  ];
+                                  _selectedSideIndex =
+                                      _sideItems.length - 1;
                                   _selectedMeasurement!.attachments =
                                   List<Attachment>.from(_sideItems);
                                 });
 
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
-                                );
+                                final actorName = _currentActorLabel();
 
                                 await _safeNotify(
                                   title: 'Arquivo anexado à medição',
@@ -1037,9 +942,11 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   saveInBell: true,
                                   sendPush: true,
                                   extra: <String, dynamic>{
-                                    'action': 'measurement_attachment_created',
+                                    'action':
+                                    'measurement_attachment_created',
                                     'measurementId': measurement.id,
-                                    'measurementOrder': measurement.order,
+                                    'measurementOrder':
+                                    measurement.order,
                                     'attachmentLabel': attachment.label,
                                     'attachmentUrl': attachment.url,
                                   },
@@ -1053,8 +960,20 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   duration: const Duration(seconds: 6),
                                 );
                               }
-                            },
+                            }
+                                : null,
                             onSave: () async {
+                              if (!formEditable) {
+                                await _safeNotify(
+                                  title: 'Sem permissão para salvar medição',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  'Você não possui permissão para criar ou editar medição neste contrato.',
+                                  status: NotificationStatus.error,
+                                );
+                                return;
+                              }
+
                               final ok = await confirmDialog(
                                 context,
                                 'Deseja salvar esta medição?',
@@ -1104,12 +1023,14 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                               );
 
                               try {
-                                await cubit.saveOrUpdate(data);
+                                await cubit.saveOrUpdate(
+                                  contract: widget.contractData,
+                                  data: data,
+                                );
+
                                 await _loadPaymentsForContract();
 
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
-                                );
+                                final actorName = _currentActorLabel();
 
                                 await _safeNotify(
                                   title: isNew
@@ -1126,7 +1047,8 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                     'action': isNew
                                         ? 'measurement_created'
                                         : 'measurement_updated',
-                                    'measurementId': data.id,
+                                    'measurementId':
+                                    data.id ?? _selectedMeasurement?.id,
                                     'measurementOrder': data.order,
                                     'measurementProcess': data.numberprocess,
                                     'measurementValue': data.value,
@@ -1154,7 +1076,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
                               if (measurement == null ||
                                   measurement.id == null ||
-                                  measurement.id!.isEmpty) {
+                                  measurement.id!.trim().isEmpty) {
                                 await _safeNotify(
                                   title: 'Selecione uma medição',
                                   subtitle: _contractSummary,
@@ -1181,32 +1103,45 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                             onTapSideItem: (index) {
                               setState(() => _selectedSideIndex = index);
                             },
-                            onDeleteSideItem: _removeAttachmentAt,
-                            onSideItemsChanged: _applySideItemsFromWidget,
+                            onDeleteSideItem:
+                            canEditAttachments ? _removeAttachmentAt : null,
+                            onSideItemsChanged: canEditAttachments
+                                ? _applySideItemsFromWidget
+                                : null,
                             onRenamePersist: ({
                               required int index,
                               required Attachment oldItem,
                               required Attachment newItem,
                             }) async {
+                              if (!canEditAttachments) {
+                                await _safeNotify(
+                                  title: 'Sem permissão para renomear anexo',
+                                  subtitle: _contractSummary,
+                                  details:
+                                  'Você não possui permissão de edição neste contrato.',
+                                  status: NotificationStatus.error,
+                                );
+                                return false;
+                              }
+
                               final measurement = _selectedMeasurement;
 
                               if (measurement == null ||
                                   measurement.id == null ||
-                                  measurement.id!.isEmpty) {
+                                  measurement.id!.trim().isEmpty) {
                                 return false;
                               }
 
                               try {
                                 await cubit.renameAttachmentLabel(
+                                  contract: widget.contractData,
                                   contractId: contractId,
                                   measurementId: measurement.id!,
                                   oldItem: oldItem,
                                   newItem: newItem,
                                 );
 
-                                final actorName = _resolveActorName(
-                                  FirebaseAuth.instance.currentUser?.uid,
-                                );
+                                final actorName = _currentActorLabel();
 
                                 await _safeNotify(
                                   title: 'Anexo de medição renomeado',
@@ -1265,6 +1200,17 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                             );
                           },
                           onDelete: (id) async {
+                            if (!canDelete) {
+                              await _safeNotify(
+                                title: 'Sem permissão para apagar medição',
+                                subtitle: _contractSummary,
+                                details:
+                                'Você não possui permissão de exclusão neste contrato.',
+                                status: NotificationStatus.error,
+                              );
+                              return;
+                            }
+
                             final ok = await confirmDialog(
                               context,
                               'Deseja realmente apagar esta medição?',
@@ -1285,8 +1231,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
                             if (!mounted) return;
 
-                            final deletedMeasurement =
-                            measurements.firstWhere(
+                            final deletedMeasurement = measurements.firstWhere(
                                   (item) => item.id == id,
                               orElse: () => ReportExecutedData(id: id),
                             );
@@ -1295,15 +1240,14 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
                             try {
                               await cubit.delete(
+                                contract: widget.contractData,
                                 contractId: contractId,
                                 measurementId: id,
                               );
 
                               await _loadPaymentsForContract();
 
-                              final actorName = _resolveActorName(
-                                FirebaseAuth.instance.currentUser?.uid,
-                              );
+                              final actorName = _currentActorLabel();
 
                               await _safeNotify(
                                 title: 'Medição apagada',
@@ -1317,12 +1261,10 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 extra: <String, dynamic>{
                                   'action': 'measurement_deleted',
                                   'measurementId': id,
-                                  'measurementOrder':
-                                  deletedMeasurement.order,
+                                  'measurementOrder': deletedMeasurement.order,
                                   'measurementProcess':
                                   deletedMeasurement.numberprocess,
-                                  'measurementValue':
-                                  deletedMeasurement.value,
+                                  'measurementValue': deletedMeasurement.value,
                                   'measurementDate': deletedMeasurement.date
                                       ?.toIso8601String(),
                                 },
@@ -1373,7 +1315,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                 const FootBar(),
               ],
             ),
-            if (_isSaving)
+            if (_isSaving || uploading)
               Stack(
                 children: [
                   ModalBarrier(

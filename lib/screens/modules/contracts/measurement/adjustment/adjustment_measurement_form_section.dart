@@ -1,3 +1,5 @@
+// lib/screens/modules/contracts/measurement/adjustment/adjustment_measurement_form_section.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -15,10 +17,39 @@ import 'package:sipged/_widgets/list/files/box_list_files.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class AdjustmentMeasurementFormSection extends StatelessWidget {
+  const AdjustmentMeasurementFormSection({
+    super.key,
+    required this.isEditable,
+    required this.formValidated,
+    required this.selectedAdjustmentMeasurement,
+    required this.currentAdjustmentMeasurementId,
+    required this.contractData,
+    required this.orderAdjustmentController,
+    required this.processNumberAdjustmentController,
+    required this.dateAdjustmentController,
+    required this.valueAdjustmentController,
+    required this.onSave,
+    required this.onClear,
+    required this.sideItems,
+    this.selectedSideIndex,
+    this.onAddSideItem,
+    this.onTapSideItem,
+    this.onDeleteSideItem,
+    this.onRenamePersist,
+    this.onSideItemsChanged,
+    this.sideLoading = false,
+    this.sideUploadProgress,
+    required this.orderOptions,
+    required this.greyOrderItems,
+    required this.onChangedOrder,
+  });
+
   final bool isEditable;
   final bool formValidated;
+
   final AdjustmentMeasurementData? selectedAdjustmentMeasurement;
   final String? currentAdjustmentMeasurementId;
+
   final ContractData contractData;
 
   final TextEditingController orderAdjustmentController;
@@ -50,34 +81,10 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
   final Set<String> greyOrderItems;
   final void Function(String?) onChangedOrder;
 
-  const AdjustmentMeasurementFormSection({
-    super.key,
-    required this.isEditable,
-    required this.formValidated,
-    required this.selectedAdjustmentMeasurement,
-    required this.currentAdjustmentMeasurementId,
-    required this.contractData,
-    required this.orderAdjustmentController,
-    required this.processNumberAdjustmentController,
-    required this.dateAdjustmentController,
-    required this.valueAdjustmentController,
-    required this.onSave,
-    required this.onClear,
-    required this.sideItems,
-    this.selectedSideIndex,
-    this.onAddSideItem,
-    this.onTapSideItem,
-    this.onDeleteSideItem,
-    this.onRenamePersist,
-    this.onSideItemsChanged,
-    this.sideLoading = false,
-    this.sideUploadProgress,
-    required this.orderOptions,
-    required this.greyOrderItems,
-    required this.onChangedOrder,
-  });
-
-  double _inputWidth(BuildContext context, {required double reserved}) {
+  double _inputWidth(
+      BuildContext context, {
+        required double reserved,
+      }) {
     return responsiveInputWidth(
       context: context,
       itemsPerLine: 4,
@@ -106,14 +113,16 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       if (mask != null) ...mask,
     ];
 
-    final customTextField = CustomTextField(
+    final field = CustomTextField(
       width: width,
       enabled: enabled,
       labelText: label,
       controller: controller,
       keyboardType: money
           ? const TextInputType.numberWithOptions(decimal: true)
-          : (date ? TextInputType.datetime : TextInputType.text),
+          : date
+          ? TextInputType.datetime
+          : TextInputType.text,
       prefixText: money ? 'R\$ ' : null,
       prefixStyle: const TextStyle(
         fontSize: 14,
@@ -123,56 +132,84 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       inputFormatters: formatters,
     );
 
-    if (tooltip) {
-      return Tooltip(
-        message: 'Este campo é calculado automaticamente.',
-        child: customTextField,
-      );
-    }
+    if (!tooltip) return field;
 
-    return customTextField;
+    return Tooltip(
+      message: 'Este campo é calculado automaticamente.',
+      child: field,
+    );
+  }
+
+  Widget _buildSideBox({
+    required double width,
+  }) {
+    return BoxListFiles(
+      title: 'Arquivos do Reajuste',
+      items: sideItems,
+      selectedIndex: selectedSideIndex,
+      onAddPressed: selectedAdjustmentMeasurement != null &&
+          isEditable &&
+          !sideLoading
+          ? onAddSideItem
+          : null,
+      onTap: onTapSideItem,
+      onDelete: isEditable && !sideLoading ? onDeleteSideItem : null,
+      enableRename: isEditable && !sideLoading,
+      onRenamePersist: onRenamePersist,
+      onItemsChanged: isEditable && !sideLoading ? onSideItemsChanged : null,
+      loading: sideLoading,
+      uploadProgress: sideUploadProgress,
+      width: width,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isSmall = MediaQuery.of(context).size.width < 700;
-    final double sideWidth = isSmall ? MediaQuery.of(context).size.width : 300.0;
-    final double reserved = isSmall ? 0.0 : (sideWidth + 12.0);
-    final double w = _inputWidth(context, reserved: reserved);
+    final mediaWidth = MediaQuery.of(context).size.width;
+    final bool isSmall = mediaWidth < 700;
+
+    final double sideWidth = isSmall ? mediaWidth : 300.0;
+    final double reserved = isSmall ? 0.0 : sideWidth + 12.0;
+    final double inputWidth = _inputWidth(
+      context,
+      reserved: reserved,
+    );
 
     final camposWrap = Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
         DropDownChange(
-          width: w,
+          width: inputWidth,
           controller: orderAdjustmentController,
           labelText: 'Ordem da medição',
           items: orderOptions,
           greyItems: greyOrderItems,
-          enabled: true,
+          enabled: isEditable && !sideLoading,
           onChanged: onChangedOrder,
         ),
         _input(
-          w,
+          inputWidth,
           processNumberAdjustmentController,
           'Nº processo da medição',
-          enabled: isEditable,
+          enabled: isEditable && !sideLoading,
           mask: [SipGedMasks.processo],
         ),
         DateFieldChange(
-          width: w,
-          enabled: isEditable,
+          width: inputWidth,
+          enabled: isEditable && !sideLoading,
           controller: dateAdjustmentController,
           initialValue: selectedAdjustmentMeasurement?.date,
           labelText: 'Data da Medição',
-          onChanged: (date) => selectedAdjustmentMeasurement?.date = date,
+          onChanged: (date) {
+            selectedAdjustmentMeasurement?.date = date;
+          },
         ),
         _input(
-          w,
+          inputWidth,
           valueAdjustmentController,
           'Valor da medição',
-          enabled: isEditable,
+          enabled: isEditable && !sideLoading,
           money: true,
         ),
       ],
@@ -186,14 +223,16 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
           label: Text(
             currentAdjustmentMeasurementId != null ? 'Atualizar' : 'Salvar',
           ),
-          onPressed: formValidated ? (isEditable ? onSave : null) : null,
+          onPressed: formValidated && isEditable && !sideLoading
+              ? onSave
+              : null,
         ),
         const SizedBox(width: 12),
         if (currentAdjustmentMeasurementId != null)
           TextButton.icon(
             icon: const Icon(Icons.restore),
             label: const Text('Limpar'),
-            onPressed: onClear,
+            onPressed: sideLoading ? null : onClear,
           ),
       ],
     );
@@ -207,27 +246,16 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       ],
     );
 
-    final side = BoxListFiles(
-      title: 'Arquivos do Reajuste',
-      items: sideItems,
-      selectedIndex: selectedSideIndex,
-      onAddPressed: (selectedAdjustmentMeasurement != null && isEditable)
-          ? onAddSideItem
-          : null,
-      onTap: onTapSideItem,
-      onDelete: isEditable ? onDeleteSideItem : null,
-      enableRename: isEditable,
-      onRenamePersist: onRenamePersist,
-      onItemsChanged: onSideItemsChanged,
-      loading: sideLoading,
-      uploadProgress: sideUploadProgress,
+    final side = _buildSideBox(
       width: sideWidth,
     );
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: Colors.grey),
+        border: Border.all(
+          color: Colors.grey,
+        ),
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.all(12),
@@ -245,7 +273,9 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
         children: [
           side,
           const SizedBox(width: 12),
-          Expanded(child: corpo),
+          Expanded(
+            child: corpo,
+          ),
         ],
       ),
     );

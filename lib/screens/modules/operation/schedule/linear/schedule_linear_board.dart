@@ -1,13 +1,18 @@
-// lib/screens/modules/operation/schedule/physical/horizontal/schedule_linear_board.dart
+// lib/screens/modules/operation/schedule/linear/schedule_linear_board.dart
+
+import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_state.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
@@ -15,22 +20,23 @@ import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
+import 'package:sipged/_widgets/buttons/slider_control.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
-import 'package:sipged/screens/modules/operation/schedule/grid/schedule_grid.dart';
-import 'package:sipged/screens/modules/operation/schedule/common/modal/schedule_modal_widget.dart';
 import 'package:sipged/screens/modules/operation/schedule/common/header/schedule_status.dart';
+import 'package:sipged/screens/modules/operation/schedule/common/modal/schedule_modal_widget.dart';
 import 'package:sipged/screens/modules/operation/schedule/common/schedule_type.dart';
+import 'package:sipged/screens/modules/operation/schedule/linear/board/grid/schedule_grid.dart';
 
 class ScheduleLinearBoard extends StatefulWidget {
-  final ContractData? contractData;
-  final double extensao;
-
   const ScheduleLinearBoard({
     super.key,
     this.contractData,
     required this.extensao,
   });
+
+  final ContractData? contractData;
+  final double extensao;
 
   @override
   State<ScheduleLinearBoard> createState() => _ScheduleLinearBoardState();
@@ -38,6 +44,18 @@ class ScheduleLinearBoard extends StatefulWidget {
 
 class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
     with AutomaticKeepAliveClientMixin {
+  static const String _cellWidthPrefsKey = 'schedule_linear_board_cell_width';
+
+  static const double _initialCellWidth = 22.5;
+  static const double _minCellWidth = 3.0;
+  static const double _maxCellWidth = 52.0;
+  static const double _cellWidthStep = 0.5;
+
+  final ValueNotifier<double> _cellWidthNotifier =
+  ValueNotifier<double>(_initialCellWidth);
+
+  Timer? _saveCellWidthDebounce;
+
   Map<int, Set<int>> _selectedByEstaca = <int, Set<int>>{};
 
   bool _isDragging = false;
@@ -58,19 +76,86 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
     super.initState();
 
     try {
-      context.read<ScheduleRoadCubit>();
+      context.read<ScheduleLinearCubit>();
     } catch (_) {
       throw FlutterError(
-        'ScheduleRoadCubit não encontrado no contexto. '
-            'Envolva ScheduleRoadBoard com BlocProvider(create: (_) => ScheduleRoadCubit()).',
+        'ScheduleLinearCubit não encontrado no contexto. '
+            'Envolva ScheduleLinearBoard com BlocProvider(create: (_) => ScheduleLinearCubit(...)).',
       );
     }
+
+    _loadSavedCellWidth();
+  }
+
+  @override
+  void dispose() {
+    _saveCellWidthDebounce?.cancel();
+    _cellWidthNotifier.dispose();
+    super.dispose();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _ensureUsersLoadedOnce();
+  }
+
+  String _cellKey({
+    required String serviceKey,
+    required int estaca,
+    required int faixaIndex,
+  }) {
+    return '${serviceKey.trim()}_${faixaIndex}_$estaca';
+  }
+
+  Future<void> _loadSavedCellWidth() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final savedValue = prefs.getDouble(_cellWidthPrefsKey);
+
+      if (savedValue == null) return;
+
+      final safeValue = savedValue.clamp(
+        _minCellWidth,
+        _maxCellWidth,
+      ).toDouble();
+
+      if (_cellWidthNotifier.value == safeValue) return;
+
+      _cellWidthNotifier.value = safeValue;
+    } catch (_) {
+      // Mantém o valor padrão em caso de falha local.
+    }
+  }
+
+  void _persistCellWidthDebounced(double value) {
+    _saveCellWidthDebounce?.cancel();
+
+    _saveCellWidthDebounce = Timer(
+      const Duration(milliseconds: 350),
+          () async {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+
+          await prefs.setDouble(
+            _cellWidthPrefsKey,
+            value,
+          );
+        } catch (_) {
+          // Não bloqueia a tela em caso de falha ao salvar preferência local.
+        }
+      },
+    );
+  }
+
+  void _setCellWidth(double value) {
+    final next = value.clamp(_minCellWidth, _maxCellWidth).toDouble();
+
+    if (_cellWidthNotifier.value == next) return;
+
+    _cellWidthNotifier.value = next;
+    _persistCellWidthDebounced(next);
   }
 
   void _ensureUsersLoadedOnce() {
@@ -279,6 +364,19 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
 
   int get _selectedCount => _flattenSelection(_selectedByEstaca).length;
 
+  ScheduleStatus _scheduleStatusFromCellStatus(ScheduleLinearCellStatus status) {
+    switch (status) {
+      case ScheduleLinearCellStatus.concluido:
+        return ScheduleStatus.concluido;
+
+      case ScheduleLinearCellStatus.emAndamento:
+        return ScheduleStatus.emAndamento;
+
+      case ScheduleLinearCellStatus.aIniciar:
+        return ScheduleStatus.aIniciar;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -287,7 +385,7 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
           (cubit) => cubit.state.labelFor,
     );
 
-    return BlocListener<ScheduleRoadCubit, ScheduleRoadState>(
+    return BlocListener<ScheduleLinearCubit, ScheduleLinearState>(
       listenWhen: (p, c) => p.error != c.error,
       listener: (ctx, state) {
         if (state.error != null) {
@@ -298,17 +396,20 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
           );
         }
       },
-      child: BlocSelector<ScheduleRoadCubit, ScheduleRoadState, _BoardGridVm>(
+      child: BlocSelector<ScheduleLinearCubit, ScheduleLinearState,
+          _BoardGridVm>(
         selector: (state) => _BoardGridVm(
           initialized: state.initialized,
           loadingLanes: state.loadingLanes,
           totalEstacas: state.totalEstacas,
           lanes: state.lanes,
+          services: state.services,
           execIndex: state.execIndex,
           currentServiceKey: state.currentServiceKey,
           canEditSingleCell: state.canEditSingleCell,
           canBulkApply: state.canBulkApply,
           titleForHeader: state.titleForHeader,
+          dateFilterSignature: state.dateFilterSignature,
         ),
         builder: (context, vm) {
           return Column(
@@ -320,14 +421,43 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
                   child: vm.initialized
                       ? Container(
                     color: Colors.white,
-                    child: _ScheduleRoadBoardGridView(
-                      vm: vm,
-                      selectedByEstaca: _selectedByEstaca,
-                      userLabelResolver: userLabelResolver,
-                      onTapSquare: _onTapSquare,
-                      onDragStart: _onDragStart,
-                      onDragUpdate: _onDragUpdate,
-                      onDragEnd: _onDragEnd,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: ValueListenableBuilder<double>(
+                            valueListenable: _cellWidthNotifier,
+                            builder: (context, cellWidth, _) {
+                              return _ScheduleRoadBoardGridView(
+                                vm: vm,
+                                estacaWidth: cellWidth,
+                                selectedByEstaca: _selectedByEstaca,
+                                userLabelResolver: userLabelResolver,
+                                onTapSquare: _onTapSquare,
+                                onDragStart: _onDragStart,
+                                onDragUpdate: _onDragUpdate,
+                                onDragEnd: _onDragEnd,
+                              );
+                            },
+                          ),
+                        ),
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: SliderButton(
+                            zoomListenable: _cellWidthNotifier,
+                            minZoom: _minCellWidth,
+                            maxZoom: _maxCellWidth,
+                            step: _cellWidthStep,
+                            sliderHeight: 140,
+                            buttonWidth: 34,
+                            buttonHeight: 34,
+                            borderRadius: 10,
+                            backgroundColor:
+                            Colors.black.withValues(alpha: 0.42),
+                            onZoomChanged: _setCellWidth,
+                          ),
+                        ),
+                      ],
                     ),
                   )
                       : const SizedBox.expand(),
@@ -341,7 +471,7 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
   }
 
   Future<void> _onTapSquare(
-      ScheduleRoadData e,
+      ScheduleLinearCellData cell,
       _BoardGridVm vm,
       ) async {
     if (_isDragging || _modalOpen) return;
@@ -351,11 +481,11 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
       return;
     }
 
-    final scheduleCubit = context.read<ScheduleRoadCubit>();
+    final scheduleCubit = context.read<ScheduleLinearCubit>();
     final scaffoldContext = context;
     final state = scheduleCubit.state;
 
-    if (e.faixaIndex < 0 || e.faixaIndex >= state.lanes.length) {
+    if (cell.faixaIndex < 0 || cell.faixaIndex >= state.lanes.length) {
       _toast(
         'Faixa inválida para edição.',
         type: NotificationStatus.error,
@@ -363,11 +493,18 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
       return;
     }
 
-    final cellKey = '${e.numero}_${e.faixaIndex}';
-    final existedBefore = state.execIndex[e.numero]?[e.faixaIndex] != null;
+    final cellSelectionKey = '${cell.numero}_${cell.faixaIndex}';
+
+    final existedBefore = state.execIndex.containsKey(
+      _cellKey(
+        serviceKey: state.currentServiceKey,
+        estaca: cell.numero,
+        faixaIndex: cell.faixaIndex,
+      ),
+    );
 
     setState(() {
-      _selectedByEstaca = _groupSelection({cellKey});
+      _selectedByEstaca = _groupSelection({cellSelectionKey});
     });
 
     try {
@@ -375,7 +512,7 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
 
       final metaByUrl = <String, pm.CarouselMetadata>{};
 
-      for (final m in e.fotosMeta) {
+      for (final m in cell.fotosMeta) {
         final url = m['url']?.toString() ?? '';
 
         if (url.isEmpty) continue;
@@ -402,15 +539,15 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
         );
       }
 
-      final initialStatus = _statusFromString(e.status);
-      final laneLabel = state.lanes[e.faixaIndex].laneLabel;
+      final initialStatus = _scheduleStatusFromCellStatus(cell.status);
+      final laneLabel = state.lanes[cell.faixaIndex].laneLabel;
 
       final initialNameForRoad = _formatRoadName(
         laneLabel: laneLabel,
-        estaca: e.numero,
+        estaca: cell.numero,
       );
 
-      await showModalBottomSheet<void>(
+      final saved = await showModalBottomSheet<bool>(
         context: scaffoldContext,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
@@ -428,33 +565,43 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
                 initialName: initialNameForRoad,
                 targets: [
                   ScheduleApplyTarget(
-                    estaca: e.numero,
-                    faixaIndex: e.faixaIndex,
-                    existingUrls: e.fotos,
+                    estaca: cell.numero,
+                    faixaIndex: cell.faixaIndex,
+                    existingUrls: cell.fotos,
                     existingMetaByUrl: metaByUrl,
                   ),
                 ],
                 initialStatus: initialStatus,
-                initialTakenAt: e.takenAt,
-                initialComment: e.comentario,
+                initialTakenAt: cell.takenAt,
+                initialComment: cell.comentario,
               ),
             ),
           );
         },
       );
 
+      if (saved != true) {
+        return;
+      }
+
       await scheduleCubit.reloadExecucoes();
 
       if (!mounted) return;
 
       final afterState = scheduleCubit.state;
-      final existsAfter = afterState.execIndex[e.numero]?[e.faixaIndex] != null;
+
+      final existsAfter = afterState.execIndex.containsKey(
+        _cellKey(
+          serviceKey: afterState.currentServiceKey,
+          estaca: cell.numero,
+          faixaIndex: cell.faixaIndex,
+        ),
+      );
+
       final wasDeleted = existedBefore && !existsAfter;
 
       await _notifySchedule(
         title: state.titleForHeader,
-        subtitle: null,
-        details: null,
         type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
@@ -463,8 +610,8 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
           wasDeleted ? 'schedule_stake_deleted' : 'schedule_stake_saved',
           'serviceKey': state.currentServiceKey,
           'serviceLabel': state.titleForHeader,
-          'estaca': e.numero,
-          'faixaIndex': e.faixaIndex,
+          'estaca': cell.numero,
+          'faixaIndex': cell.faixaIndex,
           'stakeName': initialNameForRoad,
           'cellName': initialNameForRoad,
           'source': 'schedule_road_board',
@@ -482,18 +629,6 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
         setState(_clearSelection);
       }
     }
-  }
-
-  ScheduleStatus _statusFromString(String? s) {
-    final t = (s ?? '').toLowerCase();
-
-    if (t.contains('conclu')) return ScheduleStatus.concluido;
-
-    if (t.contains('andament') || t.contains('progress')) {
-      return ScheduleStatus.emAndamento;
-    }
-
-    return ScheduleStatus.aIniciar;
   }
 
   void _onDragStart(int estaca, int faixa) {
@@ -528,7 +663,7 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
     _lastDragEstaca = estaca;
     _lastDragFaixa = faixa;
 
-    final sel = context.read<ScheduleRoadCubit>().state.selectionBetween(
+    final sel = context.read<ScheduleLinearCubit>().state.selectionBetween(
       _anchorEstaca!,
       _anchorFaixa!,
       estaca,
@@ -557,7 +692,7 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
   }
 
   Future<void> _openBulkWithUnifiedModal() async {
-    final scheduleCubit = context.read<ScheduleRoadCubit>();
+    final scheduleCubit = context.read<ScheduleLinearCubit>();
     final scaffoldContext = context;
     final state = scheduleCubit.state;
 
@@ -586,7 +721,13 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
 
       estacasSelecionadas.add(estaca);
 
-      if (state.execIndex[estaca]?[faixa] != null) {
+      final cellIndexKey = _cellKey(
+        serviceKey: state.currentServiceKey,
+        estaca: estaca,
+        faixaIndex: faixa,
+      );
+
+      if (state.execIndex[cellIndexKey] != null) {
         existingBefore.add('${estaca}_$faixa');
       }
 
@@ -628,7 +769,7 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
     _modalOpen = true;
 
     try {
-      await showModalBottomSheet<void>(
+      final saved = await showModalBottomSheet<bool>(
         context: scaffoldContext,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
@@ -651,6 +792,10 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
         },
       );
 
+      if (saved != true) {
+        return;
+      }
+
       await scheduleCubit.reloadExecucoes();
 
       if (!mounted) return;
@@ -669,7 +814,13 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
 
         if (estaca == null || faixa == null) continue;
 
-        if (afterState.execIndex[estaca]?[faixa] == null) {
+        final afterKey = _cellKey(
+          serviceKey: afterState.currentServiceKey,
+          estaca: estaca,
+          faixaIndex: faixa,
+        );
+
+        if (afterState.execIndex[afterKey] == null) {
           deletedCount++;
         }
       }
@@ -678,8 +829,6 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
 
       await _notifySchedule(
         title: state.titleForHeader,
-        subtitle: null,
-        details: null,
         type: NotificationStatus.success,
         saveInBell: true,
         sendPush: true,
@@ -714,6 +863,7 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
 class _ScheduleRoadBoardGridView extends StatelessWidget {
   const _ScheduleRoadBoardGridView({
     required this.vm,
+    required this.estacaWidth,
     required this.selectedByEstaca,
     required this.userLabelResolver,
     required this.onTapSquare,
@@ -723,16 +873,18 @@ class _ScheduleRoadBoardGridView extends StatelessWidget {
   });
 
   final _BoardGridVm vm;
+  final double estacaWidth;
   final Map<int, Set<int>> selectedByEstaca;
   final String Function(String? uid) userLabelResolver;
-  final Future<void> Function(ScheduleRoadData e, _BoardGridVm vm) onTapSquare;
+  final Future<void> Function(ScheduleLinearCellData e, _BoardGridVm vm)
+  onTapSquare;
   final void Function(int estaca, int faixa) onDragStart;
   final void Function(int estaca, int faixa, _BoardGridVm vm) onDragUpdate;
-  final void Function() onDragEnd;
+  final VoidCallback onDragEnd;
 
   static const double kLegendWidth = 100.0;
-  static const double kEstacaWidth = 22.5;
   static const double kHeaderHeight = 40.0;
+  static const double kGhostWidth = 22.5;
 
   @override
   Widget build(BuildContext context) {
@@ -761,13 +913,16 @@ class _ScheduleRoadBoardGridView extends StatelessWidget {
       headerHeight: kHeaderHeight,
       totalEstacas: vm.totalEstacas,
       faixas: vm.lanes,
+      services: vm.services,
       execIndex: vm.execIndex,
       servicoSelecionado: vm.currentServiceKey,
       legendWidth: kLegendWidth,
-      estacaWidth: kEstacaWidth,
-      getSquareColor: (e) =>
-          context.read<ScheduleRoadCubit>().state.squareColor(e),
-      onTapSquare: (e) => onTapSquare(e, vm),
+      estacaWidth: estacaWidth,
+      ghostWidth: kGhostWidth,
+      getSquareColor: (cell) {
+        return context.read<ScheduleLinearCubit>().state.squareColor(cell);
+      },
+      onTapSquare: (cell) => onTapSquare(cell, vm),
       onDragStart: onDragStart,
       onDragUpdate: (e, f) => onDragUpdate(e, f, vm),
       onDragEnd: onDragEnd,
@@ -779,27 +934,31 @@ class _ScheduleRoadBoardGridView extends StatelessWidget {
 }
 
 class _BoardGridVm {
-  final bool initialized;
-  final bool loadingLanes;
-  final int totalEstacas;
-  final List<ScheduleRoadData> lanes;
-  final Map<int, Map<int, ScheduleRoadData>> execIndex;
-  final String currentServiceKey;
-  final bool canEditSingleCell;
-  final bool canBulkApply;
-  final String titleForHeader;
-
   const _BoardGridVm({
     required this.initialized,
     required this.loadingLanes,
     required this.totalEstacas,
     required this.lanes,
+    required this.services,
     required this.execIndex,
     required this.currentServiceKey,
     required this.canEditSingleCell,
     required this.canBulkApply,
     required this.titleForHeader,
+    required this.dateFilterSignature,
   });
+
+  final bool initialized;
+  final bool loadingLanes;
+  final int totalEstacas;
+  final List<ScheduleLinearLaneData> lanes;
+  final List<ScheduleLinearServicesData> services;
+  final Map<String, ScheduleLinearCellData> execIndex;
+  final String currentServiceKey;
+  final bool canEditSingleCell;
+  final bool canBulkApply;
+  final String titleForHeader;
+  final int dateFilterSignature;
 
   @override
   bool operator ==(Object other) {
@@ -808,11 +967,13 @@ class _BoardGridVm {
         other.loadingLanes == loadingLanes &&
         other.totalEstacas == totalEstacas &&
         identical(other.lanes, lanes) &&
+        identical(other.services, services) &&
         identical(other.execIndex, execIndex) &&
         other.currentServiceKey == currentServiceKey &&
         other.canEditSingleCell == canEditSingleCell &&
         other.canBulkApply == canBulkApply &&
-        other.titleForHeader == titleForHeader;
+        other.titleForHeader == titleForHeader &&
+        other.dateFilterSignature == dateFilterSignature;
   }
 
   @override
@@ -821,10 +982,12 @@ class _BoardGridVm {
     loadingLanes,
     totalEstacas,
     identityHashCode(lanes),
+    identityHashCode(services),
     identityHashCode(execIndex),
     currentServiceKey,
     canEditSingleCell,
     canBulkApply,
     titleForHeader,
+    dateFilterSignature,
   );
 }

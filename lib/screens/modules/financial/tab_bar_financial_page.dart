@@ -20,6 +20,7 @@ import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
 import 'package:sipged/screens/modules/financial/budget/budget_page.dart';
 import 'package:sipged/screens/modules/financial/empenhos/empenho_page.dart';
+import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 
 class TabBarFinancialPage extends StatefulWidget {
   const TabBarFinancialPage({

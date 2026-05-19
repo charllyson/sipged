@@ -1,45 +1,20 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// lib/_blocs/modules/contracts/contract/contract_data.dart
 
-import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:sipged/_blocs/system/permission/permission_data.dart';
 
 class ContractData {
   final String? id;
-
-  /// ACL por contrato.
-  ///
-  /// Estrutura oficial:
-  /// permissionContractId: {
-  ///   uid: {
-  ///     read: true,
-  ///     create: false,
-  ///     edit: false,
-  ///     delete: false,
-  ///     approve: false,
-  ///   }
-  /// }
-  final Map<String, Map<String, bool>> permissionContractId;
-
-  /// Metadados por participante.
-  ///
-  /// Estrutura oficial:
-  /// participantsInfo: {
-  ///   uid: {
-  ///     role: 'FISCAL',
-  ///     ...
-  ///   }
-  /// }
   final Map<String, Map<String, dynamic>> participantsInfo;
 
   const ContractData({
     this.id,
-    this.permissionContractId = const {},
     this.participantsInfo = const {},
   });
 
   factory ContractData.empty() {
     return const ContractData(
       id: null,
-      permissionContractId: {},
       participantsInfo: {},
     );
   }
@@ -60,71 +35,12 @@ class ContractData {
 
   ContractData copyWith({
     String? id,
-    Map<String, Map<String, bool>>? permissionContractId,
     Map<String, Map<String, dynamic>>? participantsInfo,
   }) {
     return ContractData(
       id: id ?? this.id,
-      permissionContractId: permissionContractId ?? this.permissionContractId,
       participantsInfo: participantsInfo ?? this.participantsInfo,
     );
-  }
-
-  static Map<String, Map<String, bool>> _readPermissionContractId(
-      dynamic raw,
-      ) {
-    if (raw is! Map) return <String, Map<String, bool>>{};
-
-    final result = <String, Map<String, bool>>{};
-
-    for (final entry in raw.entries) {
-      final userId = entry.key.toString().trim();
-
-      if (userId.isEmpty) continue;
-
-      final value = entry.value;
-
-      if (value is Map) {
-        result[userId] = SystemPermission.normalizeDocPerms(value);
-      }
-    }
-
-    return result;
-  }
-
-  static Map<String, Map<String, dynamic>> _readParticipantsInfo(
-      dynamic raw,
-      ) {
-    if (raw is! Map) return <String, Map<String, dynamic>>{};
-
-    final result = <String, Map<String, dynamic>>{};
-
-    for (final entry in raw.entries) {
-      final userId = entry.key.toString().trim();
-
-      if (userId.isEmpty) continue;
-
-      final value = entry.value;
-
-      if (value is Map) {
-        result[userId] = Map<String, dynamic>.from(value);
-      }
-    }
-
-    return result;
-  }
-
-  static dynamic _firstExistingValue(
-      Map<String, dynamic> json,
-      List<String> keys,
-      ) {
-    for (final key in keys) {
-      if (json.containsKey(key)) {
-        return json[key];
-      }
-    }
-
-    return null;
   }
 
   static String? _readIdFromJson(
@@ -164,6 +80,63 @@ class ContractData {
     return id;
   }
 
+  static Map<String, Map<String, dynamic>> _readParticipantsInfo(
+      dynamic raw,
+      ) {
+    if (raw is! Map) {
+      return <String, Map<String, dynamic>>{};
+    }
+
+    final result = <String, Map<String, dynamic>>{};
+
+    for (final entry in raw.entries) {
+      final uid = entry.key.toString().trim();
+
+      if (uid.isEmpty) continue;
+
+      final value = entry.value;
+
+      if (value is! Map) continue;
+
+      final meta = Map<String, dynamic>.from(
+        value.map(
+              (key, item) {
+            return MapEntry(
+              key.toString(),
+              item,
+            );
+          },
+        ),
+      );
+
+      result[uid] = _normalizeParticipantMeta(meta);
+    }
+
+    return result;
+  }
+
+  static Map<String, dynamic> _normalizeParticipantMeta(
+      Map<String, dynamic> raw,
+      ) {
+    final meta = Map<String, dynamic>.from(raw);
+
+    final role = meta['role']?.toString().trim();
+
+    meta['role'] = role == null || role.isEmpty ? 'COLABORADOR' : role;
+
+    final active = meta['active'];
+
+    meta['active'] = active is bool ? active : true;
+
+    final permissions = meta['permissions'];
+
+    meta['permissions'] = SystemPermission.normalizeDocPerms(
+      permissions is Map ? permissions : const <String, bool>{},
+    );
+
+    return meta;
+  }
+
   factory ContractData.fromDocument({
     required DocumentSnapshot snapshot,
   }) {
@@ -187,54 +160,42 @@ class ContractData {
       Map<String, dynamic> json, {
         String? id,
       }) {
-    final rawPermissions = _firstExistingValue(
-      json,
-      const <String>[
-        'permissionContractId',
-        'permissionsContractId',
-        'permissionContracts',
-        'permissions',
-        'participantsPermissions',
-      ],
-    );
-
-    final rawParticipantsInfo = _firstExistingValue(
-      json,
-      const <String>[
-        'participantsInfo',
-        'participants',
-        'participantsMeta',
-        'participantsData',
-      ],
-    );
-
     return ContractData(
       id: _readIdFromJson(json, id),
-      permissionContractId: _readPermissionContractId(rawPermissions),
-      participantsInfo: _readParticipantsInfo(rawParticipantsInfo),
+      participantsInfo: _readParticipantsInfo(
+        json['participantsInfo'],
+      ),
     );
   }
 
   Map<String, dynamic> toMap() {
+    final normalizedParticipants = participantsInfo.map(
+          (uid, meta) {
+        return MapEntry(
+          uid.trim(),
+          _normalizeParticipantMeta(
+            Map<String, dynamic>.from(meta),
+          ),
+        );
+      },
+    )..removeWhere((uid, _) => uid.isEmpty);
+
     return <String, dynamic>{
       if (id != null && id!.trim().isNotEmpty) 'id': id!.trim(),
-      'permissionContractId': permissionContractId.map(
-            (uid, perms) {
-          return MapEntry(
-            uid.trim(),
-            SystemPermission.normalizeDocPerms(perms),
-          );
-        },
-      )..removeWhere((uid, _) => uid.isEmpty),
-      'participantsInfo': participantsInfo.map(
-            (uid, meta) {
-          return MapEntry(
-            uid.trim(),
-            Map<String, dynamic>.from(meta),
-          );
-        },
-      )..removeWhere((uid, _) => uid.isEmpty),
+      'participantsInfo': normalizedParticipants,
     };
+  }
+
+  List<String> get participantIds {
+    final ids = participantsInfo.keys
+        .map((uid) => uid.trim())
+        .where((uid) => uid.isNotEmpty)
+        .toSet()
+        .toList();
+
+    ids.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    return ids;
   }
 
   Map<String, bool> permissionForUser(String userId) {
@@ -244,8 +205,14 @@ class ContractData {
       return SystemPermission.initialDocPerms();
     }
 
+    final info = participantsInfo[uid];
+
+    if (info == null) {
+      return SystemPermission.initialDocPerms();
+    }
+
     return SystemPermission.normalizeDocPerms(
-      permissionContractId[uid],
+      info['permissions'],
     );
   }
 
@@ -272,12 +239,36 @@ class ContractData {
     return role;
   }
 
+  bool participantIsActive(String userId) {
+    final info = participantInfoForUser(userId);
+
+    if (info.isEmpty) return false;
+
+    final active = info['active'];
+
+    if (active is bool) {
+      return active;
+    }
+
+    return true;
+  }
+
   bool hasParticipant(String userId) {
     final uid = userId.trim();
 
     if (uid.isEmpty) return false;
 
-    return permissionContractId.containsKey(uid);
+    return participantsInfo.containsKey(uid);
+  }
+
+  bool canUser(String userId, String permissionType) {
+    final cleanPermission = permissionType.trim();
+
+    if (cleanPermission.isEmpty) return false;
+
+    final perms = permissionForUser(userId);
+
+    return perms[cleanPermission] == true;
   }
 
   ContractData copyWithUpdatedPermission({
@@ -292,19 +283,28 @@ class ContractData {
       return this;
     }
 
-    final updatedPerms = Map<String, Map<String, bool>>.from(
-      permissionContractId,
+    final updatedParticipants = Map<String, Map<String, dynamic>>.from(
+      participantsInfo,
     );
 
-    final userPerms = SystemPermission.normalizeDocPerms(
-      updatedPerms[cleanUserId],
+    final currentMeta = Map<String, dynamic>.from(
+      updatedParticipants[cleanUserId] ?? const <String, dynamic>{},
     );
 
-    userPerms[cleanPermissionType] = value;
-    updatedPerms[cleanUserId] = SystemPermission.normalizeDocPerms(userPerms);
+    final currentPerms = SystemPermission.normalizeDocPerms(
+      currentMeta['permissions'],
+    );
+
+    currentPerms[cleanPermissionType] = value;
+
+    currentMeta['permissions'] = SystemPermission.normalizeDocPerms(
+      currentPerms,
+    );
+
+    updatedParticipants[cleanUserId] = _normalizeParticipantMeta(currentMeta);
 
     return copyWith(
-      permissionContractId: updatedPerms,
+      participantsInfo: updatedParticipants,
     );
   }
 
@@ -318,14 +318,20 @@ class ContractData {
       return this;
     }
 
-    final updatedPerms = Map<String, Map<String, bool>>.from(
-      permissionContractId,
+    final updatedParticipants = Map<String, Map<String, dynamic>>.from(
+      participantsInfo,
     );
 
-    updatedPerms[cleanUserId] = SystemPermission.normalizeDocPerms(perms);
+    final currentMeta = Map<String, dynamic>.from(
+      updatedParticipants[cleanUserId] ?? const <String, dynamic>{},
+    );
+
+    currentMeta['permissions'] = SystemPermission.normalizeDocPerms(perms);
+
+    updatedParticipants[cleanUserId] = _normalizeParticipantMeta(currentMeta);
 
     return copyWith(
-      permissionContractId: updatedPerms,
+      participantsInfo: updatedParticipants,
     );
   }
 
@@ -339,14 +345,16 @@ class ContractData {
       return this;
     }
 
-    final updatedMeta = Map<String, Map<String, dynamic>>.from(
+    final updatedParticipants = Map<String, Map<String, dynamic>>.from(
       participantsInfo,
     );
 
-    updatedMeta[cleanUserId] = Map<String, dynamic>.from(meta);
+    updatedParticipants[cleanUserId] = _normalizeParticipantMeta(
+      Map<String, dynamic>.from(meta),
+    );
 
     return copyWith(
-      participantsInfo: updatedMeta,
+      participantsInfo: updatedParticipants,
     );
   }
 
@@ -361,19 +369,20 @@ class ContractData {
       return this;
     }
 
-    final updatedMeta = Map<String, Map<String, dynamic>>.from(
+    final updatedParticipants = Map<String, Map<String, dynamic>>.from(
       participantsInfo,
     );
 
-    final current = Map<String, dynamic>.from(
-      updatedMeta[cleanUserId] ?? const <String, dynamic>{},
+    final currentMeta = Map<String, dynamic>.from(
+      updatedParticipants[cleanUserId] ?? const <String, dynamic>{},
     );
 
-    current['role'] = cleanRole;
-    updatedMeta[cleanUserId] = current;
+    currentMeta['role'] = cleanRole;
+
+    updatedParticipants[cleanUserId] = _normalizeParticipantMeta(currentMeta);
 
     return copyWith(
-      participantsInfo: updatedMeta,
+      participantsInfo: updatedParticipants,
     );
   }
 
@@ -388,27 +397,26 @@ class ContractData {
       return this;
     }
 
-    final updatedPerms = Map<String, Map<String, bool>>.from(
-      permissionContractId,
-    );
-
-    updatedPerms[cleanUserId] = SystemPermission.normalizeDocPerms(perms);
-
-    final updatedMeta = Map<String, Map<String, dynamic>>.from(
+    final updatedParticipants = Map<String, Map<String, dynamic>>.from(
       participantsInfo,
     );
 
-    final normalizedMeta = <String, dynamic>{
-      if (meta.isNotEmpty) ...Map<String, dynamic>.from(meta),
-      if ((meta['role']?.toString().trim() ?? '').isEmpty)
-        'role': 'COLABORADOR',
+    final nextMeta = <String, dynamic>{
+      ...Map<String, dynamic>.from(meta),
+      'permissions': SystemPermission.normalizeDocPerms(perms),
+      'active': true,
     };
 
-    updatedMeta[cleanUserId] = normalizedMeta;
+    final role = nextMeta['role']?.toString().trim();
+
+    if (role == null || role.isEmpty) {
+      nextMeta['role'] = 'COLABORADOR';
+    }
+
+    updatedParticipants[cleanUserId] = _normalizeParticipantMeta(nextMeta);
 
     return copyWith(
-      permissionContractId: updatedPerms,
-      participantsInfo: updatedMeta,
+      participantsInfo: updatedParticipants,
     );
   }
 
@@ -419,20 +427,14 @@ class ContractData {
       return this;
     }
 
-    final updatedPerms = Map<String, Map<String, bool>>.from(
-      permissionContractId,
-    );
-
-    final updatedMeta = Map<String, Map<String, dynamic>>.from(
+    final updatedParticipants = Map<String, Map<String, dynamic>>.from(
       participantsInfo,
     );
 
-    updatedPerms.remove(cleanUserId);
-    updatedMeta.remove(cleanUserId);
+    updatedParticipants.remove(cleanUserId);
 
     return copyWith(
-      permissionContractId: updatedPerms,
-      participantsInfo: updatedMeta,
+      participantsInfo: updatedParticipants,
     );
   }
 
@@ -440,7 +442,6 @@ class ContractData {
   String toString() {
     return 'ContractData('
         'id: $id, '
-        'permissionContractId: ${permissionContractId.length}, '
         'participantsInfo: ${participantsInfo.length}'
         ')';
   }

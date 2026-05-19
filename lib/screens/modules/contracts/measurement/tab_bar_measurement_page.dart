@@ -1,5 +1,4 @@
 // lib/screens/modules/contracts/measurement/tab_bar_measurement_page.dart
-// ajuste o caminho conforme onde esse arquivo está no seu projeto
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,8 +9,9 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_repository.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_repository.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
@@ -23,6 +23,7 @@ import 'package:sipged/screens/modules/contracts/measurement/adjustment/adjustme
 import 'package:sipged/screens/modules/contracts/measurement/revision/revision_measurement_page.dart';
 
 import 'package:sipged/screens/modules/contracts/measurement/cronograma/physfin_widget.dart';
+import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 
 class TabBarMeasurementPage extends StatefulWidget {
   const TabBarMeasurementPage({
@@ -45,8 +46,13 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
   late DfdRepository _dfdRepository;
 
   DfdData? _dfdData;
+  bool _loadingDfd = true;
 
   String get _contractId => widget.contractData?.id?.trim() ?? '';
+
+  double get _extensaoDfdMetros {
+    return ((_dfdData?.extensaoKm ?? 0.0).toDouble()) * 1000.0;
+  }
 
   String? get _textBanner {
     final descricaoObjeto = _dfdData?.descricaoObjeto?.trim();
@@ -87,6 +93,7 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
     if (oldId != newId) {
       setState(() {
         _dfdData = null;
+        _loadingDfd = true;
       });
 
       _loadDfdDisplayData();
@@ -116,6 +123,7 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
         tenantId: _activeTenantId,
       );
       _dfdData = null;
+      _loadingDfd = true;
     });
 
     _loadDfdDisplayData();
@@ -124,7 +132,16 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
   Future<void> _loadDfdDisplayData() async {
     final contractId = _contractId;
 
-    if (contractId.isEmpty) return;
+    if (contractId.isEmpty) {
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = null;
+        _loadingDfd = false;
+      });
+
+      return;
+    }
 
     try {
       final dfd = await _dfdRepository.readDataForContract(contractId);
@@ -133,10 +150,18 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
 
       setState(() {
         _dfdData = dfd;
+        _loadingDfd = false;
       });
     } catch (e, stack) {
       debugPrint('Falha ao carregar DFD no TabBarMeasurementPage: $e');
       debugPrintStack(stackTrace: stack);
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = null;
+        _loadingDfd = false;
+      });
     }
   }
 
@@ -168,19 +193,27 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
       );
     }
 
-    return BlocProvider<ScheduleRoadCubit>(
+    if (_loadingDfd) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    return BlocProvider<ScheduleLinearCubit>(
       key: ValueKey<String>(
-        'measurement-chronogram-$_activeTenantId-$contractId',
+        'measurement-chronogram-$_activeTenantId-$contractId-${_dfdData?.extensaoKm ?? 0}',
       ),
       create: (_) {
-        return ScheduleRoadCubit(
-          repository: ScheduleRoadRepository(
+        return ScheduleLinearCubit(
+          repository: ScheduleLinearRepository(
             tenantId: _activeTenantId,
           ),
           tenantId: _activeTenantId,
         )..warmup(
           contractId: contractId,
-          initialServiceKey: 'geral',
+          extensaoDfdMetros: _extensaoDfdMetros,
+          initialServiceKey: ScheduleLinearServicesData.geralKey,
+          summarySubjectContract: _textBanner,
         );
       },
       child: PhysFinWidget(
@@ -221,6 +254,7 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
             builder: (contract) {
               return AdjustmentMeasurement(
                 contractData: contract!,
+
               );
             },
           ),

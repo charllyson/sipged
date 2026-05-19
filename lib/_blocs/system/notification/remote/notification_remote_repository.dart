@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../notification_channel.dart';
 import '../notification_data.dart';
-import '../notification_source.dart';
+import '../helpers/notification_source.dart';
 
 class NotificationRemoteRepository {
   NotificationRemoteRepository({

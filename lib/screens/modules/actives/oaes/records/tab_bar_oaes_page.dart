@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
 import 'oae_details_page.dart';
+import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 
 class TabBarOaesPage extends StatelessWidget {
   const TabBarOaesPage({super.key});

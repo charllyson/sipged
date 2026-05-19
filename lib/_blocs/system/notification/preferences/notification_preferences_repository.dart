@@ -3,7 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_channel.dart';
-import 'package:sipged/_blocs/system/notification/notification_source.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_source.dart';
 import 'notification_preference_data.dart';
 
 class NotificationPreferencesRepository {

@@ -6,7 +6,7 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/system/notification/helpers/notification_contract_base.dart';
 import 'package:sipged/_blocs/system/notification/notification_channel.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
-import 'package:sipged/_blocs/system/notification/notification_source.dart';
+import 'package:sipged/_blocs/system/notification/helpers/notification_source.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 class NotificationSchedule {

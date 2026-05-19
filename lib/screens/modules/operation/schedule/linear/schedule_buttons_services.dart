@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
 import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:sipged/_widgets/buttons/expanded_button_change.dart';
+import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 
 class ScheduleButtonsServices extends StatefulWidget {
   const ScheduleButtonsServices({
@@ -15,15 +16,7 @@ class ScheduleButtonsServices extends StatefulWidget {
     this.enabled = true,
   });
 
-  /// Lista de serviços do cronograma.
-  ///
-  /// Deve vir de:
-  /// state.services
-  ///
-  /// O state.services é carregado de:
-  /// /tenants/{tenantId}/contracts/{contractId}/schedule/lanes
-  final List<ScheduleRoadData> options;
-
+  final List<ScheduleLinearServicesData> options;
   final String current;
   final void Function(String key) onSelect;
 
@@ -42,6 +35,9 @@ class _ScheduleButtonsServicesState extends State<ScheduleButtonsServices>
 
   static const Color _selectedBorderColor = SipGedTheme.darkPrimary;
   static const Color _selectedIndicatorColor = SipGedTheme.darkSecondary;
+
+  static const String _defaultServiceIconKey =
+      ScheduleLinearServicesData.defaultServiceIconKey;
 
   @override
   void initState() {
@@ -71,7 +67,7 @@ class _ScheduleButtonsServicesState extends State<ScheduleButtonsServices>
         if (!mounted) return;
 
         final fallback = options.firstWhere(
-              (option) => _cleanKey(option.key) == 'geral',
+              (option) => _cleanKey(option.key) == ScheduleLinearServicesData.geralKey,
           orElse: () => options.first,
         );
 
@@ -84,6 +80,38 @@ class _ScheduleButtonsServicesState extends State<ScheduleButtonsServices>
     return value.trim();
   }
 
+  String _resolveServiceIconKey(ScheduleLinearServicesData option) {
+    final key = _cleanKey(option.key);
+
+    if (key == ScheduleLinearServicesData.geralKey) {
+      return ScheduleLinearServicesData.geralIconKey;
+    }
+
+    final iconKey = option.iconKey.trim();
+
+    if (iconKey.isNotEmpty) {
+      return iconKey;
+    }
+
+    return _defaultServiceIconKey;
+  }
+
+  IconData _resolveServiceIcon(ScheduleLinearServicesData option) {
+    final key = _cleanKey(option.key);
+
+    if (key == ScheduleLinearServicesData.geralKey) {
+      return Icons.clear_all;
+    }
+
+    final iconKey = _resolveServiceIconKey(option);
+
+    if (iconKey == _defaultServiceIconKey) {
+      return Icons.layers_outlined;
+    }
+
+    return IconsCatalog.iconFor(iconKey);
+  }
+
   void _toggle() {
     if (!widget.enabled) return;
 
@@ -92,7 +120,7 @@ class _ScheduleButtonsServicesState extends State<ScheduleButtonsServices>
     });
   }
 
-  ScheduleRoadData? _currentOption() {
+  ScheduleLinearServicesData? _currentOption() {
     final options = _preparedOptions();
 
     if (options.isEmpty) return null;
@@ -108,7 +136,7 @@ class _ScheduleButtonsServicesState extends State<ScheduleButtonsServices>
     }
 
     final geralIndex = options.indexWhere((option) {
-      return _cleanKey(option.key) == 'geral';
+      return _cleanKey(option.key) == ScheduleLinearServicesData.geralKey;
     });
 
     if (geralIndex >= 0) {
@@ -118,9 +146,9 @@ class _ScheduleButtonsServicesState extends State<ScheduleButtonsServices>
     return options.first;
   }
 
-  List<ScheduleRoadData> _preparedOptions() {
+  List<ScheduleLinearServicesData> _preparedOptions() {
     final seen = <String>{};
-    final out = <ScheduleRoadData>[];
+    final out = <ScheduleLinearServicesData>[];
 
     for (final option in widget.options) {
       final key = _cleanKey(option.key);
@@ -130,29 +158,28 @@ class _ScheduleButtonsServicesState extends State<ScheduleButtonsServices>
 
       seen.add(key);
 
+      final resolvedIconKey = _resolveServiceIconKey(option);
+      final resolvedIcon = key == ScheduleLinearServicesData.geralKey
+          ? Icons.clear_all
+          : _resolveServiceIcon(option);
+
       out.add(
         option.copyWith(
           key: key,
           label: option.label.trim().isEmpty ? key : option.label.trim(),
+          iconKey: resolvedIconKey,
+          icon: resolvedIcon,
         ),
       );
     }
 
-    if (!seen.contains('geral')) {
-      out.insert(0, ScheduleRoadData.emptyGeral);
+    if (!seen.contains(ScheduleLinearServicesData.geralKey)) {
+      out.insert(0, ScheduleLinearServicesData.emptyGeral);
     }
 
-    out.sort((a, b) {
-      final ak = _cleanKey(a.key);
-      final bk = _cleanKey(b.key);
+    out.sort(ScheduleLinearServicesData.compareByLayer);
 
-      if (ak == 'geral') return -1;
-      if (bk == 'geral') return 1;
-
-      return a.label.compareTo(b.label);
-    });
-
-    return List<ScheduleRoadData>.unmodifiable(out);
+    return List<ScheduleLinearServicesData>.unmodifiable(out);
   }
 
   @override
@@ -170,6 +197,7 @@ class _ScheduleButtonsServicesState extends State<ScheduleButtonsServices>
 
       return _ServiceButton(
         option: option,
+        icon: _resolveServiceIcon(option),
         isSelected: isSelected,
         enabled: widget.enabled,
         background: option.color,
@@ -204,6 +232,7 @@ class _ScheduleButtonsServicesState extends State<ScheduleButtonsServices>
             : <Widget>[
           _CollapsedSelectedButton(
             option: _currentOption(),
+            iconResolver: _resolveServiceIcon,
             enabled: widget.enabled,
             selectedBorderColor: _selectedBorderColor,
             selectedIndicatorColor: _selectedIndicatorColor,
@@ -234,13 +263,15 @@ class _ScheduleButtonsServicesState extends State<ScheduleButtonsServices>
 class _CollapsedSelectedButton extends StatelessWidget {
   const _CollapsedSelectedButton({
     required this.option,
+    required this.iconResolver,
     required this.enabled,
     required this.selectedBorderColor,
     required this.selectedIndicatorColor,
     required this.onTap,
   });
 
-  final ScheduleRoadData? option;
+  final ScheduleLinearServicesData? option;
+  final IconData Function(ScheduleLinearServicesData option) iconResolver;
   final bool enabled;
   final Color selectedBorderColor;
   final Color selectedIndicatorColor;
@@ -256,6 +287,7 @@ class _CollapsedSelectedButton extends StatelessWidget {
 
     return _ServiceButton(
       option: currentOption,
+      icon: iconResolver(currentOption),
       isSelected: true,
       enabled: enabled,
       background: currentOption.color,
@@ -269,6 +301,7 @@ class _CollapsedSelectedButton extends StatelessWidget {
 class _ServiceButton extends StatelessWidget {
   const _ServiceButton({
     required this.option,
+    required this.icon,
     required this.isSelected,
     required this.enabled,
     required this.background,
@@ -277,7 +310,8 @@ class _ServiceButton extends StatelessWidget {
     required this.onTap,
   });
 
-  final ScheduleRoadData option;
+  final ScheduleLinearServicesData option;
+  final IconData icon;
   final bool isSelected;
   final bool enabled;
   final Color background;
@@ -313,7 +347,7 @@ class _ServiceButton extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(22),
               child: ExpandedButtonChange(
-                icon: option.icon,
+                icon: icon,
                 label: label,
                 color: effectiveColor,
                 onPressed: enabled ? onTap : null,

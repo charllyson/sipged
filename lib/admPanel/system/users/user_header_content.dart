@@ -19,9 +19,9 @@ class UserHeaderContent extends StatelessWidget {
 
   final UserData user;
   final String nameText;
-  final perm.SystemUserRole baseRole;
+  final perm.PermissionUser baseRole;
   final bool isSuper;
-  final Future<void> Function(perm.SystemUserRole picked) onPickRole;
+  final Future<void> Function(perm.PermissionUser picked) onPickRole;
 
   final VoidCallback? onEditUser;
   final bool editing;
@@ -42,7 +42,7 @@ class UserHeaderContent extends StatelessWidget {
     return value.isEmpty ? 'Usuário sem nome' : value;
   }
 
-  String _roleLabel(perm.SystemUserRole role) {
+  String _roleLabel(perm.PermissionUser role) {
     switch (role.name) {
       case 'superAdmin':
         return 'Super administrador';
@@ -63,7 +63,7 @@ class UserHeaderContent extends StatelessWidget {
     }
   }
 
-  IconData _roleIcon(perm.SystemUserRole role) {
+  IconData _roleIcon(perm.PermissionUser role) {
     switch (role.name) {
       case 'superAdmin':
         return Icons.admin_panel_settings_rounded;
@@ -84,7 +84,7 @@ class UserHeaderContent extends StatelessWidget {
     }
   }
 
-  Color _roleColor(perm.SystemUserRole role) {
+  Color _roleColor(perm.PermissionUser role) {
     switch (role.name) {
       case 'superAdmin':
         return const Color(0xFF7C2D12);
@@ -161,18 +161,18 @@ class UserHeaderContent extends StatelessWidget {
     final color = _roleColor(baseRole);
     final size = compact ? 34.0 : 38.0;
 
-    return PopupMenuButton<perm.SystemUserRole>(
+    return PopupMenuButton<perm.PermissionUser>(
       tooltip: 'Alterar tipo de usuário',
       enabled: _roleActionEnabled,
       onSelected: (picked) {
         onPickRole(picked);
       },
       itemBuilder: (context) {
-        return perm.SystemUserRole.values.map((role) {
+        return perm.PermissionUser.values.map((role) {
           final selected = role == baseRole;
           final itemColor = _roleColor(role);
 
-          return PopupMenuItem<perm.SystemUserRole>(
+          return PopupMenuItem<perm.PermissionUser>(
             value: role,
             child: Row(
               children: [

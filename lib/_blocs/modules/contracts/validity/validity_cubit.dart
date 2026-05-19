@@ -45,10 +45,6 @@ class ValidityCubit extends Cubit<ValidityState> {
 
   final ValidityRepository _repository;
 
-  /// Repositórios auxiliares opcionais.
-  ///
-  /// Se forem injetados, o Cubit usa a instância recebida.
-  /// Se não forem injetados, o Cubit cria instâncias novas usando o tenant ativo.
   final PublicacaoExtratoRepository? _publicacaoRepository;
   final TrRepository? _trRepository;
 
@@ -366,7 +362,6 @@ class ValidityCubit extends Cubit<ValidityState> {
       final effectiveContract = contract ??
           ContractData(
             id: cleanContractId,
-            permissionContractId: const <String, Map<String, bool>>{},
             participantsInfo: const <String, Map<String, dynamic>>{},
           );
 

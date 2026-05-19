@@ -1,3 +1,5 @@
+// lib/_blocs/system/permission/permission_repository.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'permission_data.dart';
@@ -9,6 +11,11 @@ class PermissionRepository {
 
   final FirebaseFirestore _firestore;
 
+  /// Mantive em `users` porque seu sistema atual já parece usar permissões
+  /// dentro do documento do usuário.
+  ///
+  /// Se depois você quiser separar em `users_permissions/{uid}`,
+  /// mudamos somente este getter.
   CollectionReference<Map<String, dynamic>> get _usersRef {
     return _firestore.collection('users');
   }
@@ -27,7 +34,9 @@ class PermissionRepository {
     final snap = await _userRef(cleanUid).get();
 
     if (!snap.exists) {
-      return null;
+      return UserPermissionData(
+        uid: cleanUid,
+      );
     }
 
     return UserPermissionData.fromDoc(snap);
@@ -41,7 +50,11 @@ class PermissionRepository {
     }
 
     return _userRef(cleanUid).snapshots().map((snap) {
-      if (!snap.exists) return null;
+      if (!snap.exists) {
+        return UserPermissionData(
+          uid: cleanUid,
+        );
+      }
 
       return UserPermissionData.fromDoc(snap);
     });
@@ -54,14 +67,14 @@ class PermissionRepository {
     final cleanUid = uid.trim();
     final cleanTenantId = tenantId?.trim();
 
-    if (cleanUid.isEmpty) return;
+    if (cleanUid.isEmpty) {
+      return;
+    }
 
     if (cleanTenantId == null || cleanTenantId.isEmpty) {
       await _userRef(cleanUid).set(
         {
-          'currentTenantId': FieldValue.delete(),
           'activeTenantId': FieldValue.delete(),
-          'selectedTenantId': FieldValue.delete(),
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -72,9 +85,7 @@ class PermissionRepository {
 
     await _userRef(cleanUid).set(
       {
-        'currentTenantId': cleanTenantId,
         'activeTenantId': cleanTenantId,
-        'selectedTenantId': cleanTenantId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -83,20 +94,17 @@ class PermissionRepository {
 
   Future<void> setGlobalRole({
     required String uid,
-    required SystemUserRole role,
-    bool writeLegacyBaseProfile = true,
+    required PermissionUser role,
   }) async {
     final cleanUid = uid.trim();
 
-    if (cleanUid.isEmpty) return;
-
-    final roleId = SystemRoleCodec.serialize(role);
+    if (cleanUid.isEmpty) {
+      return;
+    }
 
     await _userRef(cleanUid).set(
       {
-        'baseRole': roleId,
-        'globalRole': roleId,
-        if (writeLegacyBaseProfile) 'baseProfile': roleId,
+        'globalRole': SystemRoleCodec.serialize(role),
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -111,11 +119,13 @@ class PermissionRepository {
     final cleanUid = uid.trim();
     final cleanModule = module.trim();
 
-    if (cleanUid.isEmpty || cleanModule.isEmpty) return;
+    if (cleanUid.isEmpty || cleanModule.isEmpty) {
+      return;
+    }
 
     await _userRef(cleanUid).set(
       {
-        'moduleOverrides': {
+        'globalModuleOverrides': {
           cleanModule: permissions.toMap(),
         },
         'updatedAt': FieldValue.serverTimestamp(),
@@ -131,11 +141,13 @@ class PermissionRepository {
     final cleanUid = uid.trim();
     final cleanModule = module.trim();
 
-    if (cleanUid.isEmpty || cleanModule.isEmpty) return;
+    if (cleanUid.isEmpty || cleanModule.isEmpty) {
+      return;
+    }
 
     await _userRef(cleanUid).set(
       {
-        'moduleOverrides': {
+        'globalModuleOverrides': {
           cleanModule: FieldValue.delete(),
         },
         'updatedAt': FieldValue.serverTimestamp(),
@@ -148,29 +160,27 @@ class PermissionRepository {
     required String uid,
     required String tenantId,
     bool enabled = true,
-    SystemUserRole? role,
+    PermissionUser role = PermissionUser.leitor,
     String? label,
   }) async {
     final cleanUid = uid.trim();
     final cleanTenantId = tenantId.trim();
     final cleanLabel = label?.trim();
 
-    if (cleanUid.isEmpty || cleanTenantId.isEmpty) return;
+    if (cleanUid.isEmpty || cleanTenantId.isEmpty) {
+      return;
+    }
 
     await _userRef(cleanUid).set(
       {
         'tenantAccess': {
           cleanTenantId: {
             'enabled': enabled,
-            if (role != null) 'role': SystemRoleCodec.serialize(role),
+            'role': SystemRoleCodec.serialize(role),
             if (cleanLabel != null && cleanLabel.isNotEmpty)
               'label': cleanLabel,
           },
         },
-        if (enabled)
-          'tenantIds': FieldValue.arrayUnion([cleanTenantId])
-        else
-          'tenantIds': FieldValue.arrayRemove([cleanTenantId]),
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -180,7 +190,7 @@ class PermissionRepository {
   Future<void> enableTenantAccess({
     required String uid,
     required String tenantId,
-    SystemUserRole? role,
+    PermissionUser role = PermissionUser.leitor,
     String? label,
   }) {
     return setTenantAccess(
@@ -195,11 +205,24 @@ class PermissionRepository {
   Future<void> disableTenantAccess({
     required String uid,
     required String tenantId,
-  }) {
-    return setTenantAccess(
-      uid: uid,
-      tenantId: tenantId,
-      enabled: false,
+  }) async {
+    final cleanUid = uid.trim();
+    final cleanTenantId = tenantId.trim();
+
+    if (cleanUid.isEmpty || cleanTenantId.isEmpty) {
+      return;
+    }
+
+    await _userRef(cleanUid).set(
+      {
+        'tenantAccess': {
+          cleanTenantId: {
+            'enabled': false,
+          },
+        },
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
     );
   }
 
@@ -210,23 +233,15 @@ class PermissionRepository {
     final cleanUid = uid.trim();
     final cleanTenantId = tenantId.trim();
 
-    if (cleanUid.isEmpty || cleanTenantId.isEmpty) return;
+    if (cleanUid.isEmpty || cleanTenantId.isEmpty) {
+      return;
+    }
 
     await _userRef(cleanUid).set(
       {
         'tenantAccess': {
           cleanTenantId: FieldValue.delete(),
         },
-        'tenantRoles': {
-          cleanTenantId: FieldValue.delete(),
-        },
-        'tenantModuleOverrides': {
-          cleanTenantId: FieldValue.delete(),
-        },
-        'tenantIds': FieldValue.arrayRemove([cleanTenantId]),
-        'allowedTenantIds': FieldValue.arrayRemove([cleanTenantId]),
-        'companyIds': FieldValue.arrayRemove([cleanTenantId]),
-        'allowedCompanyIds': FieldValue.arrayRemove([cleanTenantId]),
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -236,27 +251,23 @@ class PermissionRepository {
   Future<void> setTenantRole({
     required String uid,
     required String tenantId,
-    required SystemUserRole role,
+    required PermissionUser role,
   }) async {
     final cleanUid = uid.trim();
     final cleanTenantId = tenantId.trim();
 
-    if (cleanUid.isEmpty || cleanTenantId.isEmpty) return;
-
-    final roleId = SystemRoleCodec.serialize(role);
+    if (cleanUid.isEmpty || cleanTenantId.isEmpty) {
+      return;
+    }
 
     await _userRef(cleanUid).set(
       {
         'tenantAccess': {
           cleanTenantId: {
             'enabled': true,
-            'role': roleId,
+            'role': SystemRoleCodec.serialize(role),
           },
         },
-        'tenantRoles': {
-          cleanTenantId: roleId,
-        },
-        'tenantIds': FieldValue.arrayUnion([cleanTenantId]),
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -287,12 +298,6 @@ class PermissionRepository {
             },
           },
         },
-        'tenantModuleOverrides': {
-          cleanTenantId: {
-            cleanModule: permissions.toMap(),
-          },
-        },
-        'tenantIds': FieldValue.arrayUnion([cleanTenantId]),
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -319,11 +324,6 @@ class PermissionRepository {
             'moduleOverrides': {
               cleanModule: FieldValue.delete(),
             },
-          },
-        },
-        'tenantModuleOverrides': {
-          cleanTenantId: {
-            cleanModule: FieldValue.delete(),
           },
         },
         'updatedAt': FieldValue.serverTimestamp(),

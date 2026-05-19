@@ -1,17 +1,23 @@
+// lib/_blocs/modules/operation/schedule/horizontal/schedule_linear_repository.dart
+
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_road_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
+
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
-class ScheduleRoadRepository {
-  ScheduleRoadRepository({
+class ScheduleLinearRepository {
+  ScheduleLinearRepository({
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
     required String tenantId,
@@ -25,33 +31,50 @@ class ScheduleRoadRepository {
 
   String get tenantId => _tenantId;
 
-  final Map<String, List<ScheduleRoadData>> _execCache = {};
-  final Map<String, List<ScheduleRoadData>> _servicesCache = {};
+  final Map<String, List<ScheduleLinearCellData>> _execCache = {};
+  final Map<String, List<ScheduleLinearServicesData>> _servicesCache = {};
   final Map<String, Map<String, double>> _totalsCache = {};
-  final Map<String, List<ScheduleRoadData>> _lanesCache = {};
-
+  final Map<String, List<ScheduleLinearLaneData>> _lanesCache = {};
   final Map<String, ({List<int> periods, Map<String, List<double>> grid})>
   _physfinCache = {};
-
-  final Map<String, ScheduleRoadData?> _geometryCache = {};
+  final Map<String, ScheduleLinearData?> _geometryCache = {};
 
   static String _validateTenantId(String tenantId) {
     final cleanTenantId = tenantId.trim();
 
     if (cleanTenantId.isEmpty) {
-      throw ArgumentError('tenantId é obrigatório para ScheduleRoadRepository.');
+      throw ArgumentError(
+        'tenantId é obrigatório para ScheduleLinearRepository.',
+      );
     }
 
     return cleanTenantId;
   }
 
   void clearContractCache(String contractId) {
-    _execCache.removeWhere((key, _) => key.startsWith('$contractId|'));
-    _servicesCache.remove(contractId);
-    _totalsCache.remove(contractId);
-    _lanesCache.remove(contractId);
-    _physfinCache.remove(contractId);
-    _geometryCache.remove(contractId);
+    final cleanContractId = contractId.trim();
+
+    _execCache.removeWhere((key, _) => key.startsWith('$cleanContractId|'));
+    _servicesCache.remove(cleanContractId);
+    _totalsCache.remove(cleanContractId);
+    _lanesCache.remove(cleanContractId);
+    _physfinCache.remove(cleanContractId);
+    _geometryCache.remove(cleanContractId);
+  }
+
+  void clearExecCache(String contractId) {
+    final cleanContractId = contractId.trim();
+
+    _execCache.removeWhere((key, _) => key.startsWith('$cleanContractId|'));
+  }
+
+  void clearAllCache() {
+    _execCache.clear();
+    _servicesCache.clear();
+    _totalsCache.clear();
+    _lanesCache.clear();
+    _physfinCache.clear();
+    _geometryCache.clear();
   }
 
   String _cleanServiceKey(String value) {
@@ -65,24 +88,16 @@ class ScheduleRoadRepository {
       throw ArgumentError('serviceKey é obrigatório.');
     }
 
-    return clean
+    final safe = clean
         .replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '_')
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_|_$'), '');
-  }
 
-  String _validateStatus(String value) {
-    final clean = value.trim();
-
-    if (clean == 'concluido' ||
-        clean == 'em_andamento' ||
-        clean == 'a_iniciar') {
-      return clean;
+    if (safe.isEmpty) {
+      throw ArgumentError('serviceKey inválido.');
     }
 
-    throw ArgumentError(
-      'Status inválido: "$value". Use: concluido, em_andamento ou a_iniciar.',
-    );
+    return safe;
   }
 
   DocumentReference<Map<String, dynamic>> _contractRef(String contractId) {
@@ -99,8 +114,10 @@ class ScheduleRoadRepository {
         .doc(cleanContractId);
   }
 
-  DocumentReference<Map<String, dynamic>> _scheduleLanesDoc(String contractId) {
-    return _contractRef(contractId).collection('schedule').doc('lanes');
+  DocumentReference<Map<String, dynamic>> _scheduleConfigDoc(
+      String contractId,
+      ) {
+    return _contractRef(contractId).collection('schedule').doc('config');
   }
 
   DocumentReference<Map<String, dynamic>> _scheduleCellsDoc(String contractId) {
@@ -161,13 +178,13 @@ class ScheduleRoadRepository {
     required int estaca,
     required int faixaIndex,
   }) {
-    return '${_safeStorageKey(serviceKey)}_${estaca}_$faixaIndex';
+    return '${_safeStorageKey(serviceKey)}_${faixaIndex}_$estaca';
   }
 
   Future<void> saveScheduleConfiguration({
     required String contractId,
-    required List<ScheduleRoadData> lanes,
-    required List<ScheduleRoadData> services,
+    required List<ScheduleLinearLaneData> lanes,
+    required List<ScheduleLinearServicesData> services,
   }) async {
     final cleanContractId = contractId.trim();
 
@@ -176,122 +193,115 @@ class ScheduleRoadRepository {
     }
 
     final cleanServices = _prepareServices(services);
+
     final cleanLanes = _prepareLanes(
       lanes: lanes,
       services: cleanServices,
     );
 
-    await _scheduleLanesDoc(cleanContractId).set({
+    await _scheduleConfigDoc(cleanContractId).set({
       'tenantId': tenantId,
       'contractId': cleanContractId,
       'services': cleanServices
-          .map((service) => service.toServiceMap())
+          .map((service) => service.toMap())
           .toList(growable: false),
-      'lanes': cleanLanes.map((lane) => lane.toLaneMap()).toList(
-        growable: false,
-      ),
+      'lanes': cleanLanes.map((lane) => lane.toMap()).toList(growable: false),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
-      'version': 3,
+      'version': 6,
     }, SetOptions(merge: true));
 
-    _servicesCache.remove(cleanContractId);
-    _lanesCache.remove(cleanContractId);
-    _totalsCache.remove(cleanContractId);
-    _execCache.removeWhere((key, _) => key.startsWith('$cleanContractId|'));
+    clearContractCache(cleanContractId);
   }
 
-  List<ScheduleRoadData> _prepareServices(List<ScheduleRoadData> services) {
-    final source = services.isEmpty
-        ? const <ScheduleRoadData>[
-      ScheduleRoadData.emptyGeral,
-    ]
-        : services;
-
+  List<ScheduleLinearServicesData> _prepareServices(
+      List<ScheduleLinearServicesData> services,
+      ) {
     final seen = <String>{};
-    final out = <ScheduleRoadData>[];
+    final out = <ScheduleLinearServicesData>[];
 
-    for (final service in source) {
+    for (final service in services) {
       final key = _cleanServiceKey(service.key);
 
       if (key.isEmpty || seen.contains(key)) continue;
 
       seen.add(key);
 
+      final isGeral = key == ScheduleLinearServicesData.geralKey;
       final label = service.label.trim().isEmpty ? key : service.label.trim();
-      final iconKey = service.iconKey.trim().isEmpty
-          ? ScheduleRoadData.pickIconKeyForTitle(label)
-          : service.iconKey.trim();
 
       out.add(
-        ScheduleRoadData.service(
+        ScheduleLinearServicesData.create(
           key: key,
-          label: key == 'geral' ? 'GERAL' : label,
-          iconKey: key == 'geral' ? 'clear_all' : iconKey,
-          icon: key == 'geral'
-              ? Icons.clear_all
-              : ScheduleRoadData.iconForKey(iconKey),
-          color: key == 'geral' ? Colors.grey : service.color,
+          label: isGeral ? 'GERAL' : label,
+          iconKey: isGeral
+              ? ScheduleLinearServicesData.geralIconKey
+              : service.iconKey,
+          icon: isGeral ? Icons.clear_all : service.icon,
+          color: isGeral ? Colors.grey : service.color,
+          layerOrder: isGeral
+              ? ScheduleLinearServicesData.geralLayerOrder
+              : service.layerOrder,
         ),
       );
     }
 
-    if (!seen.contains('geral')) {
-      out.insert(0, ScheduleRoadData.emptyGeral);
+    if (!seen.contains(ScheduleLinearServicesData.geralKey)) {
+      out.insert(0, ScheduleLinearServicesData.emptyGeral);
     }
 
     out.sort((a, b) {
-      if (a.key == 'geral') return -1;
-      if (b.key == 'geral') return 1;
+      if (a.key == ScheduleLinearServicesData.geralKey) return -1;
+      if (b.key == ScheduleLinearServicesData.geralKey) return 1;
+
+      final byLayer = a.layerOrder.compareTo(b.layerOrder);
+
+      if (byLayer != 0) return byLayer;
 
       return a.label.compareTo(b.label);
     });
 
-    return List<ScheduleRoadData>.unmodifiable(out);
+    return List<ScheduleLinearServicesData>.unmodifiable(out);
   }
 
-  List<ScheduleRoadData> _prepareLanes({
-    required List<ScheduleRoadData> lanes,
-    required List<ScheduleRoadData> services,
+  List<ScheduleLinearLaneData> _prepareLanes({
+    required List<ScheduleLinearLaneData> lanes,
+    required List<ScheduleLinearServicesData> services,
   }) {
+    if (lanes.isEmpty) {
+      return const <ScheduleLinearLaneData>[];
+    }
+
     final specificServiceKeys = services
-        .where((service) => service.key != 'geral')
+        .where((service) => !service.isGeral)
         .map((service) => service.key)
         .toSet();
 
-    final source = lanes.isEmpty
-        ? <ScheduleRoadData>[
-      ScheduleRoadData.lane(
-        faixaIndex: 0,
-        pos: 'EIXO',
-        nome: 'FAIXA ÚNICA',
-        altura: 20.0,
-      ),
-    ]
-        : lanes;
-
-    return List<ScheduleRoadData>.generate(source.length, (index) {
-      final lane = source[index];
+    return List<ScheduleLinearLaneData>.generate(lanes.length, (index) {
+      final lane = lanes[index];
 
       final allowedByService = <String, bool>{
         for (final key in specificServiceKeys)
           key: lane.allowedByService[key] ?? true,
       };
 
-      return ScheduleRoadData.lane(
+      return ScheduleLinearLaneData.create(
         faixaIndex: index,
         pos: lane.resolvedPos,
         nome: lane.resolvedNome,
         altura: lane.resolvedAltura,
         anchor: lane.anchor,
         allowedByService: allowedByService,
+        color: lane.color,
+        iconKey: lane.iconKey,
+        icon: lane.icon,
       );
     }, growable: false);
   }
 
   Future<void> saveFaixas(
       String contractId,
-      List<ScheduleRoadData> rows,
+      List<ScheduleLinearLaneData> rows,
       ) async {
     final services = await loadAvailableServicesFromBudget(contractId);
 
@@ -303,98 +313,38 @@ class ScheduleRoadRepository {
   }
 
   Future<void> ensureDefaultLaneIfMissing(String contractId) async {
-    final doc = await _scheduleLanesDoc(contractId).get();
-
-    if (doc.exists) {
-      final data = doc.data() ?? const <String, dynamic>{};
-
-      final lanes = data['lanes'];
-      final services = data['services'];
-
-      if (lanes is List &&
-          lanes.isNotEmpty &&
-          services is List &&
-          services.isNotEmpty) {
-        return;
-      }
-    }
-
-    await saveScheduleConfiguration(
-      contractId: contractId,
-      services: const <ScheduleRoadData>[
-        ScheduleRoadData.emptyGeral,
-        ScheduleRoadData(
-          numero: 0,
-          faixaIndex: 0,
-          key: 'terraplenagem',
-          label: 'TERRAPLENAGEM',
-          iconKey: 'terrain_outlined',
-          icon: Icons.terrain_outlined,
-          color: Color(0xFFE76F51),
-        ),
-        ScheduleRoadData(
-          numero: 0,
-          faixaIndex: 0,
-          key: 'base',
-          label: 'BASE',
-          iconKey: 'layers_outlined',
-          icon: Icons.layers_outlined,
-          color: Color(0xFF43A047),
-        ),
-        ScheduleRoadData(
-          numero: 0,
-          faixaIndex: 0,
-          key: 'asfalto',
-          label: 'ASFALTO',
-          iconKey: 'alt_route_outlined',
-          icon: Icons.alt_route_outlined,
-          color: Color(0xFF455A64),
-        ),
-      ],
-      lanes: <ScheduleRoadData>[
-        ScheduleRoadData.lane(
-          faixaIndex: 0,
-          pos: 'LE',
-          nome: 'LADO ESQUERDO',
-          altura: 20.0,
-        ),
-        ScheduleRoadData.lane(
-          faixaIndex: 1,
-          pos: 'CE',
-          nome: 'EIXO',
-          altura: 20.0,
-        ),
-        ScheduleRoadData.lane(
-          faixaIndex: 2,
-          pos: 'LD',
-          nome: 'LADO DIREITO',
-          altura: 20.0,
-        ),
-      ],
-    );
+    return;
   }
 
-  /// Mantive o nome para não quebrar Cubit/telas existentes.
-  ///
-  /// Agora os serviços vêm de:
-  /// /tenants/{tenantId}/contracts/{contractId}/schedule/lanes
-  Future<List<ScheduleRoadData>> loadAvailableServicesFromBudget(
+  Future<List<ScheduleLinearServicesData>> loadAvailableServicesFromBudget(
       String contractId,
       ) async {
-    final cached = _servicesCache[contractId];
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      return const <ScheduleLinearServicesData>[
+        ScheduleLinearServicesData.emptyGeral,
+      ];
+    }
+
+    final cached = _servicesCache[cleanContractId];
 
     if (cached != null) return cached;
 
-    final doc = await _scheduleLanesDoc(contractId).get();
+    final sw = Stopwatch()..start();
+
+    final doc = await _scheduleConfigDoc(cleanContractId).get();
 
     if (!doc.exists) {
-      final defaults = List<ScheduleRoadData>.unmodifiable(
-        const <ScheduleRoadData>[
-          ScheduleRoadData.emptyGeral,
+      final defaults = List<ScheduleLinearServicesData>.unmodifiable(
+        const <ScheduleLinearServicesData>[
+          ScheduleLinearServicesData.emptyGeral,
         ],
       );
 
-      _servicesCache[contractId] = defaults;
+      _servicesCache[cleanContractId] = defaults;
+
+      sw.stop();
 
       return defaults;
     }
@@ -402,31 +352,15 @@ class ScheduleRoadRepository {
     final data = doc.data() ?? const <String, dynamic>{};
     final rawServices = data['services'];
 
-    final services = <ScheduleRoadData>[];
+    final services = <ScheduleLinearServicesData>[];
 
     if (rawServices is List) {
       for (final item in rawServices) {
         if (item is! Map) continue;
 
-        final map = Map<String, dynamic>.from(item);
-
-        final key = _cleanServiceKey((map['key'] ?? '').toString());
-
-        if (key.isEmpty) continue;
-
-        final label = (map['label'] ?? key).toString().trim();
-        final effectiveLabel = label.isEmpty ? key : label;
-
-        final iconKey = _iconKeyForServiceMap(map, key, effectiveLabel);
-        final color = _colorForServiceMap(map, key, effectiveLabel);
-
         services.add(
-          ScheduleRoadData.service(
-            key: key,
-            label: effectiveLabel,
-            iconKey: iconKey,
-            icon: ScheduleRoadData.iconForKey(iconKey),
-            color: color,
+          ScheduleLinearServicesData.fromMap(
+            Map<String, dynamic>.from(item),
           ),
         );
       }
@@ -434,219 +368,172 @@ class ScheduleRoadRepository {
 
     final prepared = _prepareServices(services);
 
-    final frozen = List<ScheduleRoadData>.unmodifiable(prepared);
-    _servicesCache[contractId] = frozen;
+    final frozen = List<ScheduleLinearServicesData>.unmodifiable(prepared);
+    _servicesCache[cleanContractId] = frozen;
+
+    sw.stop();
 
     return frozen;
   }
 
-  String _iconKeyForServiceMap(
-      Map<String, dynamic> map,
-      String key,
-      String label,
-      ) {
-    final raw = (map['iconKey'] ?? map['icon'] ?? '').toString().trim();
+  Future<List<ScheduleLinearLaneData>> loadFaixas(String contractId) async {
+    final cleanContractId = contractId.trim();
 
-    if (raw.isNotEmpty) return raw;
-
-    if (key == 'geral') return 'clear_all';
-
-    return ScheduleRoadData.pickIconKeyForTitle(label.isEmpty ? key : label);
-  }
-
-  Color _colorForServiceMap(
-      Map<String, dynamic> map,
-      String key,
-      String label,
-      ) {
-    final rawColor = map['color'];
-
-    if (rawColor is int) return Color(rawColor);
-    if (rawColor is num) return Color(rawColor.toInt());
-
-    if (rawColor is String) {
-      final asInt = int.tryParse(rawColor);
-
-      if (asInt != null) return Color(asInt);
+    if (cleanContractId.isEmpty) {
+      return const <ScheduleLinearLaneData>[];
     }
 
-    if (key == 'geral') return Colors.grey;
-
-    return ScheduleRoadData.colorForService(label.isEmpty ? key : label);
-  }
-
-  Future<List<ScheduleRoadData>> loadFaixas(String contractId) async {
-    final cached = _lanesCache[contractId];
+    final cached = _lanesCache[cleanContractId];
 
     if (cached != null) return cached;
 
-    final doc = await _scheduleLanesDoc(contractId).get();
+    final sw = Stopwatch()..start();
+
+    final doc = await _scheduleConfigDoc(cleanContractId).get();
 
     if (!doc.exists) {
-      return const <ScheduleRoadData>[];
+      return const <ScheduleLinearLaneData>[];
     }
 
     final data = doc.data() ?? const <String, dynamic>{};
     final rawLanes = data['lanes'];
 
     if (rawLanes is! List || rawLanes.isEmpty) {
-      return const <ScheduleRoadData>[];
+      return const <ScheduleLinearLaneData>[];
     }
 
-    final rows = <ScheduleRoadData>[];
+    final rows = <ScheduleLinearLaneData>[];
 
     for (int i = 0; i < rawLanes.length; i++) {
       final item = rawLanes[i];
 
       if (item is! Map) continue;
 
-      final map = Map<String, dynamic>.from(item);
+      final lane = ScheduleLinearLaneData.fromMap(
+        Map<String, dynamic>.from(item),
+      );
 
       rows.add(
-        ScheduleRoadData.lane(
-          faixaIndex: _asInt(map['faixaIndex']) ?? i,
-          pos: (map['pos'] ?? '').toString(),
-          nome: (map['nome'] ?? '').toString(),
-          altura: _asDouble(map['altura']) ?? 20.0,
-          anchor: _asInt(map['anchor']),
-          allowedByService: _asBoolMap(map['allowedByService']),
+        lane.copyWith(
+          faixaIndex: lane.faixaIndex < 0 ? i : lane.faixaIndex,
         ),
       );
     }
 
     rows.sort((a, b) => a.faixaIndex.compareTo(b.faixaIndex));
 
-    final prepared = List<ScheduleRoadData>.generate(
+    final prepared = List<ScheduleLinearLaneData>.generate(
       rows.length,
           (index) {
         final row = rows[index];
 
-        return ScheduleRoadData.lane(
-          faixaIndex: index,
-          pos: row.pos ?? '',
-          nome: row.nome ?? '',
-          altura: row.altura ?? 20.0,
-          anchor: row.anchor,
-          allowedByService: row.allowedByService,
-        );
+        return row.copyWith(faixaIndex: index);
       },
       growable: false,
     );
 
-    final frozen = List<ScheduleRoadData>.unmodifiable(prepared);
-    _lanesCache[contractId] = frozen;
+    final frozen = List<ScheduleLinearLaneData>.unmodifiable(prepared);
+    _lanesCache[cleanContractId] = frozen;
+
+    sw.stop();
 
     return frozen;
   }
 
-  /// Mantive o nome para não quebrar Cubit/telas existentes.
-  ///
-  /// Como os serviços são configurados manualmente, o total por serviço fica 0.
   Future<Map<String, double>> fetchBudgetServiceTotals(String contractId) async {
-    final cached = _totalsCache[contractId];
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      return const <String, double>{};
+    }
+
+    final cached = _totalsCache[cleanContractId];
 
     if (cached != null) return cached;
 
-    final services = await loadAvailableServicesFromBudget(contractId);
+    final services = await loadAvailableServicesFromBudget(cleanContractId);
+    final orderedServices =
+    ScheduleLinearServicesData.specificSortedByLayer(services);
 
     final totals = <String, double>{
-      for (final service in services)
-        if (service.key != 'geral') service.key: 0.0,
+      for (final service in orderedServices) service.key: 0.0,
     };
 
     final frozen = Map<String, double>.unmodifiable(totals);
-    _totalsCache[contractId] = frozen;
+    _totalsCache[cleanContractId] = frozen;
 
     return frozen;
   }
 
-  Future<List<ScheduleRoadData>> fetchExecucoes({
+  Future<List<ScheduleLinearCellData>> fetchExecucoes({
     required String contractId,
     required String selectedServiceKey,
     required List<String> serviceKeysForGeral,
-    required ScheduleRoadData metaForSelected,
   }) async {
+    final cleanContractId = contractId.trim();
     final cleanSelectedKey = _cleanServiceKey(selectedServiceKey);
 
-    final cacheKey = '$contractId|$cleanSelectedKey';
+    if (cleanContractId.isEmpty) {
+      return const <ScheduleLinearCellData>[];
+    }
+
+    final cleanGeralKeys = serviceKeysForGeral
+        .map((key) => key.trim())
+        .where((key) => key.isNotEmpty)
+        .toList(growable: false);
+
+    final cacheKey = cleanSelectedKey == ScheduleLinearServicesData.geralKey
+        ? '$cleanContractId|$cleanSelectedKey|${cleanGeralKeys.join(",")}'
+        : '$cleanContractId|$cleanSelectedKey';
+
     final cached = _execCache[cacheKey];
 
     if (cached != null) return cached;
 
-    final services = await loadAvailableServicesFromBudget(contractId);
+    final sw = Stopwatch()..start();
 
-    ScheduleRoadData metaForKey(String key) {
-      return services.firstWhere(
-            (service) => service.key == key,
-        orElse: () => metaForSelected,
-      );
-    }
+    Query<Map<String, dynamic>> query = _scheduleCellsItemsCol(cleanContractId);
 
-    Query<Map<String, dynamic>> query = _scheduleCellsItemsCol(contractId);
-
-    if (cleanSelectedKey != 'geral') {
+    if (cleanSelectedKey != ScheduleLinearServicesData.geralKey) {
       query = query.where('serviceKey', isEqualTo: cleanSelectedKey);
     }
 
     final snap = await query.get();
 
-    final results = <ScheduleRoadData>[];
+    final map = <String, ScheduleLinearCellData>{};
 
     for (final doc in snap.docs) {
-      final data = doc.data();
+      final cell = ScheduleLinearCellData.fromMap(doc.data());
 
-      final serviceKey = _cleanServiceKey(
-        (data['serviceKey'] ?? '').toString(),
-      );
+      final serviceKey = cell.serviceKey.trim();
 
       if (serviceKey.isEmpty) continue;
 
-      if (cleanSelectedKey == 'geral') {
-        if (serviceKey == 'geral') continue;
+      if (cleanSelectedKey == ScheduleLinearServicesData.geralKey) {
+        if (serviceKey == ScheduleLinearServicesData.geralKey) continue;
 
-        if (serviceKeysForGeral.isNotEmpty &&
-            !serviceKeysForGeral.contains(serviceKey)) {
+        if (cleanGeralKeys.isNotEmpty && !cleanGeralKeys.contains(serviceKey)) {
           continue;
         }
       }
 
-      final meta = metaForKey(serviceKey);
-
-      final mapped = <String, dynamic>{
-        ...data,
-        'key': serviceKey,
-        'label': meta.label,
-        'iconKey': meta.iconKey,
-        'color': meta.color.toARGB32(),
-        'tipo': data['tipo'] ?? meta.label,
-      };
-
-      results.add(
-        ScheduleRoadData.fromMap(
-          mapped,
-          meta: meta,
-        ),
-      );
-    }
-
-    final map = <String, ScheduleRoadData>{};
-
-    for (final item in results) {
-      final key = '${item.key}_${item.numero}_${item.faixaIndex}';
+      final key = cell.cellKey;
       final current = map[key];
 
-      final itemTime = item.updatedAt ?? item.createdAt;
+      final itemTime = cell.updatedAt ?? cell.createdAt;
       final currentTime = current?.updatedAt ?? current?.createdAt;
 
       if (current == null ||
           (itemTime != null &&
               (currentTime == null || itemTime.isAfter(currentTime)))) {
-        map[key] = item;
+        map[key] = cell;
       }
     }
 
-    final list = List<ScheduleRoadData>.unmodifiable(map.values);
+    final list = List<ScheduleLinearCellData>.unmodifiable(map.values);
     _execCache[cacheKey] = list;
+
+    sw.stop();
 
     return list;
   }
@@ -656,8 +543,7 @@ class ScheduleRoadRepository {
     required String serviceKey,
     required int estaca,
     required int faixaIndex,
-    required String tipoLabel,
-    required String status,
+    required ScheduleLinearCellStatus status,
     String? comentario,
     DateTime? takenAtForNew,
     required List<String> finalPhotoUrls,
@@ -665,18 +551,45 @@ class ScheduleRoadRepository {
     List<String>? newFileNames,
     List<pm.CarouselMetadata> newPhotoMetas = const [],
     required String currentUserId,
+    bool clearCacheAfter = true,
   }) async {
+    final swTotal = Stopwatch()..start();
+
+    final cleanContractId = contractId.trim();
     final cleanServiceKey = _cleanServiceKey(serviceKey);
+
+    if (cleanContractId.isEmpty) {
+      throw ArgumentError('contractId é obrigatório.');
+    }
 
     if (cleanServiceKey.isEmpty) {
       throw ArgumentError('serviceKey é obrigatório.');
     }
 
-    if (cleanServiceKey == 'geral') {
-      return const <String>[];
+    if (cleanServiceKey == ScheduleLinearServicesData.geralKey) {
+      throw Exception(
+        'A visão GERAL é apenas consolidada. Selecione um serviço específico para editar.',
+      );
     }
 
-    final lanes = await loadFaixas(contractId);
+    final services = await loadAvailableServicesFromBudget(cleanContractId);
+    final serviceExists = services.any((service) {
+      return service.key == cleanServiceKey;
+    });
+
+    if (!serviceExists) {
+      throw Exception(
+        'Serviço "$cleanServiceKey" não foi configurado para este cronograma.',
+      );
+    }
+
+    final lanes = await loadFaixas(cleanContractId);
+
+    if (lanes.isEmpty) {
+      throw Exception(
+        'Nenhuma faixa configurada. Configure as faixas antes de lançar execuções.',
+      );
+    }
 
     if (faixaIndex < 0 || faixaIndex >= lanes.length) {
       throw Exception('Faixa inválida.');
@@ -694,20 +607,20 @@ class ScheduleRoadRepository {
       faixaIndex: faixaIndex,
     );
 
-    final docRef = _scheduleCellsItemsCol(contractId).doc(cellId);
+    final docRef = _scheduleCellsItemsCol(cleanContractId).doc(cellId);
     final snap = await docRef.get();
 
     final hasComment = comentario?.trim().isNotEmpty ?? false;
     final hasPhotos = finalPhotoUrls.isNotEmpty || newFilesBytes.isNotEmpty;
 
-    var cleanStatus = _validateStatus(status);
     final takenMs = takenAtForNew?.millisecondsSinceEpoch;
 
-    if (cleanStatus == 'a_iniciar' && (hasComment || hasPhotos)) {
-      cleanStatus = 'em_andamento';
-    }
+    final effectiveStatus =
+    status == ScheduleLinearCellStatus.aIniciar && (hasComment || hasPhotos)
+        ? ScheduleLinearCellStatus.emAndamento
+        : status;
 
-    if (cleanStatus == 'a_iniciar') {
+    if (effectiveStatus == ScheduleLinearCellStatus.aIniciar) {
       if (snap.exists) {
         final data = snap.data() ?? const <String, dynamic>{};
 
@@ -724,23 +637,25 @@ class ScheduleRoadRepository {
         await docRef.delete();
       }
 
-      clearContractCache(contractId);
+      if (clearCacheAfter) {
+        clearExecCache(cleanContractId);
+      }
+
+      swTotal.stop();
 
       return const <String>[];
     }
 
     final base = <String, dynamic>{
       'tenantId': tenantId,
-      'contractId': contractId,
+      'contractId': cleanContractId,
       'serviceKey': cleanServiceKey,
-      'key': cleanServiceKey,
       'numero': estaca,
       'faixaIndex': faixaIndex,
-      'tipo': tipoLabel,
-      'status': cleanStatus,
+      'status': effectiveStatus.key,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      if (takenMs != null) 'takenAtMs': takenMs,
+      'takenAtMs': ?takenMs,
       if (takenMs == null) 'takenAtMs': FieldValue.delete(),
       if (hasComment) 'comentario': comentario!.trim(),
       if (!hasComment) 'comentario': FieldValue.delete(),
@@ -760,8 +675,10 @@ class ScheduleRoadRepository {
     final uploadedMetas = <Map<String, dynamic>>[];
 
     if (newFilesBytes.isNotEmpty) {
+      final swUpload = Stopwatch()..start();
+
       final folder = _photosFolderRef(
-        contractId: contractId,
+        contractId: cleanContractId,
         serviceKey: cleanServiceKey,
         estaca: estaca,
         faixaIndex: faixaIndex,
@@ -810,6 +727,8 @@ class ScheduleRoadRepository {
           'uploadedBy': meta.uploadedBy ?? currentUserId,
         });
       }
+
+      swUpload.stop();
     }
 
     final currentSnap = await docRef.get();
@@ -890,26 +809,37 @@ class ScheduleRoadRepository {
       if (orderedMetas.isNotEmpty) 'fotosMeta': orderedMetas,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      if (takenMs != null) 'takenAtMs': takenMs,
+      'takenAtMs': ?takenMs,
       if (takenMs == null) 'takenAtMs': FieldValue.delete(),
     }, SetOptions(merge: true));
 
-    clearContractCache(contractId);
+    if (clearCacheAfter) {
+      clearExecCache(cleanContractId);
+    }
+
+    swTotal.stop();
 
     return uploadedUrls;
   }
 
-  Future<({List<int> periods, Map<String, List<double>> grid})>
-  loadPhysFinGrid(String contractId) async {
-    final cached = _physfinCache[contractId];
+  Future<({List<int> periods, Map<String, List<double>> grid})> loadPhysFinGrid(
+      String contractId,
+      ) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      return (periods: const <int>[], grid: const <String, List<double>>{});
+    }
+
+    final cached = _physfinCache[cleanContractId];
 
     if (cached != null) return cached;
 
-    final doc = await _physFinDoc(contractId).get();
+    final doc = await _physFinDoc(cleanContractId).get();
 
     if (!doc.exists) {
       const empty = (periods: <int>[], grid: <String, List<double>>{});
-      _physfinCache[contractId] = empty;
+      _physfinCache[cleanContractId] = empty;
 
       return empty;
     }
@@ -929,7 +859,10 @@ class ScheduleRoadRepository {
     final grid = <String, List<double>>{};
 
     for (final entry in rawGrid.entries) {
-      final key = entry.key.toString();
+      final key = entry.key.toString().trim();
+
+      if (key.isEmpty || key == ScheduleLinearServicesData.geralKey) continue;
+
       final list = (entry.value as List?) ?? const [];
 
       final values = list.whereType<Object>().map((value) {
@@ -950,7 +883,7 @@ class ScheduleRoadRepository {
     }),
     );
 
-    _physfinCache[contractId] = frozen;
+    _physfinCache[cleanContractId] = frozen;
 
     return frozen;
   }
@@ -961,30 +894,44 @@ class ScheduleRoadRepository {
     required Map<String, List<double>> grid,
     String? updatedBy,
   }) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw ArgumentError(
+        'contractId é obrigatório para salvar físico-financeiro.',
+      );
+    }
+
     final nCols = periods.length;
     final normGrid = <String, List<double>>{};
 
     grid.forEach((key, row) {
+      final cleanKey = key.trim();
+
+      if (cleanKey.isEmpty || cleanKey == ScheduleLinearServicesData.geralKey) {
+        return;
+      }
+
       final values = List<double>.from(
         row.map((value) => value.toDouble()),
         growable: false,
       );
 
       if (values.length > nCols) {
-        normGrid[key] = values.sublist(0, nCols);
+        normGrid[cleanKey] = values.sublist(0, nCols);
       } else if (values.length < nCols) {
-        normGrid[key] = <double>[
+        normGrid[cleanKey] = <double>[
           ...values,
           ...List<double>.filled(nCols - values.length, 0.0),
         ];
       } else {
-        normGrid[key] = values;
+        normGrid[cleanKey] = values;
       }
     });
 
-    await _physFinDoc(contractId).set({
+    await _physFinDoc(cleanContractId).set({
       'tenantId': tenantId,
-      'contractId': contractId,
+      'contractId': cleanContractId,
       'periods': periods,
       'grid': normGrid,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -992,10 +939,10 @@ class ScheduleRoadRepository {
       'version': 2,
     }, SetOptions(merge: true));
 
-    _physfinCache.remove(contractId);
+    _physfinCache.remove(cleanContractId);
   }
 
-  Future<ScheduleRoadData?> fetchProjectGeometry(String contractId) async {
+  Future<ScheduleLinearData?> fetchProjectGeometry(String contractId) async {
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) {
@@ -1039,14 +986,9 @@ class ScheduleRoadRepository {
     final resolvedGeometryType =
         geometryType ?? (lines.length == 1 ? 'LineString' : 'MultiLineString');
 
-    final result = ScheduleRoadData(
-      numero: 0,
-      faixaIndex: 0,
-      key: 'geral',
-      label: 'GERAL',
-      iconKey: 'route_outlined',
-      icon: Icons.route_outlined,
-      color: Colors.grey,
+    final result = ScheduleLinearData(
+      contractId: cleanContractId,
+      tenantId: tenantId,
       geometryType: resolvedGeometryType,
       multiLine: lines.length == 1 ? null : lines,
       points: lines.length == 1 ? lines.first : null,
@@ -1064,7 +1006,7 @@ class ScheduleRoadRepository {
       throw ArgumentError('contractId é obrigatório para excluir geometria.');
     }
 
-    await _projectMainRef(cleanContractId).update({
+    await _projectMainRef(cleanContractId).set({
       'geometryType': FieldValue.delete(),
       'storageMode': FieldValue.delete(),
       'totalSegments': FieldValue.delete(),
@@ -1074,14 +1016,14 @@ class ScheduleRoadRepository {
       'multiLine': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
-    });
+    }, SetOptions(merge: true));
 
     _geometryCache.remove(cleanContractId);
   }
 
-  Future<ScheduleRoadData> upsertProjectGeometry({
+  Future<ScheduleLinearData> upsertProjectGeometry({
     required String contractId,
-    required ScheduleRoadData data,
+    required ScheduleLinearData data,
     String? summarySubjectContract,
   }) async {
     final lines = data.getSegments();
@@ -1093,7 +1035,7 @@ class ScheduleRoadRepository {
     );
   }
 
-  Future<ScheduleRoadData> importGeoJson({
+  Future<ScheduleLinearData> importGeoJson({
     required String contractId,
     required Map<String, dynamic> geojson,
     String? summarySubjectContract,
@@ -1119,7 +1061,7 @@ class ScheduleRoadRepository {
     );
   }
 
-  Future<ScheduleRoadData> _saveGeometryLines({
+  Future<ScheduleLinearData> _saveGeometryLines({
     required String contractId,
     required List<List<LatLng>> rawLines,
     String? summarySubjectContract,
@@ -1154,13 +1096,14 @@ class ScheduleRoadRepository {
     final mainData = <String, dynamic>{
       'tenantId': tenantId,
       'contractId': cleanContractId,
-      if (summarySubjectContract != null)
-        'summarySubjectContract': summarySubjectContract,
+      if (summarySubjectContract != null &&
+          summarySubjectContract.trim().isNotEmpty)
+        'summarySubjectContract': summarySubjectContract.trim(),
       'geometryType': geometryType,
       'storageMode': 'inline_v1',
       'totalSegments': lines.length,
       'totalPoints': totalPoints,
-      if (bounds != null) 'bounds': bounds,
+      'bounds': ?bounds,
       if (lines.length == 1) 'points': _toPoints(lines.first),
       if (lines.length == 1) 'multiLine': FieldValue.delete(),
       if (lines.length > 1) 'multiLine': _toMultiFirestore(lines),
@@ -1176,14 +1119,9 @@ class ScheduleRoadRepository {
 
     await docRef.set(mainData, SetOptions(merge: true));
 
-    final result = ScheduleRoadData(
-      numero: 0,
-      faixaIndex: 0,
-      key: 'geral',
-      label: 'GERAL',
-      iconKey: 'route_outlined',
-      icon: Icons.route_outlined,
-      color: Colors.grey,
+    final result = ScheduleLinearData(
+      contractId: cleanContractId,
+      tenantId: tenantId,
       geometryType: geometryType,
       multiLine: lines.length == 1 ? null : lines,
       points: lines.length == 1 ? lines.first : null,
@@ -1220,12 +1158,10 @@ class ScheduleRoadRepository {
 
     for (final line in lines) {
       for (final point in line) {
-        minLat = minLat == null
-            ? point.latitude
-            : math.min(minLat, point.latitude);
-        maxLat = maxLat == null
-            ? point.latitude
-            : math.max(maxLat, point.latitude);
+        minLat =
+        minLat == null ? point.latitude : math.min(minLat, point.latitude);
+        maxLat =
+        maxLat == null ? point.latitude : math.max(maxLat, point.latitude);
         minLng = minLng == null
             ? point.longitude
             : math.min(minLng, point.longitude);
@@ -1485,23 +1421,6 @@ class ScheduleRoadRepository {
     return out.where((line) => line.length >= 2).toList(growable: false);
   }
 
-  int? _asInt(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    if (value is double) return value.round();
-    if (value is num) return value.toInt();
-
-    if (value is String) {
-      final cleaned = value.trim();
-
-      if (cleaned.isEmpty) return null;
-
-      return int.tryParse(cleaned);
-    }
-
-    return null;
-  }
-
   double? _asDouble(dynamic value) {
     if (value == null) return null;
     if (value is double) return value;
@@ -1518,20 +1437,9 @@ class ScheduleRoadRepository {
     return null;
   }
 
-  Map<String, bool> _asBoolMap(dynamic value) {
-    if (value is Map) {
-      return <String, bool>{
-        for (final entry in value.entries)
-          entry.key.toString().trim(): entry.value == true,
-      }..removeWhere((key, _) => key.isEmpty || key == 'geral');
-    }
-
-    return const <String, bool>{};
-  }
-
-  String docIdFromBoardData(ScheduleRoadData data) {
+  String docIdFromCellData(ScheduleLinearCellData data) {
     return _cellDocId(
-      serviceKey: data.key,
+      serviceKey: data.serviceKey,
       estaca: data.numero,
       faixaIndex: data.faixaIndex,
     );

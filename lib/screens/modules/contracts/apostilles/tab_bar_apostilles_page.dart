@@ -4,6 +4,7 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 import 'package:sipged/screens/modules/contracts/apostilles/apostilles_page.dart';
+import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 
 class TabBarApostillesPage extends StatelessWidget {
   const TabBarApostillesPage({

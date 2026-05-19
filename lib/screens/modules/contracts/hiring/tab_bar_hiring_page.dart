@@ -46,6 +46,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arqu
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
+import 'package:sipged/_widgets/menu/tab/stamp_config.dart';
 
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
@@ -61,6 +62,7 @@ import 'package:sipged/screens/modules/contracts/hiring/8Minuta/minuta_contrato_
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/parecer_juridico_page.dart';
 import 'package:sipged/screens/modules/contracts/hiring/10Publicacao/publicacao_extrato_page.dart';
 import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/termo_arquivamento_page.dart';
+import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 
 class TabBarHiringPage extends StatefulWidget {
   const TabBarHiringPage({

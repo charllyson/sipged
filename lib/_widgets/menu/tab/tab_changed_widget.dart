@@ -15,54 +15,10 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
-import 'package:sipged/_widgets/menu/tab/tab_banner.dart';
+import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
+import 'package:sipged/_widgets/menu/tab/stamp_config.dart';
+import 'package:sipged/screens/common/tab_banner.dart';
 import 'package:sipged/_widgets/menu/tab/tab_blocked.dart';
-
-class ContractTabDescriptor {
-  final String label;
-  final Widget Function(ContractData? contract) builder;
-  final bool requireSavedContract;
-
-  /// Mantido por compatibilidade.
-  /// Não é usado no banner.
-  final String? textBanner;
-
-  const ContractTabDescriptor({
-    required this.label,
-    required this.builder,
-    this.textBanner,
-    this.requireSavedContract = false,
-  });
-}
-
-class StampConfig {
-  final bool show;
-  final bool approved;
-  final String? approvedLabel;
-  final String? pendingLabel;
-  final IconData? approvedIcon;
-  final IconData? pendingIcon;
-  final Color? approvedColor;
-  final Color? pendingColor;
-  final double scaleFactor;
-
-  const StampConfig({
-    required this.show,
-    required this.approved,
-    this.approvedLabel,
-    this.pendingLabel,
-    this.pendingIcon,
-    this.approvedIcon,
-    this.approvedColor,
-    this.pendingColor,
-    this.scaleFactor = 1.0,
-  });
-
-  static const hidden = StampConfig(
-    show: false,
-    approved: false,
-  );
-}
 
 typedef ResolveStampForTab = StampConfig Function({
 required int tabIndex,
@@ -82,13 +38,6 @@ class TabChanged extends StatefulWidget {
   /// DFD já carregado, caso a tela pai possua.
   final DfdData? dfdData;
 
-  /// Loader oficial para carregar DFD pelo contractId.
-  ///
-  /// Use assim na chamada:
-  ///
-  /// dfdLoader: (contractId) {
-  /// },
-  ///
   /// Se não for informado, este widget agora também tenta buscar automaticamente:
   final Future<DfdData?> Function(String contractId)? dfdLoader;
 
