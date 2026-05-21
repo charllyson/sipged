@@ -1,5 +1,3 @@
-// lib/_blocs/system/notification/notification_dispatcher.dart
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -509,28 +507,119 @@ class NotificationDispatcher {
       return NotificationSubSource.contractsHiringArquivamento.key;
     }
 
+    // -------------------------------------------------------------------------
+    // PAGAMENTOS
+    // Importante: pagamentos vêm antes de "medição", porque alguns textos podem
+    // conter "pagamento de medição". Nesse caso, a origem correta é pagamentos.
+    // -------------------------------------------------------------------------
+
     if (_containsAny(clean, const [
+      'payments_bulletin',
+      'payment_bulletin',
+      'financial_payments',
+      'payment_notification',
+      'pagamento_boletim',
+      'pagamento de boletim',
+      'pagamento medicao',
+      'pagamento medição',
+      'pagamento de medicao',
+      'pagamento de medição',
+      'pagamentos medicao',
+      'pagamentos medição',
+    ])) {
+      return NotificationSubSource.paymentsBulletin.key;
+    }
+
+    if (_containsAny(clean, const [
+      'payments_adjustments',
+      'payment_adjustment',
+      'financial_payments_adjustments',
+      'adjustment_payment_notification',
+      'pagamento_reajuste',
+      'pagamento de reajuste',
+      'pagamentos_reajuste',
+      'pagamentos de reajuste',
+    ])) {
+      return NotificationSubSource.paymentsAdjustments.key;
+    }
+
+    if (_containsAny(clean, const [
+      'payments_revision',
+      'payments_revisions',
+      'payment_revision',
+      'financial_payments_revisions',
+      'revision_payment_notification',
+      'pagamento_revisao',
+      'pagamento_revisão',
+      'pagamento de revisao',
+      'pagamento de revisão',
+      'pagamentos_revisao',
+      'pagamentos_revisão',
+      'pagamentos de revisao',
+      'pagamentos de revisão',
+    ])) {
+      return NotificationSubSource.paymentsRevision.key;
+    }
+
+    if (_containsAny(clean, const [
+      'payment',
+      'payments',
+      'pagamento',
+      'pagamentos',
+      'pago',
+      'paga',
+      'liquidacao',
+      'liquidação',
+      'financeiro',
+      'financial',
+    ])) {
+      return NotificationSubSource.paymentsBulletin.key;
+    }
+
+    // -------------------------------------------------------------------------
+    // MEDIÇÕES
+    // -------------------------------------------------------------------------
+
+    if (_containsAny(clean, const [
+      'measurements_bulletin',
+      'measurement_bulletin',
+      'operation_measurements',
+      'measurement_notification',
       'measurement',
       'measurements',
       'medicao',
       'medição',
+      'medicoes',
+      'medições',
       'boletim',
     ])) {
       return NotificationSubSource.measurementsBulletin.key;
     }
 
     if (_containsAny(clean, const [
+      'measurements_adjustments',
+      'measurement_adjustment',
+      'operation_measurements_adjustments',
+      'adjustment_measurement_notification',
       'adjustment',
       'adjustments',
       'reajuste',
+      'reajustes',
     ])) {
       return NotificationSubSource.measurementsAdjustments.key;
     }
 
     if (_containsAny(clean, const [
+      'measurements_revision',
+      'measurements_revisions',
+      'measurement_revision',
+      'operation_measurements_revisions',
+      'revision_measurement_notification',
       'revision',
       'revisao',
       'revisão',
+      'revisoes',
+      'revisões',
     ])) {
       return NotificationSubSource.measurementsRevision.key;
     }
@@ -546,6 +635,7 @@ class NotificationDispatcher {
     if (_containsAny(clean, const [
       'additive',
       'aditivo',
+      'aditivos',
     ])) {
       return NotificationSubSource.additivesGeneral.key;
     }
@@ -554,6 +644,7 @@ class NotificationDispatcher {
       'apostille',
       'apostila',
       'apostilamento',
+      'apostilamentos',
     ])) {
       return NotificationSubSource.apostillesGeneral.key;
     }

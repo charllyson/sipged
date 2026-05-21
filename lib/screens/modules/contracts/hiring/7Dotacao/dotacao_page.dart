@@ -88,8 +88,14 @@ class _DotacaoPageState extends State<DotacaoPage>
   String get _contractId => widget.contractId.trim();
 
   ContractData get _effectiveContract {
-    if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
-    if (_contractId.isNotEmpty) return _contract.copyWith(id: _contractId);
+    if ((_contract.id ?? '').trim().isNotEmpty) {
+      return _contract;
+    }
+
+    if (_contractId.isNotEmpty) {
+      return _contract.copyWith(id: _contractId);
+    }
+
     return _contract;
   }
 
@@ -134,7 +140,7 @@ class _DotacaoPageState extends State<DotacaoPage>
 
     _progressBloc = ProgressCubit(
       repo: ProgressRepository(
-        //tenantId: _tenantId,
+        tenantId: _tenantId,
       ),
     );
 
@@ -161,7 +167,9 @@ class _DotacaoPageState extends State<DotacaoPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    if (_pipelineProgressCubit != null) return;
+    if (_pipelineProgressCubit != null) {
+      return;
+    }
 
     try {
       _pipelineProgressCubit = context.read<ProgressCubit>();
@@ -173,7 +181,7 @@ class _DotacaoPageState extends State<DotacaoPage>
   @override
   void dispose() {
     _scrollController.dispose();
-    _progressBloc.close();
+    unawaited(_progressBloc.close());
     super.dispose();
   }
 
@@ -205,16 +213,23 @@ class _DotacaoPageState extends State<DotacaoPage>
 
   Future<void> _loadContract(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     if (mounted) {
-      setState(() => _loadingContract = true);
+      setState(() {
+        _loadingContract = true;
+      });
     }
 
     try {
       final snapshot = await _contractDocRef(cid).get();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _contract = snapshot.exists
@@ -223,11 +238,18 @@ class _DotacaoPageState extends State<DotacaoPage>
 
         _loadingContract = false;
       });
-    } catch (e, stack) {
-      debugPrint('[DotacaoPage] Erro ao carregar contrato $cid: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[DotacaoPage] Erro ao carregar contrato | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _contract = ContractData.empty().copyWith(id: cid);
@@ -238,18 +260,28 @@ class _DotacaoPageState extends State<DotacaoPage>
 
   Future<void> _loadDfdData(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     try {
       final data = await _dfdRepository.readDataForContract(cid);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _dfdData = data;
       });
-    } catch (e, stack) {
-      debugPrint('[DotacaoPage] Falha ao carregar DFD do contrato: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[DotacaoPage] Falha ao carregar DFD | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
     }
   }
@@ -258,10 +290,14 @@ class _DotacaoPageState extends State<DotacaoPage>
     final user = FirebaseAuth.instance.currentUser;
 
     final displayName = user?.displayName?.trim() ?? '';
-    if (displayName.isNotEmpty) return displayName;
+    if (displayName.isNotEmpty) {
+      return displayName;
+    }
 
     final email = user?.email?.trim() ?? '';
-    if (email.isNotEmpty) return email;
+    if (email.isNotEmpty) {
+      return email;
+    }
 
     return 'Usuário';
   }
@@ -276,13 +312,17 @@ class _DotacaoPageState extends State<DotacaoPage>
       for (final item in users) {
         if ((item.uid ?? '').trim() == uid) {
           final photo = item.urlPhoto?.trim() ?? '';
-          if (photo.isNotEmpty) return photo;
+          if (photo.isNotEmpty) {
+            return photo;
+          }
         }
       }
     }
 
     final firebasePhoto = user?.photoURL?.trim() ?? '';
-    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+    if (firebasePhoto.isNotEmpty) {
+      return firebasePhoto;
+    }
 
     return '';
   }
@@ -299,7 +339,9 @@ class _DotacaoPageState extends State<DotacaoPage>
     Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     final user = FirebaseAuth.instance.currentUser;
     final actorId = user?.uid.trim();
@@ -378,7 +420,9 @@ class _DotacaoPageState extends State<DotacaoPage>
         sectionsData: _formData.toSectionsMap(),
       );
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       if (!cubit.state.saveSuccess) {
         final err = cubit.state.error ?? 'Falha ao salvar';
@@ -397,7 +441,9 @@ class _DotacaoPageState extends State<DotacaoPage>
       await _loadContract(_contractId);
       await _loadDfdData(_contractId);
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -418,6 +464,7 @@ class _DotacaoPageState extends State<DotacaoPage>
           extra: <String, dynamic>{
             'action': 'dotacao_saved',
             'dotacaoId': cubit.state.dotacaoId,
+            'tenantId': _tenantId,
             'contractId': _contractId,
             'route': _route,
             'notificationSource': _notificationSource,
@@ -426,13 +473,23 @@ class _DotacaoPageState extends State<DotacaoPage>
       }
 
       return true;
-    } catch (e) {
-      if (!mounted) return false;
+    } catch (error, stack) {
+      debugPrint(
+        '[DotacaoPage] Erro em _saveOnly | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return false;
+      }
 
       await _notify(
         title: 'Dotação',
         subtitle: 'Erro ao salvar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -448,7 +505,9 @@ class _DotacaoPageState extends State<DotacaoPage>
 
     final saved = await _saveOnly(notifySuccess: false);
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final dotacaoId = dotacaoCubit.state.dotacaoId;
 
@@ -480,7 +539,9 @@ class _DotacaoPageState extends State<DotacaoPage>
         completed: true,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -505,19 +566,30 @@ class _DotacaoPageState extends State<DotacaoPage>
         extra: <String, dynamic>{
           'action': 'dotacao_approved',
           'dotacaoId': dotacaoId,
+          'tenantId': _tenantId,
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
           'nextStage': ProgressData.minuta,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[DotacaoPage] Erro em _saveApproveAndNext | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'Dotação',
         subtitle: 'Erro ao aprovar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -530,7 +602,9 @@ class _DotacaoPageState extends State<DotacaoPage>
 
     final saved = await _saveOnly(notifySuccess: false);
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final dotacaoId = dotacaoCubit.state.dotacaoId;
 
@@ -556,7 +630,9 @@ class _DotacaoPageState extends State<DotacaoPage>
         updatedByName: actorName,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -578,18 +654,29 @@ class _DotacaoPageState extends State<DotacaoPage>
         extra: <String, dynamic>{
           'action': 'dotacao_approval_updated',
           'dotacaoId': dotacaoId,
+          'tenantId': _tenantId,
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[DotacaoPage] Erro em _updateApproved | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'Dotação',
         subtitle: 'Erro ao atualizar aprovação.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -605,7 +692,9 @@ class _DotacaoPageState extends State<DotacaoPage>
               prev.dotacaoId != curr.dotacaoId;
         },
         listener: (context, state) {
-          if (!mounted || state.loading || !state.hasValidPath) return;
+          if (!mounted || state.loading || !state.hasValidPath) {
+            return;
+          }
 
           final incomingId = state.dotacaoId;
           final needsHydrate = !_hydrated || _currentDotId != incomingId;

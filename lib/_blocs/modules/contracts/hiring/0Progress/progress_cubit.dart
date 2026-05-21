@@ -1,5 +1,3 @@
-// lib/_blocs/modules/contracts/hiring/0Stages/progress_cubit.dart
-
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
@@ -8,7 +6,13 @@ import 'progress_repository.dart';
 import 'progress_state.dart';
 
 class ProgressCubit extends Cubit<ProgressState> {
-  ProgressCubit({required this.repo}) : super(ProgressState.initial());
+  ProgressCubit({
+    required this.repo,
+  }) : super(
+    ProgressState.initial(
+      tenantId: repo.tenantId,
+    ),
+  );
 
   final ProgressRepository repo;
 
@@ -22,6 +26,8 @@ class ProgressCubit extends Cubit<ProgressState> {
   String? _pipelineContractId;
 
   bool get _alive => !isClosed;
+
+  String get tenantId => repo.tenantId;
 
   // ===========================================================================
   // BIND DA ETAPA ATUAL
@@ -61,6 +67,7 @@ class ProgressCubit extends Cubit<ProgressState> {
     emit(
       state.copyWith(
         loading: true,
+        tenantId: tenantId,
         contractId: cleanContractId,
         collectionName: cleanCollectionName,
         clearError: true,
@@ -82,6 +89,7 @@ class ProgressCubit extends Cubit<ProgressState> {
               loading: false,
               approved: flags['approved'] == true,
               completed: flags['completed'] == true,
+              tenantId: tenantId,
               contractId: cleanContractId,
               collectionName: cleanCollectionName,
               clearError: true,
@@ -145,6 +153,7 @@ class ProgressCubit extends Cubit<ProgressState> {
     emit(
       state.copyWith(
         loading: true,
+        tenantId: tenantId,
         contractId: cleanContractId,
         clearError: true,
       ),
@@ -157,24 +166,30 @@ class ProgressCubit extends Cubit<ProgressState> {
   Future<void> refreshPipeline() async {
     final contractId = (_pipelineContractId ?? state.contractId ?? '').trim();
 
-    if (contractId.isEmpty) return;
+    if (contractId.isEmpty) {
+      return;
+    }
 
     emit(
       state.copyWith(
         loading: true,
+        tenantId: tenantId,
         contractId: contractId,
         clearError: true,
       ),
     );
 
     try {
-      final completed = await repo.loadAllStages(contractId: contractId);
+      final completed = await repo.loadAllStages(
+        contractId: contractId,
+      );
 
       if (!_alive) return;
 
       emit(
         state.copyWith(
           loading: false,
+          tenantId: tenantId,
           contractId: contractId,
           completedByStage: completed,
           clearError: true,
@@ -195,14 +210,18 @@ class ProgressCubit extends Cubit<ProgressState> {
   Future<void> watchPipeline() async {
     final contractId = (_pipelineContractId ?? state.contractId ?? '').trim();
 
-    if (contractId.isEmpty) return;
+    if (contractId.isEmpty) {
+      return;
+    }
 
     await _cancelPipelineWatches();
 
     for (final stageKey in ProgressRepository.orderedStages) {
       final collectionName = repo.collectionNameOf(stageKey);
 
-      if (collectionName == null) continue;
+      if (collectionName == null) {
+        continue;
+      }
 
       final sub = repo
           .watchApprovalAndCompleted(
@@ -221,6 +240,7 @@ class ProgressCubit extends Cubit<ProgressState> {
           emit(
             state.copyWith(
               loading: false,
+              tenantId: tenantId,
               contractId: contractId,
               completedByStage: updated,
               clearError: true,
@@ -244,16 +264,25 @@ class ProgressCubit extends Cubit<ProgressState> {
   }
 
   bool isCompleted(String stageKey) {
-    return state.completedByStage[stageKey] == true;
+    return state.completedByStage[stageKey.trim()] == true;
   }
 
   bool isStageEnabled(String stageKey) {
-    if (state.forceEnabledByStage[stageKey] == true) return true;
+    final cleanStageKey = stageKey.trim();
 
-    final index = ProgressRepository.orderedStages.indexOf(stageKey);
+    if (state.forceEnabledByStage[cleanStageKey] == true) {
+      return true;
+    }
 
-    if (index < 0) return false;
-    if (index == 0) return true;
+    final index = ProgressRepository.orderedStages.indexOf(cleanStageKey);
+
+    if (index < 0) {
+      return false;
+    }
+
+    if (index == 0) {
+      return true;
+    }
 
     for (int i = 0; i < index; i++) {
       final previousStage = ProgressRepository.orderedStages[i];
@@ -267,8 +296,14 @@ class ProgressCubit extends Cubit<ProgressState> {
   }
 
   void setStageEnabled(String stageKey, bool enabled) {
+    final cleanStageKey = stageKey.trim();
+
+    if (cleanStageKey.isEmpty) {
+      return;
+    }
+
     final updated = Map<String, bool>.from(state.forceEnabledByStage);
-    updated[stageKey] = enabled;
+    updated[cleanStageKey] = enabled;
 
     emit(
       state.copyWith(

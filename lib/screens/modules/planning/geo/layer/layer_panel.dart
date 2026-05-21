@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
+
 import 'package:sipged/screens/modules/planning/geo/layer/layer_draggable.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_group.dart';
+import 'package:sipged/screens/modules/planning/geo/layer/layer_root.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_row.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_target.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_toolbar.dart';
@@ -34,10 +37,6 @@ class LayerPanel extends StatefulWidget {
   final String? selectedId;
   final ValueChanged<String>? onSelectedChanged;
 
-  /// Chamado quando o usuário clica no fundo da lista de layers.
-  ///
-  /// Como seu fluxo atual usa `String`, normalmente o pai pode limpar usando:
-  /// `onSelectedChanged('')`.
   final VoidCallback? onClearSelection;
 
   const LayerPanel({
@@ -172,6 +171,44 @@ class _LayerPanelState extends State<LayerPanel>
     return ids;
   }
 
+  int _countGroups(List<LayerData> nodes) {
+    var count = 0;
+
+    void walk(List<LayerData> list) {
+      for (final node in list) {
+        if (node.isGroup) {
+          count++;
+        }
+
+        if (node.children.isNotEmpty) {
+          walk(node.children);
+        }
+      }
+    }
+
+    walk(nodes);
+    return count;
+  }
+
+  int _countLayers(List<LayerData> nodes) {
+    var count = 0;
+
+    void walk(List<LayerData> list) {
+      for (final node in list) {
+        if (!node.isGroup) {
+          count++;
+        }
+
+        if (node.children.isNotEmpty) {
+          walk(node.children);
+        }
+      }
+    }
+
+    walk(nodes);
+    return count;
+  }
+
   bool _existsLayerWithId(List<LayerData> nodes, String id) {
     for (final n in nodes) {
       if (n.id == id) return true;
@@ -262,12 +299,23 @@ class _LayerPanelState extends State<LayerPanel>
   }
 
   bool _canEditNode(LayerData node) {
+    final uid = _currentUserId;
+    if (uid.isEmpty) return false;
+
+    if (node.isOwner(uid)) return true;
+
+    final nodePermission = node.permissionFor(uid);
+    if (nodePermission == LayerSharePermission.edit) return true;
+
     if (!node.isGroup) {
       return _canEditLayer(node);
     }
 
     final leaves = _flattenLeaves(node);
-    if (leaves.isEmpty) return false;
+
+    if (leaves.isEmpty) {
+      return false;
+    }
 
     for (final leaf in leaves) {
       if (!_canEditLayer(leaf)) return false;
@@ -549,6 +597,25 @@ class _LayerPanelState extends State<LayerPanel>
             height: 1,
             color: theme.dividerColor.withValues(alpha: 0.7),
           ),
+          LayerRootHeader(
+            layersCount: _countLayers(widget.layers),
+            groupsCount: _countGroups(widget.layers),
+            onTap: _clearSelection,
+            onDropItem: (draggedId, targetParentId, targetIndex) {
+              if (!_canDropOnTarget(
+                draggedId: draggedId,
+                targetParentId: targetParentId,
+              )) {
+                return;
+              }
+
+              widget.onDropItem?.call(
+                draggedId,
+                targetParentId,
+                targetIndex,
+              );
+            },
+          ),
           Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
@@ -557,7 +624,7 @@ class _LayerPanelState extends State<LayerPanel>
                 thumbVisibility: true,
                 child: ListView.builder(
                   key: const PageStorageKey('layers_panel_list'),
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.only(bottom: 4),
                   itemCount: visibleEntries.length,
                   itemBuilder: (context, index) {
                     final item = visibleEntries[index];

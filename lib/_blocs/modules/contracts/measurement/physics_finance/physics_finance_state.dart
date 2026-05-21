@@ -1,8 +1,9 @@
-// lib/_blocs/modules/operation/phys_fin/physics_finance_state.dart
+// lib/_blocs/modules/contracts/measurement/physics_finance/physics_finance_state.dart
 
 import 'package:equatable/equatable.dart';
 
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+
 import 'physics_finance_data.dart';
 
 class PhysicsFinanceState extends Equatable {
@@ -19,7 +20,10 @@ class PhysicsFinanceState extends Equatable {
   /// termOrder -> PhysicsFinanceData
   final Map<int, PhysicsFinanceData> schedulesByTerm;
 
-  /// termOrder -> itemId/serviceKey -> percentuais
+  /// termOrder -> serviceKey -> percentuais
+  ///
+  /// Ajustado para usar serviceKey como chave única e estável.
+  /// Antes havia mistura entre item numérico e serviceKey.
   final Map<int, Map<String, List<double>>> gridByTerm;
 
   const PhysicsFinanceState({
@@ -52,8 +56,7 @@ class PhysicsFinanceState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
       termsLoaded: termsLoaded ?? this.termsLoaded,
-      errorMessage:
-      clearErrorMessage ? null : errorMessage ?? this.errorMessage,
+      errorMessage: clearErrorMessage ? null : errorMessage ?? this.errorMessage,
       additives: additives ?? this.additives,
       termAdditiveId: termAdditiveId ?? this.termAdditiveId,
       schedulesByTerm: schedulesByTerm ?? this.schedulesByTerm,
@@ -63,7 +66,7 @@ class PhysicsFinanceState extends Equatable {
 
   @override
   List<Object?> get props {
-    return [
+    return <Object?>[
       isLoading,
       isSaving,
       termsLoaded,

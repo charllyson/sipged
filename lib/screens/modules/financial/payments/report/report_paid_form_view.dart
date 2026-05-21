@@ -1,12 +1,24 @@
+// lib/screens/modules/financial/payments/report/report_measurement_payment_form_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_executed_data.dart';
+
 import 'package:sipged/_blocs/modules/financial/payments/report/report_paid_cubit.dart';
 import 'package:sipged/_blocs/modules/financial/payments/report/report_paid_data.dart';
 import 'package:sipged/_blocs/modules/financial/payments/report/report_paid_state.dart';
+
+import 'package:sipged/_blocs/system/notification/helpers/notification_payments.dart';
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
 import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
 
@@ -67,22 +79,29 @@ class _ReportMeasurementPaymentFormViewState
 
   late final TextEditingController _noteCtrl;
 
+  DfdData? _dfdData;
+
   int _formNonce = 0;
   int _fundingNonce = 0;
 
   bool _startupLoaded = false;
+  bool _loadingDfdSummary = false;
   bool _formOk = false;
 
   String get _contractId {
-    return widget.contractData.id?.trim() ?? '';
+    return _s(widget.contractData.id);
   }
 
   String get _measurementId {
-    return widget.selectedReportMeasurement.id?.trim() ?? '';
+    return _s(widget.selectedReportMeasurement.id);
   }
 
   double get _measurementValue {
-    return widget.selectedReportMeasurement.value ?? 0.0;
+    final value = widget.selectedReportMeasurement.value ?? 0.0;
+
+    if (!value.isFinite || value < 0) return 0.0;
+
+    return value;
   }
 
   int? get _measurementOrder {
@@ -90,9 +109,42 @@ class _ReportMeasurementPaymentFormViewState
 
     if (fromModel != null) return fromModel;
 
-    final fromText = int.tryParse(widget.orderController.text.trim());
+    final text = widget.orderController.text.trim();
 
-    return fromText;
+    if (text.isEmpty) return null;
+
+    return int.tryParse(text);
+  }
+
+  String get _contractSummary {
+    final descricaoObjeto = _s(_dfdData?.descricaoObjeto);
+
+    if (descricaoObjeto.isNotEmpty && !_looksLikeIdOnly(descricaoObjeto)) {
+      return descricaoObjeto;
+    }
+
+    final summary = _s(widget.contractData.displaySummary);
+
+    if (summary.isNotEmpty && !_looksLikeIdOnly(summary)) {
+      return summary;
+    }
+
+    return 'Obra vinculada';
+  }
+
+  bool _looksLikeIdOnly(String value) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) return false;
+
+    final withoutSeparators = clean.replaceAll(RegExp(r'[-_/.\s]'), '');
+
+    if (withoutSeparators.length < 16) return false;
+
+    final hasLetter = RegExp(r'[A-Za-z]').hasMatch(withoutSeparators);
+    final hasNumber = RegExp(r'[0-9]').hasMatch(withoutSeparators);
+
+    return hasLetter && hasNumber;
   }
 
   @override
@@ -141,6 +193,8 @@ class _ReportMeasurementPaymentFormViewState
 
       tenantCubit.ensureTenantProfileLoaded();
       tenantCubit.ensureTenantItemsLoaded();
+
+      _loadDfdSummary();
     });
   }
 
@@ -155,11 +209,19 @@ class _ReportMeasurementPaymentFormViewState
       _orderCtrl.text = nextOrder;
     }
 
-    final oldMeasurementId = oldWidget.selectedReportMeasurement.id?.trim();
-    final nextMeasurementId = widget.selectedReportMeasurement.id?.trim();
+    final oldMeasurementId = _s(oldWidget.selectedReportMeasurement.id);
+    final nextMeasurementId = _s(widget.selectedReportMeasurement.id);
 
     if (oldMeasurementId != nextMeasurementId) {
       _fillFromPayment(null);
+    }
+
+    final oldContractId = _s(oldWidget.contractData.id);
+    final nextContractId = _s(widget.contractData.id);
+
+    if (oldContractId != nextContractId) {
+      _dfdData = null;
+      _loadDfdSummary();
     }
   }
 
@@ -209,7 +271,55 @@ class _ReportMeasurementPaymentFormViewState
   }
 
   String _s(Object? value) {
-    return (value is String ? value : value?.toString() ?? '').trim();
+    final text = value?.toString().trim() ?? '';
+
+    if (text.toLowerCase() == 'null') return '';
+
+    return text;
+  }
+
+  String? _activeTenantId() {
+    try {
+      final tenantId = context.read<PermissionCubit>().state.activeTenantId;
+      final clean = _s(tenantId);
+
+      if (clean.isEmpty) return null;
+
+      return clean;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _loadDfdSummary() async {
+    if (_loadingDfdSummary) return;
+
+    final tenantId = _activeTenantId();
+    final contractId = _contractId;
+
+    if (tenantId == null || tenantId.trim().isEmpty) return;
+    if (contractId.trim().isEmpty) return;
+
+    _loadingDfdSummary = true;
+
+    try {
+      final repository = DfdRepository(
+        tenantId: tenantId.trim(),
+      );
+
+      final dfd = await repository.readDataForContract(contractId.trim());
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdData = dfd;
+      });
+    } catch (e, stack) {
+      debugPrint('Falha ao carregar DFD para resumo do pagamento: $e');
+      debugPrintStack(stackTrace: stack);
+    } finally {
+      _loadingDfdSummary = false;
+    }
   }
 
   String? _findByLabel(List<String> list, String label) {
@@ -547,6 +657,170 @@ class _ReportMeasurementPaymentFormViewState
         (_parseOptionalCurrency(_issValueCtrl.text) ?? 0.0);
   }
 
+  Future<void> _notifyPaymentSaved({
+    required ReportPaidData payment,
+    required bool wasEditing,
+  }) async {
+    if (!mounted) return;
+
+    final tenantId = _activeTenantId();
+
+    if (tenantId == null || tenantId.isEmpty) return;
+
+    final measurementOrderText = _measurementOrder?.toString().trim() ?? '';
+
+    final paymentValue = payment.paymentValue ?? 0.0;
+    final retentionsValue = _totalRetencoesFormulario();
+    final totalValue = paymentValue + retentionsValue;
+
+    final actionLabel = wasEditing ? 'atualizado' : 'registrado';
+
+    final title = measurementOrderText.isNotEmpty
+        ? 'Pagamento da medição $measurementOrderText $actionLabel'
+        : 'Pagamento de medição $actionLabel';
+
+    await NotificationPayments.show(
+      context: context,
+      contract: widget.contractData,
+      title: title,
+      subtitle: _contractSummary,
+      details: wasEditing
+          ? 'O pagamento da medição foi atualizado.'
+          : 'O pagamento da medição foi registrado.',
+      kind: NotificationPaymentKind.bulletin,
+      status: NotificationStatus.success,
+      delivery: NotificationDelivery.localBellAndPush,
+      saveInBell: true,
+      sendPush: true,
+      includeCurrentUser: true,
+      tenantId: tenantId,
+      companyId: tenantId,
+      contractSummary: _contractSummary,
+      contractTitle: _contractSummary,
+      descricaoObjeto: _contractSummary,
+      nomeDemanda: _contractSummary,
+      action: wasEditing ? 'payment_updated' : 'payment_created',
+      paymentDate: payment.paymentDate,
+      paymentValue: payment.paymentValue,
+      paymentMainValue: payment.paymentValue,
+      paymentRetentionsValue: retentionsValue,
+      paymentTotalValue: totalValue,
+      paymentMeasurementNumber: measurementOrderText,
+      paymentMeasurementOrder: measurementOrderText,
+      paymentMeasurementDate: widget.selectedReportMeasurement.date,
+      paymentMeasurementValue: _measurementValue,
+      measurementNumber: measurementOrderText,
+      measurementOrder: measurementOrderText,
+      measurementDate: widget.selectedReportMeasurement.date,
+      measurementValue: _measurementValue,
+      extra: <String, dynamic>{
+        'action': wasEditing ? 'payment_updated' : 'payment_created',
+        'paymentType': 'measurement_payment',
+        'sourceModule': 'financial_payments_report',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'summarySubjectContract': _contractSummary,
+        'contractSummary': _contractSummary,
+        'contractTitle': _contractSummary,
+        'descricaoObjeto': _contractSummary,
+        'nomeDemanda': _contractSummary,
+        'measurementOrder': measurementOrderText,
+        'paymentMeasurementOrder': measurementOrderText,
+        'fundingSourceLabel': payment.fundingSourceLabel,
+        'paymentValue': payment.paymentValue,
+        'paymentMainValue': payment.paymentValue,
+        'inssPaymentValue': payment.inssPaymentValue,
+        'irpfPaymentValue': payment.irpfPaymentValue,
+        'issPaymentValue': payment.issPaymentValue,
+        'paymentRetentionsValue': retentionsValue,
+        'paymentTotalValue': totalValue,
+      },
+    );
+  }
+
+  Future<void> _notifyPaymentDeleted({
+    required ReportPaidData payment,
+  }) async {
+    if (!mounted) return;
+
+    final tenantId = _activeTenantId();
+
+    if (tenantId == null || tenantId.isEmpty) return;
+
+    final measurementOrderText =
+    payment.measurementOrder?.toString().trim().isNotEmpty == true
+        ? payment.measurementOrder.toString().trim()
+        : _measurementOrder?.toString().trim() ?? '';
+
+    final paymentValue = payment.paymentValue ?? 0.0;
+
+    final retentionsValue = _positive(payment.inssPaymentValue) +
+        _positive(payment.irpfPaymentValue) +
+        _positive(payment.issPaymentValue);
+
+    final totalValue = paymentValue + retentionsValue;
+
+    final title = measurementOrderText.isNotEmpty
+        ? 'Pagamento da medição $measurementOrderText excluído'
+        : 'Pagamento de medição excluído';
+
+    await NotificationPayments.show(
+      context: context,
+      contract: widget.contractData,
+      title: title,
+      subtitle: _contractSummary,
+      details: 'O pagamento da medição foi excluído.',
+      kind: NotificationPaymentKind.bulletin,
+      status: NotificationStatus.warning,
+      delivery: NotificationDelivery.localBellAndPush,
+      saveInBell: true,
+      sendPush: true,
+      includeCurrentUser: true,
+      tenantId: tenantId,
+      companyId: tenantId,
+      contractSummary: _contractSummary,
+      contractTitle: _contractSummary,
+      descricaoObjeto: _contractSummary,
+      nomeDemanda: _contractSummary,
+      action: 'payment_deleted',
+      paymentDate: payment.paymentDate,
+      paymentValue: payment.paymentValue,
+      paymentMainValue: payment.paymentValue,
+      paymentRetentionsValue: retentionsValue,
+      paymentTotalValue: totalValue,
+      paymentMeasurementNumber: measurementOrderText,
+      paymentMeasurementOrder: measurementOrderText,
+      paymentMeasurementDate: widget.selectedReportMeasurement.date,
+      paymentMeasurementValue: _measurementValue,
+      measurementNumber: measurementOrderText,
+      measurementOrder: measurementOrderText,
+      measurementDate: widget.selectedReportMeasurement.date,
+      measurementValue: _measurementValue,
+      extra: <String, dynamic>{
+        'action': 'payment_deleted',
+        'paymentType': 'measurement_payment',
+        'sourceModule': 'financial_payments_report',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'summarySubjectContract': _contractSummary,
+        'contractSummary': _contractSummary,
+        'contractTitle': _contractSummary,
+        'descricaoObjeto': _contractSummary,
+        'nomeDemanda': _contractSummary,
+        'measurementOrder': measurementOrderText,
+        'paymentMeasurementOrder': measurementOrderText,
+        'fundingSourceLabel': payment.fundingSourceLabel,
+        'paymentValue': payment.paymentValue,
+        'paymentMainValue': payment.paymentValue,
+        'inssPaymentValue': payment.inssPaymentValue,
+        'irpfPaymentValue': payment.irpfPaymentValue,
+        'issPaymentValue': payment.issPaymentValue,
+        'paymentRetentionsValue': retentionsValue,
+        'paymentTotalValue': totalValue,
+      },
+    );
+  }
+
   Future<void> _savePayment({
     required ReportPaidCubit cubit,
     required ScaffoldMessengerState scaffoldMessenger,
@@ -574,6 +848,8 @@ class _ReportMeasurementPaymentFormViewState
       return;
     }
 
+    final wasEditing = selected?.id?.trim().isNotEmpty == true;
+
     final data = ReportPaidData(
       id: selected?.id,
       contractId: _contractId,
@@ -590,13 +866,20 @@ class _ReportMeasurementPaymentFormViewState
       issPaymentDate: issDate,
       issPaymentValue: issValue,
       note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-      attachments: attachments.isEmpty ? null : List<Attachment>.from(attachments),
+      attachments:
+      attachments.isEmpty ? null : List<Attachment>.from(attachments),
     );
 
     try {
       await cubit.saveOrUpdate(
+        contract: widget.contractData,
         data: data,
         measurementValue: _measurementValue,
+      );
+
+      await _notifyPaymentSaved(
+        payment: data,
+        wasEditing: wasEditing,
       );
 
       await _notifyParentPaymentsChanged();
@@ -627,11 +910,14 @@ class _ReportMeasurementPaymentFormViewState
 
     try {
       await cubit.deletePayment(
+        contract: widget.contractData,
         contractId: _contractId,
         measurementId: _measurementId,
         paymentId: id,
         measurementValue: _measurementValue,
       );
+
+      await _notifyPaymentDeleted(payment: payment);
 
       await _notifyParentPaymentsChanged();
 
@@ -665,6 +951,7 @@ class _ReportMeasurementPaymentFormViewState
 
     try {
       await cubit.pickAndUploadAttachment(
+        contract: widget.contractData,
         contractId: _contractId,
         measurementId: _measurementId,
         paymentId: paymentId,
@@ -701,6 +988,7 @@ class _ReportMeasurementPaymentFormViewState
 
     try {
       await cubit.deleteAttachment(
+        contract: widget.contractData,
         contractId: _contractId,
         measurementId: _measurementId,
         paymentId: paymentId,
@@ -735,6 +1023,7 @@ class _ReportMeasurementPaymentFormViewState
 
     try {
       await cubit.renameAttachmentLabel(
+        contract: widget.contractData,
         contractId: _contractId,
         measurementId: _measurementId,
         paymentId: paymentId,

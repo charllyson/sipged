@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
@@ -18,8 +19,9 @@ class WorkspaceRepository {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
 
-  DocumentReference<Map<String, dynamic>> get _workspaceRootDoc =>
-      _firestore.collection('geo').doc('workspace');
+  DocumentReference<Map<String, dynamic>> get _workspaceRootDoc {
+    return _firestore.collection('geo').doc('workspace');
+  }
 
   DocumentReference<Map<String, dynamic>> _scopeDocRef(
       WorkspaceScopeData scope,
@@ -37,7 +39,10 @@ class WorkspaceRepository {
     required WorkspaceScopeData scope,
   }) async {
     final snap = await _scopeDocRef(scope).get();
-    if (!snap.exists) return const <WorkspaceData>[];
+
+    if (!snap.exists) {
+      return const <WorkspaceData>[];
+    }
 
     final data = snap.data() ?? const <String, dynamic>{};
     final rawItems = (data['items'] as List?) ?? const [];
@@ -152,7 +157,9 @@ class WorkspaceRepository {
     required Map<String, List<FeatureData>> featuresByLayer,
     WorkspaceFilter? activeFilter,
   }) {
-    if (items.isEmpty) return const <WorkspaceData>[];
+    if (items.isEmpty) {
+      return const <WorkspaceData>[];
+    }
 
     return items
         .map(
@@ -223,6 +230,30 @@ class WorkspaceRepository {
           fallbackSort: 'descending',
         );
 
+      case CatalogType.selectorDates:
+        return _resolveDateSelector(
+          item: item,
+          featuresByLayer: featuresByLayer,
+          activeFilter: activeFilter,
+          titleKey: 'title',
+        );
+
+      case CatalogType.dateField:
+        return _resolveInputField(
+          item: item,
+          titleKey: 'labelText',
+          fallbackTitle: 'Campo de data',
+          subtitle: item.getNullableTextProperty('hintText'),
+        );
+
+      case CatalogType.timeField:
+        return _resolveInputField(
+          item: item,
+          titleKey: 'labelText',
+          fallbackTitle: 'Campo de hora',
+          subtitle: item.getNullableTextProperty('hintText'),
+        );
+
       case CatalogType.costRuler:
         return _resolvePendingItem(
           item: item,
@@ -244,22 +275,6 @@ class WorkspaceRepository {
           item: item,
           titleKey: 'title',
           fallbackTitle: 'Radar',
-          subtitle: 'Componente em implementação',
-        );
-
-      case CatalogType.selectorDates:
-        return _resolvePendingItem(
-          item: item,
-          titleKey: 'title',
-          fallbackTitle: 'Seletor de datas',
-          subtitle: 'Componente em implementação',
-        );
-
-      case CatalogType.dateField:
-        return _resolvePendingItem(
-          item: item,
-          titleKey: 'labelText',
-          fallbackTitle: 'Campo de data',
           subtitle: 'Componente em implementação',
         );
 
@@ -289,14 +304,14 @@ class WorkspaceRepository {
     }
   }
 
-  WorkspaceFilter? toggleBarFilter({
+  WorkspaceFilter? toggleItemFilter({
     required WorkspaceData item,
     required String label,
     required double? value,
     WorkspaceFilter? currentFilter,
   }) {
     final sourceLayerId = item.sourceLayerId;
-    final sourceField = item.getBindingFieldName('labelField');
+    final sourceField = _sourceFieldForFilter(item);
 
     if (sourceLayerId == null || sourceLayerId.isEmpty) {
       return currentFilter;
@@ -327,14 +342,31 @@ class WorkspaceRepository {
     );
   }
 
+  WorkspaceFilter? toggleBarFilter({
+    required WorkspaceData item,
+    required String label,
+    required double? value,
+    WorkspaceFilter? currentFilter,
+  }) {
+    return toggleItemFilter(
+      item: item,
+      label: label,
+      value: value,
+      currentFilter: currentFilter,
+    );
+  }
+
   List<FeatureData> applyFilterToItemFeatures({
     required WorkspaceData item,
     required List<FeatureData> features,
     WorkspaceFilter? activeFilter,
   }) {
-    if (activeFilter == null) return features;
+    if (activeFilter == null) {
+      return features;
+    }
 
     final itemSourceLayerId = item.sourceLayerId;
+
     if (itemSourceLayerId == null || itemSourceLayerId.isEmpty) {
       return features;
     }
@@ -349,8 +381,11 @@ class WorkspaceRepository {
 
     return features.where((feature) {
       final raw = _featureValue(feature, activeFilter.sourceField);
-      final current = _normalizeLabel(raw);
-      return current == activeFilter.label;
+
+      return _matchesFilterValue(
+        raw: raw,
+        filterLabel: activeFilter.label,
+      );
     }).toList(growable: false);
   }
 
@@ -373,6 +408,7 @@ class WorkspaceRepository {
     }
 
     final allFeatures = featuresByLayer[sourceLayerId] ?? const <FeatureData>[];
+
     if (allFeatures.isEmpty) {
       return item.copyWithResolvedData(
         title: title,
@@ -397,8 +433,10 @@ class WorkspaceRepository {
 
     final labelField = item.getBindingFieldName('labelField');
     final valueField = item.getBindingFieldName('valueField');
-    final aggregation = item.getNullableSelectedProperty('aggregation') ?? 'Soma';
-    final sortType = item.getNullableSelectedProperty('sortType') ?? fallbackSort;
+    final aggregation =
+        item.getNullableSelectedProperty('aggregation') ?? 'Soma';
+    final sortType =
+        item.getNullableSelectedProperty('sortType') ?? fallbackSort;
 
     if (labelField == null || labelField.isEmpty) {
       return item.copyWithResolvedData(
@@ -408,7 +446,8 @@ class WorkspaceRepository {
       );
     }
 
-    if (aggregation != 'Contagem' && (valueField == null || valueField.isEmpty)) {
+    if (aggregation != 'Contagem' &&
+        (valueField == null || valueField.isEmpty)) {
       return item.copyWithResolvedData(
         title: title,
         labels: null,
@@ -440,6 +479,107 @@ class WorkspaceRepository {
     );
   }
 
+  WorkspaceData _resolveDateSelector({
+    required WorkspaceData item,
+    required Map<String, List<FeatureData>> featuresByLayer,
+    required WorkspaceFilter? activeFilter,
+    required String titleKey,
+  }) {
+    final sourceLayerId = item.sourceLayerId;
+    final title = item.getNullableTextProperty(titleKey);
+
+    if (sourceLayerId == null || sourceLayerId.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        labels: null,
+        values: null,
+      );
+    }
+
+    final allFeatures = featuresByLayer[sourceLayerId] ?? const <FeatureData>[];
+
+    if (allFeatures.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        labels: null,
+        values: null,
+      );
+    }
+
+    final dateField = item.getBindingFieldName('dateField');
+
+    if (dateField == null || dateField.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        labels: null,
+        values: null,
+      );
+    }
+
+    final filteredFeatures = applyFilterToItemFeatures(
+      item: item,
+      features: allFeatures,
+      activeFilter: activeFilter,
+    );
+
+    if (filteredFeatures.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        labels: const <String>[],
+        values: const <double>[],
+      );
+    }
+
+    final groupedByDay = <String, double>{};
+
+    for (final feature in filteredFeatures) {
+      final raw = _featureValue(feature, dateField);
+      final date = _toDate(raw);
+
+      if (date == null) {
+        continue;
+      }
+
+      final label = _formatDateLabel(date);
+
+      groupedByDay[label] = (groupedByDay[label] ?? 0.0) + 1.0;
+    }
+
+    if (groupedByDay.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        labels: const <String>[],
+        values: const <double>[],
+      );
+    }
+
+    final rows = groupedByDay.entries
+        .map(
+          (entry) => _GroupedRow(
+        label: entry.key,
+        value: entry.value,
+      ),
+    )
+        .toList(growable: false);
+
+    rows.sort((a, b) {
+      final da = _parseDateLabel(a.label);
+      final db = _parseDateLabel(b.label);
+
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+
+      return da.compareTo(db);
+    });
+
+    return item.copyWithResolvedData(
+      title: title,
+      labels: rows.map((e) => e.label).toList(growable: false),
+      values: rows.map((e) => e.value).toList(growable: false),
+    );
+  }
+
   WorkspaceData _resolveMetricCard({
     required WorkspaceData item,
     required Map<String, List<FeatureData>> featuresByLayer,
@@ -461,6 +601,7 @@ class WorkspaceRepository {
     }
 
     final allFeatures = featuresByLayer[sourceLayerId] ?? const <FeatureData>[];
+
     if (allFeatures.isEmpty) {
       return item.copyWithResolvedData(
         title: title,
@@ -482,11 +623,13 @@ class WorkspaceRepository {
         item.getNullableSelectedProperty('aggregation') ?? 'Contagem';
 
     String? resolvedLabel;
+
     if (labelField != null && labelField.isNotEmpty) {
       resolvedLabel = _firstNonEmptyValue(filteredFeatures, labelField);
     }
 
     String? resolvedValue;
+
     if (aggregation == 'Contagem') {
       resolvedValue = filteredFeatures.length.toString();
     } else if (valueField != null && valueField.isNotEmpty) {
@@ -498,10 +641,12 @@ class WorkspaceRepository {
     }
 
     String? subtitle = baseSubtitle;
+
     if (activeFilter != null &&
         item.id != activeFilter.sourceItemId &&
         item.sourceLayerId == activeFilter.sourceLayerId) {
       final info = 'Filtro: ${activeFilter.label}';
+
       subtitle = (baseSubtitle == null || baseSubtitle.trim().isEmpty)
           ? info
           : '$baseSubtitle • $info';
@@ -512,6 +657,24 @@ class WorkspaceRepository {
       subtitle: subtitle,
       label: resolvedLabel,
       value: resolvedValue,
+    );
+  }
+
+  WorkspaceData _resolveInputField({
+    required WorkspaceData item,
+    required String titleKey,
+    required String fallbackTitle,
+    String? subtitle,
+  }) {
+    final title = item.getNullableTextProperty(titleKey) ?? fallbackTitle;
+
+    return item.copyWithResolvedData(
+      title: title,
+      subtitle: subtitle,
+      label: null,
+      value: null,
+      labels: null,
+      values: null,
     );
   }
 
@@ -533,6 +696,40 @@ class WorkspaceRepository {
     );
   }
 
+  String? _sourceFieldForFilter(WorkspaceData item) {
+    switch (item.type) {
+      case CatalogType.selectorDates:
+        return item.getBindingFieldName('dateField');
+
+      case CatalogType.dateField:
+        return item.getBindingFieldName('dateField');
+
+      case CatalogType.timeField:
+        return item.getBindingFieldName('timeField');
+
+      case CatalogType.card:
+        return item.getBindingFieldName('label');
+
+      case CatalogType.barVertical:
+      case CatalogType.donut:
+      case CatalogType.line:
+      case CatalogType.horizontalBars:
+      case CatalogType.treemap:
+      case CatalogType.radar:
+        return item.getBindingFieldName('labelField');
+
+      case CatalogType.costRuler:
+      case CatalogType.gauge:
+      case CatalogType.switcher:
+      case CatalogType.textField:
+      case CatalogType.pagedTable:
+        return item.getBindingFieldName('labelField') ??
+            item.getBindingFieldName('label') ??
+            item.getBindingFieldName('dateField') ??
+            item.getBindingFieldName('timeField');
+    }
+  }
+
   List<_GroupedRow> _groupAndAggregate({
     required List<FeatureData> features,
     required String labelField,
@@ -551,10 +748,15 @@ class WorkspaceRepository {
         continue;
       }
 
-      if (valueField == null || valueField.isEmpty) continue;
+      if (valueField == null || valueField.isEmpty) {
+        continue;
+      }
 
       final value = _toDouble(_featureValue(feature, valueField));
-      if (value == null) continue;
+
+      if (value == null) {
+        continue;
+      }
 
       grouped.putIfAbsent(label, () => <double>[]);
       grouped[label]!.add(value);
@@ -573,7 +775,12 @@ class WorkspaceRepository {
         _ => values.reduce((a, b) => a + b),
       };
 
-      result.add(_GroupedRow(label: label, value: resolvedValue));
+      result.add(
+        _GroupedRow(
+          label: label,
+          value: resolvedValue,
+        ),
+      );
     });
 
     return result;
@@ -586,15 +793,19 @@ class WorkspaceRepository {
       case 'ascending':
         next.sort((a, b) => a.value.compareTo(b.value));
         break;
+
       case 'descending':
         next.sort((a, b) => b.value.compareTo(a.value));
         break;
+
       case 'labelAZ':
         next.sort((a, b) => a.label.compareTo(b.label));
         break;
+
       case 'labelZA':
         next.sort((a, b) => b.label.compareTo(a.label));
         break;
+
       case 'none':
       default:
         break;
@@ -617,7 +828,9 @@ class WorkspaceRepository {
         .whereType<double>()
         .toList(growable: false);
 
-    if (values.isEmpty) return null;
+    if (values.isEmpty) {
+      return null;
+    }
 
     final result = switch (aggregation) {
       'Média' => values.reduce((a, b) => a + b) / values.length,
@@ -627,6 +840,7 @@ class WorkspaceRepository {
     };
 
     final isInteger = result == result.truncateToDouble();
+
     return isInteger ? result.toStringAsFixed(0) : result.toStringAsFixed(2);
   }
 
@@ -636,10 +850,16 @@ class WorkspaceRepository {
       ) {
     for (final feature in features) {
       final raw = _featureValue(feature, field);
-      if (raw == null) continue;
+
+      if (raw == null) {
+        continue;
+      }
 
       final text = raw.toString().trim();
-      if (text.isNotEmpty) return text;
+
+      if (text.isNotEmpty) {
+        return text;
+      }
     }
 
     return null;
@@ -649,7 +869,42 @@ class WorkspaceRepository {
     if (feature.editedProperties.containsKey(field)) {
       return feature.editedProperties[field];
     }
+
     return feature.originalProperties[field];
+  }
+
+  bool _matchesFilterValue({
+    required dynamic raw,
+    required String filterLabel,
+  }) {
+    final rawNormalized = _normalizeLabel(raw);
+    final filterNormalized = _normalizeLabel(filterLabel);
+
+    if (rawNormalized == filterNormalized) {
+      return true;
+    }
+
+    if (rawNormalized.toUpperCase() == filterNormalized.toUpperCase()) {
+      return true;
+    }
+
+    final rawDate = _toDate(raw);
+    final filterDate = _parseDateLabel(filterLabel);
+
+    if (rawDate != null && filterDate != null) {
+      return rawDate.year == filterDate.year &&
+          rawDate.month == filterDate.month &&
+          rawDate.day == filterDate.day;
+    }
+
+    final rawTime = _toTimeLabel(raw);
+    final filterTime = _toTimeLabel(filterLabel);
+
+    if (rawTime != null && filterTime != null) {
+      return rawTime == filterTime;
+    }
+
+    return false;
   }
 
   String _normalizeLabel(dynamic raw) {
@@ -658,13 +913,204 @@ class WorkspaceRepository {
   }
 
   double? _toDouble(dynamic value) {
-    if (value == null) return null;
-    if (value is num) return value.toDouble();
+    if (value == null) {
+      return null;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
 
     final text = value.toString().trim();
-    if (text.isEmpty) return null;
+
+    if (text.isEmpty) {
+      return null;
+    }
 
     return double.tryParse(text.replaceAll(',', '.'));
+  }
+
+  DateTime? _toDate(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is int) {
+      if (value > 1000000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(value);
+      }
+
+      if (value > 1000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+      }
+    }
+
+    if (value is num) {
+      final intValue = value.toInt();
+
+      if (intValue > 1000000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(intValue);
+      }
+
+      if (intValue > 1000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(intValue * 1000);
+      }
+    }
+
+    return _parseDateLabel(value.toString());
+  }
+
+  DateTime? _parseDateLabel(String value) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) {
+      return null;
+    }
+
+    final iso = DateTime.tryParse(clean);
+
+    if (iso != null) {
+      return DateTime(iso.year, iso.month, iso.day);
+    }
+
+    final ddMmYyyy = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$');
+    final ddMmYyyyMatch = ddMmYyyy.firstMatch(clean);
+
+    if (ddMmYyyyMatch != null) {
+      final day = int.tryParse(ddMmYyyyMatch.group(1) ?? '');
+      final month = int.tryParse(ddMmYyyyMatch.group(2) ?? '');
+      final year = int.tryParse(ddMmYyyyMatch.group(3) ?? '');
+
+      return _safeDate(
+        year: year,
+        month: month,
+        day: day,
+      );
+    }
+
+    final mmYyyy = RegExp(r'^(\d{2})/(\d{4})$');
+    final mmYyyyMatch = mmYyyy.firstMatch(clean);
+
+    if (mmYyyyMatch != null) {
+      final month = int.tryParse(mmYyyyMatch.group(1) ?? '');
+      final year = int.tryParse(mmYyyyMatch.group(2) ?? '');
+
+      return _safeDate(
+        year: year,
+        month: month,
+        day: 1,
+      );
+    }
+
+    final yyyyOnly = RegExp(r'^(\d{4})$');
+    final yyyyOnlyMatch = yyyyOnly.firstMatch(clean);
+
+    if (yyyyOnlyMatch != null) {
+      final year = int.tryParse(yyyyOnlyMatch.group(1) ?? '');
+
+      return _safeDate(
+        year: year,
+        month: 1,
+        day: 1,
+      );
+    }
+
+    return null;
+  }
+
+  DateTime? _safeDate({
+    required int? year,
+    required int? month,
+    required int? day,
+  }) {
+    if (year == null || month == null || day == null) {
+      return null;
+    }
+
+    if (year < 1900 || year > 3000) {
+      return null;
+    }
+
+    if (month < 1 || month > 12) {
+      return null;
+    }
+
+    if (day < 1 || day > 31) {
+      return null;
+    }
+
+    try {
+      final date = DateTime(year, month, day);
+
+      if (date.year != year || date.month != month || date.day != day) {
+        return null;
+      }
+
+      return date;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _formatDateLabel(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final year = date.year.toString().padLeft(4, '0');
+
+    return '$day/$month/$year';
+  }
+
+  String? _toTimeLabel(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is Timestamp) {
+      final date = value.toDate();
+      return _formatTimeLabel(date.hour, date.minute);
+    }
+
+    if (value is DateTime) {
+      return _formatTimeLabel(value.hour, value.minute);
+    }
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) {
+      return null;
+    }
+
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(text);
+
+    if (match == null) {
+      return null;
+    }
+
+    final hour = int.tryParse(match.group(1) ?? '');
+    final minute = int.tryParse(match.group(2) ?? '');
+
+    if (hour == null || minute == null) {
+      return null;
+    }
+
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return null;
+    }
+
+    return _formatTimeLabel(hour, minute);
+  }
+
+  String _formatTimeLabel(int hour, int minute) {
+    return '${hour.toString().padLeft(2, '0')}:'
+        '${minute.toString().padLeft(2, '0')}';
   }
 }
 

@@ -22,7 +22,7 @@ import 'package:sipged/screens/modules/contracts/measurement/report/report_execu
 import 'package:sipged/screens/modules/contracts/measurement/adjustment/adjustment_measurement_page.dart';
 import 'package:sipged/screens/modules/contracts/measurement/revision/revision_measurement_page.dart';
 
-import 'package:sipged/screens/modules/contracts/measurement/cronograma/physfin_widget.dart';
+import 'package:sipged/screens/modules/contracts/measurement/physics_finance/physfin_widget.dart';
 import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 
 class TabBarMeasurementPage extends StatefulWidget {

@@ -19,7 +19,7 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
-import 'package:sipged/_widgets/list/search/search_user_permission_widget.dart';
+import 'package:sipged/screens/common/search/search_user_permission_widget.dart';
 
 import 'package:sipged/_widgets/stamp/stamp.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';

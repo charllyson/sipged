@@ -1,5 +1,3 @@
-// lib/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -45,19 +43,15 @@ class DfdCubit extends Cubit<DfdState> {
   }
 
   Future<DfdData?> getDataForContract(String contractId) {
-    final id = contractId.trim();
+    final cleanContractId = contractId.trim();
 
-    if (id.isEmpty) return Future<DfdData?>.value(null);
+    if (cleanContractId.isEmpty) {
+      return Future<DfdData?>.value(null);
+    }
 
-    return repo.readDataForContract(id);
+    return repo.readDataForContract(cleanContractId);
   }
 
-  /// Carregamento resumido em lote para telas de listagem/dashboard.
-  ///
-  /// Usado pela ListDemandPage para evitar 1 leitura completa por contrato.
-  /// Depende do método:
-  ///
-  /// DfdRepository.readDataForContractsSummary(...)
   Future<Map<String, DfdData?>> getSummaryForContracts(
       Iterable<String> contractIds, {
         bool debug = false,
@@ -240,8 +234,11 @@ class DfdCubit extends Cubit<DfdState> {
       };
 
       sectionsData.forEach((key, value) {
-        merged[key] = <String, dynamic>{
-          ...(merged[key] ?? const <String, dynamic>{}),
+        final cleanKey = key.trim();
+        if (cleanKey.isEmpty) return;
+
+        merged[cleanKey] = <String, dynamic>{
+          ...(merged[cleanKey] ?? const <String, dynamic>{}),
           ...value,
         };
       });

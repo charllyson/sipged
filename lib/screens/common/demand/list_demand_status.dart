@@ -1,4 +1,4 @@
-// lib/screens/modules/contracts/hiring/list/list_demand_status.dart
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -10,7 +10,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 
 import 'list_demand_table.dart';
 
-typedef DemandNavigationCallback = void Function(
+typedef DemandNavigationCallback = FutureOr<void> Function(
     BuildContext context,
     ContractData contract,
     );

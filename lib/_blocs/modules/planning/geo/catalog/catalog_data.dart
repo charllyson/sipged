@@ -23,6 +23,7 @@ enum CatalogType {
   treemap,
   selectorDates,
   dateField,
+  timeField,
   switcher,
   textField,
   pagedTable,
@@ -41,6 +42,7 @@ abstract final class CatalogIconMapper {
     'grid_view_rounded': Icons.grid_view_rounded,
     'date_range_rounded': Icons.date_range_rounded,
     'event_rounded': Icons.event_rounded,
+    'access_time_rounded': Icons.access_time_rounded,
     'toggle_on_rounded': Icons.toggle_on_rounded,
     'text_fields_rounded': Icons.text_fields_rounded,
     'table_rows_rounded': Icons.table_rows_rounded,
@@ -271,6 +273,8 @@ extension ComponentTypeMapper on CatalogType {
         return 'filter_selector_dates';
       case CatalogType.dateField:
         return 'input_date_field';
+      case CatalogType.timeField:
+        return 'input_time_field';
       case CatalogType.switcher:
         return 'input_switch';
       case CatalogType.textField:
@@ -304,6 +308,8 @@ extension ComponentTypeMapper on CatalogType {
         return 'Seletor de datas';
       case CatalogType.dateField:
         return 'Campo de data';
+      case CatalogType.timeField:
+        return 'Campo de hora';
       case CatalogType.switcher:
         return 'Switch';
       case CatalogType.textField:
@@ -337,6 +343,8 @@ extension ComponentTypeMapper on CatalogType {
         return const Size(520, 180);
       case CatalogType.dateField:
         return const Size(260, 90);
+      case CatalogType.timeField:
+        return const Size(220, 90);
       case CatalogType.switcher:
         return const Size(180, 90);
       case CatalogType.textField:
@@ -370,6 +378,8 @@ extension ComponentTypeMapper on CatalogType {
         return CatalogType.selectorDates;
       case 'input_date_field':
         return CatalogType.dateField;
+      case 'input_time_field':
+        return CatalogType.timeField;
       case 'input_switch':
         return CatalogType.switcher;
       case 'input_text_field':
@@ -697,6 +707,22 @@ extension ComponentTypeMapper on CatalogType {
           ),
         ];
 
+      case CatalogType.timeField:
+        return const [
+          CatalogData(
+            key: 'labelText',
+            label: 'Label',
+            type: CatalogPropertyType.text,
+            hint: 'Texto do campo',
+          ),
+          CatalogData(
+            key: 'hintText',
+            label: 'Hint',
+            type: CatalogPropertyType.text,
+            hint: 'Texto de ajuda',
+          ),
+        ];
+
       case CatalogType.switcher:
         return const [
           CatalogData(
@@ -823,6 +849,12 @@ abstract final class CatalogRegistry {
       description: 'Entrada de data',
     ),
     CatalogData(
+      id: 'input_time_field',
+      title: 'Campo de hora',
+      icon: Icons.access_time_rounded,
+      description: 'Entrada de hora',
+    ),
+    CatalogData(
       id: 'input_switch',
       title: 'Switch',
       icon: Icons.toggle_on_rounded,
@@ -916,6 +948,12 @@ abstract final class CatalogRegistry {
           title: 'Campo de data',
           icon: Icons.event_rounded,
           description: 'Entrada de data',
+        ),
+        CatalogData(
+          id: 'input_time_field',
+          title: 'Campo de hora',
+          icon: Icons.access_time_rounded,
+          description: 'Entrada de hora',
         ),
         CatalogData(
           id: 'input_switch',

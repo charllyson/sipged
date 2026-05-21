@@ -90,7 +90,7 @@ import 'package:sipged/screens/modules/traffic/infractions/infractions_records_p
 import 'package:sipged/screens/panels/overview-dashboard/general_dashboard_page.dart';
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_page.dart';
 
-typedef DemandNavigationCallback = void Function(
+typedef DemandNavigationCallback = FutureOr<void> Function(
     BuildContext context,
     ContractData contract,
     );
@@ -338,7 +338,7 @@ class _MenuListPageState extends State<MenuListPage> {
     }
 
     if (tipoObra.contains('RODOV')) {
-      navigator.push(
+      await navigator.push(
         MaterialPageRoute(
           builder: (_) => RepositoryProvider<ScheduleLinearRepository>(
             create: (_) => ScheduleLinearRepository(
@@ -369,7 +369,7 @@ class _MenuListPageState extends State<MenuListPage> {
     if (tipoObra.contains('CONSTRU')) {
       final scheduleCtrl = ScheduleCivilController();
 
-      navigator.push(
+      await navigator.push(
         MaterialPageRoute(
           builder: (_) => MultiBlocProvider(
             providers: [
@@ -459,6 +459,7 @@ class _MenuListPageState extends State<MenuListPage> {
         ),
       ],
       child: ListDemandPage(
+        pageTitle: pageTitle,
         permissionModule: permissionModule,
         onTapItem: onTap,
       ),
@@ -516,7 +517,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
     final extensaoDfdMetros = _extensaoDfdMetrosFromDfd(dfd);
 
-    navigator.push(
+    await navigator.push(
       MaterialPageRoute(
         builder: (_) => RepositoryProvider<ScheduleLinearRepository>(
           create: (_) => ScheduleLinearRepository(
@@ -661,36 +662,16 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleEnum.processHiringRecords:
         return _buildContractsListPage(
-              (context, contract) {
-            final storesCtx = context;
+              (context, contract) async {
+            context.read<ContractCubit>().select(contract);
 
-            Navigator.of(context)
-                .push(
+            await Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => TabBarHiringPage(
                   contractData: contract,
                 ),
               ),
-            )
-                .then((_) async {
-              if (!storesCtx.mounted) return;
-
-              final activeTenantId = PermissionResolver.cleanTenantId(
-                storesCtx.read<PermissionCubit>().state.activeTenantId,
-              );
-
-              if (activeTenantId == null || activeTenantId.isEmpty) {
-                return;
-              }
-
-              await storesCtx.read<ContractCubit>().refresh(
-                currentUser: currentUser,
-                currentPermissions: permissions,
-                tenantId: activeTenantId,
-                permissionModule: ModuleCatalog.permissionModuleOf(item),
-                force: true,
-              );
-            });
+            );
           },
           pageTitle: 'Contratos',
           moduleItem: item,
@@ -699,10 +680,10 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleEnum.processValidityRecords:
         return _buildContractsListPage(
-              (context, contract) {
+              (context, contract) async {
             context.read<ContractCubit>().select(contract);
 
-            Navigator.of(context).push(
+            await Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => ValidityTabBarPage(
                   contractData: contract,
@@ -717,10 +698,10 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleEnum.processAdditiveRecords:
         return _buildContractsListPage(
-              (context, contract) {
+              (context, contract) async {
             context.read<ContractCubit>().select(contract);
 
-            Navigator.of(context).push(
+            await Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => TabBarAdditivePage(
                   contractData: contract,
@@ -735,10 +716,10 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleEnum.processApostillesRecords:
         return _buildContractsListPage(
-              (context, contract) {
+              (context, contract) async {
             context.read<ContractCubit>().select(contract);
 
-            Navigator.of(context).push(
+            await Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => TabBarApostillesPage(
                   contractData: contract,
@@ -753,10 +734,10 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleEnum.processHiringBudget:
         return _buildContractsListPage(
-              (context, contract) {
+              (context, contract) async {
             context.read<ContractCubit>().select(contract);
 
-            Navigator.of(context).push(
+            await Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => BudgetPage(
                   contractData: contract,
@@ -771,10 +752,10 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleEnum.processMeasurementsRecords:
         return _buildContractsListPage(
-              (context, contract) {
+              (context, contract) async {
             context.read<ContractCubit>().select(contract);
 
-            Navigator.of(context).push(
+            await Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => TabBarMeasurementPage(
                   contractData: contract,

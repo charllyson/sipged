@@ -132,8 +132,7 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
   }
 
   void clearFilter() {
-    if (state.activeFilter == null) return;
-    emit(state.copyWith(clearActiveFilter: true));
+    clearActiveFilter();
   }
 
   void syncExternalFeatures(Map<String, List<FeatureData>> featuresByLayer) {
@@ -179,6 +178,7 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
 
   void clearSelection() {
     if (state.selectedItemId == null && state.guides == null) return;
+
     emit(
       state.copyWith(
         clearSelectedItem: true,
@@ -210,16 +210,21 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     );
   }
 
-  void toggleBarFilter({
+  /// Filtro genérico para qualquer widget interativo baseado em categoria:
+  /// - barras verticais;
+  /// - donut/rosca;
+  /// - barras horizontais futuramente;
+  /// - treemap futuramente;
+  /// - outros widgets com labelField.
+  void toggleItemFilter({
     required String itemId,
     required String label,
     required double? value,
   }) {
     final item = state.itemByIdOrNull(itemId);
     if (item == null) return;
-    if (item.type.name != 'barVertical') return;
 
-    final nextFilter = repository.toggleBarFilter(
+    final nextFilter = repository.toggleItemFilter(
       item: item,
       label: label,
       value: value,
@@ -236,8 +241,22 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
       state.copyWith(
         items: resolvedItems,
         activeFilter: nextFilter,
+        clearActiveFilter: nextFilter == null,
         dataVersion: state.dataVersion + 1,
       ),
+    );
+  }
+
+  /// Mantido por compatibilidade com chamadas antigas.
+  void toggleBarFilter({
+    required String itemId,
+    required String label,
+    required double? value,
+  }) {
+    toggleItemFilter(
+      itemId: itemId,
+      label: label,
+      value: value,
     );
   }
 
@@ -369,8 +388,9 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
   }
 
   void removeItem(String itemId) {
-    final nextItems =
-    state.items.where((item) => item.id != itemId).toList(growable: false);
+    final nextItems = state.items
+        .where((item) => item.id != itemId)
+        .toList(growable: false);
 
     final wasSelected = state.selectedItemId == itemId;
     final shouldClearFilter = state.activeFilter?.sourceItemId == itemId;
@@ -910,6 +930,7 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
       panelPadding,
       math.max(panelPadding, panelSize.width - minW),
     );
+
     top = top.clamp(
       panelPadding,
       math.max(panelPadding, panelSize.height - minH),
@@ -929,6 +950,7 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
       WorkspaceData.minSize.width,
       math.max(WorkspaceData.minSize.width, panelSize.width),
     );
+
     final height = rect.height.clamp(
       WorkspaceData.minSize.height,
       math.max(WorkspaceData.minSize.height, panelSize.height),

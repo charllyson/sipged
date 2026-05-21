@@ -8,12 +8,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_state.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_state.dart';
@@ -21,6 +24,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arqu
 import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
 import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
@@ -28,10 +32,10 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/screens/modules/contracts/hiring/0Progress/progress_stage.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 
+import 'package:sipged/screens/modules/contracts/hiring/0Progress/progress_stage.dart';
 import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_1_metadados.dart';
 import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_2_motivo_abrangencia.dart';
 import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_3_fundamentacao.dart';
@@ -85,8 +89,13 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
   ContractData get _effectiveContract {
     final currentId = (_contract.id ?? '').trim();
 
-    if (currentId.isNotEmpty) return _contract;
-    if (_contractId.isNotEmpty) return _contract.copyWith(id: _contractId);
+    if (currentId.isNotEmpty) {
+      return _contract;
+    }
+
+    if (_contractId.isNotEmpty) {
+      return _contract.copyWith(id: _contractId);
+    }
 
     return _contract;
   }
@@ -132,7 +141,7 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
     _progressBloc = ProgressCubit(
       repo: ProgressRepository(
-        //tenantId: _tenantId,
+        tenantId: _tenantId,
       ),
     );
 
@@ -145,6 +154,7 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
       context.read<TermoArquivamentoCubit>().load(contractId);
       unawaited(_loadContract(contractId));
       unawaited(_loadDfdData(contractId));
+
       unawaited(
         _progressBloc.bindToStage(
           contractId: contractId,
@@ -158,7 +168,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    if (_pipelineProgressCubit != null) return;
+    if (_pipelineProgressCubit != null) {
+      return;
+    }
 
     try {
       _pipelineProgressCubit = context.read<ProgressCubit>();
@@ -170,7 +182,7 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
   @override
   void dispose() {
     _scrollController.dispose();
-    _progressBloc.close();
+    unawaited(_progressBloc.close());
     super.dispose();
   }
 
@@ -202,16 +214,23 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
   Future<void> _loadContract(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     if (mounted) {
-      setState(() => _loadingContract = true);
+      setState(() {
+        _loadingContract = true;
+      });
     }
 
     try {
       final snapshot = await _contractDocRef(cid).get();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _contract = snapshot.exists
@@ -220,11 +239,18 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
         _loadingContract = false;
       });
-    } catch (e, stack) {
-      debugPrint('[TermoArquivamentoPage] Erro ao carregar contrato $cid: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[TermoArquivamentoPage] Erro ao carregar contrato | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _contract = ContractData.empty().copyWith(id: cid);
@@ -235,18 +261,28 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
   Future<void> _loadDfdData(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     try {
       final data = await _dfdRepository.readDataForContract(cid);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _dfdData = data;
       });
-    } catch (e, stack) {
-      debugPrint('[TermoArquivamentoPage] Falha ao carregar DFD: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[TermoArquivamentoPage] Falha ao carregar DFD | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
     }
   }
@@ -255,10 +291,14 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
     final user = FirebaseAuth.instance.currentUser;
 
     final displayName = user?.displayName?.trim() ?? '';
-    if (displayName.isNotEmpty) return displayName;
+    if (displayName.isNotEmpty) {
+      return displayName;
+    }
 
     final email = user?.email?.trim() ?? '';
-    if (email.isNotEmpty) return email;
+    if (email.isNotEmpty) {
+      return email;
+    }
 
     return 'Usuário';
   }
@@ -273,13 +313,17 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
       for (final item in users) {
         if ((item.uid ?? '').trim() == uid) {
           final photo = item.urlPhoto?.trim() ?? '';
-          if (photo.isNotEmpty) return photo;
+          if (photo.isNotEmpty) {
+            return photo;
+          }
         }
       }
     }
 
     final firebasePhoto = user?.photoURL?.trim() ?? '';
-    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+    if (firebasePhoto.isNotEmpty) {
+      return firebasePhoto;
+    }
 
     return '';
   }
@@ -296,7 +340,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
     Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     final user = FirebaseAuth.instance.currentUser;
     final actorId = user?.uid.trim();
@@ -386,7 +432,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
         sectionsData: _formData.toSectionsMap(),
       );
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       if (!cubit.state.saveSuccess) {
         await _notify(
@@ -403,7 +451,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
       await _loadContract(contractId);
       await _loadDfdData(contractId);
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -426,6 +476,7 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
           extra: <String, dynamic>{
             'action': 'arquivamento_saved',
             'taId': cubit.state.taId,
+            'tenantId': _tenantId,
             'contractId': contractId,
             'route': _route,
             'notificationSource': _notificationSource,
@@ -434,13 +485,23 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
       }
 
       return true;
-    } catch (e) {
-      if (!mounted) return false;
+    } catch (error, stack) {
+      debugPrint(
+        '[TermoArquivamentoPage] Erro em _saveOnly | '
+            'tenantId=$_tenantId | '
+            'contractId=$contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return false;
+      }
 
       await _notify(
         title: 'Termo de Arquivamento',
         subtitle: 'Erro ao salvar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -455,7 +516,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
     final saved = await _saveOnly(notifySuccess: false);
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final contractId = _contractId;
     final taId = taCubit.state.taId;
@@ -495,7 +558,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
         completed: true,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -518,18 +583,29 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
         extra: <String, dynamic>{
           'action': 'arquivamento_approved',
           'taId': taId,
+          'tenantId': _tenantId,
           'contractId': contractId,
           'route': _route,
           'notificationSource': _notificationSource,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[TermoArquivamentoPage] Erro em _saveApproveAndNext | '
+            'tenantId=$_tenantId | '
+            'contractId=$contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'Termo de Arquivamento',
         subtitle: 'Erro ao aprovar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -542,7 +618,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
     final saved = await _saveOnly(notifySuccess: false);
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final contractId = _contractId;
     final taId = taCubit.state.taId;
@@ -576,7 +654,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
         updatedByName: actorName,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -598,18 +678,29 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
         extra: <String, dynamic>{
           'action': 'arquivamento_approval_updated',
           'taId': taId,
+          'tenantId': _tenantId,
           'contractId': contractId,
           'route': _route,
           'notificationSource': _notificationSource,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[TermoArquivamentoPage] Erro em _updateApproved | '
+            'tenantId=$_tenantId | '
+            'contractId=$contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'Termo de Arquivamento',
         subtitle: 'Erro ao atualizar aprovação.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -624,7 +715,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
           return (prev.loading && !curr.loading) || prev.taId != curr.taId;
         },
         listener: (context, state) {
-          if (!mounted || state.loading || !state.hasValidPath) return;
+          if (!mounted || state.loading || !state.hasValidPath) {
+            return;
+          }
 
           final incomingId = state.taId;
           final needsHydrate = !_hydrated || _currentTaId != incomingId;

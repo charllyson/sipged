@@ -8,12 +8,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_state.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_state.dart';
@@ -28,10 +31,10 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/screens/modules/contracts/hiring/0Progress/progress_stage.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 
+import 'package:sipged/screens/modules/contracts/hiring/0Progress/progress_stage.dart';
 import 'package:sipged/screens/modules/contracts/hiring/10Publicacao/section_1_metadados.dart';
 import 'package:sipged/screens/modules/contracts/hiring/10Publicacao/section_2_partes_valores.dart';
 import 'package:sipged/screens/modules/contracts/hiring/10Publicacao/section_3_veiculo.dart';
@@ -153,7 +156,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
     _progressBloc = ProgressCubit(
       repo: ProgressRepository(
-        //tenantId: _tenantId,
+        tenantId: _tenantId,
       ),
     );
 
@@ -166,6 +169,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
       context.read<PublicacaoExtratoCubit>().load(contractId);
       unawaited(_loadContract(contractId));
       unawaited(_loadDfdData(contractId));
+
       unawaited(
         _progressBloc.bindToStage(
           contractId: contractId,
@@ -191,7 +195,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
   @override
   void dispose() {
     _scrollController.dispose();
-    _progressBloc.close();
+    unawaited(_progressBloc.close());
     super.dispose();
   }
 
@@ -223,6 +227,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
   Future<void> _loadContract(String contractId) async {
     final cid = contractId.trim();
+
     if (cid.isEmpty) return;
 
     if (mounted) {
@@ -241,8 +246,13 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
         _loadingContract = false;
       });
-    } catch (e, stack) {
-      debugPrint('[PublicacaoExtratoPage] Erro ao carregar contrato $cid: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[PublicacaoExtratoPage] Erro ao carregar contrato | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
 
       if (!mounted) return;
@@ -256,6 +266,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
   Future<void> _loadDfdData(String contractId) async {
     final cid = contractId.trim();
+
     if (cid.isEmpty) return;
 
     try {
@@ -266,8 +277,13 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
       setState(() {
         _dfdData = data;
       });
-    } catch (e, stack) {
-      debugPrint('[PublicacaoExtratoPage] Falha ao carregar DFD: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[PublicacaoExtratoPage] Falha ao carregar DFD | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
     }
   }
@@ -449,6 +465,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
           extra: <String, dynamic>{
             'action': 'publicacao_saved',
             'pubId': cubit.state.pubId,
+            'tenantId': _tenantId,
             'contractId': contractId,
             'route': _route,
             'notificationSource': _notificationSource,
@@ -457,13 +474,21 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
       }
 
       return true;
-    } catch (e) {
+    } catch (error, stack) {
+      debugPrint(
+        '[PublicacaoExtratoPage] Erro em _saveOnly | '
+            'tenantId=$_tenantId | '
+            'contractId=$contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
       if (!mounted) return false;
 
       await _notify(
         title: 'Publicação / Extrato',
         subtitle: 'Erro ao salvar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -546,19 +571,28 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
         extra: <String, dynamic>{
           'action': 'publicacao_approved',
           'pubId': pubId,
+          'tenantId': _tenantId,
           'contractId': contractId,
           'route': _route,
           'notificationSource': _notificationSource,
           'nextStage': ProgressData.arquivamento,
         },
       );
-    } catch (e) {
+    } catch (error, stack) {
+      debugPrint(
+        '[PublicacaoExtratoPage] Erro em _saveApproveAndNext | '
+            'tenantId=$_tenantId | '
+            'contractId=$contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
       if (!mounted) return;
 
       await _notify(
         title: 'Publicação / Extrato',
         subtitle: 'Erro ao aprovar a etapa.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -627,18 +661,27 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
         extra: <String, dynamic>{
           'action': 'publicacao_approval_updated',
           'pubId': pubId,
+          'tenantId': _tenantId,
           'contractId': contractId,
           'route': _route,
           'notificationSource': _notificationSource,
         },
       );
-    } catch (e) {
+    } catch (error, stack) {
+      debugPrint(
+        '[PublicacaoExtratoPage] Erro em _updateApproved | '
+            'tenantId=$_tenantId | '
+            'contractId=$contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
       if (!mounted) return;
 
       await _notify(
         title: 'Publicação / Extrato',
         subtitle: 'Erro ao atualizar aprovação.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -762,6 +805,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                               setState(() => _formData = updated);
                             },
                           ),
+                          const SizedBox(height: 8),
                         ],
                       ),
                     ),

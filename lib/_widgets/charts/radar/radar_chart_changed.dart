@@ -16,7 +16,7 @@ class RadarChartChanged extends StatefulWidget {
   final int tickCount;
   final bool minAtCenter;
 
-  final double? larguraGrafico;
+  final double? widthGraphic;
   final double? larguraCard;
   final double? alturaCard;
 
@@ -35,7 +35,7 @@ class RadarChartChanged extends StatefulWidget {
     required this.datasets,
     this.tickCount = 5,
     this.minAtCenter = false,
-    this.larguraGrafico,
+    this.widthGraphic,
     this.larguraCard = 420,
     this.alturaCard,
     this.useExternalLegend = true,
@@ -152,7 +152,7 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
           enableShadow: true,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final double maxW = widget.larguraGrafico ??
+              final double maxW = widget.widthGraphic ??
                   (constraints.maxWidth.isFinite
                       ? constraints.maxWidth
                       : resolvedCardWidth);
@@ -195,7 +195,7 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
         enableShadow: true,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final double maxW = widget.larguraGrafico ??
+            final double maxW = widget.widthGraphic ??
                 (constraints.maxWidth.isFinite
                     ? constraints.maxWidth
                     : resolvedCardWidth);

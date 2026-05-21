@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
@@ -39,7 +40,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
   late final TextEditingController _justificativaCtrl;
   late final TextEditingController _rodoviaCtrl;
 
-  late final TextEditingController _extensaoMetrosCtrl;
+  late final TextEditingController _extensaoKmCtrl;
   late final TextEditingController _valorDemandaCtrl;
 
   late final FocusNode _extensaoFocus;
@@ -76,8 +77,8 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
       text: d.rodovia ?? '',
     );
 
-    _extensaoMetrosCtrl = TextEditingController(
-      text: d.extensaoKm != null ? _kmToMetersText(d.extensaoKm!) : '',
+    _extensaoKmCtrl = TextEditingController(
+      text: d.extensaoKm != null ? _kmToText(d.extensaoKm!) : '',
     );
 
     _valorDemandaCtrl = TextEditingController(
@@ -105,7 +106,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     _descricaoObjetoCtrl.addListener(_onAnyFieldChanged);
     _justificativaCtrl.addListener(_onAnyFieldChanged);
     _rodoviaCtrl.addListener(_onAnyFieldChanged);
-    _extensaoMetrosCtrl.addListener(_onAnyFieldChanged);
+    _extensaoKmCtrl.addListener(_onAnyFieldChanged);
     _valorDemandaCtrl.addListener(_onAnyFieldChanged);
 
     _extensaoFocus.addListener(() {
@@ -115,19 +116,23 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
 
-          final len = _extensaoMetrosCtrl.text.length;
+          final len = _extensaoKmCtrl.text.length;
 
-          _extensaoMetrosCtrl.selection = TextSelection.collapsed(
+          _extensaoKmCtrl.selection = TextSelection.collapsed(
             offset: len,
           );
         });
       } else {
-        final meters = SipGedFormatNumbers.toInt(_extensaoMetrosCtrl.text);
+        final km = _parseKm(_extensaoKmCtrl.text);
 
         _syncControllerText(
-          _extensaoMetrosCtrl,
-          meters == null ? '' : _metersToText(meters),
+          _extensaoKmCtrl,
+          km == null ? '' : _kmToText(km),
         );
+
+        if (widget.isEditable) {
+          _emitChange();
+        }
       }
     });
 
@@ -153,6 +158,10 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
           _valorDemandaCtrl,
           parsed == null ? '' : SipGedFormatMoney.brlNoSymbol(parsed),
         );
+
+        if (widget.isEditable) {
+          _emitChange();
+        }
       }
     });
   }
@@ -206,18 +215,18 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
       );
     }
 
-    final newMetersText = newData.extensaoKm != null
-        ? _kmToMetersText(newData.extensaoKm!)
+    final newKmText = newData.extensaoKm != null
+        ? _kmToText(newData.extensaoKm!)
         : '';
 
-    final oldMetersText = oldData.extensaoKm != null
-        ? _kmToMetersText(oldData.extensaoKm!)
+    final oldKmText = oldData.extensaoKm != null
+        ? _kmToText(oldData.extensaoKm!)
         : '';
 
-    if (newMetersText != oldMetersText && !_extensaoFocus.hasFocus) {
+    if (newKmText != oldKmText && !_extensaoFocus.hasFocus) {
       _syncControllerText(
-        _extensaoMetrosCtrl,
-        newMetersText,
+        _extensaoKmCtrl,
+        newKmText,
       );
     }
 
@@ -244,7 +253,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     _descricaoObjetoCtrl.removeListener(_onAnyFieldChanged);
     _justificativaCtrl.removeListener(_onAnyFieldChanged);
     _rodoviaCtrl.removeListener(_onAnyFieldChanged);
-    _extensaoMetrosCtrl.removeListener(_onAnyFieldChanged);
+    _extensaoKmCtrl.removeListener(_onAnyFieldChanged);
     _valorDemandaCtrl.removeListener(_onAnyFieldChanged);
 
     _extensaoFocus.dispose();
@@ -255,7 +264,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     _descricaoObjetoCtrl.dispose();
     _justificativaCtrl.dispose();
     _rodoviaCtrl.dispose();
-    _extensaoMetrosCtrl.dispose();
+    _extensaoKmCtrl.dispose();
     _valorDemandaCtrl.dispose();
 
     super.dispose();
@@ -344,26 +353,29 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     final oldSel = controller.selection;
 
     _syncing = true;
-    controller.text = value;
 
-    final newLen = controller.text.length;
+    try {
+      controller.text = value;
 
-    int base = oldSel.baseOffset;
-    int extent = oldSel.extentOffset;
+      final newLen = controller.text.length;
 
-    if (base < 0 || extent < 0) {
-      controller.selection = TextSelection.collapsed(offset: newLen);
-    } else {
-      base = base.clamp(0, newLen);
-      extent = extent.clamp(0, newLen);
+      int base = oldSel.baseOffset;
+      int extent = oldSel.extentOffset;
 
-      controller.selection = TextSelection(
-        baseOffset: base,
-        extentOffset: extent,
-      );
+      if (base < 0 || extent < 0) {
+        controller.selection = TextSelection.collapsed(offset: newLen);
+      } else {
+        base = base.clamp(0, newLen);
+        extent = extent.clamp(0, newLen);
+
+        controller.selection = TextSelection(
+          baseOffset: base,
+          extentOffset: extent,
+        );
+      }
+    } finally {
+      _syncing = false;
     }
-
-    _syncing = false;
   }
 
   void _onAnyFieldChanged() {
@@ -373,24 +385,46 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     _emitChange();
   }
 
-  String _metersToText(int meters) {
-    return SipGedFormatNumbers.formatDigitsWithDots(
-      meters.toString(),
-    );
+  double? _parseKm(String value) {
+    final raw = value.trim();
+
+    if (raw.isEmpty) return null;
+
+    final onlyAllowed = raw.replaceAll(RegExp(r'[^0-9,.-]'), '');
+
+    if (onlyAllowed.isEmpty) return null;
+
+    String normalized;
+
+    if (onlyAllowed.contains(',')) {
+      normalized = onlyAllowed.replaceAll('.', '').replaceAll(',', '.');
+    } else {
+      normalized = onlyAllowed;
+    }
+
+    final parsed = double.tryParse(normalized);
+
+    if (parsed == null || !parsed.isFinite) return null;
+
+    return parsed;
   }
 
-  String _kmToMetersText(double km) {
-    final meters = (km * 1000.0).round();
+  String _kmToText(double km) {
+    if (!km.isFinite) return '';
 
-    return _metersToText(meters);
+    final fixed = km.toStringAsFixed(3);
+    final parts = fixed.split('.');
+
+    final integer = parts.isNotEmpty ? parts.first : '0';
+    final decimal = parts.length > 1 ? parts[1] : '000';
+
+    final formattedInteger = SipGedFormatNumbers.formatDigitsWithDots(integer);
+
+    return '$formattedInteger,$decimal';
   }
 
   void _emitChange() {
-    final meters = SipGedFormatNumbers.toInt(
-      _extensaoMetrosCtrl.text,
-    );
-
-    final km = meters == null ? null : meters / 1000.0;
+    final km = _parseKm(_extensaoKmCtrl.text);
 
     final updated = widget.data.copyWith(
       tipoContratacao: _tipoContratacaoCtrl.text.trim().isEmpty
@@ -587,15 +621,19 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                 SizedBox(
                   width: w3,
                   child: CustomTextField(
-                    controller: _extensaoMetrosCtrl,
+                    controller: _extensaoKmCtrl,
                     focusNode: _extensaoFocus,
                     enabled: widget.isEditable,
-                    labelText: 'Extensão (metros)',
-                    hintText: 'Ex.: 1.234',
-                    inputFormatters: const [
-                      SipGedThousandsIntCursorFormatter(),
+                    labelText: 'Extensão (km)',
+                    hintText: 'Ex.: 22,600',
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[0-9.,]'),
+                      ),
                     ],
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     validator: null,
                   ),
                 ),

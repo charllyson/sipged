@@ -90,8 +90,14 @@ class _CotacaoPageState extends State<CotacaoPage>
   String get _contractId => widget.contractId.trim();
 
   ContractData get _effectiveContract {
-    if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
-    if (_contractId.isNotEmpty) return _contract.copyWith(id: _contractId);
+    if ((_contract.id ?? '').trim().isNotEmpty) {
+      return _contract;
+    }
+
+    if (_contractId.isNotEmpty) {
+      return _contract.copyWith(id: _contractId);
+    }
+
     return _contract;
   }
 
@@ -136,7 +142,7 @@ class _CotacaoPageState extends State<CotacaoPage>
 
     _progressBloc = ProgressCubit(
       repo: ProgressRepository(
-        //tenantId: _tenantId,
+        tenantId: _tenantId,
       ),
     );
 
@@ -163,7 +169,9 @@ class _CotacaoPageState extends State<CotacaoPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    if (_pipelineProgressCubit != null) return;
+    if (_pipelineProgressCubit != null) {
+      return;
+    }
 
     try {
       _pipelineProgressCubit = context.read<ProgressCubit>();
@@ -175,7 +183,7 @@ class _CotacaoPageState extends State<CotacaoPage>
   @override
   void dispose() {
     _scrollController.dispose();
-    _progressBloc.close();
+    unawaited(_progressBloc.close());
     super.dispose();
   }
 
@@ -207,16 +215,23 @@ class _CotacaoPageState extends State<CotacaoPage>
 
   Future<void> _loadContract(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     if (mounted) {
-      setState(() => _loadingContract = true);
+      setState(() {
+        _loadingContract = true;
+      });
     }
 
     try {
       final snapshot = await _contractDocRef(cid).get();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _contract = snapshot.exists
@@ -225,11 +240,18 @@ class _CotacaoPageState extends State<CotacaoPage>
 
         _loadingContract = false;
       });
-    } catch (e, stack) {
-      debugPrint('[CotacaoPage] Erro ao carregar contrato $cid: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[CotacaoPage] Erro ao carregar contrato | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _contract = ContractData.empty().copyWith(id: cid);
@@ -240,18 +262,28 @@ class _CotacaoPageState extends State<CotacaoPage>
 
   Future<void> _loadDfdData(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     try {
       final data = await _dfdRepository.readDataForContract(cid);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _dfdData = data;
       });
-    } catch (e, stack) {
-      debugPrint('[CotacaoPage] Falha ao carregar DFD do contrato: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[CotacaoPage] Falha ao carregar DFD | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
     }
   }
@@ -260,10 +292,14 @@ class _CotacaoPageState extends State<CotacaoPage>
     final user = FirebaseAuth.instance.currentUser;
 
     final displayName = user?.displayName?.trim() ?? '';
-    if (displayName.isNotEmpty) return displayName;
+    if (displayName.isNotEmpty) {
+      return displayName;
+    }
 
     final email = user?.email?.trim() ?? '';
-    if (email.isNotEmpty) return email;
+    if (email.isNotEmpty) {
+      return email;
+    }
 
     return 'Usuário';
   }
@@ -278,13 +314,17 @@ class _CotacaoPageState extends State<CotacaoPage>
       for (final item in users) {
         if ((item.uid ?? '').trim() == uid) {
           final photo = item.urlPhoto?.trim() ?? '';
-          if (photo.isNotEmpty) return photo;
+          if (photo.isNotEmpty) {
+            return photo;
+          }
         }
       }
     }
 
     final firebasePhoto = user?.photoURL?.trim() ?? '';
-    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+    if (firebasePhoto.isNotEmpty) {
+      return firebasePhoto;
+    }
 
     return '';
   }
@@ -301,7 +341,9 @@ class _CotacaoPageState extends State<CotacaoPage>
     Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     final user = FirebaseAuth.instance.currentUser;
     final actorId = user?.uid.trim();
@@ -377,7 +419,9 @@ class _CotacaoPageState extends State<CotacaoPage>
   }
 
   void _removeFornecedor() {
-    if (_fornCount <= 1) return;
+    if (_fornCount <= 1) {
+      return;
+    }
 
     setState(() {
       _fornCount = (_fornCount - 1).clamp(1, 3);
@@ -410,7 +454,9 @@ class _CotacaoPageState extends State<CotacaoPage>
         sectionsData: _formData.toSectionsMap(),
       );
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       if (!cubit.state.saveSuccess) {
         final err = cubit.state.error ?? 'Falha ao salvar';
@@ -429,7 +475,9 @@ class _CotacaoPageState extends State<CotacaoPage>
       await _loadContract(_contractId);
       await _loadDfdData(_contractId);
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -450,6 +498,7 @@ class _CotacaoPageState extends State<CotacaoPage>
           extra: <String, dynamic>{
             'action': 'cotacao_saved',
             'cotacaoId': cubit.state.cotacaoId,
+            'tenantId': _tenantId,
             'contractId': _contractId,
             'route': _route,
             'notificationSource': _notificationSource,
@@ -458,13 +507,23 @@ class _CotacaoPageState extends State<CotacaoPage>
       }
 
       return true;
-    } catch (e) {
-      if (!mounted) return false;
+    } catch (error, stack) {
+      debugPrint(
+        '[CotacaoPage] Erro em _saveOnly | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return false;
+      }
 
       await _notify(
         title: 'Cotação',
         subtitle: 'Erro ao salvar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -482,7 +541,9 @@ class _CotacaoPageState extends State<CotacaoPage>
       notifySuccess: false,
     );
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final cotacaoId = cotacaoCubit.state.cotacaoId;
 
@@ -513,7 +574,9 @@ class _CotacaoPageState extends State<CotacaoPage>
         completed: true,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -540,19 +603,30 @@ class _CotacaoPageState extends State<CotacaoPage>
         extra: <String, dynamic>{
           'action': 'cotacao_approved',
           'cotacaoId': cotacaoId,
+          'tenantId': _tenantId,
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
           'nextStage': ProgressData.edital,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[CotacaoPage] Erro em _saveApproveAndNext | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'Cotação',
         subtitle: 'Erro ao aprovar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -567,7 +641,9 @@ class _CotacaoPageState extends State<CotacaoPage>
       notifySuccess: false,
     );
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final cotacaoId = cotacaoCubit.state.cotacaoId;
 
@@ -592,7 +668,9 @@ class _CotacaoPageState extends State<CotacaoPage>
         updatedByName: actorName,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -614,18 +692,29 @@ class _CotacaoPageState extends State<CotacaoPage>
         extra: <String, dynamic>{
           'action': 'cotacao_approval_updated',
           'cotacaoId': cotacaoId,
+          'tenantId': _tenantId,
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[CotacaoPage] Erro em _updateApproved | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'Cotação',
         subtitle: 'Erro ao atualizar aprovação.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -641,7 +730,9 @@ class _CotacaoPageState extends State<CotacaoPage>
               prev.cotacaoId != curr.cotacaoId;
         },
         listener: (context, state) {
-          if (!mounted || state.loading || !state.hasValidPath) return;
+          if (!mounted || state.loading || !state.hasValidPath) {
+            return;
+          }
 
           final incomingId = state.cotacaoId;
           final needsHydrate = !_hydrated || _currentCotacaoId != incomingId;

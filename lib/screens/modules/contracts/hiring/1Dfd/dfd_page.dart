@@ -8,9 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
-
-import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_state.dart';
 
@@ -79,6 +78,10 @@ class _DfdPageState extends State<DfdPage>
 
   bool get _isEditable => !widget.readOnly;
 
+  String get _tenantId {
+    return context.read<DfdCubit>().tenantId.trim();
+  }
+
   String get _stateOrWidgetContractId {
     final stateId = context.read<DfdCubit>().state.contractId?.trim();
 
@@ -136,7 +139,13 @@ class _DfdPageState extends State<DfdPage>
   void initState() {
     super.initState();
 
-    _progressBloc = ProgressCubit(repo: ProgressRepository());
+    final dfdCubit = context.read<DfdCubit>();
+
+    _progressBloc = ProgressCubit(
+      repo: ProgressRepository(
+        tenantId: dfdCubit.tenantId,
+      ),
+    );
 
     final contractId = widget.contractId.trim();
 
@@ -160,7 +169,9 @@ class _DfdPageState extends State<DfdPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    if (_pipelineProgressCubit != null) return;
+    if (_pipelineProgressCubit != null) {
+      return;
+    }
 
     try {
       _pipelineProgressCubit = context.read<ProgressCubit>();
@@ -172,15 +183,33 @@ class _DfdPageState extends State<DfdPage>
   @override
   void dispose() {
     _scrollController.dispose();
-    _progressBloc.close();
+    unawaited(_progressBloc.close());
 
     super.dispose();
   }
 
   Future<void> _loadContract(String contractId) async {
     final cid = contractId.trim();
+    final tenantId = _tenantId;
 
-    if (cid.isEmpty) return;
+    if (cid.isEmpty) {
+      return;
+    }
+
+    if (tenantId.isEmpty) {
+      if (!mounted) return;
+
+      setState(() {
+        _contract = ContractData.empty().copyWith(id: cid);
+        _loadingContract = false;
+      });
+
+      debugPrint(
+        '[DfdPage] tenantId vazio ao carregar contrato $cid.',
+      );
+
+      return;
+    }
 
     if (mounted) {
       setState(() {
@@ -189,10 +218,16 @@ class _DfdPageState extends State<DfdPage>
     }
 
     try {
-      final snapshot =
-      await FirebaseFirestore.instance.collection('contracts').doc(cid).get();
+      final snapshot = await FirebaseFirestore.instance
+          .collection('tenants')
+          .doc(tenantId)
+          .collection('contracts')
+          .doc(cid)
+          .get();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       if (snapshot.exists) {
         setState(() {
@@ -205,10 +240,18 @@ class _DfdPageState extends State<DfdPage>
           _loadingContract = false;
         });
       }
-    } catch (e) {
-      debugPrint('[DfdPage] Erro ao carregar contrato $cid: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[DfdPage] Erro ao carregar contrato | '
+            'tenantId=$tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _contract = ContractData.empty().copyWith(id: cid);
@@ -221,10 +264,14 @@ class _DfdPageState extends State<DfdPage>
     final user = FirebaseAuth.instance.currentUser;
 
     final displayName = user?.displayName?.trim() ?? '';
-    if (displayName.isNotEmpty) return displayName;
+    if (displayName.isNotEmpty) {
+      return displayName;
+    }
 
     final email = user?.email?.trim() ?? '';
-    if (email.isNotEmpty) return email;
+    if (email.isNotEmpty) {
+      return email;
+    }
 
     return 'Usuário';
   }
@@ -239,13 +286,17 @@ class _DfdPageState extends State<DfdPage>
       for (final item in users) {
         if ((item.uid ?? '').trim() == uid) {
           final photo = item.urlPhoto?.trim() ?? '';
-          if (photo.isNotEmpty) return photo;
+          if (photo.isNotEmpty) {
+            return photo;
+          }
         }
       }
     }
 
     final firebasePhoto = user?.photoURL?.trim() ?? '';
-    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+    if (firebasePhoto.isNotEmpty) {
+      return firebasePhoto;
+    }
 
     return '';
   }
@@ -265,7 +316,9 @@ class _DfdPageState extends State<DfdPage>
     Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     final user = FirebaseAuth.instance.currentUser;
     final actorId = user?.uid.trim();
@@ -286,7 +339,9 @@ class _DfdPageState extends State<DfdPage>
       if (sms) NotificationChannel.sms,
     };
 
-    if (channels.isEmpty) return;
+    if (channels.isEmpty) {
+      return;
+    }
 
     await NotificationHiring.show(
       context: context,
@@ -319,6 +374,7 @@ class _DfdPageState extends State<DfdPage>
         if (actorPhotoUrl.isNotEmpty) 'photoUrl': actorPhotoUrl,
         if (actorPhotoUrl.isNotEmpty) 'photoURL': actorPhotoUrl,
         if (actorPhotoUrl.isNotEmpty) 'profilePhotoUrl': actorPhotoUrl,
+        if (_tenantId.isNotEmpty) 'tenantId': _tenantId,
         if (effectiveContractId.isNotEmpty) 'contractId': effectiveContractId,
         'contractTitle': demandName,
         'contractSummary': demandName,
@@ -358,7 +414,9 @@ class _DfdPageState extends State<DfdPage>
         data: _formData,
       );
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       if (!cubit.state.saveSuccess || finalContractId == null) {
         final err = cubit.state.error ?? 'Falha ao salvar';
@@ -377,7 +435,9 @@ class _DfdPageState extends State<DfdPage>
 
       await _loadContract(finalContractId);
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -401,6 +461,7 @@ class _DfdPageState extends State<DfdPage>
           extra: <String, dynamic>{
             'action': 'dfd_saved',
             'dfdId': cubit.state.dfdId,
+            'tenantId': _tenantId,
             'contractId': finalContractId,
             'route': _route,
             'notificationSource': _notificationSource,
@@ -409,13 +470,23 @@ class _DfdPageState extends State<DfdPage>
       }
 
       return true;
-    } catch (e) {
-      if (!mounted) return false;
+    } catch (error, stack) {
+      debugPrint(
+        '[DfdPage] Erro em _saveOnly | '
+            'tenantId=$_tenantId | '
+            'contractId=${widget.contractId} | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return false;
+      }
 
       await _notify(
         title: 'DFD',
         subtitle: 'Erro ao salvar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
         local: true,
@@ -434,7 +505,9 @@ class _DfdPageState extends State<DfdPage>
       notifySuccess: false,
     );
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final dfdState = dfdCubit.state;
     final dfdId = dfdState.dfdId;
@@ -475,7 +548,9 @@ class _DfdPageState extends State<DfdPage>
         completed: true,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -505,6 +580,7 @@ class _DfdPageState extends State<DfdPage>
         extra: <String, dynamic>{
           'action': 'dfd_approved',
           'dfdId': dfdId,
+          'tenantId': _tenantId,
           'contractId': contractIdForApprove,
           'route': _route,
           'notificationSource': _notificationSource,
@@ -513,13 +589,23 @@ class _DfdPageState extends State<DfdPage>
           'approverUserId': _formData.autoridadeUserId,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[DfdPage] Erro em _saveApproveAndNext | '
+            'tenantId=$_tenantId | '
+            'contractId=$contractIdForApprove | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'DFD',
         subtitle: 'Erro ao aprovar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
         local: true,
@@ -535,7 +621,9 @@ class _DfdPageState extends State<DfdPage>
       notifySuccess: false,
     );
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final dfdState = dfdCubit.state;
     final dfdId = dfdState.dfdId;
@@ -566,7 +654,9 @@ class _DfdPageState extends State<DfdPage>
         updatedByName: actorName,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -591,6 +681,7 @@ class _DfdPageState extends State<DfdPage>
         extra: <String, dynamic>{
           'action': 'dfd_approval_updated',
           'dfdId': dfdId,
+          'tenantId': _tenantId,
           'contractId': contractIdForApprove,
           'route': _route,
           'notificationSource': _notificationSource,
@@ -598,13 +689,23 @@ class _DfdPageState extends State<DfdPage>
           'approverUserId': _formData.autoridadeUserId,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[DfdPage] Erro em _updateApproved | '
+            'tenantId=$_tenantId | '
+            'contractId=$contractIdForApprove | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'DFD',
         subtitle: 'Erro ao atualizar aprovação.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
         local: true,
@@ -629,8 +730,13 @@ class _DfdPageState extends State<DfdPage>
               prev.contractId != curr.contractId;
         },
         listener: (context, state) {
-          if (!mounted) return;
-          if (state.loading || !state.hasValidPath) return;
+          if (!mounted) {
+            return;
+          }
+
+          if (state.loading || !state.hasValidPath) {
+            return;
+          }
 
           final incomingId = state.dfdId;
           final needsHydrate = !_hydrated || _currentDfdId != incomingId;

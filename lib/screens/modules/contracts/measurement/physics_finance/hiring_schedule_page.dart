@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
-import 'package:sipged/screens/modules/contracts/measurement/cronograma/physfin_widget.dart';
+import 'package:sipged/screens/modules/contracts/measurement/physics_finance/physfin_widget.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 class HiringSchedulePage extends StatelessWidget {

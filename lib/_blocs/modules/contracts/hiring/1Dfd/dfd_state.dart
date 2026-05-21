@@ -1,5 +1,3 @@
-// lib/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart
-
 import 'package:equatable/equatable.dart';
 
 import 'dfd_data.dart';

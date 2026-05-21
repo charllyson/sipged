@@ -1,4 +1,4 @@
-// lib/_blocs/modules/operation/phys_fin/physics_finance_repository.dart
+// lib/_blocs/modules/contracts/measurement/physics_finance/physics_finance_repository.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,7 +20,7 @@ class PhysicsFinanceRepository {
   String? _tenantId;
 
   // ---------------------------------------------------------------------------
-  // Tenant obrigatório
+  // Tenant
   // ---------------------------------------------------------------------------
 
   String get tenantId {
@@ -38,11 +38,17 @@ class PhysicsFinanceRepository {
 
   String? get currentTenantId {
     final id = _tenantId?.trim();
-    return id == null || id.isEmpty ? null : id;
+
+    if (id == null || id.isEmpty) {
+      return null;
+    }
+
+    return id;
   }
 
   bool get hasTenant {
     final id = _tenantId?.trim();
+
     return id != null && id.isNotEmpty;
   }
 
@@ -50,10 +56,16 @@ class PhysicsFinanceRepository {
     final clean = value?.trim();
     final next = clean == null || clean.isEmpty ? null : clean;
 
-    if (_tenantId == next) return;
+    if (_tenantId == next) {
+      return;
+    }
 
     _tenantId = next;
   }
+
+  // ---------------------------------------------------------------------------
+  // Validators
+  // ---------------------------------------------------------------------------
 
   String _requireContractId(String contractId) {
     final clean = contractId.trim();
@@ -85,6 +97,14 @@ class PhysicsFinanceRepository {
     return clean;
   }
 
+  int _requireTermOrder(int termOrder) {
+    if (termOrder <= 0) {
+      throw ArgumentError('termOrder deve ser maior que zero.');
+    }
+
+    return termOrder;
+  }
+
   // ---------------------------------------------------------------------------
   // References
   // ---------------------------------------------------------------------------
@@ -94,7 +114,9 @@ class PhysicsFinanceRepository {
   }
 
   DocumentReference<Map<String, dynamic>> _contractDoc(String contractId) {
-    return _contractsCollection().doc(_requireContractId(contractId));
+    return _contractsCollection().doc(
+      _requireContractId(contractId),
+    );
   }
 
   CollectionReference<Map<String, dynamic>> _additivesCollection(
@@ -120,6 +142,19 @@ class PhysicsFinanceRepository {
       contractId: contractId,
       additiveId: additiveId,
     ).collection('schedules');
+  }
+
+  DocumentReference<Map<String, dynamic>> _scheduleDoc({
+    required String contractId,
+    required String additiveId,
+    required String scheduleId,
+  }) {
+    return _collection(
+      contractId: contractId,
+      additiveId: additiveId,
+    ).doc(
+      _requireScheduleId(scheduleId),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -151,7 +186,7 @@ class PhysicsFinanceRepository {
       }
     }
 
-    final list = snapshot.docs.map((doc) {
+    final List<PhysicsFinanceData> schedules = snapshot.docs.map((doc) {
       return PhysicsFinanceData.fromSnapshot(
         contractId: cleanContractId,
         additiveId: cleanAdditiveId,
@@ -159,11 +194,11 @@ class PhysicsFinanceRepository {
       );
     }).toList();
 
-    list.sort(
+    schedules.sort(
           (a, b) => a.termOrder.compareTo(b.termOrder),
     );
 
-    return list;
+    return schedules;
   }
 
   Future<PhysicsFinanceData?> get({
@@ -173,19 +208,19 @@ class PhysicsFinanceRepository {
   }) async {
     final cleanContractId = _requireContractId(contractId);
     final cleanAdditiveId = _requireAdditiveId(additiveId);
+    final cleanTermOrder = _requireTermOrder(termOrder);
 
-    if (termOrder <= 0) {
-      throw ArgumentError('termOrder deve ser maior que zero.');
-    }
+    final String scheduleId = PhysicsFinanceData.docIdForTerm(cleanTermOrder);
 
-    final String id = PhysicsFinanceData.docIdForTerm(termOrder);
-
-    final doc = await _collection(
+    final doc = await _scheduleDoc(
       contractId: cleanContractId,
       additiveId: cleanAdditiveId,
-    ).doc(id).get();
+      scheduleId: scheduleId,
+    ).get();
 
-    if (!doc.exists) return null;
+    if (!doc.exists) {
+      return null;
+    }
 
     return PhysicsFinanceData.fromSnapshot(
       contractId: cleanContractId,
@@ -202,49 +237,41 @@ class PhysicsFinanceRepository {
   }) async {
     final cleanContractId = _requireContractId(contractId);
     final cleanAdditiveId = _requireAdditiveId(additiveId);
+    final cleanTermOrder = _requireTermOrder(schedule.termOrder);
 
-    if (schedule.termOrder <= 0) {
-      throw ArgumentError('termOrder deve ser maior que zero.');
-    }
+    final String uid = updatedBy?.trim().isNotEmpty == true
+        ? updatedBy!.trim()
+        : _auth.currentUser?.uid ?? '';
 
-    final String uid = updatedBy ?? _auth.currentUser?.uid ?? '';
-
-    final String docId = schedule.id.trim().isNotEmpty
+    final String scheduleId = schedule.id.trim().isNotEmpty
         ? schedule.id.trim()
-        : PhysicsFinanceData.docIdForTerm(schedule.termOrder);
+        : PhysicsFinanceData.docIdForTerm(cleanTermOrder);
 
-    final docRef = _collection(
+    final DocumentReference<Map<String, dynamic>> docRef = _scheduleDoc(
       contractId: cleanContractId,
       additiveId: cleanAdditiveId,
-    ).doc(docId);
+      scheduleId: scheduleId,
+    );
 
-    final payload = schedule.toMap(
+    final DocumentSnapshot<Map<String, dynamic>> snapshot = await docRef.get();
+
+    final bool creating = !snapshot.exists ||
+        snapshot.data()?['createdAt'] == null;
+
+    final PhysicsFinanceData normalizedSchedule = schedule.copyWith(
+      id: scheduleId,
+      contractId: cleanContractId,
+      additiveId: cleanAdditiveId,
+      termOrder: cleanTermOrder,
+    );
+
+    final Map<String, dynamic> payload = normalizedSchedule.toMap(
+      tenantId: tenantId,
+      recordPath: docRef.path,
       updatedByOverride: uid,
-    )
-      ..addAll(
-        <String, dynamic>{
-          'id': docId,
-          'tenantId': tenantId,
-          'companyId': tenantId,
-          'contractId': cleanContractId,
-          'additiveId': cleanAdditiveId,
-          'termOrder': schedule.termOrder,
-          'recordPath': docRef.path,
-          'sourceCollectionModel': 'tenant_contract_additive_schedules',
-          'updatedAt': FieldValue.serverTimestamp(),
-          'updatedBy': uid,
-        },
-      );
-
-    final snapshot = await docRef.get();
-
-    if (!snapshot.exists || snapshot.data()?['createdAt'] == null) {
-      payload['createdAt'] = FieldValue.serverTimestamp();
-      payload['createdBy'] = uid;
-    } else {
-      payload.remove('createdAt');
-      payload.remove('createdBy');
-    }
+      includeCreatedFields: creating,
+      createdByOverride: uid,
+    );
 
     await docRef.set(
       payload,
@@ -261,9 +288,24 @@ class PhysicsFinanceRepository {
     final cleanAdditiveId = _requireAdditiveId(additiveId);
     final cleanScheduleId = _requireScheduleId(scheduleId);
 
-    await _collection(
+    await _scheduleDoc(
       contractId: cleanContractId,
       additiveId: cleanAdditiveId,
-    ).doc(cleanScheduleId).delete();
+      scheduleId: cleanScheduleId,
+    ).delete();
+  }
+
+  Future<void> deleteByTerm({
+    required String contractId,
+    required String additiveId,
+    required int termOrder,
+  }) async {
+    final cleanTermOrder = _requireTermOrder(termOrder);
+
+    await delete(
+      contractId: contractId,
+      additiveId: additiveId,
+      scheduleId: PhysicsFinanceData.docIdForTerm(cleanTermOrder),
+    );
   }
 }

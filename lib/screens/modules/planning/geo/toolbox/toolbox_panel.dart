@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_state.dart';
-import 'package:sipged/_blocs/system/map/map_cubit.dart';
-import 'package:sipged/_blocs/system/map/map_data.dart';
-import 'package:sipged/_blocs/system/map/map_state.dart';
+import 'package:sipged/_widgets/map/bloc/map_cubit.dart';
+import 'package:sipged/_widgets/map/bloc/map_data.dart';
+import 'package:sipged/_widgets/map/bloc/map_state.dart';
 import 'package:sipged/screens/modules/planning/geo/toolbox/toolbox_content.dart';
 
 class ToolboxPanel extends StatelessWidget {

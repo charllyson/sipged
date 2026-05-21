@@ -38,7 +38,7 @@ import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart
 
 import 'list_demand_status.dart';
 
-typedef DemandNavigationCallback = void Function(
+typedef DemandNavigationCallback = FutureOr<void> Function(
     BuildContext context,
     ContractData contract,
     );
@@ -387,6 +387,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
       await _applyFilters(
         cubit,
         reason: 'refresh',
+        forceSecondaryBeforeFilter: true,
       );
     } finally {
       if (mounted) {
@@ -401,6 +402,56 @@ class _ListDemandPageState extends State<ListDemandPage> {
     _dfdByContractId.clear();
     _editalByContractId.clear();
     _pubByContractId.clear();
+  }
+
+  void _invalidateContractCaches(String? contractId) {
+    final cleanId = contractId?.trim();
+
+    if (cleanId == null || cleanId.isEmpty) {
+      _clearDemandCaches();
+      return;
+    }
+
+    _dfdByContractId.remove(cleanId);
+    _editalByContractId.remove(cleanId);
+    _pubByContractId.remove(cleanId);
+  }
+
+  Future<void> _rehydrateAfterNavigation({
+    required ContractCubit cubit,
+    required ContractData contract,
+  }) async {
+    if (!mounted) return;
+
+    final id = _idToString(contract.id);
+
+    _invalidateContractCaches(id);
+
+    await _applyFilters(
+      cubit,
+      reason: 'return_from_contract_page',
+      forceSecondaryBeforeFilter: true,
+    );
+  }
+
+  Future<void> _handleDemandTap({
+    required BuildContext rowContext,
+    required ContractCubit processCubit,
+    required ContractData contract,
+  }) async {
+    await Future<void>.sync(
+          () => widget.onTapItem(
+        rowContext,
+        contract,
+      ),
+    );
+
+    if (!mounted) return;
+
+    await _rehydrateAfterNavigation(
+      cubit: processCubit,
+      contract: contract,
+    );
   }
 
   String _statusKeyFromDfd(DfdData? dfd) {
@@ -529,6 +580,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
     final missingAny = ids.any((id) {
       final cleanId = id.trim();
+
       if (cleanId.isEmpty) return false;
 
       return !_editalByContractId.containsKey(cleanId) ||
@@ -968,7 +1020,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
     if (cleanTenantId.isEmpty) return;
 
-    final result = await navigator.push<bool>(
+    await navigator.push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => TabBarHiringPage(
           key: UniqueKey(),
@@ -979,12 +1031,10 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
     if (!mounted) return;
 
-    if (result == true) {
-      await _refresh(
-        cubit: cubit,
-        currentUser: currentUser,
-      );
-    }
+    await _refresh(
+      cubit: cubit,
+      currentUser: currentUser,
+    );
   }
 
   bool _canCreateDemand({
@@ -1361,7 +1411,13 @@ class _ListDemandPageState extends State<ListDemandPage> {
                       currentUser: currentUser,
                     );
                   },
-                  onTapItem: widget.onTapItem,
+                  onTapItem: (rowContext, contract) {
+                    return _handleDemandTap(
+                      rowContext: rowContext,
+                      processCubit: processCubit,
+                      contract: contract,
+                    );
+                  },
                   initiallyExpanded: _isExpanded(section.normalizedKey),
                   onExpansionChanged: (open) {
                     unawaited(

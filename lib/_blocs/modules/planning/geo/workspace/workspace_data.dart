@@ -1,8 +1,9 @@
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/feature_binding.dart';
+
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_binding.dart';
 
 enum WorkspaceSnapEdge {
   left,
@@ -51,8 +52,11 @@ class WorkspaceData {
 
   CatalogData? propertyByKey(String key) {
     for (final property in properties) {
-      if (property.key == key) return property;
+      if (property.key == key) {
+        return property;
+      }
     }
+
     return null;
   }
 
@@ -86,12 +90,17 @@ class WorkspaceData {
 
   String? getBindingFieldName(String key) {
     final value = getBindingProperty(key)?.fieldName?.trim();
-    if (value == null || value.isEmpty) return null;
+
+    if (value == null || value.isEmpty) {
+      return null;
+    }
+
     return value;
   }
 
   String? get sourceLayerId {
     final explicit = getBindingProperty('source')?.sourceId?.trim();
+
     if (explicit != null && explicit.isNotEmpty) {
       return explicit;
     }
@@ -101,10 +110,15 @@ class WorkspaceData {
       'valueField',
       'label',
       'value',
+      'dateField',
+      'timeField',
+      'divisorField',
+      'centerValue',
     ];
 
     for (final key in fallbackBindingKeys) {
       final candidate = getBindingProperty(key)?.sourceId?.trim();
+
       if (candidate != null && candidate.isNotEmpty) {
         return candidate;
       }
@@ -113,16 +127,18 @@ class WorkspaceData {
     return null;
   }
 
-  bool get hasResolvedChartData =>
-      resolvedLabels != null &&
-          resolvedValues != null &&
-          resolvedLabels!.isNotEmpty &&
-          resolvedValues!.isNotEmpty &&
-          resolvedLabels!.length == resolvedValues!.length;
+  bool get hasResolvedChartData {
+    return resolvedLabels != null &&
+        resolvedValues != null &&
+        resolvedLabels!.isNotEmpty &&
+        resolvedValues!.isNotEmpty &&
+        resolvedLabels!.length == resolvedValues!.length;
+  }
 
-  bool get hasResolvedCardData =>
-      (resolvedValue?.trim().isNotEmpty ?? false) ||
-          (resolvedLabel?.trim().isNotEmpty ?? false);
+  bool get hasResolvedCardData {
+    return (resolvedValue?.trim().isNotEmpty ?? false) ||
+        (resolvedLabel?.trim().isNotEmpty ?? false);
+  }
 
   WorkspaceData copyWith({
     String? id,
@@ -173,12 +189,19 @@ class WorkspaceData {
     var changed = false;
 
     final nextProperties = properties.map((property) {
-      if (property.key != propertyKey) return property;
+      if (property.key != propertyKey) {
+        return property;
+      }
+
       changed = true;
+
       return updatedProperty;
     }).toList(growable: false);
 
-    if (!changed) return this;
+    if (!changed) {
+      return this;
+    }
+
     return copyWith(properties: nextProperties);
   }
 
@@ -243,7 +266,12 @@ class WorkspaceData {
       title: (map['title'] ?? '').toString(),
       type: CatalogType.values.firstWhere(
             (e) => e.name == map['type'],
-        orElse: () => CatalogType.card,
+        orElse: () {
+          final rawType = map['type']?.toString() ?? '';
+          final mapped = ComponentTypeMapper.fromCatalogItemId(rawType);
+
+          return mapped ?? CatalogType.card;
+        },
       ),
       offset: Offset(
         (map['offsetX'] as num?)?.toDouble() ?? 0,
@@ -278,18 +306,20 @@ class WorkspaceData {
   }
 
   @override
-  int get hashCode => Object.hash(
-    id,
-    title,
-    type,
-    offset,
-    size,
-    Object.hashAll(properties),
-    resolvedTitle,
-    resolvedSubtitle,
-    resolvedLabel,
-    resolvedValue,
-    Object.hashAll(resolvedLabels ?? const []),
-    Object.hashAll(resolvedValues ?? const []),
-  );
+  int get hashCode {
+    return Object.hash(
+      id,
+      title,
+      type,
+      offset,
+      size,
+      Object.hashAll(properties),
+      resolvedTitle,
+      resolvedSubtitle,
+      resolvedLabel,
+      resolvedValue,
+      Object.hashAll(resolvedLabels ?? const []),
+      Object.hashAll(resolvedValues ?? const []),
+    );
+  }
 }

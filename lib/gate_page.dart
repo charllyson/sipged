@@ -35,12 +35,11 @@ import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/screens/common/blocked_user_view.dart';
-import 'package:sipged/screens/common/notification/global_banner_host.dart';
-import 'package:sipged/screens/common/setup/tenant_scoped_app.dart';
-import 'package:sipged/screens/common/setup/initial_setup_page.dart';
-
 import 'package:sipged/screens/common/login/sign_in/sign_in.dart';
 import 'package:sipged/screens/common/login/sign_in/tenant_selection_page.dart';
+import 'package:sipged/screens/common/notification/global_banner_host.dart';
+import 'package:sipged/screens/common/setup/initial_setup_page.dart';
+import 'package:sipged/screens/common/setup/tenant_scoped_app.dart';
 
 import 'package:sipged/startup_context.dart';
 import 'package:sipged/startup_error_view.dart';
@@ -80,26 +79,6 @@ class _GatePageState extends State<GatePage> {
         text.contains('client is offline') ||
         text.contains('deadline-exceeded') ||
         text.contains('firebaseexception') && text.contains('unavailable');
-  }
-
-  void _markOfflineFromStartupFailure() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
-      context.read<ConnectivityCubit>().markOfflineFromFailure(
-        reason: 'startup',
-      );
-    });
-  }
-
-  void _markOnlineAfterStartupSuccess() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
-      context.read<ConnectivityCubit>().markOnlineAfterSuccess(
-        reason: 'startup',
-      );
-    });
   }
 
   Future<UserData?> _loadUserOnce({
@@ -574,9 +553,7 @@ class _GatePageState extends State<GatePage> {
     );
   }
 
-  Widget _buildOfflineStartupFallback() {
-    _markOfflineFromStartupFailure();
-
+  Widget _buildConnectionLoading() {
     return const Scaffold(
       backgroundColor: Colors.white,
       body: LoadingTreeDots(
@@ -610,12 +587,12 @@ class _GatePageState extends State<GatePage> {
 
         if (startupSnapshot.hasError) {
           final error = startupSnapshot.error;
-          final isConnectionProblem = !isOnline || _isConnectionLikeError(error);
+          final isConnectionProblem = _isConnectionLikeError(error);
 
           debugPrint('[GatePage] Erro ao carregar configuração inicial: $error');
 
-          if (isConnectionProblem) {
-            return _buildOfflineStartupFallback();
+          if (!isOnline && isConnectionProblem) {
+            return _buildConnectionLoading();
           }
 
           return StartupErrorView(
@@ -634,7 +611,7 @@ class _GatePageState extends State<GatePage> {
 
         if (startup == null) {
           if (!isOnline) {
-            return _buildOfflineStartupFallback();
+            return _buildConnectionLoading();
           }
 
           return StartupErrorView(
@@ -647,8 +624,6 @@ class _GatePageState extends State<GatePage> {
             },
           );
         }
-
-        _markOnlineAfterStartupSuccess();
 
         if (startup.allowedTenants.isEmpty) {
           return StartupErrorView(
@@ -812,18 +787,18 @@ class _GatePageState extends State<GatePage> {
 
               if (userSnapshot.hasError) {
                 final error = userSnapshot.error;
-                final isConnectionProblem =
-                    !isOnline || _isConnectionLikeError(error);
+                final isConnectionProblem = _isConnectionLikeError(error);
 
                 debugPrint('[GatePage] Erro ao carregar usuário: $error');
 
-                if (isConnectionProblem) {
-                  return _buildOfflineStartupFallback();
+                if (!isOnline && isConnectionProblem) {
+                  return _buildConnectionLoading();
                 }
 
                 return StartupErrorView(
                   title: 'Não foi possível carregar o usuário.',
-                  message: 'Verifique sua conexão e tente recarregar o sistema.',
+                  message: error?.toString() ??
+                      'Verifique sua conexão e tente recarregar o sistema.',
                   onRetry: () {
                     setState(() {
                       _resetCachedUser();
@@ -836,7 +811,7 @@ class _GatePageState extends State<GatePage> {
 
               if (userData == null) {
                 if (!isOnline) {
-                  return _buildOfflineStartupFallback();
+                  return _buildConnectionLoading();
                 }
 
                 _resetCachedUser();

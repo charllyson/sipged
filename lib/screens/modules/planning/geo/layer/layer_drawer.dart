@@ -4,8 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
-import 'package:sipged/_blocs/system/map/map_data.dart';
-import 'package:sipged/_blocs/system/map/map_state.dart';
+import 'package:sipged/_widgets/map/bloc/map_data.dart';
+import 'package:sipged/_widgets/map/bloc/map_state.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_panel.dart';
 
 class LayerDrawer extends StatelessWidget {
@@ -77,7 +77,9 @@ class LayerDrawer extends StatelessWidget {
         if (node.isGroup) {
           final visibleChildren = walk(node.children);
 
-          if (visibleChildren.isNotEmpty) {
+          final canSeeGroup = _canUserSeeGroup(node, uid);
+
+          if (canSeeGroup || visibleChildren.isNotEmpty) {
             result.add(
               node.copyWith(
                 children: visibleChildren,
@@ -97,6 +99,20 @@ class LayerDrawer extends StatelessWidget {
     }
 
     return walk(tree);
+  }
+
+  bool _canUserSeeGroup(LayerData group, String currentUserId) {
+    final uid = currentUserId.trim();
+    if (uid.isEmpty) return false;
+
+    if (group.isOwner(uid)) {
+      return true;
+    }
+
+    final permission = group.permissionFor(uid);
+
+    return permission == LayerSharePermission.readOnly ||
+        permission == LayerSharePermission.edit;
   }
 
   bool _canUserSeeLayer(LayerData layer, String currentUserId) {

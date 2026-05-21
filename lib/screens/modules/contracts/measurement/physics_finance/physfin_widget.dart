@@ -1,4 +1,4 @@
-// lib/screens/modules/operation/schedule/financial/physfin_widget.dart
+// lib/screens/modules/contracts/measurement/physics_finance/physfin_widget.dart
 
 import 'dart:math' as math;
 
@@ -6,19 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_repository.dart';
 
-import 'package:sipged/_blocs/modules/contracts/measurement/physics_finance_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/physics_finance_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/measurement/physics_finance_state.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/physics_finance/physics_finance_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/physics_finance/physics_finance_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/physics_finance/physics_finance_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/physics_finance/physics_finance_state.dart';
 
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
@@ -30,11 +31,9 @@ import 'package:sipged/_blocs/system/permission/permission_state.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
-import 'banner_tip.dart';
 import 'busy_overlay.dart';
 import 'measure_text.dart';
 import 'percent_dialog.dart';
-import 'physfin_models.dart';
 import 'physfin_table.dart';
 
 void _unawaited(Future<void> future) {}
@@ -68,9 +67,13 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
   String? _localGridSyncKey;
   String? _termsBootstrapKey;
+  String? _termRowsEnsureKey;
+
   bool _termsBootstrapRunning = false;
 
-  String get _contractId => widget.contractData.id?.trim() ?? '';
+  String get _contractId {
+    return widget.contractData.id?.trim() ?? '';
+  }
 
   String? _activeTenantIdOf(BuildContext context) {
     final tenantId = context.read<PermissionCubit>().state.activeTenantId?.trim();
@@ -109,6 +112,14 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     );
   }
 
+  void _resetLocalRuntimeCaches() {
+    _percentGrid.clear();
+    _localGridSyncKey = null;
+    _termsBootstrapKey = null;
+    _termRowsEnsureKey = null;
+    _termsBootstrapRunning = false;
+  }
+
   void _initCubitFromPermission() {
     final tenantId = _activeTenantIdOf(context);
 
@@ -142,10 +153,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
     if (oldContractId != newContractId ||
         oldWidget.chronogramMode != widget.chronogramMode) {
-      _percentGrid.clear();
-      _localGridSyncKey = null;
-      _termsBootstrapKey = null;
-      _termsBootstrapRunning = false;
+      _resetLocalRuntimeCaches();
 
       _physicsFinanceCubit?.clear();
 
@@ -163,10 +171,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     final cleanTenantId = tenantId?.trim();
 
     if (cleanTenantId == null || cleanTenantId.isEmpty) {
-      _percentGrid.clear();
-      _localGridSyncKey = null;
-      _termsBootstrapKey = null;
-      _termsBootstrapRunning = false;
+      _resetLocalRuntimeCaches();
 
       final oldCubit = _physicsFinanceCubit;
 
@@ -189,18 +194,14 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
       return;
     }
 
-    if (_tenantId?.trim() == cleanTenantId &&
-        _physicsFinanceCubit != null) {
+    if (_tenantId?.trim() == cleanTenantId && _physicsFinanceCubit != null) {
       return;
     }
 
     try {
       final oldCubit = _physicsFinanceCubit;
 
-      _percentGrid.clear();
-      _localGridSyncKey = null;
-      _termsBootstrapKey = null;
-      _termsBootstrapRunning = false;
+      _resetLocalRuntimeCaches();
 
       final newCubit = _createPhysicsFinanceCubit(cleanTenantId);
 
@@ -499,7 +500,9 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
   }
 
   List<int> _extendPeriods(List<int> base, int extraDays) {
-    if (extraDays <= 0 || base.isEmpty) return base;
+    if (extraDays <= 0 || base.isEmpty) {
+      return List<int>.from(base);
+    }
 
     final List<int> output = List<int>.from(base);
 
@@ -584,7 +587,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
     final bool forceSync = _localGridSyncKey != syncKey;
 
-    final serviceKeys = services
+    final Set<String> serviceKeys = services
         .map(_serviceKey)
         .where((key) => key.trim().isNotEmpty)
         .toSet();
@@ -656,8 +659,11 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
       final double value = (serviceTotals[key] ?? 0.0).toDouble();
 
-      final List<double> percents =
-          localGrid[key] ?? List<double>.filled(periods, 0.0);
+      final List<double> percents = localGrid[key] ??
+          List<double>.filled(
+            periods,
+            0.0,
+          );
 
       rows.add(
         PhysFinRow(
@@ -713,7 +719,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     required int periods,
     required List<int?> termOrders,
     required List<double> Function(
-        String serviceKey, {
+        String key, {
         int? termOrder,
         }) getPercentFor,
   }) {
@@ -728,8 +734,11 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
         double somaPct = 0.0;
 
         for (final termOrder in termOrders) {
+          final String lookupKey =
+          termOrder == null ? row.key : row.item.toString();
+
           final List<double> percents = getPercentFor(
-            row.key,
+            lookupKey,
             termOrder: termOrder,
           );
 
@@ -804,8 +813,8 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
     const double kItemColWidth = 72.0;
     const double kPercentBarVisualWidth = 88.0;
 
-    final String longestMoney = NumberFormat.simpleCurrency(locale: 'pt_BR')
-        .format(999999999999.99);
+    final String longestMoney =
+    NumberFormat.simpleCurrency(locale: 'pt_BR').format(999999999999.99);
 
     final double moneyCellNeeded = PhysFinMeasure.measureMaxTextWidth(
       context: context,
@@ -831,11 +840,13 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
     if (preferFit) {
       final double baseWidth = viewportWidth -
-          (measuredDescWidth +
-              extraWidth +
-              kItemColWidth +
-              valueColWidth +
-              paddingsHorizontal);
+          (
+              measuredDescWidth +
+                  extraWidth +
+                  kItemColWidth +
+                  valueColWidth +
+                  paddingsHorizontal
+          );
 
       final double candidate =
       nCols == 0 ? minPercentColWidthDefault : baseWidth / nCols;
@@ -927,23 +938,67 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
       String itemId, {
         required int termOrder,
       }) {
-    return financeState.gridByTerm[termOrder]?[itemId] ?? const <double>[];
+    final cleanItemId = itemId.trim();
+
+    if (cleanItemId.isEmpty || termOrder <= 0) {
+      return const <double>[];
+    }
+
+    return financeState.gridByTerm[termOrder]?[cleanItemId] ??
+        const <double>[];
   }
 
-  void _ensureTermGridByRows({
-    required int termOrder,
+  void _scheduleEnsureTermGridRows({
+    required PhysicsFinanceState financeState,
     required List<PhysFinRow> rows,
     required int periods,
   }) {
-    final cubit = _physicsFinanceCubit;
+    if (!widget.chronogramMode) return;
+    if (periods <= 0) return;
+    if (rows.isEmpty) return;
 
+    final cubit = _physicsFinanceCubit;
     if (cubit == null) return;
 
-    cubit.ensureTermGridRows(
-      termOrder: termOrder,
-      itemIds: rows.map((row) => row.key),
-      periods: periods,
-    );
+    final List<int> termOrders = financeState.termAdditiveId.keys
+        .where((order) => order > 0)
+        .toList(growable: false)
+      ..sort();
+
+    if (termOrders.isEmpty) return;
+
+    final String rowsKey = rows.map((row) => row.item).join(',');
+
+    final String key = <String>[
+      _tenantId ?? '',
+      _contractId,
+      periods.toString(),
+      termOrders.join(','),
+      rowsKey,
+    ].join('|');
+
+    if (_termRowsEnsureKey == key) return;
+
+    _termRowsEnsureKey = key;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final activeCubit = _physicsFinanceCubit;
+      if (activeCubit == null) return;
+
+      final Iterable<String> itemIds = rows.map(
+            (row) => row.item.toString(),
+      );
+
+      for (final int termOrder in termOrders) {
+        activeCubit.ensureTermGridRows(
+          termOrder: termOrder,
+          itemIds: itemIds,
+          periods: periods,
+        );
+      }
+    });
   }
 
   String _localSyncKeyFor({
@@ -1009,7 +1064,8 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
       bottom: 10,
     );
 
-    final ScheduleLinearCubit scheduleRoadCubit = context.read<ScheduleLinearCubit>();
+    final ScheduleLinearCubit scheduleRoadCubit =
+    context.read<ScheduleLinearCubit>();
 
     return Scaffold(
       body: Stack(
@@ -1053,6 +1109,11 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
                     ),
                   ];
 
+                  final List<int?> termOrders = List<int?>.generate(
+                    termLabels.length,
+                        (index) => index == 0 ? null : index,
+                  );
+
                   final List<String?> termSubLabels = <String?>[
                     '',
                     ...orderedAdds.map(
@@ -1072,7 +1133,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
 
                   final List<int> dias = widget.chronogramMode
                       ? _extendPeriods(baseDays, extraDays)
-                      : baseDays;
+                      : List<int>.from(baseDays);
 
                   final List<dynamic> services = roadState.services
                       .where((service) => !service.isGeral)
@@ -1108,10 +1169,12 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
                   );
 
                   final bool waitingTerms = widget.chronogramMode &&
-                      (_contractId.isEmpty ||
-                          _loadingTr ||
-                          !financeState.termsLoaded ||
-                          financeState.isLoading);
+                      (
+                          _contractId.isEmpty ||
+                              _loadingTr ||
+                              !financeState.termsLoaded ||
+                              financeState.isLoading
+                      );
 
                   if (waitingTerms) {
                     return const Center(
@@ -1126,37 +1189,28 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
                     periods: dias.length,
                   );
 
-                  if (widget.chronogramMode) {
-                    for (final int termOrder
-                    in financeState.termAdditiveId.keys) {
-                      _ensureTermGridByRows(
-                        termOrder: termOrder,
-                        rows: dados,
-                        periods: dias.length,
-                      );
-                    }
-                  }
+                  _scheduleEnsureTermGridRows(
+                    financeState: financeState,
+                    rows: dados,
+                    periods: dias.length,
+                  );
 
                   final PhysFinTotals totals = widget.chronogramMode
                       ? _computeTotalsChrono(
                     rows: dados,
                     periods: dias.length,
-                    termOrders: List<int?>.generate(
-                      termLabels.length,
-                          (index) => index == 0 ? null : index,
-                    ),
+                    termOrders: termOrders,
                     getPercentFor: (
-                        serviceKeyOrItemId, {
+                        key, {
                           int? termOrder,
                         }) {
                       if (termOrder == null) {
-                        return _percentGrid[serviceKeyOrItemId] ??
-                            const <double>[];
+                        return _percentGrid[key] ?? const <double>[];
                       }
 
                       return _getPercentsForItem(
                         financeState,
-                        serviceKeyOrItemId,
+                        key,
                         termOrder: termOrder,
                       );
                     },
@@ -1191,8 +1245,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
                         paddingsHorizontal: kTablePadding.horizontal,
                         measuredDescWidth: measured.descColWidth,
                         measuredValueWidth: measured.valueColWidth,
-                        extraColWidth:
-                        widget.chronogramMode ? kExtraCol : null,
+                        extraColWidth: widget.chronogramMode ? kExtraCol : null,
                       );
 
                       final double tableWidth = widths.itemCol +
@@ -1204,6 +1257,7 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
                       final Widget table = PhysFinTable(
                         chronogramMode: widget.chronogramMode,
                         termLabels: termLabels,
+                        termOrders: termOrders,
                         termSubLabels: termSubLabels,
                         additives: orderedAdds,
                         days: dias,
@@ -1365,18 +1419,10 @@ class _PhysFinWidgetState extends State<PhysFinWidget> {
                         ),
                       );
 
-                      final Widget banner = PhysFinBannerTip(
-                        text: widget.chronogramMode
-                            ? 'Edite os percentuais nas linhas dos Termos. “Contratado” está desativado.'
-                            : 'Clique nas barras para alterar os percentuais de cada período.',
-                      );
-
                       final Widget verticalScroll = SingleChildScrollView(
                         padding: const EdgeInsets.only(bottom: 24),
                         child: Column(
                           children: [
-                            const SizedBox(height: 18),
-                            banner,
                             const SizedBox(height: 6),
                             tableRegion,
                           ],

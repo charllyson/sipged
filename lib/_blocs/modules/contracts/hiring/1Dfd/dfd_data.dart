@@ -9,7 +9,6 @@ import 'package:sipged/_utils/formatters/sipged_format_firestore.dart';
 /// =============================================================================
 class DfdData extends Equatable {
   /// Chaves estáveis das seções do DFD.
-  /// Substitui o antigo arquivo dfd_sections.dart.
   static const sectionIdentificacao = 'identificacao';
   static const sectionObjeto = 'objeto';
   static const sectionLocalizacao = 'localizacao';
@@ -302,7 +301,9 @@ class DfdData extends Equatable {
     Map<String, dynamic> sec(String key) {
       final raw = sections[key];
 
-      if (raw is Map<String, dynamic>) return raw;
+      if (raw is Map<String, dynamic>) {
+        return raw;
+      }
 
       if (raw is Map) {
         return raw.map(
@@ -328,35 +329,17 @@ class DfdData extends Equatable {
     String? s(Map<String, dynamic> map, String key) {
       final value = map[key];
 
-      if (value == null) return null;
+      if (value == null) {
+        return null;
+      }
 
-      return value.toString();
+      final text = value.toString();
+
+      return text;
     }
 
     int? i(Map<String, dynamic> map, String key) {
       return SipGedFormatFirestore.toInt(map[key]);
-    }
-
-    String? readIdCompat(
-        Map<String, dynamic> map,
-        String newKey,
-        List<String> oldKeys,
-        ) {
-      final direct = map[newKey]?.toString();
-
-      if (direct != null && direct.trim().isNotEmpty) {
-        return direct.trim();
-      }
-
-      for (final oldKey in oldKeys) {
-        final value = map[oldKey]?.toString();
-
-        if (value != null && value.trim().isNotEmpty) {
-          return value.trim();
-        }
-      }
-
-      return null;
     }
 
     return DfdData(
@@ -368,21 +351,9 @@ class DfdData extends Equatable {
       regional: s(ident, 'regional'),
 
       // 1) Identificação - IDs
-      orgaoDemandanteId: readIdCompat(
-        ident,
-        'orgaoDemandanteId',
-        const ['orgaoDemandante_id'],
-      ),
-      unidadeSolicitanteId: readIdCompat(
-        ident,
-        'unidadeSolicitanteId',
-        const ['unidadeSolicitante_id'],
-      ),
-      regionalId: readIdCompat(
-        ident,
-        'regionalId',
-        const ['regional_id'],
-      ),
+      orgaoDemandanteId: s(ident, 'orgaoDemandanteId'),
+      unidadeSolicitanteId: s(ident, 'unidadeSolicitanteId'),
+      regionalId: s(ident, 'regionalId'),
 
       solicitanteNome: s(ident, 'solicitanteNome'),
       solicitanteUserId: s(ident, 'solicitanteUserId'),
@@ -412,26 +383,10 @@ class DfdData extends Equatable {
       ),
 
       // 2) Objeto - IDs
-      tipoContratacaoId: readIdCompat(
-        objeto,
-        'tipoContratacaoId',
-        const ['tipoContratacao_id'],
-      ),
-      modalidadeEstimativaId: readIdCompat(
-        objeto,
-        'modalidadeEstimativaId',
-        const ['modalidadeEstimativa_id'],
-      ),
-      regimeExecucaoId: readIdCompat(
-        objeto,
-        'regimeExecucaoId',
-        const ['regimeExecucao_id'],
-      ),
-      tipoObraId: readIdCompat(
-        objeto,
-        'tipoObraId',
-        const ['tipoObra_id'],
-      ),
+      tipoContratacaoId: s(objeto, 'tipoContratacaoId'),
+      modalidadeEstimativaId: s(objeto, 'modalidadeEstimativaId'),
+      regimeExecucaoId: s(objeto, 'regimeExecucaoId'),
+      tipoObraId: s(objeto, 'tipoObraId'),
 
       // 3) Localização - labels
       uf: s(localizacao, 'uf'),
@@ -439,8 +394,7 @@ class DfdData extends Equatable {
       rodovia: s(localizacao, 'rodovia'),
       kmInicial: s(localizacao, 'kmInicial'),
       kmFinal: s(localizacao, 'kmFinal'),
-      naturezaIntervencao: s(localizacao, 'naturezaIntervencao') ??
-          s(ident, 'naturezaIntervencao'),
+      naturezaIntervencao: s(localizacao, 'naturezaIntervencao'),
       prazoExecucaoDias: i(localizacao, 'prazoExecucaoDias'),
       vigenciaMeses: i(localizacao, 'vigenciaMeses'),
       extensaoKm: SipGedFormatFirestore.toDouble(
@@ -448,26 +402,10 @@ class DfdData extends Equatable {
       ),
 
       // 3) Localização - IDs
-      ufId: readIdCompat(
-        localizacao,
-        'ufId',
-        const ['uf_id'],
-      ),
-      municipioId: readIdCompat(
-        localizacao,
-        'municipioId',
-        const ['municipio_id'],
-      ),
-      rodoviaId: readIdCompat(
-        localizacao,
-        'rodoviaId',
-        const ['rodovia_id'],
-      ),
-      naturezaIntervencaoId: readIdCompat(
-        localizacao,
-        'naturezaIntervencaoId',
-        const ['naturezaIntervencao_id'],
-      ),
+      ufId: s(localizacao, 'ufId'),
+      municipioId: s(localizacao, 'municipioId'),
+      rodoviaId: s(localizacao, 'rodoviaId'),
+      naturezaIntervencaoId: s(localizacao, 'naturezaIntervencaoId'),
 
       // 4) Estimativa - labels
       fonteRecurso: s(estimativa, 'fonteRecurso'),
@@ -480,31 +418,11 @@ class DfdData extends Equatable {
       metodologiaEstimativa: s(estimativa, 'metodologiaEstimativa'),
 
       // 4) Estimativa - IDs
-      fonteRecursoId: readIdCompat(
-        estimativa,
-        'fonteRecursoId',
-        const ['fonteRecurso_id'],
-      ),
-      programaTrabalhoId: readIdCompat(
-        estimativa,
-        'programaTrabalhoId',
-        const ['programaTrabalho_id'],
-      ),
-      ptresId: readIdCompat(
-        estimativa,
-        'ptresId',
-        const ['ptres_id'],
-      ),
-      naturezaDespesaId: readIdCompat(
-        estimativa,
-        'naturezaDespesaId',
-        const ['naturezaDespesa_id'],
-      ),
-      metodologiaEstimativaId: readIdCompat(
-        estimativa,
-        'metodologiaEstimativaId',
-        const ['metodologiaEstimativa_id'],
-      ),
+      fonteRecursoId: s(estimativa, 'fonteRecursoId'),
+      programaTrabalhoId: s(estimativa, 'programaTrabalhoId'),
+      ptresId: s(estimativa, 'ptresId'),
+      naturezaDespesaId: s(estimativa, 'naturezaDespesaId'),
+      metodologiaEstimativaId: s(estimativa, 'metodologiaEstimativaId'),
 
       // 5) Riscos - labels
       riscos: s(riscosMap, 'riscos'),
@@ -517,11 +435,7 @@ class DfdData extends Equatable {
       amparoNormativo: s(riscosMap, 'amparoNormativo'),
 
       // 5) Riscos - IDs
-      prioridadeId: readIdCompat(
-        riscosMap,
-        'prioridadeId',
-        const ['prioridade_id'],
-      ),
+      prioridadeId: s(riscosMap, 'prioridadeId'),
 
       // 6) Documentos
       etpAnexo: s(documentos, 'etpAnexo'),
@@ -541,11 +455,7 @@ class DfdData extends Equatable {
       parecerResumo: s(aprovacao, 'parecerResumo'),
 
       // 7) Aprovação - IDs
-      autoridadeAprovadoraId: readIdCompat(
-        aprovacao,
-        'autoridadeAprovadoraId',
-        const ['autoridadeAprovadora_id'],
-      ),
+      autoridadeAprovadoraId: s(aprovacao, 'autoridadeAprovadoraId'),
 
       // 8) Observações
       observacoes: s(observacoesMap, 'observacoes'),
@@ -556,32 +466,18 @@ class DfdData extends Equatable {
       Map<String, dynamic>? map, {
         String? contractId,
       }) {
-    if (map == null) return const DfdData.empty();
+    if (map == null) {
+      return const DfdData.empty();
+    }
 
     String? s(String key) {
       final value = map[key];
 
-      if (value == null) return null;
+      if (value == null) {
+        return null;
+      }
 
       return value.toString();
-    }
-
-    String? idCompat(String newKey, List<String> oldKeys) {
-      final direct = map[newKey]?.toString();
-
-      if (direct != null && direct.trim().isNotEmpty) {
-        return direct.trim();
-      }
-
-      for (final oldKey in oldKeys) {
-        final value = map[oldKey]?.toString();
-
-        if (value != null && value.trim().isNotEmpty) {
-          return value.trim();
-        }
-      }
-
-      return null;
     }
 
     return DfdData(
@@ -591,18 +487,9 @@ class DfdData extends Equatable {
       unidadeSolicitante: s('unidadeSolicitante'),
       regional: s('regional'),
 
-      orgaoDemandanteId: idCompat(
-        'orgaoDemandanteId',
-        const ['orgaoDemandante_id'],
-      ),
-      unidadeSolicitanteId: idCompat(
-        'unidadeSolicitanteId',
-        const ['unidadeSolicitante_id'],
-      ),
-      regionalId: idCompat(
-        'regionalId',
-        const ['regional_id'],
-      ),
+      orgaoDemandanteId: s('orgaoDemandanteId'),
+      unidadeSolicitanteId: s('unidadeSolicitanteId'),
+      regionalId: s('regionalId'),
 
       solicitanteNome: s('solicitanteNome'),
       solicitanteUserId: s('solicitanteUserId'),
@@ -630,22 +517,10 @@ class DfdData extends Equatable {
         map['valorDemanda'],
       ),
 
-      tipoContratacaoId: idCompat(
-        'tipoContratacaoId',
-        const ['tipoContratacao_id'],
-      ),
-      modalidadeEstimativaId: idCompat(
-        'modalidadeEstimativaId',
-        const ['modalidadeEstimativa_id'],
-      ),
-      regimeExecucaoId: idCompat(
-        'regimeExecucaoId',
-        const ['regimeExecucao_id'],
-      ),
-      tipoObraId: idCompat(
-        'tipoObraId',
-        const ['tipoObra_id'],
-      ),
+      tipoContratacaoId: s('tipoContratacaoId'),
+      modalidadeEstimativaId: s('modalidadeEstimativaId'),
+      regimeExecucaoId: s('regimeExecucaoId'),
+      tipoObraId: s('tipoObraId'),
 
       uf: s('uf'),
       municipio: s('municipio'),
@@ -663,22 +538,10 @@ class DfdData extends Equatable {
         map['extensaoKm'],
       ),
 
-      ufId: idCompat(
-        'ufId',
-        const ['uf_id'],
-      ),
-      municipioId: idCompat(
-        'municipioId',
-        const ['municipio_id'],
-      ),
-      rodoviaId: idCompat(
-        'rodoviaId',
-        const ['rodovia_id'],
-      ),
-      naturezaIntervencaoId: idCompat(
-        'naturezaIntervencaoId',
-        const ['naturezaIntervencao_id'],
-      ),
+      ufId: s('ufId'),
+      municipioId: s('municipioId'),
+      rodoviaId: s('rodoviaId'),
+      naturezaIntervencaoId: s('naturezaIntervencaoId'),
 
       fonteRecurso: s('fonteRecurso'),
       programaTrabalho: s('programaTrabalho'),
@@ -689,26 +552,11 @@ class DfdData extends Equatable {
       ),
       metodologiaEstimativa: s('metodologiaEstimativa'),
 
-      fonteRecursoId: idCompat(
-        'fonteRecursoId',
-        const ['fonteRecurso_id'],
-      ),
-      programaTrabalhoId: idCompat(
-        'programaTrabalhoId',
-        const ['programaTrabalho_id'],
-      ),
-      ptresId: idCompat(
-        'ptresId',
-        const ['ptres_id'],
-      ),
-      naturezaDespesaId: idCompat(
-        'naturezaDespesaId',
-        const ['naturezaDespesa_id'],
-      ),
-      metodologiaEstimativaId: idCompat(
-        'metodologiaEstimativaId',
-        const ['metodologiaEstimativa_id'],
-      ),
+      fonteRecursoId: s('fonteRecursoId'),
+      programaTrabalhoId: s('programaTrabalhoId'),
+      ptresId: s('ptresId'),
+      naturezaDespesaId: s('naturezaDespesaId'),
+      metodologiaEstimativaId: s('metodologiaEstimativaId'),
 
       riscos: s('riscos'),
       impactoNaoContratar: s('impactoNaoContratar'),
@@ -719,10 +567,7 @@ class DfdData extends Equatable {
       motivacaoLegal: s('motivacaoLegal'),
       amparoNormativo: s('amparoNormativo'),
 
-      prioridadeId: idCompat(
-        'prioridadeId',
-        const ['prioridade_id'],
-      ),
+      prioridadeId: s('prioridadeId'),
 
       etpAnexo: s('etpAnexo'),
       projetoBasico: s('projetoBasico'),
@@ -739,10 +584,7 @@ class DfdData extends Equatable {
       ),
       parecerResumo: s('parecerResumo'),
 
-      autoridadeAprovadoraId: idCompat(
-        'autoridadeAprovadoraId',
-        const ['autoridadeAprovadora_id'],
-      ),
+      autoridadeAprovadoraId: s('autoridadeAprovadoraId'),
 
       observacoes: s('observacoes'),
     );
@@ -863,8 +705,7 @@ class DfdData extends Equatable {
       rodovia: rodovia ?? this.rodovia,
       kmInicial: kmInicial ?? this.kmInicial,
       kmFinal: kmFinal ?? this.kmFinal,
-      naturezaIntervencao:
-      naturezaIntervencao ?? this.naturezaIntervencao,
+      naturezaIntervencao: naturezaIntervencao ?? this.naturezaIntervencao,
       prazoExecucaoDias: prazoExecucaoDias ?? this.prazoExecucaoDias,
       vigenciaMeses: vigenciaMeses ?? this.vigenciaMeses,
       extensaoKm: extensaoKm ?? this.extensaoKm,
@@ -887,8 +728,7 @@ class DfdData extends Equatable {
       metodologiaEstimativaId:
       metodologiaEstimativaId ?? this.metodologiaEstimativaId,
       riscos: riscos ?? this.riscos,
-      impactoNaoContratar:
-      impactoNaoContratar ?? this.impactoNaoContratar,
+      impactoNaoContratar: impactoNaoContratar ?? this.impactoNaoContratar,
       prioridade: prioridade ?? this.prioridade,
       dataLimite: dataLimite ?? this.dataLimite,
       motivacaoLegal: motivacaoLegal ?? this.motivacaoLegal,
@@ -896,14 +736,11 @@ class DfdData extends Equatable {
       prioridadeId: prioridadeId ?? this.prioridadeId,
       etpAnexo: etpAnexo ?? this.etpAnexo,
       projetoBasico: projetoBasico ?? this.projetoBasico,
-      termoMatrizRiscos:
-      termoMatrizRiscos ?? this.termoMatrizRiscos,
+      termoMatrizRiscos: termoMatrizRiscos ?? this.termoMatrizRiscos,
       parecerJuridico: parecerJuridico ?? this.parecerJuridico,
-      autorizacaoAbertura:
-      autorizacaoAbertura ?? this.autorizacaoAbertura,
+      autorizacaoAbertura: autorizacaoAbertura ?? this.autorizacaoAbertura,
       linksDocumentos: linksDocumentos ?? this.linksDocumentos,
-      autoridadeAprovadora:
-      autoridadeAprovadora ?? this.autoridadeAprovadora,
+      autoridadeAprovadora: autoridadeAprovadora ?? this.autoridadeAprovadora,
       autoridadeUserId: autoridadeUserId ?? this.autoridadeUserId,
       autoridadeCpf: autoridadeCpf ?? this.autoridadeCpf,
       dataAprovacao: dataAprovacao ?? this.dataAprovacao,
@@ -942,8 +779,7 @@ class DfdData extends Equatable {
       SipGedFormatFirestore.toFirestoreValue(dataSolicitacao),
       'numeroProcessoContratacao':
       SipGedFormatFirestore.toFirestoreValue(processoAdministrativo),
-      'statusContrato':
-      SipGedFormatFirestore.toFirestoreValue(statusDemanda),
+      'statusContrato': SipGedFormatFirestore.toFirestoreValue(statusDemanda),
       'companyId': SipGedFormatFirestore.toFirestoreValue(companyId),
       'unitId': SipGedFormatFirestore.toFirestoreValue(unitId),
       'regionId': SipGedFormatFirestore.toFirestoreValue(regionId),
@@ -951,15 +787,12 @@ class DfdData extends Equatable {
       SipGedFormatFirestore.toFirestoreValue(tipoContratacao),
       'modalidadeEstimativa':
       SipGedFormatFirestore.toFirestoreValue(modalidadeEstimativa),
-      'regimeExecucao':
-      SipGedFormatFirestore.toFirestoreValue(regimeExecucao),
+      'regimeExecucao': SipGedFormatFirestore.toFirestoreValue(regimeExecucao),
       'descricaoObjeto':
       SipGedFormatFirestore.toFirestoreValue(descricaoObjeto),
-      'justificativa':
-      SipGedFormatFirestore.toFirestoreValue(justificativa),
+      'justificativa': SipGedFormatFirestore.toFirestoreValue(justificativa),
       'tipoObra': SipGedFormatFirestore.toFirestoreValue(tipoObra),
-      'valorDemanda':
-      SipGedFormatFirestore.toFirestoreValue(valorDemanda),
+      'valorDemanda': SipGedFormatFirestore.toFirestoreValue(valorDemanda),
       'tipoContratacaoId':
       SipGedFormatFirestore.toFirestoreValue(tipoContratacaoId),
       'modalidadeEstimativaId':
@@ -976,16 +809,14 @@ class DfdData extends Equatable {
       SipGedFormatFirestore.toFirestoreValue(naturezaIntervencao),
       'prazoExecucaoDias':
       SipGedFormatFirestore.toFirestoreValue(prazoExecucaoDias),
-      'vigenciaMeses':
-      SipGedFormatFirestore.toFirestoreValue(vigenciaMeses),
+      'vigenciaMeses': SipGedFormatFirestore.toFirestoreValue(vigenciaMeses),
       'extensaoKm': SipGedFormatFirestore.toFirestoreValue(extensaoKm),
       'ufId': SipGedFormatFirestore.toFirestoreValue(ufId),
       'municipioId': SipGedFormatFirestore.toFirestoreValue(municipioId),
       'rodoviaId': SipGedFormatFirestore.toFirestoreValue(rodoviaId),
       'naturezaIntervencaoId':
       SipGedFormatFirestore.toFirestoreValue(naturezaIntervencaoId),
-      'fonteRecurso':
-      SipGedFormatFirestore.toFirestoreValue(fonteRecurso),
+      'fonteRecurso': SipGedFormatFirestore.toFirestoreValue(fonteRecurso),
       'programaTrabalho':
       SipGedFormatFirestore.toFirestoreValue(programaTrabalho),
       'ptres': SipGedFormatFirestore.toFirestoreValue(ptres),
@@ -1013,11 +844,9 @@ class DfdData extends Equatable {
       SipGedFormatFirestore.toFirestoreValue(motivacaoLegal),
       'amparoNormativo':
       SipGedFormatFirestore.toFirestoreValue(amparoNormativo),
-      'prioridadeId':
-      SipGedFormatFirestore.toFirestoreValue(prioridadeId),
+      'prioridadeId': SipGedFormatFirestore.toFirestoreValue(prioridadeId),
       'etpAnexo': SipGedFormatFirestore.toFirestoreValue(etpAnexo),
-      'projetoBasico':
-      SipGedFormatFirestore.toFirestoreValue(projetoBasico),
+      'projetoBasico': SipGedFormatFirestore.toFirestoreValue(projetoBasico),
       'termoMatrizRiscos':
       SipGedFormatFirestore.toFirestoreValue(termoMatrizRiscos),
       'parecerJuridico':
@@ -1030,16 +859,12 @@ class DfdData extends Equatable {
       SipGedFormatFirestore.toFirestoreValue(autoridadeAprovadora),
       'autoridadeUserId':
       SipGedFormatFirestore.toFirestoreValue(autoridadeUserId),
-      'autoridadeCpf':
-      SipGedFormatFirestore.toFirestoreValue(autoridadeCpf),
-      'dataAprovacao':
-      SipGedFormatFirestore.toFirestoreValue(dataAprovacao),
-      'parecerResumo':
-      SipGedFormatFirestore.toFirestoreValue(parecerResumo),
+      'autoridadeCpf': SipGedFormatFirestore.toFirestoreValue(autoridadeCpf),
+      'dataAprovacao': SipGedFormatFirestore.toFirestoreValue(dataAprovacao),
+      'parecerResumo': SipGedFormatFirestore.toFirestoreValue(parecerResumo),
       'autoridadeAprovadoraId':
       SipGedFormatFirestore.toFirestoreValue(autoridadeAprovadoraId),
-      'observacoes':
-      SipGedFormatFirestore.toFirestoreValue(observacoes),
+      'observacoes': SipGedFormatFirestore.toFirestoreValue(observacoes),
     };
   }
 
@@ -1072,8 +897,7 @@ class DfdData extends Equatable {
         SipGedFormatFirestore.toFirestoreValue(dataSolicitacao),
         'numeroProcessoContratacao':
         SipGedFormatFirestore.toFirestoreValue(processoAdministrativo),
-        'statusContrato':
-        SipGedFormatFirestore.toFirestoreValue(statusDemanda),
+        'statusContrato': SipGedFormatFirestore.toFirestoreValue(statusDemanda),
         'companyId': SipGedFormatFirestore.toFirestoreValue(companyId),
         'unitId': SipGedFormatFirestore.toFirestoreValue(unitId),
         'regionId': SipGedFormatFirestore.toFirestoreValue(regionId),
@@ -1087,11 +911,9 @@ class DfdData extends Equatable {
         SipGedFormatFirestore.toFirestoreValue(regimeExecucao),
         'descricaoObjeto':
         SipGedFormatFirestore.toFirestoreValue(descricaoObjeto),
-        'justificativa':
-        SipGedFormatFirestore.toFirestoreValue(justificativa),
+        'justificativa': SipGedFormatFirestore.toFirestoreValue(justificativa),
         'tipoObra': SipGedFormatFirestore.toFirestoreValue(tipoObra),
-        'valorDemanda':
-        SipGedFormatFirestore.toFirestoreValue(valorDemanda),
+        'valorDemanda': SipGedFormatFirestore.toFirestoreValue(valorDemanda),
         'tipoContratacaoId':
         SipGedFormatFirestore.toFirestoreValue(tipoContratacaoId),
         'modalidadeEstimativaId':
@@ -1110,20 +932,17 @@ class DfdData extends Equatable {
         SipGedFormatFirestore.toFirestoreValue(naturezaIntervencao),
         'prazoExecucaoDias':
         SipGedFormatFirestore.toFirestoreValue(prazoExecucaoDias),
-        'vigenciaMeses':
-        SipGedFormatFirestore.toFirestoreValue(vigenciaMeses),
+        'vigenciaMeses': SipGedFormatFirestore.toFirestoreValue(vigenciaMeses),
         'extensaoKm': SipGedFormatFirestore.toFirestoreValue(extensaoKm),
         'ufId': SipGedFormatFirestore.toFirestoreValue(ufId),
-        'municipioId':
-        SipGedFormatFirestore.toFirestoreValue(municipioId),
+        'municipioId': SipGedFormatFirestore.toFirestoreValue(municipioId),
         'rodoviaId': SipGedFormatFirestore.toFirestoreValue(rodoviaId),
         'naturezaIntervencaoId':
         SipGedFormatFirestore.toFirestoreValue(naturezaIntervencaoId),
         'regionId': SipGedFormatFirestore.toFirestoreValue(regionId),
       },
       sectionEstimativa: <String, dynamic>{
-        'fonteRecurso':
-        SipGedFormatFirestore.toFirestoreValue(fonteRecurso),
+        'fonteRecurso': SipGedFormatFirestore.toFirestoreValue(fonteRecurso),
         'programaTrabalho':
         SipGedFormatFirestore.toFirestoreValue(programaTrabalho),
         'ptres': SipGedFormatFirestore.toFirestoreValue(ptres),
@@ -1148,8 +967,7 @@ class DfdData extends Equatable {
         'impactoNaoContratar':
         SipGedFormatFirestore.toFirestoreValue(impactoNaoContratar),
         'prioridade': SipGedFormatFirestore.toFirestoreValue(prioridade),
-        'prioridadeId':
-        SipGedFormatFirestore.toFirestoreValue(prioridadeId),
+        'prioridadeId': SipGedFormatFirestore.toFirestoreValue(prioridadeId),
         'dataLimite': SipGedFormatFirestore.toFirestoreValue(dataLimite),
         'motivacaoLegal':
         SipGedFormatFirestore.toFirestoreValue(motivacaoLegal),
@@ -1158,8 +976,7 @@ class DfdData extends Equatable {
       },
       sectionDocumentos: <String, dynamic>{
         'etpAnexo': SipGedFormatFirestore.toFirestoreValue(etpAnexo),
-        'projetoBasico':
-        SipGedFormatFirestore.toFirestoreValue(projetoBasico),
+        'projetoBasico': SipGedFormatFirestore.toFirestoreValue(projetoBasico),
         'termoMatrizRiscos':
         SipGedFormatFirestore.toFirestoreValue(termoMatrizRiscos),
         'parecerJuridico':
@@ -1176,16 +993,12 @@ class DfdData extends Equatable {
         SipGedFormatFirestore.toFirestoreValue(autoridadeAprovadoraId),
         'autoridadeUserId':
         SipGedFormatFirestore.toFirestoreValue(autoridadeUserId),
-        'autoridadeCpf':
-        SipGedFormatFirestore.toFirestoreValue(autoridadeCpf),
-        'dataAprovacao':
-        SipGedFormatFirestore.toFirestoreValue(dataAprovacao),
-        'parecerResumo':
-        SipGedFormatFirestore.toFirestoreValue(parecerResumo),
+        'autoridadeCpf': SipGedFormatFirestore.toFirestoreValue(autoridadeCpf),
+        'dataAprovacao': SipGedFormatFirestore.toFirestoreValue(dataAprovacao),
+        'parecerResumo': SipGedFormatFirestore.toFirestoreValue(parecerResumo),
       },
       sectionObservacoes: <String, dynamic>{
-        'observacoes':
-        SipGedFormatFirestore.toFirestoreValue(observacoes),
+        'observacoes': SipGedFormatFirestore.toFirestoreValue(observacoes),
       },
     };
   }

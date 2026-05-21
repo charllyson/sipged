@@ -24,18 +24,6 @@ class FirebaseAdminCubit extends Cubit<FirebaseAdminState> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Migração oficial das coleções finais de contratação para tenant:
-  //
-  // Origem:
-  // contracts/{contractId}/publicacao/{docId}/...
-  // contracts/{contractId}/arquivamento/{docId}/...
-  //
-  // Destino:
-  // tenants/{tenantId}/contracts/{contractId}/hiring/main/publicacao/main/...
-  // tenants/{tenantId}/contracts/{contractId}/hiring/main/arquivamento/main/...
-  // ---------------------------------------------------------------------------
-
   Future<FirebaseCopyContractModulesResultData>
   migrateLegacyPublicationAndArchiveToFixedTenant() async {
     emit(

@@ -90,7 +90,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
   String get _contractId => widget.contractId.trim();
 
   ContractData get _effectiveContract {
-    if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
+    if ((_contract.id ?? '').trim().isNotEmpty) {
+      return _contract;
+    }
 
     if (_contractId.isNotEmpty) {
       return _contract.copyWith(id: _contractId);
@@ -140,7 +142,7 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
 
     _progressBloc = ProgressCubit(
       repo: ProgressRepository(
-        //tenantId: _tenantId,
+        tenantId: _tenantId,
       ),
     );
 
@@ -167,7 +169,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    if (_pipelineProgressCubit != null) return;
+    if (_pipelineProgressCubit != null) {
+      return;
+    }
 
     try {
       _pipelineProgressCubit = context.read<ProgressCubit>();
@@ -179,7 +183,7 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
   @override
   void dispose() {
     _scrollController.dispose();
-    _progressBloc.close();
+    unawaited(_progressBloc.close());
     super.dispose();
   }
 
@@ -211,16 +215,23 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
 
   Future<void> _loadContract(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     if (mounted) {
-      setState(() => _loadingContract = true);
+      setState(() {
+        _loadingContract = true;
+      });
     }
 
     try {
       final snapshot = await _contractDocRef(cid).get();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       if (!snapshot.exists) {
         setState(() {
@@ -234,11 +245,18 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         _contract = ContractData.fromDocument(snapshot: snapshot);
         _loadingContract = false;
       });
-    } catch (e, stack) {
-      debugPrint('[TermoReferenciaPage] Erro ao carregar contrato $cid: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[TermoReferenciaPage] Erro ao carregar contrato | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _contract = ContractData.empty().copyWith(id: cid);
@@ -249,18 +267,28 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
 
   Future<void> _loadDfdData(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     try {
       final data = await _dfdRepository.readDataForContract(cid);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _dfdData = data;
       });
-    } catch (e, stack) {
-      debugPrint('[TermoReferenciaPage] Falha ao carregar DFD do contrato: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[TermoReferenciaPage] Falha ao carregar DFD | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
     }
   }
@@ -269,10 +297,14 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
     final user = FirebaseAuth.instance.currentUser;
 
     final displayName = user?.displayName?.trim() ?? '';
-    if (displayName.isNotEmpty) return displayName;
+    if (displayName.isNotEmpty) {
+      return displayName;
+    }
 
     final email = user?.email?.trim() ?? '';
-    if (email.isNotEmpty) return email;
+    if (email.isNotEmpty) {
+      return email;
+    }
 
     return 'Usuário';
   }
@@ -287,13 +319,17 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
       for (final item in users) {
         if ((item.uid ?? '').trim() == uid) {
           final photo = item.urlPhoto?.trim() ?? '';
-          if (photo.isNotEmpty) return photo;
+          if (photo.isNotEmpty) {
+            return photo;
+          }
         }
       }
     }
 
     final firebasePhoto = user?.photoURL?.trim() ?? '';
-    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+    if (firebasePhoto.isNotEmpty) {
+      return firebasePhoto;
+    }
 
     return '';
   }
@@ -310,7 +346,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
     Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     final user = FirebaseAuth.instance.currentUser;
     final actorId = user?.uid.trim();
@@ -389,7 +427,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         sectionsData: _formData.toSectionsMap(),
       );
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       if (!cubit.state.saveSuccess) {
         final err = cubit.state.error ?? 'Falha ao salvar';
@@ -408,7 +448,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
       await _loadContract(_contractId);
       await _loadDfdData(_contractId);
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -429,6 +471,7 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
           extra: <String, dynamic>{
             'action': 'tr_saved',
             'trId': cubit.state.trId,
+            'tenantId': _tenantId,
             'contractId': _contractId,
             'route': _route,
             'notificationSource': _notificationSource,
@@ -437,13 +480,23 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
       }
 
       return true;
-    } catch (e) {
-      if (!mounted) return false;
+    } catch (error, stack) {
+      debugPrint(
+        '[TermoReferenciaPage] Erro em _saveOnly | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return false;
+      }
 
       await _notify(
         title: 'TR',
         subtitle: 'Erro ao salvar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -461,7 +514,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
       notifySuccess: false,
     );
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final trId = trCubit.state.trId;
 
@@ -492,7 +547,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         completed: true,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -519,19 +576,30 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         extra: <String, dynamic>{
           'action': 'tr_approved',
           'trId': trId,
+          'tenantId': _tenantId,
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
           'nextStage': ProgressData.cotacao,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[TermoReferenciaPage] Erro em _saveApproveAndNext | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'TR',
         subtitle: 'Erro ao aprovar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -546,7 +614,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
       notifySuccess: false,
     );
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final trId = trCubit.state.trId;
 
@@ -571,7 +641,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         updatedByName: actorName,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -593,18 +665,29 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
         extra: <String, dynamic>{
           'action': 'tr_approval_updated',
           'trId': trId,
+          'tenantId': _tenantId,
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[TermoReferenciaPage] Erro em _updateApproved | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'TR',
         subtitle: 'Erro ao atualizar aprovação.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -619,7 +702,9 @@ class _TermoReferenciaPageState extends State<TermoReferenciaPage>
           return (prev.loading && !curr.loading) || prev.trId != curr.trId;
         },
         listener: (context, state) {
-          if (!mounted || state.loading || !state.hasValidPath) return;
+          if (!mounted || state.loading || !state.hasValidPath) {
+            return;
+          }
 
           final incomingId = state.trId;
           final needsHydrate = !_hydrated || _currentTrId != incomingId;

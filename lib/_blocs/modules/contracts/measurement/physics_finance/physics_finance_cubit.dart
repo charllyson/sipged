@@ -1,4 +1,4 @@
-// lib/_blocs/modules/operation/phys_fin/physics_finance_cubit.dart
+// lib/_blocs/modules/contracts/measurement/physics_finance/physics_finance_cubit.dart
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -28,6 +28,7 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
   final AdditivesRepository _additivesRepository;
 
   String _tenantId;
+  String? _loadedTermsKey;
 
   bool get hasTenantId {
     return _tenantId.trim().isNotEmpty;
@@ -73,9 +74,22 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     if (_tenantId == cleanTenantId) return;
 
     _tenantId = cleanTenantId;
+    _loadedTermsKey = null;
+
     _syncRepositoriesTenant();
 
     emit(PhysicsFinanceState.initial());
+  }
+
+  String _termsLoadKey({
+    required String contractId,
+    required int periods,
+  }) {
+    return <String>[
+      _tenantId.trim(),
+      contractId.trim(),
+      periods.toString(),
+    ].join('|');
   }
 
   List<double> _normalizeList(
@@ -125,6 +139,8 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) {
+      _loadedTermsKey = null;
+
       emit(
         state.copyWith(
           isLoading: false,
@@ -141,6 +157,8 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     }
 
     if (periods <= 0) {
+      _loadedTermsKey = null;
+
       emit(
         state.copyWith(
           isLoading: false,
@@ -160,6 +178,8 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
       _requireTenantId();
       _syncRepositoriesTenant();
     } catch (e) {
+      _loadedTermsKey = null;
+
       emit(
         state.copyWith(
           isLoading: false,
@@ -174,7 +194,14 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
       return;
     }
 
-    if (state.termsLoaded && !forceReload) return;
+    final String loadKey = _termsLoadKey(
+      contractId: cleanContractId,
+      periods: periods,
+    );
+
+    if (_loadedTermsKey == loadKey && state.termsLoaded && !forceReload) {
+      return;
+    }
 
     emit(
       state.copyWith(
@@ -198,8 +225,8 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
       final Map<int, String> termAdditiveId = <int, String>{};
 
       for (final additive in orderedAdditives) {
-        final order = additive.additiveOrder ?? 0;
-        final id = additive.id?.trim();
+        final int order = additive.additiveOrder ?? 0;
+        final String? id = additive.id?.trim();
 
         if (order > 0 && id != null && id.isNotEmpty) {
           termAdditiveId[order] = id;
@@ -213,8 +240,8 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
       <int, Map<String, List<double>>>{};
 
       for (final entry in termAdditiveId.entries) {
-        final termOrder = entry.key;
-        final additiveId = entry.value.trim();
+        final int termOrder = entry.key;
+        final String additiveId = entry.value.trim();
 
         if (termOrder <= 0 || additiveId.isEmpty) continue;
 
@@ -225,15 +252,22 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
         );
 
         if (schedule != null) {
-          schedulesByTerm[termOrder] = schedule;
-          gridByTerm[termOrder] = _normalizeGrid(
+          final normalizedGrid = _normalizeGrid(
             schedule.grid,
             periods,
           );
+
+          schedulesByTerm[termOrder] = schedule.copyWith(
+            grid: normalizedGrid,
+          );
+
+          gridByTerm[termOrder] = normalizedGrid;
         } else {
           gridByTerm[termOrder] = <String, List<double>>{};
         }
       }
+
+      _loadedTermsKey = loadKey;
 
       emit(
         state.copyWith(
@@ -247,6 +281,8 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
         ),
       );
     } catch (e) {
+      _loadedTermsKey = null;
+
       emit(
         state.copyWith(
           isLoading: false,
@@ -272,8 +308,7 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     final Map<int, Map<String, List<double>>> gridByTerm =
     Map<int, Map<String, List<double>>>.from(state.gridByTerm);
 
-    final Map<String, List<double>> termGrid =
-    Map<String, List<double>>.from(
+    final Map<String, List<double>> termGrid = Map<String, List<double>>.from(
       gridByTerm[termOrder] ?? const <String, List<double>>{},
     );
 
@@ -393,8 +428,7 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
     final Map<int, Map<String, List<double>>> gridByTerm =
     Map<int, Map<String, List<double>>>.from(state.gridByTerm);
 
-    final Map<String, List<double>> termGrid =
-    Map<String, List<double>>.from(
+    final Map<String, List<double>> termGrid = Map<String, List<double>>.from(
       gridByTerm[termOrder] ?? const <String, List<double>>{},
     );
 
@@ -424,7 +458,7 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
         contractId: cleanContractId,
         additiveId: additiveId,
         termOrder: termOrder,
-        periods: periods,
+        periods: List<int>.from(periods),
         grid: termGrid,
       );
 
@@ -457,6 +491,7 @@ class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
   }
 
   void clear() {
+    _loadedTermsKey = null;
     emit(PhysicsFinanceState.initial());
   }
 }

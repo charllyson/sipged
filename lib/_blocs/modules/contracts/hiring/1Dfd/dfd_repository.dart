@@ -1,5 +1,3 @@
-// lib/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart
-
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -53,7 +51,7 @@ class DfdRepository {
     return _contractDoc(contractId).collection('hiring').doc('main');
   }
 
-  CollectionReference<Map<String, dynamic>> _col(String contractId) {
+  CollectionReference<Map<String, dynamic>> _dfdCol(String contractId) {
     final cleanContractId = contractId.trim();
 
     if (cleanContractId.isEmpty) {
@@ -61,6 +59,43 @@ class DfdRepository {
     }
 
     return _hiringMainDoc(cleanContractId).collection('dfd');
+  }
+
+  DocumentReference<Map<String, dynamic>> _dfdMainDoc(String contractId) {
+    return _dfdCol(contractId).doc('main');
+  }
+
+  DocumentReference<Map<String, dynamic>> _sectionDoc({
+    required String contractId,
+    required String dfdId,
+    required String sectionKey,
+    required String sectionDocId,
+  }) {
+    final cleanContractId = contractId.trim();
+    final cleanDfdId = dfdId.trim();
+    final cleanSectionKey = sectionKey.trim();
+    final cleanSectionDocId = sectionDocId.trim();
+
+    if (cleanContractId.isEmpty) {
+      throw ArgumentError('contractId não informado.');
+    }
+
+    if (cleanDfdId.isEmpty) {
+      throw ArgumentError('dfdId não informado.');
+    }
+
+    if (cleanSectionKey.isEmpty) {
+      throw ArgumentError('sectionKey não informado.');
+    }
+
+    if (cleanSectionDocId.isEmpty) {
+      throw ArgumentError('sectionDocId não informado.');
+    }
+
+    return _dfdCol(cleanContractId)
+        .doc(cleanDfdId)
+        .collection(cleanSectionKey)
+        .doc(cleanSectionDocId);
   }
 
   String _filesPath({
@@ -115,6 +150,27 @@ class DfdRepository {
     }
   }
 
+  Map<String, String> _defaultSectionIds() {
+    return <String, String>{
+      for (final section in DfdData.sectionKeys) section: 'main',
+    };
+  }
+
+  Map<String, dynamic> _cleanSectionData(Map<String, dynamic> data) {
+    final clean = Map<String, dynamic>.from(data);
+
+    clean.remove('id');
+    clean.remove('module');
+    clean.remove('tenantId');
+    clean.remove('contractId');
+    clean.remove('createdAt');
+    clean.remove('updatedAt');
+    clean.remove('createdBy');
+    clean.remove('updatedBy');
+
+    return clean;
+  }
+
   Future<void> _ensureContractParent(String contractId) async {
     final cleanContractId = contractId.trim();
 
@@ -126,7 +182,6 @@ class DfdRepository {
       <String, dynamic>{
         'id': cleanContractId,
         'tenantId': tenantId,
-        'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -147,10 +202,7 @@ class DfdRepository {
         'id': 'main',
         'module': 'hiring',
         'tenantId': tenantId,
-        'companyId': tenantId,
         'contractId': cleanContractId,
-        'uidContract': cleanContractId,
-        'uidcontract': cleanContractId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -160,48 +212,31 @@ class DfdRepository {
   Future<({String dfdId, Map<String, String> sectionIds})> ensureStructure(
       String contractId,
       ) async {
-    final id = contractId.trim();
+    final cleanContractId = contractId.trim();
 
-    if (id.isEmpty) {
+    if (cleanContractId.isEmpty) {
       throw Exception('contractId não informado.');
     }
 
-    await _ensureHiringMain(id);
+    await _ensureHiringMain(cleanContractId);
 
-    final sectionIds = <String, String>{
-      for (final section in DfdData.sectionKeys) section: 'main',
-    };
+    final dfdRef = _dfdMainDoc(cleanContractId);
+
+    await dfdRef.set(
+      <String, dynamic>{
+        'id': 'main',
+        'module': 'hiring',
+        'tenantId': tenantId,
+        'contractId': cleanContractId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
 
     return (
     dfdId: 'main',
-    sectionIds: sectionIds,
+    sectionIds: _defaultSectionIds(),
     );
-  }
-
-  Map<String, dynamic> _cleanLoadedSectionData(Map<String, dynamic> data) {
-    final clean = Map<String, dynamic>.from(data);
-
-    clean.remove('createdAt');
-    clean.remove('updatedAt');
-    clean.remove('createdBy');
-    clean.remove('updatedBy');
-    clean.remove('migratedAt');
-    clean.remove('migrationSourcePath');
-    clean.remove('migrationSourceDocId');
-    clean.remove('migrationTargetPath');
-    clean.remove('legacySourceId');
-    clean.remove('legacySourcePath');
-    clean.remove('recordPath');
-    clean.remove('sourceCollectionModel');
-    clean.remove('tenantId');
-    clean.remove('companyId');
-    clean.remove('uidContract');
-    clean.remove('uidcontract');
-    clean.remove('contractId');
-    clean.remove('module');
-    clean.remove('id');
-
-    return clean;
   }
 
   Future<Map<String, Map<String, dynamic>>> loadAllSections({
@@ -220,8 +255,6 @@ class DfdRepository {
       throw Exception('dfdId não informado.');
     }
 
-    final dfdRef = _col(cleanContractId).doc(cleanDfdId);
-
     final entries = await Future.wait(
       sectionIds.entries.map((entry) async {
         final sectionName = entry.key.trim();
@@ -234,9 +267,14 @@ class DfdRepository {
           );
         }
 
-        final snap = await dfdRef.collection(sectionName).doc(sectionDocId).get();
+        final snap = await _sectionDoc(
+          contractId: cleanContractId,
+          dfdId: cleanDfdId,
+          sectionKey: sectionName,
+          sectionDocId: sectionDocId,
+        ).get();
 
-        final data = _cleanLoadedSectionData(
+        final data = _cleanSectionData(
           Map<String, dynamic>.from(
             snap.data() ?? const <String, dynamic>{},
           ),
@@ -275,7 +313,7 @@ class DfdRepository {
 
     await _ensureHiringMain(cleanContractId);
 
-    final dfdRef = _col(cleanContractId).doc(cleanDfdId);
+    final dfdRef = _dfdCol(cleanContractId).doc(cleanDfdId);
     final batch = _db.batch();
 
     batch.set(
@@ -283,7 +321,6 @@ class DfdRepository {
       <String, dynamic>{
         'id': cleanContractId,
         'tenantId': tenantId,
-        'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -295,10 +332,7 @@ class DfdRepository {
         'id': 'main',
         'module': 'hiring',
         'tenantId': tenantId,
-        'companyId': tenantId,
         'contractId': cleanContractId,
-        'uidContract': cleanContractId,
-        'uidcontract': cleanContractId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -310,10 +344,7 @@ class DfdRepository {
         'id': cleanDfdId,
         'module': 'hiring',
         'tenantId': tenantId,
-        'companyId': tenantId,
         'contractId': cleanContractId,
-        'uidContract': cleanContractId,
-        'uidcontract': cleanContractId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -326,7 +357,7 @@ class DfdRepository {
       if (sectionKey.isEmpty) continue;
       if (sectionDocId == null || sectionDocId.isEmpty) continue;
 
-      final sectionData = _cleanLoadedSectionData(
+      final sectionData = _cleanSectionData(
         Map<String, dynamic>.from(entry.value),
       );
 
@@ -339,10 +370,7 @@ class DfdRepository {
           'id': sectionDocId,
           'module': 'hiring',
           'tenantId': tenantId,
-          'companyId': tenantId,
           'contractId': cleanContractId,
-          'uidContract': cleanContractId,
-          'uidcontract': cleanContractId,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -382,11 +410,11 @@ class DfdRepository {
 
     await _ensureHiringMain(cleanContractId);
 
-    final cleanData = _cleanLoadedSectionData(
+    final cleanData = _cleanSectionData(
       Map<String, dynamic>.from(data),
     );
 
-    final dfdRef = _col(cleanContractId).doc(cleanDfdId);
+    final dfdRef = _dfdCol(cleanContractId).doc(cleanDfdId);
     final batch = _db.batch();
 
     batch.set(
@@ -394,7 +422,6 @@ class DfdRepository {
       <String, dynamic>{
         'id': cleanContractId,
         'tenantId': tenantId,
-        'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -406,10 +433,7 @@ class DfdRepository {
         'id': 'main',
         'module': 'hiring',
         'tenantId': tenantId,
-        'companyId': tenantId,
         'contractId': cleanContractId,
-        'uidContract': cleanContractId,
-        'uidcontract': cleanContractId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -421,10 +445,7 @@ class DfdRepository {
         'id': cleanDfdId,
         'module': 'hiring',
         'tenantId': tenantId,
-        'companyId': tenantId,
         'contractId': cleanContractId,
-        'uidContract': cleanContractId,
-        'uidcontract': cleanContractId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -439,99 +460,13 @@ class DfdRepository {
         'id': cleanSectionDocId,
         'module': 'hiring',
         'tenantId': tenantId,
-        'companyId': tenantId,
         'contractId': cleanContractId,
-        'uidContract': cleanContractId,
-        'uidcontract': cleanContractId,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
     );
 
     await batch.commit();
-  }
-
-  String? _contractIdFromAnyDfdSectionDoc(
-      QueryDocumentSnapshot<Map<String, dynamic>> doc,
-      ) {
-    final data = doc.data();
-
-    final contractIdFromField = data['contractId']?.toString().trim();
-
-    if (contractIdFromField != null && contractIdFromField.isNotEmpty) {
-      return contractIdFromField;
-    }
-
-    final uidContractFromField = data['uidContract']?.toString().trim();
-
-    if (uidContractFromField != null && uidContractFromField.isNotEmpty) {
-      return uidContractFromField;
-    }
-
-    final uidcontractFromField = data['uidcontract']?.toString().trim();
-
-    if (uidcontractFromField != null && uidcontractFromField.isNotEmpty) {
-      return uidcontractFromField;
-    }
-
-    return _contractIdFromTenantPathParts(doc.reference.path.split('/'));
-  }
-
-  Future<int> _loadSectionGroupIntoMap({
-    required String sectionKey,
-    required Set<String> wantedContractIds,
-    required Map<String, Map<String, Map<String, dynamic>>> sectionsByContract,
-  }) async {
-    final cleanSectionKey = sectionKey.trim();
-
-    if (cleanSectionKey.isEmpty || wantedContractIds.isEmpty) {
-      return 0;
-    }
-
-    final snapshot = await _db
-        .collectionGroup(cleanSectionKey)
-        .where('tenantId', isEqualTo: tenantId)
-        .get();
-
-    var usedDocs = 0;
-
-    for (final doc in snapshot.docs) {
-      final contractId = _contractIdFromAnyDfdSectionDoc(doc);
-
-      if (contractId == null || contractId.trim().isEmpty) {
-        continue;
-      }
-
-      final cleanContractId = contractId.trim();
-
-      if (!wantedContractIds.contains(cleanContractId)) {
-        continue;
-      }
-
-      final sectionData = _cleanLoadedSectionData(doc.data());
-
-      if (sectionData.isEmpty) {
-        continue;
-      }
-
-      sectionsByContract
-          .putIfAbsent(
-        cleanContractId,
-            () => <String, Map<String, dynamic>>{},
-      )
-          .update(
-        cleanSectionKey,
-            (current) => <String, dynamic>{
-          ...current,
-          ...sectionData,
-        },
-        ifAbsent: () => sectionData,
-      );
-
-      usedDocs++;
-    }
-
-    return usedDocs;
   }
 
   Future<Map<String, DfdData?>> readDataForContractsSummary(
@@ -541,7 +476,8 @@ class DfdRepository {
     final wantedIds = contractIds
         .map((id) => id.trim())
         .where((id) => id.isNotEmpty)
-        .toSet();
+        .toSet()
+        .toList(growable: false);
 
     final output = <String, DfdData?>{
       for (final id in wantedIds) id: null,
@@ -551,44 +487,77 @@ class DfdRepository {
       return output;
     }
 
-    final sectionsByContract = <String, Map<String, Map<String, dynamic>>>{};
+    final sw = Stopwatch()..start();
 
-    const summarySections = <String>[
-      DfdData.sectionIdentificacao,
-      DfdData.sectionObjeto,
-      DfdData.sectionLocalizacao,
-    ];
+    final entries = await Future.wait(
+      wantedIds.map((contractId) async {
+        final data = await _readSummaryForContract(contractId);
+        return MapEntry<String, DfdData?>(contractId, data);
+      }),
+    );
 
-    for (final sectionKey in summarySections) {
-      await _loadSectionGroupIntoMap(
-        sectionKey: sectionKey,
-        wantedContractIds: wantedIds,
-        sectionsByContract: sectionsByContract,
-      );
+    for (final entry in entries) {
+      output[entry.key] = entry.value;
     }
 
-    for (final contractId in wantedIds) {
-      final sections = sectionsByContract[contractId];
+    sw.stop();
 
-      if (sections == null || sections.isEmpty) {
-        output[contractId] = null;
-        continue;
-      }
-
-      final hasAnyData = sections.values.any((map) => map.isNotEmpty);
-
-      if (!hasAnyData) {
-        output[contractId] = null;
-        continue;
-      }
-
-      output[contractId] = DfdData.fromSectionsMap(
-        sections,
-        contractId: contractId,
+    if (debug) {
+      // ignore: avoid_print
+      print(
+        '[DfdRepository] readDataForContractsSummary | '
+            'tenantId=$tenantId | '
+            'contratos=${wantedIds.length} | '
+            'tempo=${sw.elapsedMilliseconds}ms',
       );
     }
 
     return output;
+  }
+
+  Future<DfdData?> _readSummaryForContract(String contractId) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
+      return null;
+    }
+
+    final dfdRef = _dfdMainDoc(cleanContractId);
+
+    final snaps = await Future.wait([
+      dfdRef.collection(DfdData.sectionIdentificacao).doc('main').get(),
+      dfdRef.collection(DfdData.sectionObjeto).doc('main').get(),
+      dfdRef.collection(DfdData.sectionLocalizacao).doc('main').get(),
+    ]);
+
+    final sections = <String, Map<String, dynamic>>{
+      DfdData.sectionIdentificacao: _cleanSectionData(
+        Map<String, dynamic>.from(
+          snaps[0].data() ?? const <String, dynamic>{},
+        ),
+      ),
+      DfdData.sectionObjeto: _cleanSectionData(
+        Map<String, dynamic>.from(
+          snaps[1].data() ?? const <String, dynamic>{},
+        ),
+      ),
+      DfdData.sectionLocalizacao: _cleanSectionData(
+        Map<String, dynamic>.from(
+          snaps[2].data() ?? const <String, dynamic>{},
+        ),
+      ),
+    };
+
+    final hasAnyData = sections.values.any((map) => map.isNotEmpty);
+
+    if (!hasAnyData) {
+      return null;
+    }
+
+    return DfdData.fromSectionsMap(
+      sections,
+      contractId: cleanContractId,
+    );
   }
 
   Future<DfdData?> readDataForContract(String contractId) async {
@@ -632,7 +601,6 @@ class DfdRepository {
         <String, dynamic>{
           'id': effectiveId,
           'tenantId': tenantId,
-          'companyId': tenantId,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         },
@@ -643,7 +611,6 @@ class DfdRepository {
         <String, dynamic>{
           'id': effectiveId,
           'tenantId': tenantId,
-          'companyId': tenantId,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -665,9 +632,7 @@ class DfdRepository {
   }
 
   Future<List<({String contractId, double km})>>
-  listBenchmarkSeedsByNaturezaIntervencao(
-      String natureza,
-      ) async {
+  listBenchmarkSeedsByNaturezaIntervencao(String natureza) async {
     final cleanNatureza = natureza.trim();
 
     if (cleanNatureza.isEmpty) {
@@ -680,44 +645,7 @@ class DfdRepository {
         .where('naturezaIntervencao', isEqualTo: cleanNatureza)
         .get();
 
-    final out = <String, double>{};
-
-    for (final doc in qs.docs) {
-      final pathParts = doc.reference.path.split('/');
-
-      final contractId = _contractIdFromTenantPathParts(pathParts);
-
-      if (contractId == null || contractId.trim().isEmpty) {
-        continue;
-      }
-
-      final data = doc.data();
-      final km = _readDouble(data['extensaoKm']);
-
-      if (km <= 0) {
-        continue;
-      }
-
-      final currentKm = out[contractId];
-
-      if (currentKm == null || km > currentKm) {
-        out[contractId] = km;
-      }
-    }
-
-    final seeds = out.entries
-        .map(
-          (entry) => (
-      contractId: entry.key,
-      km: entry.value,
-      ),
-    )
-        .toList()
-      ..sort(
-            (a, b) => a.contractId.compareTo(b.contractId),
-      );
-
-    return seeds;
+    return _benchmarkSeedsFromLocalizacaoDocs(qs.docs);
   }
 
   Future<List<({String contractId, double km})>>
@@ -736,12 +664,16 @@ class DfdRepository {
         .where('naturezaIntervencaoId', isEqualTo: cleanNaturezaId)
         .get();
 
+    return _benchmarkSeedsFromLocalizacaoDocs(qs.docs);
+  }
+
+  List<({String contractId, double km})> _benchmarkSeedsFromLocalizacaoDocs(
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+      ) {
     final out = <String, double>{};
 
-    for (final doc in qs.docs) {
-      final pathParts = doc.reference.path.split('/');
-
-      final contractId = _contractIdFromTenantPathParts(pathParts);
+    for (final doc in docs) {
+      final contractId = _contractIdFromCurrentTenantPath(doc.reference.path);
 
       if (contractId == null || contractId.trim().isEmpty) {
         continue;
@@ -776,19 +708,31 @@ class DfdRepository {
     return seeds;
   }
 
-  Future<double> readBaseValueForContract(String contractId) async {
-    final id = contractId.trim();
+  String? _contractIdFromCurrentTenantPath(String path) {
+    final parts = path.split('/');
 
-    if (id.isEmpty) {
+    for (var i = 0; i < parts.length - 3; i++) {
+      final isTenantContractsPath = parts[i] == 'tenants' &&
+          parts[i + 1] == tenantId &&
+          parts[i + 2] == 'contracts' &&
+          parts[i + 3].trim().isNotEmpty;
+
+      if (isTenantContractsPath) {
+        return parts[i + 3].trim();
+      }
+    }
+
+    return null;
+  }
+
+  Future<double> readBaseValueForContract(String contractId) async {
+    final cleanContractId = contractId.trim();
+
+    if (cleanContractId.isEmpty) {
       return 0.0;
     }
 
-    final dfdMainRef = _contractsCol()
-        .doc(id)
-        .collection('hiring')
-        .doc('main')
-        .collection('dfd')
-        .doc('main');
+    final dfdMainRef = _dfdMainDoc(cleanContractId);
 
     final objetoSnap = await dfdMainRef
         .collection(DfdData.sectionObjeto)
@@ -935,7 +879,6 @@ class DfdRepository {
         customMetadata: <String, String>{
           'originalName': name,
           'tenantId': tenantId,
-          'companyId': tenantId,
           'contractId': cleanContractId,
           'dfdId': cleanDfdId,
           'documentosId': cleanDocumentosId,
@@ -1010,30 +953,6 @@ class DfdRepository {
     } catch (_) {
       return false;
     }
-  }
-
-  String? _contractIdFromTenantPathParts(List<String> pathParts) {
-    for (int i = 0; i < pathParts.length - 1; i++) {
-      if (pathParts[i] != 'tenants') {
-        continue;
-      }
-
-      if (i + 3 >= pathParts.length) {
-        continue;
-      }
-
-      final foundTenantId = pathParts[i + 1].trim();
-      final contractsSegment = pathParts[i + 2].trim();
-      final contractId = pathParts[i + 3].trim();
-
-      if (foundTenantId == tenantId &&
-          contractsSegment == 'contracts' &&
-          contractId.isNotEmpty) {
-        return contractId;
-      }
-    }
-
-    return null;
   }
 
   double _readDouble(dynamic value) {

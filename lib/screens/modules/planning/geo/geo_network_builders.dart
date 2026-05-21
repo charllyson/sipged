@@ -9,7 +9,7 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
   }
 
   bool _isWorkspaceVisible(MapState state) {
-    return _findWorkspaceGroup(state)?.visible ?? true;
+    return _findWorkspaceGroup(state)?.visible ?? false;
   }
 
   void _showSnack(BuildContext context, String message) {
@@ -45,7 +45,8 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
     }
 
     if (activeLineLayer != null) {
-      final count = editorState.draftLineLayers[activeLineLayer.id]?.length ?? 0;
+      final count =
+          editorState.draftLineLayers[activeLineLayer.id]?.length ?? 0;
       return 'line_${activeLineLayer.id}_$count';
     }
 
@@ -108,7 +109,10 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
       title: 'Área de trabalho',
       area: DockArea.bottom,
       crossSpan: DockCrossSpan.full,
-      visible: true,
+
+      // Inicia a área de trabalho fechada.
+      visible: false,
+
       dockExtent: 260,
       dockWeight: 1.0,
       icon: Icons.space_dashboard_outlined,
@@ -154,7 +158,8 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
                 onSelectedWorkspaceItemChanged: _handleWorkspaceItemSelected,
                 onPanelSizeChanged: _handleWorkspacePanelSizeChanged,
                 onItemsChanged: _handleWorkspaceItemsChangedFromPanel,
-                onActiveFilterChanged: context.read<MapCubit>().setWorkspaceFilter,
+                onActiveFilterChanged:
+                context.read<MapCubit>().setWorkspaceFilter,
               ),
             ),
           ),

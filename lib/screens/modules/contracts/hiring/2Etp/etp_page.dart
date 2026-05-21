@@ -89,7 +89,9 @@ class _EtpPageState extends State<EtpPage>
   String get _contractId => widget.contractId.trim();
 
   ContractData get _effectiveContract {
-    if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
+    if ((_contract.id ?? '').trim().isNotEmpty) {
+      return _contract;
+    }
 
     if (_contractId.isNotEmpty) {
       return _contract.copyWith(id: _contractId);
@@ -139,7 +141,7 @@ class _EtpPageState extends State<EtpPage>
 
     _progressBloc = ProgressCubit(
       repo: ProgressRepository(
-        //tenantId: _tenantId,
+        tenantId: _tenantId,
       ),
     );
 
@@ -166,7 +168,9 @@ class _EtpPageState extends State<EtpPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    if (_pipelineProgressCubit != null) return;
+    if (_pipelineProgressCubit != null) {
+      return;
+    }
 
     try {
       _pipelineProgressCubit = context.read<ProgressCubit>();
@@ -178,7 +182,7 @@ class _EtpPageState extends State<EtpPage>
   @override
   void dispose() {
     _scrollController.dispose();
-    _progressBloc.close();
+    unawaited(_progressBloc.close());
     super.dispose();
   }
 
@@ -210,16 +214,23 @@ class _EtpPageState extends State<EtpPage>
 
   Future<void> _loadContract(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     if (mounted) {
-      setState(() => _loadingContract = true);
+      setState(() {
+        _loadingContract = true;
+      });
     }
 
     try {
       final snapshot = await _contractDocRef(cid).get();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       if (!snapshot.exists) {
         setState(() {
@@ -233,11 +244,18 @@ class _EtpPageState extends State<EtpPage>
         _contract = ContractData.fromDocument(snapshot: snapshot);
         _loadingContract = false;
       });
-    } catch (e, stack) {
-      debugPrint('[EtpPage] Erro ao carregar contrato $cid: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[EtpPage] Erro ao carregar contrato | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _contract = ContractData.empty().copyWith(id: cid);
@@ -248,18 +266,28 @@ class _EtpPageState extends State<EtpPage>
 
   Future<void> _loadDfdData(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     try {
       final data = await _dfdRepository.readDataForContract(cid);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _dfdData = data;
       });
-    } catch (e, stack) {
-      debugPrint('[EtpPage] Falha ao carregar DFD do contrato: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[EtpPage] Falha ao carregar DFD | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
     }
   }
@@ -268,10 +296,14 @@ class _EtpPageState extends State<EtpPage>
     final user = FirebaseAuth.instance.currentUser;
 
     final displayName = user?.displayName?.trim() ?? '';
-    if (displayName.isNotEmpty) return displayName;
+    if (displayName.isNotEmpty) {
+      return displayName;
+    }
 
     final email = user?.email?.trim() ?? '';
-    if (email.isNotEmpty) return email;
+    if (email.isNotEmpty) {
+      return email;
+    }
 
     return 'Usuário';
   }
@@ -286,13 +318,17 @@ class _EtpPageState extends State<EtpPage>
       for (final item in users) {
         if ((item.uid ?? '').trim() == uid) {
           final photo = item.urlPhoto?.trim() ?? '';
-          if (photo.isNotEmpty) return photo;
+          if (photo.isNotEmpty) {
+            return photo;
+          }
         }
       }
     }
 
     final firebasePhoto = user?.photoURL?.trim() ?? '';
-    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+    if (firebasePhoto.isNotEmpty) {
+      return firebasePhoto;
+    }
 
     return '';
   }
@@ -309,7 +345,9 @@ class _EtpPageState extends State<EtpPage>
     Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     final user = FirebaseAuth.instance.currentUser;
     final actorId = user?.uid.trim();
@@ -388,7 +426,9 @@ class _EtpPageState extends State<EtpPage>
         sectionsData: _formData.toSectionsMap(),
       );
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       if (!cubit.state.saveSuccess) {
         final err = cubit.state.error ?? 'Falha ao salvar';
@@ -407,7 +447,9 @@ class _EtpPageState extends State<EtpPage>
       await _loadContract(_contractId);
       await _loadDfdData(_contractId);
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -428,6 +470,7 @@ class _EtpPageState extends State<EtpPage>
           extra: <String, dynamic>{
             'action': 'etp_saved',
             'etpId': cubit.state.etpId,
+            'tenantId': _tenantId,
             'contractId': _contractId,
             'route': _route,
             'notificationSource': _notificationSource,
@@ -436,13 +479,23 @@ class _EtpPageState extends State<EtpPage>
       }
 
       return true;
-    } catch (e) {
-      if (!mounted) return false;
+    } catch (error, stack) {
+      debugPrint(
+        '[EtpPage] Erro em _saveOnly | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return false;
+      }
 
       await _notify(
         title: 'ETP',
         subtitle: 'Erro ao salvar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -460,7 +513,9 @@ class _EtpPageState extends State<EtpPage>
       notifySuccess: false,
     );
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final etpId = etpCubit.state.etpId;
 
@@ -491,7 +546,9 @@ class _EtpPageState extends State<EtpPage>
         completed: true,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -518,19 +575,30 @@ class _EtpPageState extends State<EtpPage>
         extra: <String, dynamic>{
           'action': 'etp_approved',
           'etpId': etpId,
+          'tenantId': _tenantId,
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
           'nextStage': ProgressData.tr,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[EtpPage] Erro em _saveApproveAndNext | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'ETP',
         subtitle: 'Erro ao aprovar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -545,7 +613,9 @@ class _EtpPageState extends State<EtpPage>
       notifySuccess: false,
     );
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
     final etpId = etpCubit.state.etpId;
 
@@ -570,7 +640,9 @@ class _EtpPageState extends State<EtpPage>
         updatedByName: actorName,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
@@ -592,18 +664,29 @@ class _EtpPageState extends State<EtpPage>
         extra: <String, dynamic>{
           'action': 'etp_approval_updated',
           'etpId': etpId,
+          'tenantId': _tenantId,
           'contractId': _contractId,
           'route': _route,
           'notificationSource': _notificationSource,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[EtpPage] Erro em _updateApproved | '
+            'tenantId=$_tenantId | '
+            'contractId=$_contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'ETP',
         subtitle: 'Erro ao atualizar aprovação.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -618,7 +701,9 @@ class _EtpPageState extends State<EtpPage>
           return (prev.loading && !curr.loading) || prev.etpId != curr.etpId;
         },
         listener: (context, state) {
-          if (!mounted || state.loading || !state.hasValidPath) return;
+          if (!mounted || state.loading || !state.hasValidPath) {
+            return;
+          }
 
           final incomingId = state.etpId;
           final needsHydrate = !_hydrated || _currentEtpId != incomingId;

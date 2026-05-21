@@ -9,8 +9,8 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_filter.dart';
-import 'package:sipged/_blocs/system/map/map_cubit.dart';
-import 'package:sipged/_blocs/system/map/map_state.dart';
+import 'package:sipged/_widgets/map/bloc/map_cubit.dart';
+import 'package:sipged/_widgets/map/bloc/map_state.dart';
 import 'package:sipged/screens/modules/planning/geo/status/status_bar.dart';
 
 class MapDraftData extends Equatable {

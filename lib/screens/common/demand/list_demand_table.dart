@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/table/paged/paged_colum.dart';
@@ -5,12 +7,13 @@ import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import '../alerts/alert_validity.dart';
+import '../alerts/measurement_financial_alert.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
-typedef ContractNavigationCallback = void Function(
+typedef ContractNavigationCallback = FutureOr<void> Function(
     BuildContext context,
     ContractData contract,
     );
@@ -55,6 +58,7 @@ class ListDemandTable extends StatefulWidget {
 
 class _ListDemandTableState extends State<ListDemandTable> {
   ContractData? _selected;
+  bool _navigating = false;
 
   String? _contractId(ContractData contract) {
     final id = contract.id?.trim();
@@ -143,11 +147,28 @@ class _ListDemandTableState extends State<ListDemandTable> {
     try {
       final id = _contractId(data);
 
+      final dfdData = id == null ? null : widget.dfdByContractId[id];
+      final publicacaoData = id == null ? null : widget.pubByContractId[id];
+
       return Center(
-        child: AlertValidity(
-          contract: data,
-          dfdData: id == null ? null : widget.dfdByContractId[id],
-          publicacaoData: id == null ? null : widget.pubByContractId[id],
+        child: SizedBox(
+          width: 58,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AlertValidity(
+                contract: data,
+                dfdData: dfdData,
+                publicacaoData: publicacaoData,
+              ),
+              const SizedBox(width: 12),
+              MeasurementFinancialAlert(
+                contract: data,
+                dfdData: dfdData,
+              ),
+            ],
+          ),
         ),
       );
     } catch (_) {
@@ -211,6 +232,30 @@ class _ListDemandTableState extends State<ListDemandTable> {
     return 'sem-id-${identityHashCode(data)}';
   }
 
+  Future<void> _handleTapItem(ContractData contractData) async {
+    if (_navigating) return;
+
+    setState(() {
+      _selected = contractData;
+      _navigating = true;
+    });
+
+    try {
+      await Future<void>.sync(
+            () => widget.onTapItem(
+          context,
+          contractData,
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _navigating = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final contracts = widget.listContractData;
@@ -224,7 +269,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
       enableRowTapSelection: true,
       sortColumnIndex: safeSortIndex,
       sortAscending: widget.isAscending,
-      minTableWidth: 1100,
+      minTableWidth: 1130,
       defaultColumnWidth: 160,
       actionsColumnWidth: 88,
       initialRowsPerPage: 25,
@@ -234,14 +279,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
         widget.onSort(columnIndex, getter);
       },
       onTapItem: (contractData) {
-        setState(() {
-          _selected = contractData;
-        });
-
-        widget.onTapItem(
-          context,
-          contractData,
-        );
+        unawaited(_handleTapItem(contractData));
       },
       onDelete: (contractData) async {
         setState(() {
@@ -255,8 +293,8 @@ class _ListDemandTableState extends State<ListDemandTable> {
       columns: [
         PagedColum<ContractData>(
           title: 'ALERTAS',
-          width: 100,
-          maxWidth: 100,
+          width: 130,
+          maxWidth: 130,
           textAlign: TextAlign.center,
           cellBuilder: (data) => _safeAlertCell(data),
         ),

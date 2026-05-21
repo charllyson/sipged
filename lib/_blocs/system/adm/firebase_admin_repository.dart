@@ -38,26 +38,6 @@ class FirebaseAdminRepository {
     return _db.collection(path.trim());
   }
 
-  // ===========================================================================
-  // Migração Publicação / Arquivamento:
-  //
-  // Origem antiga:
-  //
-  // contracts/{contractId}/publicacao/{docId}
-  // contracts/{contractId}/publicacao/{docId}/{section}/{sectionDocId}
-  //
-  // contracts/{contractId}/arquivamento/{docId}
-  // contracts/{contractId}/arquivamento/{docId}/{section}/{sectionDocId}
-  //
-  // Destino novo:
-  //
-  // tenants/{tenantId}/contracts/{contractId}/hiring/main/publicacao/main
-  // tenants/{tenantId}/contracts/{contractId}/hiring/main/publicacao/main/{section}/main
-  //
-  // tenants/{tenantId}/contracts/{contractId}/hiring/main/arquivamento/main
-  // tenants/{tenantId}/contracts/{contractId}/hiring/main/arquivamento/main/{section}/main
-  // ===========================================================================
-
   Future<FirebaseCopyContractModulesResultData>
   copyLegacyContractModulesToTenantHiringMain({
     required FirebaseCopyContractModulesParams params,

@@ -1,5 +1,3 @@
-// lib/_blocs/modules/contracts/hiring/0Stages/progress_data.dart
-
 import 'package:flutter/material.dart';
 
 @immutable
@@ -32,9 +30,13 @@ class ProgressData {
   });
 
   static DateTime? _ts(dynamic value) {
-    if (value == null) return null;
+    if (value == null) {
+      return null;
+    }
 
-    if (value is DateTime) return value;
+    if (value is DateTime) {
+      return value;
+    }
 
     try {
       final toDate = (value as dynamic).toDate;
@@ -48,11 +50,16 @@ class ProgressData {
   }
 
   static Map<String, dynamic> _map(Object? value) {
-    if (value is Map<String, dynamic>) return value;
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
 
     if (value is Map) {
       return value.map(
-            (key, val) => MapEntry(key.toString(), val),
+            (key, val) => MapEntry(
+          key.toString(),
+          val,
+        ),
       );
     }
 
@@ -186,19 +193,19 @@ class ProgressData {
   // LISTAS DE DOMÍNIO
   // ===========================================================================
 
-  static const dfd          = 'dfd';
-  static const etp          = 'etp';
-  static const tr           = 'tr';
-  static const cotacao      = 'cotacao';
-  static const edital       = 'edital';
-  static const habilitacao  = 'habilitacao';
-  static const dotacao      = 'dotacao';
-  static const minuta       = 'minuta';
-  static const parecer      = 'parecer';
-  static const publicacao   = 'publicacao';
+  static const dfd = 'dfd';
+  static const etp = 'etp';
+  static const tr = 'tr';
+  static const cotacao = 'cotacao';
+  static const edital = 'edital';
+  static const habilitacao = 'habilitacao';
+  static const dotacao = 'dotacao';
+  static const minuta = 'minuta';
+  static const parecer = 'parecer';
+  static const publicacao = 'publicacao';
   static const arquivamento = 'arquivamento';
 
-  /// Ordem de desbloqueio (cada próximo depende do anterior estar concluído)
+  /// Ordem de desbloqueio.
   static const ordered = <String>[
     dfd,
     etp,

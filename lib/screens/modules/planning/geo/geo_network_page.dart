@@ -6,7 +6,7 @@ import 'package:sipged/_blocs/modules/planning/geo/feature/feature_repository.da
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_repository.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_cubit.dart';
-import 'package:sipged/_blocs/system/map/map_cubit.dart';
+import 'package:sipged/_widgets/map/bloc/map_cubit.dart';
 import 'package:sipged/screens/modules/planning/geo/geo_network_view.dart';
 
 class GeoNetworkPage extends StatelessWidget {

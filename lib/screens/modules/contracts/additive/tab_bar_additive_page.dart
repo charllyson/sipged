@@ -17,7 +17,7 @@ import 'package:sipged/_blocs/system/permission/permission_state.dart';
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 
-import 'package:sipged/screens/modules/contracts/measurement/cronograma/physfin_widget.dart';
+import 'package:sipged/screens/modules/contracts/measurement/physics_finance/physfin_widget.dart';
 import 'package:sipged/screens/modules/contracts/additive/additive_page.dart';
 
 class TabBarAdditivePage extends StatefulWidget {

@@ -9,34 +9,35 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
-import 'package:sipged/_blocs/system/user/user_cubit.dart';
-import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/_utils/validates/sipged_validation.dart';
-
-import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/screens/modules/contracts/hiring/0Progress/progress_stage.dart';
-import 'package:sipged/_widgets/overlays/screen_lock.dart';
-import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
-
-import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
-import 'package:sipged/_blocs/system/notification/notification_type.dart';
-import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
-
-import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
-import 'package:sipged/_blocs/system/permission/permission_state.dart';
-
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_state.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_cubit.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_state.dart';
 
+import 'package:sipged/_blocs/system/notification/helpers/notification_hiring.dart';
+import 'package:sipged/_blocs/system/notification/notification_delivery.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
+
+import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
+import 'package:sipged/_blocs/system/permission/permission_state.dart';
+
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+
+import 'package:sipged/_utils/validates/sipged_validation.dart';
+
+import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
+
+import 'package:sipged/screens/modules/contracts/hiring/0Progress/progress_stage.dart';
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_1_metadados.dart';
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_2_documentos.dart';
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_3_checklist.dart';
@@ -88,8 +89,14 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
   String get _contractId => widget.contractId.trim();
 
   ContractData get _effectiveContract {
-    if ((_contract.id ?? '').trim().isNotEmpty) return _contract;
-    if (_contractId.isNotEmpty) return _contract.copyWith(id: _contractId);
+    if ((_contract.id ?? '').trim().isNotEmpty) {
+      return _contract;
+    }
+
+    if (_contractId.isNotEmpty) {
+      return _contract.copyWith(id: _contractId);
+    }
+
     return _contract;
   }
 
@@ -134,20 +141,23 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
     _progressBloc = ProgressCubit(
       repo: ProgressRepository(
-        //tenantId: _tenantId,
+        tenantId: _tenantId,
       ),
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (_contractId.isEmpty) return;
 
-      context.read<ParecerJuridicoCubit>().load(_contractId);
-      unawaited(_loadContract(_contractId));
-      unawaited(_loadDfdData(_contractId));
+      final contractId = _contractId;
+      if (contractId.isEmpty) return;
+
+      context.read<ParecerJuridicoCubit>().load(contractId);
+      unawaited(_loadContract(contractId));
+      unawaited(_loadDfdData(contractId));
+
       unawaited(
         _progressBloc.bindToStage(
-          contractId: _contractId,
+          contractId: contractId,
           collectionName: ProgressData.parecer,
         ),
       );
@@ -158,7 +168,9 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    if (_pipelineProgressCubit != null) return;
+    if (_pipelineProgressCubit != null) {
+      return;
+    }
 
     try {
       _pipelineProgressCubit = context.read<ProgressCubit>();
@@ -170,7 +182,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
   @override
   void dispose() {
     _scrollController.dispose();
-    _progressBloc.close();
+    unawaited(_progressBloc.close());
     super.dispose();
   }
 
@@ -202,28 +214,43 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
   Future<void> _loadContract(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     if (mounted) {
-      setState(() => _loadingContract = true);
+      setState(() {
+        _loadingContract = true;
+      });
     }
 
     try {
       final snapshot = await _contractDocRef(cid).get();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _contract = snapshot.exists
             ? ContractData.fromDocument(snapshot: snapshot)
             : ContractData.empty().copyWith(id: cid);
+
         _loadingContract = false;
       });
-    } catch (e, stack) {
-      debugPrint('[ParecerJuridicoPage] Erro ao carregar contrato $cid: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[ParecerJuridicoPage] Erro ao carregar contrato | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _contract = ContractData.empty().copyWith(id: cid);
@@ -234,18 +261,28 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
   Future<void> _loadDfdData(String contractId) async {
     final cid = contractId.trim();
-    if (cid.isEmpty) return;
+
+    if (cid.isEmpty) {
+      return;
+    }
 
     try {
       final data = await _dfdRepository.readDataForContract(cid);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _dfdData = data;
       });
-    } catch (e, stack) {
-      debugPrint('[ParecerJuridicoPage] Falha ao carregar DFD do contrato: $e');
+    } catch (error, stack) {
+      debugPrint(
+        '[ParecerJuridicoPage] Falha ao carregar DFD | '
+            'tenantId=$_tenantId | '
+            'contractId=$cid | '
+            'erro=$error',
+      );
       debugPrintStack(stackTrace: stack);
     }
   }
@@ -254,10 +291,14 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     final user = FirebaseAuth.instance.currentUser;
 
     final displayName = user?.displayName?.trim() ?? '';
-    if (displayName.isNotEmpty) return displayName;
+    if (displayName.isNotEmpty) {
+      return displayName;
+    }
 
     final email = user?.email?.trim() ?? '';
-    if (email.isNotEmpty) return email;
+    if (email.isNotEmpty) {
+      return email;
+    }
 
     return 'Usuário';
   }
@@ -272,13 +313,17 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       for (final item in users) {
         if ((item.uid ?? '').trim() == uid) {
           final photo = item.urlPhoto?.trim() ?? '';
-          if (photo.isNotEmpty) return photo;
+          if (photo.isNotEmpty) {
+            return photo;
+          }
         }
       }
     }
 
     final firebasePhoto = user?.photoURL?.trim() ?? '';
-    if (firebasePhoto.isNotEmpty) return firebasePhoto;
+    if (firebasePhoto.isNotEmpty) {
+      return firebasePhoto;
+    }
 
     return '';
   }
@@ -295,7 +340,9 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
     Iterable<String> targetUserIds = const <String>[],
     Map<String, dynamic> extra = const <String, dynamic>{},
   }) async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     final user = FirebaseAuth.instance.currentUser;
     final actorId = user?.uid.trim();
@@ -366,7 +413,9 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       return false;
     }
 
-    if (_contractId.isEmpty) {
+    final contractId = _contractId;
+
+    if (contractId.isEmpty) {
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Contrato não identificado para salvar.',
@@ -379,11 +428,13 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
     try {
       await cubit.saveAll(
-        contractId: _contractId,
+        contractId: contractId,
         sectionsData: _formData.toSectionsMap(),
       );
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       if (!cubit.state.saveSuccess) {
         await _notify(
@@ -396,14 +447,16 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         return false;
       }
 
-      await _loadContract(_contractId);
-      await _loadDfdData(_contractId);
+      await _loadContract(contractId);
+      await _loadDfdData(contractId);
 
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
-          contractId: _contractId,
+          contractId: contractId,
           collectionName: ProgressData.parecer,
         ),
       );
@@ -420,7 +473,8 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
           extra: <String, dynamic>{
             'action': 'parecer_saved',
             'parecerId': cubit.state.parecerId,
-            'contractId': _contractId,
+            'tenantId': _tenantId,
+            'contractId': contractId,
             'route': _route,
             'notificationSource': _notificationSource,
           },
@@ -428,13 +482,23 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
       }
 
       return true;
-    } catch (e) {
-      if (!mounted) return false;
+    } catch (error, stack) {
+      debugPrint(
+        '[ParecerJuridicoPage] Erro em _saveOnly | '
+            'tenantId=$_tenantId | '
+            'contractId=$contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return false;
+      }
 
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Erro ao salvar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -450,9 +514,21 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
     final saved = await _saveOnly(notifySuccess: false);
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
+    final contractId = _contractId;
     final parecerId = parecerCubit.state.parecerId;
+
+    if (contractId.isEmpty) {
+      await _notify(
+        title: 'Parecer Jurídico',
+        subtitle: 'Contrato não identificado para aprovar.',
+        status: NotificationStatus.error,
+      );
+      return;
+    }
 
     if (parecerId == null || parecerId.isEmpty) {
       await _notify(
@@ -468,23 +544,25 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
     try {
       await repo.approveStage(
-        contractId: _contractId,
+        contractId: contractId,
         collectionName: ProgressData.parecer,
         approverUid: user?.uid ?? '',
         approverName: actorName,
       );
 
       await repo.setCompleted(
-        contractId: _contractId,
+        contractId: contractId,
         collectionName: ProgressData.parecer,
         completed: true,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
-          contractId: _contractId,
+          contractId: contractId,
           collectionName: ProgressData.parecer,
         ),
       );
@@ -505,19 +583,30 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         extra: <String, dynamic>{
           'action': 'parecer_approved',
           'parecerId': parecerId,
-          'contractId': _contractId,
+          'tenantId': _tenantId,
+          'contractId': contractId,
           'route': _route,
           'notificationSource': _notificationSource,
           'nextStage': ProgressData.publicacao,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[ParecerJuridicoPage] Erro em _saveApproveAndNext | '
+            'tenantId=$_tenantId | '
+            'contractId=$contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Erro ao aprovar.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -530,9 +619,21 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
     final saved = await _saveOnly(notifySuccess: false);
 
-    if (!mounted || !saved) return;
+    if (!mounted || !saved) {
+      return;
+    }
 
+    final contractId = _contractId;
     final parecerId = parecerCubit.state.parecerId;
+
+    if (contractId.isEmpty) {
+      await _notify(
+        title: 'Parecer Jurídico',
+        subtitle: 'Contrato não identificado para atualizar.',
+        status: NotificationStatus.error,
+      );
+      return;
+    }
 
     if (parecerId == null || parecerId.isEmpty) {
       await _notify(
@@ -548,17 +649,19 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
     try {
       await repo.touchApproval(
-        contractId: _contractId,
+        contractId: contractId,
         collectionName: ProgressData.parecer,
         updatedByUid: user?.uid ?? '',
         updatedByName: actorName,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       unawaited(
         _progressBloc.bindToStage(
-          contractId: _contractId,
+          contractId: contractId,
           collectionName: ProgressData.parecer,
         ),
       );
@@ -576,18 +679,29 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
         extra: <String, dynamic>{
           'action': 'parecer_approval_updated',
           'parecerId': parecerId,
-          'contractId': _contractId,
+          'tenantId': _tenantId,
+          'contractId': contractId,
           'route': _route,
           'notificationSource': _notificationSource,
         },
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error, stack) {
+      debugPrint(
+        '[ParecerJuridicoPage] Erro em _updateApproved | '
+            'tenantId=$_tenantId | '
+            'contractId=$contractId | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) {
+        return;
+      }
 
       await _notify(
         title: 'Parecer Jurídico',
         subtitle: 'Erro ao atualizar aprovação.',
-        details: '$e',
+        details: '$error',
         status: NotificationStatus.error,
         duration: const Duration(seconds: 6),
       );
@@ -603,7 +717,9 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
               prev.parecerId != curr.parecerId;
         },
         listener: (context, state) {
-          if (!mounted || state.loading || !state.hasValidPath) return;
+          if (!mounted || state.loading || !state.hasValidPath) {
+            return;
+          }
 
           final incomingId = state.parecerId;
           final needsHydrate = !_hydrated || _currentParecerId != incomingId;
@@ -620,17 +736,19 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
             });
           }
 
-          if ((incomingId ?? '').isNotEmpty && _contractId.isNotEmpty) {
+          final contractId = _contractId;
+
+          if ((incomingId ?? '').isNotEmpty && contractId.isNotEmpty) {
             unawaited(
               _progressBloc.bindToStage(
-                contractId: _contractId,
+                contractId: contractId,
                 collectionName: ProgressData.parecer,
               ),
             );
 
-            if ((_contract.id ?? '') != _contractId) {
-              unawaited(_loadContract(_contractId));
-              unawaited(_loadDfdData(_contractId));
+            if ((_contract.id ?? '') != contractId) {
+              unawaited(_loadContract(contractId));
+              unawaited(_loadDfdData(contractId));
             }
           }
         },

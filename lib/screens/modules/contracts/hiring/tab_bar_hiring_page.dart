@@ -1,5 +1,7 @@
 // lib/screens/modules/contracts/hiring/tab_bar_hiring_page.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -46,8 +48,9 @@ import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arqu
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
-import 'package:sipged/_widgets/menu/tab/stamp_config.dart';
 
+import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
+import 'package:sipged/_widgets/menu/tab/stamp_config.dart';
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/0Progress/progress_stage.dart';
@@ -62,7 +65,6 @@ import 'package:sipged/screens/modules/contracts/hiring/8Minuta/minuta_contrato_
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/parecer_juridico_page.dart';
 import 'package:sipged/screens/modules/contracts/hiring/10Publicacao/publicacao_extrato_page.dart';
 import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/termo_arquivamento_page.dart';
-import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 
 class TabBarHiringPage extends StatefulWidget {
   const TabBarHiringPage({
@@ -125,6 +127,9 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
 
   String? _dfdDescricaoObjeto;
   String? _dfdProcessoAdministrativo;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -241,7 +246,9 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
       repository: _arquivamentoRepository,
     );
 
-    _progressRepo = ProgressRepository();
+    _progressRepo = ProgressRepository(
+      tenantId: _tenantId,
+    );
 
     _progressCubit = ProgressCubit(
       repo: _progressRepo,
@@ -252,7 +259,7 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
       _loadAllStageCubits(rawId);
     }
 
-    _loadDfdDisplayData();
+    unawaited(_loadDfdDisplayData());
   }
 
   @override
@@ -262,45 +269,45 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
     final oldContractId = oldWidget.contractData?.id?.trim() ?? '';
     final newContractId = widget.contractData?.id?.trim() ?? '';
 
-    if (oldContractId != newContractId) {
-      if (newContractId.isNotEmpty) {
-        _progressCubit.setContractForPipeline(newContractId);
-        _loadAllStageCubits(newContractId);
-        _loadDfdDisplayData();
-      } else {
-        _progressCubit.setContractForPipeline('');
+    if (oldContractId == newContractId) {
+      return;
+    }
 
-        if (mounted) {
-          setState(() {
-            _dfdDescricaoObjeto = null;
-            _dfdProcessoAdministrativo = null;
-          });
-        }
-      }
+    if (newContractId.isNotEmpty) {
+      _progressCubit.setContractForPipeline(newContractId);
+      _loadAllStageCubits(newContractId);
+      unawaited(_loadDfdDisplayData());
+      return;
+    }
+
+    _progressCubit.setContractForPipeline('');
+
+    if (mounted) {
+      setState(() {
+        _dfdDescricaoObjeto = null;
+        _dfdProcessoAdministrativo = null;
+      });
     }
   }
 
   @override
   void dispose() {
-    _progressCubit.close();
+    unawaited(_progressCubit.close());
 
-    _arquivamentoCubit.close();
-    _publicacaoCubit.close();
-    _parecerCubit.close();
-    _minutaCubit.close();
-    _dotacaoCubit.close();
-    _habilitacaoCubit.close();
-    _editalCubit.close();
-    _cotacaoCubit.close();
-    _trCubit.close();
-    _etpCubit.close();
-    _dfdCubit.close();
+    unawaited(_arquivamentoCubit.close());
+    unawaited(_publicacaoCubit.close());
+    unawaited(_parecerCubit.close());
+    unawaited(_minutaCubit.close());
+    unawaited(_dotacaoCubit.close());
+    unawaited(_habilitacaoCubit.close());
+    unawaited(_editalCubit.close());
+    unawaited(_cotacaoCubit.close());
+    unawaited(_trCubit.close());
+    unawaited(_etpCubit.close());
+    unawaited(_dfdCubit.close());
 
     super.dispose();
   }
-
-  @override
-  bool get wantKeepAlive => true;
 
   String _resolveRequiredTenantId(PermissionState permissionState) {
     final tenantId = permissionState.activeTenantId?.trim();
@@ -317,7 +324,9 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
   void _loadAllStageCubits(String contractId) {
     final cleanContractId = contractId.trim();
 
-    if (cleanContractId.isEmpty) return;
+    if (cleanContractId.isEmpty) {
+      return;
+    }
 
     _dfdCubit.load(cleanContractId);
     _etpCubit.load(cleanContractId);
@@ -364,22 +373,33 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
   Future<void> _loadDfdDisplayData() async {
     final id = _contractId;
 
-    if (id.isEmpty) return;
+    if (id.isEmpty) {
+      return;
+    }
 
     try {
       final dfd = await _dfdRepository.readDataForContract(id);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _dfdDescricaoObjeto = dfd?.descricaoObjeto;
         _dfdProcessoAdministrativo = dfd?.processoAdministrativo;
       });
-    } catch (e, s) {
-      debugPrint('[TabBarHiringPage._loadDfdDisplayData] erro=$e');
-      debugPrintStack(stackTrace: s);
+    } catch (error, stack) {
+      debugPrint(
+        '[TabBarHiringPage] Erro ao carregar dados resumidos do DFD | '
+            'tenantId=$_tenantId | '
+            'contractId=$id | '
+            'erro=$error',
+      );
+      debugPrintStack(stackTrace: stack);
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _dfdDescricaoObjeto = null;
@@ -469,27 +489,15 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
 
     return MultiRepositoryProvider(
       providers: [
-        RepositoryProvider<DfdRepository>.value(
-          value: _dfdRepository,
-        ),
-        RepositoryProvider<EtpRepository>.value(
-          value: _etpRepository,
-        ),
-        RepositoryProvider<TrRepository>.value(
-          value: _trRepository,
-        ),
-        RepositoryProvider<CotacaoRepository>.value(
-          value: _cotacaoRepository,
-        ),
-        RepositoryProvider<EditalRepository>.value(
-          value: _editalRepository,
-        ),
+        RepositoryProvider<DfdRepository>.value(value: _dfdRepository),
+        RepositoryProvider<EtpRepository>.value(value: _etpRepository),
+        RepositoryProvider<TrRepository>.value(value: _trRepository),
+        RepositoryProvider<CotacaoRepository>.value(value: _cotacaoRepository),
+        RepositoryProvider<EditalRepository>.value(value: _editalRepository),
         RepositoryProvider<HabilitacaoRepository>.value(
           value: _habilitacaoRepository,
         ),
-        RepositoryProvider<DotacaoRepository>.value(
-          value: _dotacaoRepository,
-        ),
+        RepositoryProvider<DotacaoRepository>.value(value: _dotacaoRepository),
         RepositoryProvider<MinutaContratoRepository>.value(
           value: _minutaRepository,
         ),
@@ -502,55 +510,33 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
         RepositoryProvider<TermoArquivamentoRepository>.value(
           value: _arquivamentoRepository,
         ),
-        RepositoryProvider<ProgressRepository>.value(
-          value: _progressRepo,
-        ),
+        RepositoryProvider<ProgressRepository>.value(value: _progressRepo),
       ],
       child: MultiBlocProvider(
         providers: [
-          BlocProvider<DfdCubit>.value(
-            value: _dfdCubit,
-          ),
-          BlocProvider<EtpCubit>.value(
-            value: _etpCubit,
-          ),
-          BlocProvider<TrCubit>.value(
-            value: _trCubit,
-          ),
-          BlocProvider<CotacaoCubit>.value(
-            value: _cotacaoCubit,
-          ),
-          BlocProvider<EditalCubit>.value(
-            value: _editalCubit,
-          ),
-          BlocProvider<HabilitacaoCubit>.value(
-            value: _habilitacaoCubit,
-          ),
-          BlocProvider<DotacaoCubit>.value(
-            value: _dotacaoCubit,
-          ),
-          BlocProvider<MinutaContratoCubit>.value(
-            value: _minutaCubit,
-          ),
-          BlocProvider<ParecerJuridicoCubit>.value(
-            value: _parecerCubit,
-          ),
-          BlocProvider<PublicacaoExtratoCubit>.value(
-            value: _publicacaoCubit,
-          ),
+          BlocProvider<DfdCubit>.value(value: _dfdCubit),
+          BlocProvider<EtpCubit>.value(value: _etpCubit),
+          BlocProvider<TrCubit>.value(value: _trCubit),
+          BlocProvider<CotacaoCubit>.value(value: _cotacaoCubit),
+          BlocProvider<EditalCubit>.value(value: _editalCubit),
+          BlocProvider<HabilitacaoCubit>.value(value: _habilitacaoCubit),
+          BlocProvider<DotacaoCubit>.value(value: _dotacaoCubit),
+          BlocProvider<MinutaContratoCubit>.value(value: _minutaCubit),
+          BlocProvider<ParecerJuridicoCubit>.value(value: _parecerCubit),
+          BlocProvider<PublicacaoExtratoCubit>.value(value: _publicacaoCubit),
           BlocProvider<TermoArquivamentoCubit>.value(
             value: _arquivamentoCubit,
           ),
-          BlocProvider<ProgressCubit>.value(
-            value: _progressCubit,
-          ),
+          BlocProvider<ProgressCubit>.value(value: _progressCubit),
         ],
         child: BlocBuilder<ProgressCubit, ProgressState>(
           builder: (context, progressState) {
             bool isApprovedForTab(int index) {
               final stageKey = _stageKeyForTabIndex(index);
 
-              if (stageKey == null) return false;
+              if (stageKey == null) {
+                return false;
+              }
 
               return progressState.completedByStage[stageKey] == true;
             }

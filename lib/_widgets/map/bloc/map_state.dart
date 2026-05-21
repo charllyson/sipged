@@ -53,7 +53,12 @@ class MapState {
           title: 'Área de trabalho',
           area: DockArea.bottom,
           crossSpan: DockCrossSpan.full,
-          visible: true,
+
+          // Inicia a Área de Trabalho fechada/desativada.
+          visible: false,
+          minimized: true,
+          collapsed: false,
+
           dockExtent: 260,
           dockWeight: 1.0,
           icon: Icons.space_dashboard_outlined,
@@ -191,9 +196,8 @@ class MapState {
       activeEditingPolygonLayerId: clearActiveEditingPolygonLayerId
           ? null
           : activeEditingPolygonLayerId ?? this.activeEditingPolygonLayerId,
-      workspaceFilter: clearWorkspaceFilter
-          ? null
-          : workspaceFilter ?? this.workspaceFilter,
+      workspaceFilter:
+      clearWorkspaceFilter ? null : workspaceFilter ?? this.workspaceFilter,
       draftOwnedTemporaryLayerIds: draftOwnedTemporaryLayerIds == null
           ? this.draftOwnedTemporaryLayerIds
           : Set<String>.unmodifiable(draftOwnedTemporaryLayerIds),

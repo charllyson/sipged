@@ -1,9 +1,13 @@
+// lib/_blocs/system/connectivity/connectivity_cubit.dart
+
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_blocs/system/connectivity/connectivity_platform.dart';
 import 'package:sipged/_blocs/system/notification/global/global_banner_cubit.dart';
 import 'package:sipged/_blocs/system/notification/global/global_banner_data.dart';
 import 'package:sipged/_blocs/system/notification/global/global_banner_type.dart';
@@ -21,19 +25,28 @@ class ConnectivityCubit extends Cubit<bool> {
   final Connectivity _connectivity = Connectivity();
   final GlobalBannerCubit _globalBannerCubit;
 
-  StreamSubscription<List<ConnectivityResult>>? _subscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  StreamSubscription<bool>? _browserSubscription;
+
   Timer? _probeTimer;
 
   bool? _lastOnlineState;
 
-  final Set<String> _forcedOfflineReasons = <String>{};
-
   Future<void> _start() async {
+    _globalBannerCubit.hide(offlineBannerId);
+
     await checkNow();
 
-    _subscription = _connectivity.onConnectivityChanged.listen((_) async {
-      await checkNow();
-    });
+    if (kIsWeb) {
+      _browserSubscription = browserOnlineChanges().listen((isOnline) {
+        _applyConnectivityState(isOnline);
+      });
+    } else {
+      _connectivitySubscription =
+          _connectivity.onConnectivityChanged.listen((_) async {
+            await checkNow();
+          });
+    }
 
     _probeTimer = Timer.periodic(
       const Duration(seconds: 5),
@@ -45,45 +58,55 @@ class ConnectivityCubit extends Cubit<bool> {
 
   Future<void> checkNow() async {
     try {
+      if (kIsWeb) {
+        final browserStatus = await browserOnlineStatus();
+
+        if (browserStatus != null) {
+          _applyConnectivityState(browserStatus);
+          return;
+        }
+      }
+
       final results = await _connectivity.checkConnectivity();
 
       final hasNetworkAdapter = results.isNotEmpty &&
           results.any((item) => item != ConnectivityResult.none);
 
-      if (!hasNetworkAdapter) {
-        _applyConnectivityState(false);
-        return;
-      }
-
-      if (_forcedOfflineReasons.isNotEmpty) {
-        _applyConnectivityState(false);
-        return;
-      }
-
-      _applyConnectivityState(true);
+      _applyConnectivityState(hasNetworkAdapter);
     } catch (e, s) {
       debugPrint('[ConnectivityCubit] Erro ao verificar conexão: $e');
       debugPrintStack(stackTrace: s);
+
+      if (kIsWeb) {
+        _applyConnectivityState(true);
+        return;
+      }
 
       _applyConnectivityState(false);
     }
   }
 
+  /// Mantido para compatibilidade com chamadas antigas.
+  ///
+  /// Falha de Firebase, Firestore, timeout ou startup não deve forçar
+  /// o app inteiro a ficar offline.
   void markOfflineFromFailure({
     String reason = 'unknown',
   }) {
-    final cleanReason = reason.trim().isEmpty ? 'unknown' : reason.trim();
+    debugPrint(
+      '[ConnectivityCubit] Falha externa registrada sem forçar offline. reason=$reason',
+    );
 
-    _forcedOfflineReasons.add(cleanReason);
-    _applyConnectivityState(false);
+    unawaited(checkNow());
   }
 
+  /// Mantido para compatibilidade com chamadas antigas.
   Future<void> markOnlineAfterSuccess({
     String reason = 'unknown',
   }) async {
-    final cleanReason = reason.trim().isEmpty ? 'unknown' : reason.trim();
-
-    _forcedOfflineReasons.remove(cleanReason);
+    debugPrint(
+      '[ConnectivityCubit] Sucesso externo registrado. reason=$reason',
+    );
 
     await checkNow();
   }
@@ -115,8 +138,10 @@ class ConnectivityCubit extends Cubit<bool> {
 
   @override
   Future<void> close() {
-    _subscription?.cancel();
+    _connectivitySubscription?.cancel();
+    _browserSubscription?.cancel();
     _probeTimer?.cancel();
+
     return super.close();
   }
 }

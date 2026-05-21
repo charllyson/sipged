@@ -220,6 +220,22 @@ class NotificationData {
       }
     }
 
+    void addIfExists(String key, dynamic value) {
+      if (value == null) return;
+
+      if (value is String) {
+        final cleanValue = value.trim();
+
+        if (cleanValue.isNotEmpty) {
+          map[key] = cleanValue;
+        }
+
+        return;
+      }
+
+      map[key] = value;
+    }
+
     addIfNotEmpty('subtitle', subtitle);
     addIfNotEmpty('details', details);
     addIfNotEmpty('leadingLabel', leadingLabel);
@@ -239,23 +255,199 @@ class NotificationData {
     addIfNotEmpty('module', cleanExtra['module']?.toString());
     addIfNotEmpty('action', cleanExtra['action']?.toString());
     addIfNotEmpty('source', cleanExtra['source']?.toString());
-    addIfNotEmpty('notificationSource', cleanExtra['notificationSource']?.toString());
+    addIfNotEmpty(
+      'sourceKey',
+      cleanExtra['sourceKey']?.toString(),
+    );
+    addIfNotEmpty(
+      'subSource',
+      cleanExtra['subSource']?.toString(),
+    );
+    addIfNotEmpty(
+      'notificationSource',
+      cleanExtra['notificationSource']?.toString(),
+    );
+
+    addIfNotEmpty('tenantId', cleanExtra['tenantId']?.toString());
+    addIfNotEmpty('companyId', cleanExtra['companyId']?.toString());
 
     addIfNotEmpty('contractId', cleanExtra['contractId']?.toString());
     addIfNotEmpty('contractNumber', cleanExtra['contractNumber']?.toString());
     addIfNotEmpty('contractSummary', cleanExtra['contractSummary']?.toString());
     addIfNotEmpty('contractTitle', cleanExtra['contractTitle']?.toString());
 
+    addIfNotEmpty('summarySubjectContract',
+        cleanExtra['summarySubjectContract']?.toString());
+    addIfNotEmpty('descricaoObjeto', cleanExtra['descricaoObjeto']?.toString());
+    addIfNotEmpty('nomeDemanda', cleanExtra['nomeDemanda']?.toString());
+    addIfNotEmpty('demandaNome', cleanExtra['demandaNome']?.toString());
+    addIfNotEmpty('demandName', cleanExtra['demandName']?.toString());
+
     addIfNotEmpty('processId', cleanExtra['processId']?.toString());
     addIfNotEmpty('processNumber', cleanExtra['processNumber']?.toString());
+    addIfNotEmpty('processSummary', cleanExtra['processSummary']?.toString());
+    addIfNotEmpty(
+      'processoAdministrativo',
+      cleanExtra['processoAdministrativo']?.toString(),
+    );
+
+    addIfExists('paymentMainValue', cleanExtra['paymentMainValue']);
+    addIfExists('paymentTotalValue', cleanExtra['paymentTotalValue']);
 
     addIfNotEmpty('actorId', cleanExtra['actorId']?.toString());
     addIfNotEmpty('actorName', cleanExtra['actorName']?.toString());
     addIfNotEmpty('actorPhotoUrl', cleanExtra['actorPhotoUrl']?.toString());
     addIfNotEmpty('photoUrl', cleanExtra['photoUrl']?.toString());
     addIfNotEmpty('photoURL', cleanExtra['photoURL']?.toString());
-    addIfNotEmpty('profilePhotoUrl', cleanExtra['profilePhotoUrl']?.toString());
+    addIfNotEmpty(
+      'profilePhotoUrl',
+      cleanExtra['profilePhotoUrl']?.toString(),
+    );
     addIfNotEmpty('urlPhoto', cleanExtra['urlPhoto']?.toString());
+    addIfNotEmpty('avatarUrl', cleanExtra['avatarUrl']?.toString());
+    addIfNotEmpty('imageUrl', cleanExtra['imageUrl']?.toString());
+
+    // -------------------------------------------------------------------------
+    // MEDIÇÕES / REAJUSTES / REVISÕES
+    // -------------------------------------------------------------------------
+
+    addIfNotEmpty('measurementKind', cleanExtra['measurementKind']?.toString());
+    addIfNotEmpty(
+      'measurementKindValue',
+      cleanExtra['measurementKindValue']?.toString(),
+    );
+    addIfNotEmpty(
+      'measurementKindLabel',
+      cleanExtra['measurementKindLabel']?.toString(),
+    );
+
+    addIfNotEmpty('measurementId', cleanExtra['measurementId']?.toString());
+    addIfNotEmpty(
+      'measurementNumber',
+      cleanExtra['measurementNumber']?.toString(),
+    );
+    addIfNotEmpty(
+      'measurementOrder',
+      cleanExtra['measurementOrder']?.toString(),
+    );
+    addIfNotEmpty('measurementDate', cleanExtra['measurementDate']?.toString());
+    addIfExists('measurementValue', cleanExtra['measurementValue']);
+
+    addIfNotEmpty('adjustmentId', cleanExtra['adjustmentId']?.toString());
+    addIfNotEmpty(
+      'adjustmentNumber',
+      cleanExtra['adjustmentNumber']?.toString(),
+    );
+    addIfNotEmpty(
+      'adjustmentOrder',
+      cleanExtra['adjustmentOrder']?.toString(),
+    );
+    addIfNotEmpty('adjustmentDate', cleanExtra['adjustmentDate']?.toString());
+    addIfExists('adjustmentValue', cleanExtra['adjustmentValue']);
+
+    addIfNotEmpty('revisionId', cleanExtra['revisionId']?.toString());
+    addIfNotEmpty(
+      'revisionNumber',
+      cleanExtra['revisionNumber']?.toString(),
+    );
+    addIfNotEmpty(
+      'revisionOrder',
+      cleanExtra['revisionOrder']?.toString(),
+    );
+    addIfNotEmpty('revisionDate', cleanExtra['revisionDate']?.toString());
+    addIfExists('revisionValue', cleanExtra['revisionValue']);
+
+    // -------------------------------------------------------------------------
+    // PAGAMENTOS
+    // -------------------------------------------------------------------------
+
+    addIfNotEmpty('paymentKind', cleanExtra['paymentKind']?.toString());
+    addIfNotEmpty(
+      'paymentKindValue',
+      cleanExtra['paymentKindValue']?.toString(),
+    );
+    addIfNotEmpty(
+      'paymentKindLabel',
+      cleanExtra['paymentKindLabel']?.toString(),
+    );
+
+    addIfNotEmpty('paymentId', cleanExtra['paymentId']?.toString());
+    addIfNotEmpty('paymentNumber', cleanExtra['paymentNumber']?.toString());
+    addIfNotEmpty('paymentOrder', cleanExtra['paymentOrder']?.toString());
+    addIfNotEmpty('paymentDate', cleanExtra['paymentDate']?.toString());
+    addIfExists('paymentValue', cleanExtra['paymentValue']);
+    addIfExists('paymentGrossValue', cleanExtra['paymentGrossValue']);
+    addIfExists('paymentNetValue', cleanExtra['paymentNetValue']);
+    addIfExists('paymentRetentionsValue', cleanExtra['paymentRetentionsValue']);
+    addIfExists('paymentRetentionValue', cleanExtra['paymentRetentionValue']);
+    addIfExists('totalRetencoes', cleanExtra['totalRetencoes']);
+    addIfExists('totalPagamento', cleanExtra['totalPagamento']);
+
+    addIfNotEmpty(
+      'paymentMeasurementId',
+      cleanExtra['paymentMeasurementId']?.toString(),
+    );
+    addIfNotEmpty(
+      'paymentMeasurementNumber',
+      cleanExtra['paymentMeasurementNumber']?.toString(),
+    );
+    addIfNotEmpty(
+      'paymentMeasurementOrder',
+      cleanExtra['paymentMeasurementOrder']?.toString(),
+    );
+
+    addIfNotEmpty(
+      'paymentAdjustmentId',
+      cleanExtra['paymentAdjustmentId']?.toString(),
+    );
+    addIfNotEmpty(
+      'paymentAdjustmentNumber',
+      cleanExtra['paymentAdjustmentNumber']?.toString(),
+    );
+    addIfNotEmpty(
+      'paymentAdjustmentOrder',
+      cleanExtra['paymentAdjustmentOrder']?.toString(),
+    );
+
+    addIfNotEmpty(
+      'paymentRevisionId',
+      cleanExtra['paymentRevisionId']?.toString(),
+    );
+    addIfNotEmpty(
+      'paymentRevisionNumber',
+      cleanExtra['paymentRevisionNumber']?.toString(),
+    );
+    addIfNotEmpty(
+      'paymentRevisionOrder',
+      cleanExtra['paymentRevisionOrder']?.toString(),
+    );
+
+    // -------------------------------------------------------------------------
+    // OUTROS DOMÍNIOS
+    // -------------------------------------------------------------------------
+
+    addIfNotEmpty('validityId', cleanExtra['validityId']?.toString());
+    addIfNotEmpty('validityOrder', cleanExtra['validityOrder']?.toString());
+    addIfNotEmpty('validityType', cleanExtra['validityType']?.toString());
+
+    addIfNotEmpty('additiveId', cleanExtra['additiveId']?.toString());
+    addIfNotEmpty('additiveOrder', cleanExtra['additiveOrder']?.toString());
+    addIfNotEmpty('additiveType', cleanExtra['additiveType']?.toString());
+
+    addIfNotEmpty('apostilleId', cleanExtra['apostilleId']?.toString());
+    addIfNotEmpty('apostilleOrder', cleanExtra['apostilleOrder']?.toString());
+    addIfNotEmpty('apostilleType', cleanExtra['apostilleType']?.toString());
+
+    addIfNotEmpty('attachmentLabel', cleanExtra['attachmentLabel']?.toString());
+    addIfNotEmpty('attachmentUrl', cleanExtra['attachmentUrl']?.toString());
+    addIfNotEmpty(
+      'oldAttachmentLabel',
+      cleanExtra['oldAttachmentLabel']?.toString(),
+    );
+    addIfNotEmpty(
+      'newAttachmentLabel',
+      cleanExtra['newAttachmentLabel']?.toString(),
+    );
 
     final targetUserIds = cleanExtra['targetUserIds'];
 
@@ -412,6 +604,9 @@ class NotificationData {
     addIfExists('subSource');
     addIfExists('notificationSource');
 
+    addIfExists('tenantId');
+    addIfExists('companyId');
+
     addIfExists('contractId');
     addIfExists('contractNumber');
     addIfExists('contractSummary');
@@ -437,11 +632,86 @@ class NotificationData {
     addIfExists('avatarUrl');
     addIfExists('imageUrl');
 
+    // -------------------------------------------------------------------------
+    // MEDIÇÕES / REAJUSTES / REVISÕES
+    // -------------------------------------------------------------------------
+
+    addIfExists('measurementKind');
+    addIfExists('measurementKindValue');
+    addIfExists('measurementKindLabel');
+
     addIfExists('measurementId');
     addIfExists('measurementNumber');
     addIfExists('measurementOrder');
     addIfExists('measurementDate');
     addIfExists('measurementValue');
+
+    addIfExists('adjustmentId');
+    addIfExists('adjustmentNumber');
+    addIfExists('adjustmentOrder');
+    addIfExists('adjustmentDate');
+    addIfExists('adjustmentValue');
+
+    addIfExists('revisionId');
+    addIfExists('revisionNumber');
+    addIfExists('revisionOrder');
+    addIfExists('revisionDate');
+    addIfExists('revisionValue');
+
+    // -------------------------------------------------------------------------
+    // PAGAMENTOS
+    // -------------------------------------------------------------------------
+
+    addIfExists('paymentKind');
+    addIfExists('paymentKindValue');
+    addIfExists('paymentKindLabel');
+
+    addIfExists('paymentId');
+    addIfExists('paymentNumber');
+    addIfExists('paymentOrder');
+    addIfExists('paymentDate');
+    addIfExists('paymentValue');
+    addIfExists('paymentMainValue');
+    addIfExists('paymentTotalValue');
+    addIfExists('paymentGrossValue');
+    addIfExists('paymentNetValue');
+    addIfExists('paymentRetentionsValue');
+    addIfExists('paymentRetentionValue');
+    addIfExists('totalRetencoes');
+    addIfExists('totalPagamento');
+
+    addIfExists('paymentMeasurementId');
+    addIfExists('paymentMeasurementNumber');
+    addIfExists('paymentMeasurementOrder');
+
+    addIfExists('paymentAdjustmentId');
+    addIfExists('paymentAdjustmentNumber');
+    addIfExists('paymentAdjustmentOrder');
+
+    addIfExists('paymentRevisionId');
+    addIfExists('paymentRevisionNumber');
+    addIfExists('paymentRevisionOrder');
+
+    // -------------------------------------------------------------------------
+    // OUTROS DOMÍNIOS
+    // -------------------------------------------------------------------------
+
+    addIfExists('validityId');
+    addIfExists('validityOrder');
+    addIfExists('validityType');
+
+    addIfExists('additiveId');
+    addIfExists('additiveOrder');
+    addIfExists('additiveType');
+
+    addIfExists('apostilleId');
+    addIfExists('apostilleOrder');
+    addIfExists('apostilleType');
+
+    addIfExists('attachmentLabel');
+    addIfExists('attachmentUrl');
+    addIfExists('oldAttachmentLabel');
+    addIfExists('newAttachmentLabel');
 
     addIfExists('targetUserIds');
 
