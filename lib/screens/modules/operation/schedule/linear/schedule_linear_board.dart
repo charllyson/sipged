@@ -410,6 +410,11 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
           canBulkApply: state.canBulkApply,
           titleForHeader: state.titleForHeader,
           dateFilterSignature: state.dateFilterSignature,
+          dateFilterActive: state.dateFilterActive,
+          dateFilterCellKeysHash: Object.hashAll(
+            state.dateFilterCellKeys.toList()..sort(),
+          ),
+          execRevision: state.execRevision,
         ),
         builder: (context, vm) {
           return Column(
@@ -886,6 +891,55 @@ class _ScheduleRoadBoardGridView extends StatelessWidget {
   static const double kHeaderHeight = 40.0;
   static const double kGhostWidth = 22.5;
 
+  Color _resolveSquareColor({
+    required ScheduleLinearState state,
+    required ScheduleLinearCellData cell,
+  }) {
+    if (!state.hasActiveDateFilter) {
+      if (state.isGeral) {
+        final dominantCell = state.dominantCellForGeral(
+          estaca: cell.numero,
+          faixa: cell.faixaIndex,
+        );
+
+        return state.squareColor(dominantCell ?? cell);
+      }
+
+      final realCell = state.cellAt(
+        serviceKey: state.currentServiceKey,
+        estaca: cell.numero,
+        faixa: cell.faixaIndex,
+      );
+
+      return state.squareColor(realCell ?? cell);
+    }
+
+    if (state.isGeral) {
+      final dominantCell = state.dominantCellForGeral(
+        estaca: cell.numero,
+        faixa: cell.faixaIndex,
+      );
+
+      if (dominantCell == null) {
+        return const Color(0xFFE0E0E0);
+      }
+
+      return state.squareColor(dominantCell);
+    }
+
+    final realCell = state.cellAt(
+      serviceKey: state.currentServiceKey,
+      estaca: cell.numero,
+      faixa: cell.faixaIndex,
+    );
+
+    if (realCell == null) {
+      return const Color(0xFFE0E0E0);
+    }
+
+    return state.squareColor(realCell);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!vm.initialized) {
@@ -910,6 +964,15 @@ class _ScheduleRoadBoardGridView extends StatelessWidget {
     }
 
     return ScheduleGrid(
+      key: ValueKey<String>(
+        'schedule-grid-'
+            '${vm.currentServiceKey}-'
+            '${vm.totalEstacas}-'
+            '${vm.execRevision}-'
+            '${vm.dateFilterSignature}-'
+            '${vm.dateFilterActive}-'
+            '${vm.dateFilterCellKeysHash}',
+      ),
       headerHeight: kHeaderHeight,
       totalEstacas: vm.totalEstacas,
       faixas: vm.lanes,
@@ -920,7 +983,12 @@ class _ScheduleRoadBoardGridView extends StatelessWidget {
       estacaWidth: estacaWidth,
       ghostWidth: kGhostWidth,
       getSquareColor: (cell) {
-        return context.read<ScheduleLinearCubit>().state.squareColor(cell);
+        final state = context.read<ScheduleLinearCubit>().state;
+
+        return _resolveSquareColor(
+          state: state,
+          cell: cell,
+        );
       },
       onTapSquare: (cell) => onTapSquare(cell, vm),
       onDragStart: onDragStart,
@@ -946,6 +1014,9 @@ class _BoardGridVm {
     required this.canBulkApply,
     required this.titleForHeader,
     required this.dateFilterSignature,
+    required this.dateFilterActive,
+    required this.dateFilterCellKeysHash,
+    required this.execRevision,
   });
 
   final bool initialized;
@@ -959,6 +1030,9 @@ class _BoardGridVm {
   final bool canBulkApply;
   final String titleForHeader;
   final int dateFilterSignature;
+  final bool dateFilterActive;
+  final int dateFilterCellKeysHash;
+  final int execRevision;
 
   @override
   bool operator ==(Object other) {
@@ -973,7 +1047,10 @@ class _BoardGridVm {
         other.canEditSingleCell == canEditSingleCell &&
         other.canBulkApply == canBulkApply &&
         other.titleForHeader == titleForHeader &&
-        other.dateFilterSignature == dateFilterSignature;
+        other.dateFilterSignature == dateFilterSignature &&
+        other.dateFilterActive == dateFilterActive &&
+        other.dateFilterCellKeysHash == dateFilterCellKeysHash &&
+        other.execRevision == execRevision;
   }
 
   @override
@@ -989,5 +1066,8 @@ class _BoardGridVm {
     canBulkApply,
     titleForHeader,
     dateFilterSignature,
+    dateFilterActive,
+    dateFilterCellKeysHash,
+    execRevision,
   );
 }

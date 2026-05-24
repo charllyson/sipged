@@ -1,3 +1,5 @@
+// lib/_blocs/system/login/login_cubit.dart
+
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,18 +10,17 @@ import 'login_repository.dart';
 import 'login_state.dart';
 
 class LoginCubit extends Cubit<LoginState> {
-  final LoginRepository _repo;
-  StreamSubscription? _authSub;
-
   LoginCubit({LoginRepository? repository})
       : _repo = repository ?? LoginRepository(),
         super(LoginState.initial()) {
     _authSub = _repo.authStateChanges().listen((user) async {
+      if (isClosed) return;
+
       if (user == null) {
         emit(
           state.copyWith(
             status: LoginStatus.unauthenticated,
-            firebaseUser: null,
+            clearFirebaseUser: true,
             profile: LoginProfile.commom,
             areaAccessStatus: AreaAccessStatus.idle,
             areaAccessPreview: false,
@@ -28,6 +29,8 @@ class LoginCubit extends Cubit<LoginState> {
         );
       } else {
         final profile = await _resolveProfile(user.uid);
+
+        if (isClosed) return;
 
         emit(
           state.copyWith(
@@ -42,6 +45,9 @@ class LoginCubit extends Cubit<LoginState> {
       await recheckAreaAccessPreview();
     });
   }
+
+  final LoginRepository _repo;
+  StreamSubscription? _authSub;
 
   // ===================== Local email =====================
 
@@ -144,6 +150,8 @@ class LoginCubit extends Cubit<LoginState> {
   }
 
   Future<void> recheckAreaAccessPreview() async {
+    if (isClosed) return;
+
     final area = state.data.selectedArea?.trim();
 
     if (area == null || area.isEmpty) {
@@ -172,11 +180,12 @@ class LoginCubit extends Cubit<LoginState> {
 
     final ok = await _hasProfileForArea(area);
 
+    if (isClosed) return;
+
     emit(
       state.copyWith(
-        areaAccessStatus: ok
-            ? AreaAccessStatus.allowed
-            : AreaAccessStatus.denied,
+        areaAccessStatus:
+        ok ? AreaAccessStatus.allowed : AreaAccessStatus.denied,
         areaAccessPreview: ok,
       ),
     );
@@ -206,10 +215,8 @@ class LoginCubit extends Cubit<LoginState> {
 
       if (userDocData == null) return false;
 
-      final baseProfile = (userDocData['baseProfile'] ?? '')
-          .toString()
-          .toLowerCase()
-          .trim();
+      final baseProfile =
+      (userDocData['baseProfile'] ?? '').toString().toLowerCase().trim();
 
       final isAdmin =
           baseProfile == 'administrador' || userDocData['isAdmin'] == true;
@@ -258,6 +265,7 @@ class LoginCubit extends Cubit<LoginState> {
         emit(
           state.copyWith(
             status: LoginStatus.failure,
+            clearFirebaseUser: true,
             errorMessage: 'Falha ao autenticar. Tente novamente.',
           ),
         );
@@ -275,7 +283,7 @@ class LoginCubit extends Cubit<LoginState> {
           emit(
             state.copyWith(
               status: LoginStatus.failure,
-              firebaseUser: null,
+              clearFirebaseUser: true,
               profile: LoginProfile.commom,
               errorMessage:
               'Sem permissão para acessar $selectedArea. Contate o administrador.',
@@ -307,6 +315,7 @@ class LoginCubit extends Cubit<LoginState> {
       emit(
         state.copyWith(
           status: LoginStatus.failure,
+          clearFirebaseUser: true,
           errorMessage: _translateAnyError(e),
         ),
       );
@@ -333,6 +342,7 @@ class LoginCubit extends Cubit<LoginState> {
         emit(
           state.copyWith(
             status: LoginStatus.failure,
+            clearFirebaseUser: true,
             errorMessage: 'Informe um e-mail válido para criar o usuário.',
           ),
         );
@@ -351,6 +361,7 @@ class LoginCubit extends Cubit<LoginState> {
         emit(
           state.copyWith(
             status: LoginStatus.failure,
+            clearFirebaseUser: true,
             errorMessage: 'Falha ao criar usuário. Tente novamente.',
           ),
         );
@@ -374,6 +385,7 @@ class LoginCubit extends Cubit<LoginState> {
       emit(
         state.copyWith(
           status: LoginStatus.failure,
+          clearFirebaseUser: true,
           errorMessage: _translateAnyError(e),
         ),
       );
@@ -395,10 +407,12 @@ class LoginCubit extends Cubit<LoginState> {
   Future<void> signOut() async {
     await _repo.signOut();
 
+    if (isClosed) return;
+
     emit(
       state.copyWith(
         status: LoginStatus.unauthenticated,
-        firebaseUser: null,
+        clearFirebaseUser: true,
         profile: LoginProfile.commom,
         areaAccessStatus: AreaAccessStatus.idle,
         areaAccessPreview: false,

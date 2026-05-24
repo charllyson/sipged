@@ -88,7 +88,7 @@ class ModuleCatalog {
           homeModuleColor: SipGedTheme.contractsColor,
         ),
         ModuleData(
-          labelModule: 'REAJUSTES',
+          labelModule: 'APOSTILAMETOS',
           menuModuleItem: ModuleEnum.processApostillesRecords,
           permissionModule: modApostillesRecords,
           colorModuleLabel: SipGedTheme.drawerModuleLabelColor,

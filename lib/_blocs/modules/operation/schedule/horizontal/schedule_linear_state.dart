@@ -10,6 +10,32 @@ import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_lin
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
 
+class ScheduleLinearPercentValues {
+  const ScheduleLinearPercentValues({
+    required this.concluido,
+    required this.andamento,
+    required this.aIniciar,
+  });
+
+  final double concluido;
+  final double andamento;
+  final double aIniciar;
+
+  static const empty = ScheduleLinearPercentValues(
+    concluido: 0.0,
+    andamento: 0.0,
+    aIniciar: 0.0,
+  );
+
+  List<double> toList() {
+    return <double>[
+      concluido,
+      andamento,
+      aIniciar,
+    ];
+  }
+}
+
 class ScheduleLinearState extends Equatable {
   final bool initialized;
 
@@ -54,14 +80,14 @@ class ScheduleLinearState extends Equatable {
   final int geometryRevision;
   final int physfinRevision;
 
-  /// Filtro visual por data.
-  ///
-  /// Quando ativo, somente células com status [ScheduleLinearCellStatus.concluido]
-  /// ou [ScheduleLinearCellStatus.emAndamento] e cuja chave esteja em
-  /// [dateFilterCellKeys] serão destacadas.
   final bool dateFilterActive;
   final Set<String> dateFilterCellKeys;
   final String? dateFilterLabel;
+  final bool dateFilterCumulative;
+
+  final int? dateFilterSelectedYear;
+  final int? dateFilterSelectedMonth;
+  final int? dateFilterSelectedDay;
 
   const ScheduleLinearState({
     this.initialized = false,
@@ -98,6 +124,10 @@ class ScheduleLinearState extends Equatable {
     this.dateFilterActive = false,
     this.dateFilterCellKeys = const <String>{},
     this.dateFilterLabel,
+    this.dateFilterCumulative = false,
+    this.dateFilterSelectedYear,
+    this.dateFilterSelectedMonth,
+    this.dateFilterSelectedDay,
   });
 
   static List<LatLng> axisFrom({
@@ -121,6 +151,36 @@ class ScheduleLinearState extends Equatable {
     return <String, ScheduleLinearCellData>{
       for (final cell in cells) cell.cellKey: cell,
     };
+  }
+
+  static String? buildDateFilterLabel({
+    required bool cumulative,
+    int? selectedYear,
+    int? selectedMonth,
+    int? selectedDay,
+  }) {
+    if (selectedYear == null) return null;
+
+    String periodLabel;
+
+    if (selectedMonth == null) {
+      periodLabel = '$selectedYear';
+    } else {
+      final month = selectedMonth.toString().padLeft(2, '0');
+
+      if (selectedDay == null) {
+        periodLabel = '$month/$selectedYear';
+      } else {
+        final day = selectedDay.toString().padLeft(2, '0');
+        periodLabel = '$day/$month/$selectedYear';
+      }
+    }
+
+    if (cumulative) {
+      return 'Acumulado até $periodLabel';
+    }
+
+    return periodLabel;
   }
 
   ScheduleLinearState copyWith({
@@ -158,9 +218,11 @@ class ScheduleLinearState extends Equatable {
     bool? dateFilterActive,
     Set<String>? dateFilterCellKeys,
     Object? dateFilterLabel = const _Unset(),
+    bool? dateFilterCumulative,
+    Object? dateFilterSelectedYear = const _Unset(),
+    Object? dateFilterSelectedMonth = const _Unset(),
+    Object? dateFilterSelectedDay = const _Unset(),
   }) {
-    final nextServices = services ?? this.services;
-    final nextLanes = lanes ?? this.lanes;
     final nextExecucoes = execucoes ?? this.execucoes;
 
     final nextExecIndex = execIndex ??
@@ -177,9 +239,33 @@ class ScheduleLinearState extends Equatable {
 
     final nextAxis = axis is _Unset ? this.axis : axis as List<LatLng>;
 
-    final nextServiceTotals = serviceTotals ?? this.serviceTotals;
-    final nextPhysfinPeriods = physfinPeriods ?? this.physfinPeriods;
-    final nextPhysfinGrid = physfinGrid ?? this.physfinGrid;
+    final nextDateFilterLabel = dateFilterLabel is _Unset
+        ? this.dateFilterLabel
+        : dateFilterLabel as String?;
+
+    final nextDateFilterSelectedYear = dateFilterSelectedYear is _Unset
+        ? this.dateFilterSelectedYear
+        : dateFilterSelectedYear as int?;
+
+    final nextDateFilterSelectedMonth = dateFilterSelectedMonth is _Unset
+        ? this.dateFilterSelectedMonth
+        : dateFilterSelectedMonth as int?;
+
+    final nextDateFilterSelectedDay = dateFilterSelectedDay is _Unset
+        ? this.dateFilterSelectedDay
+        : dateFilterSelectedDay as int?;
+
+    final shouldIncrementExecRevision = execucoes != null ||
+        execIndex != null ||
+        minDate != null ||
+        maxDate != null ||
+        dateFilterActive != null ||
+        dateFilterCellKeys != null ||
+        dateFilterLabel is! _Unset ||
+        dateFilterCumulative != null ||
+        dateFilterSelectedYear is! _Unset ||
+        dateFilterSelectedMonth is! _Unset ||
+        dateFilterSelectedDay is! _Unset;
 
     return ScheduleLinearState(
       initialized: initialized ?? this.initialized,
@@ -188,8 +274,8 @@ class ScheduleLinearState extends Equatable {
       summarySubjectContract ?? this.summarySubjectContract,
       totalEstacas: totalEstacas ?? this.totalEstacas,
       currentServiceKey: currentServiceKey ?? this.currentServiceKey,
-      services: nextServices,
-      lanes: nextLanes,
+      services: services ?? this.services,
+      lanes: lanes ?? this.lanes,
       execucoes: nextExecucoes,
       execIndex: nextExecIndex,
       minDate: minDate ?? this.minDate,
@@ -203,9 +289,9 @@ class ScheduleLinearState extends Equatable {
       multiLine: nextMultiLine,
       points: nextPoints,
       axis: nextAxis,
-      serviceTotals: nextServiceTotals,
-      physfinPeriods: nextPhysfinPeriods,
-      physfinGrid: nextPhysfinGrid,
+      serviceTotals: serviceTotals ?? this.serviceTotals,
+      physfinPeriods: physfinPeriods ?? this.physfinPeriods,
+      physfinGrid: physfinGrid ?? this.physfinGrid,
       selectedPolylineId: selectedPolylineId is _Unset
           ? this.selectedPolylineId
           : selectedPolylineId as String?,
@@ -219,13 +305,7 @@ class ScheduleLinearState extends Equatable {
       lanesRevision: lanesRevision ??
           (lanes != null ? this.lanesRevision + 1 : this.lanesRevision),
       execRevision: execRevision ??
-          (execucoes != null ||
-              execIndex != null ||
-              minDate != null ||
-              maxDate != null ||
-              dateFilterActive != null ||
-              dateFilterCellKeys != null ||
-              dateFilterLabel is! _Unset
+          (shouldIncrementExecRevision
               ? this.execRevision + 1
               : this.execRevision),
       geometryRevision: geometryRevision ??
@@ -242,9 +322,12 @@ class ScheduleLinearState extends Equatable {
               : this.physfinRevision),
       dateFilterActive: dateFilterActive ?? this.dateFilterActive,
       dateFilterCellKeys: dateFilterCellKeys ?? this.dateFilterCellKeys,
-      dateFilterLabel: dateFilterLabel is _Unset
-          ? this.dateFilterLabel
-          : dateFilterLabel as String?,
+      dateFilterLabel: nextDateFilterLabel,
+      dateFilterCumulative:
+      dateFilterCumulative ?? this.dateFilterCumulative,
+      dateFilterSelectedYear: nextDateFilterSelectedYear,
+      dateFilterSelectedMonth: nextDateFilterSelectedMonth,
+      dateFilterSelectedDay: nextDateFilterSelectedDay,
     );
   }
 
@@ -273,6 +356,10 @@ class ScheduleLinearState extends Equatable {
     dateFilterActive,
     Object.hashAll(dateFilterCellKeys.toList()..sort()),
     dateFilterLabel,
+    dateFilterCumulative,
+    dateFilterSelectedYear,
+    dateFilterSelectedMonth,
+    dateFilterSelectedDay,
   ];
 
   bool get isBusy => busyReason != null || savingOrImporting;
@@ -285,16 +372,23 @@ class ScheduleLinearState extends Equatable {
     return Object.hash(
       dateFilterActive,
       dateFilterLabel,
+      dateFilterCumulative,
+      dateFilterSelectedYear,
+      dateFilterSelectedMonth,
+      dateFilterSelectedDay,
       Object.hashAll(dateFilterCellKeys.toList()..sort()),
     );
   }
+
+  int get statusFilterSignature => dateFilterSignature;
 
   UnmodifiableListView<LatLng> get axisView {
     return UnmodifiableListView<LatLng>(axis);
   }
 
   bool get isGeral {
-    return currentServiceKey.toLowerCase() == ScheduleLinearServicesData.geralKey;
+    return currentServiceKey.toLowerCase() ==
+        ScheduleLinearServicesData.geralKey;
   }
 
   bool get hasServices => services.isNotEmpty;
@@ -317,7 +411,6 @@ class ScheduleLinearState extends Equatable {
 
   List<ScheduleLinearServicesData> get specificServicesByDrawOrder {
     final ordered = specificServicesByLayer;
-
     return ordered.reversed.toList(growable: false);
   }
 
@@ -342,7 +435,6 @@ class ScheduleLinearState extends Equatable {
 
   bool _laneEnabled(ScheduleLinearLaneData lane) {
     if (isGeral) return true;
-
     return lane.isAllowed(currentServiceKey);
   }
 
@@ -354,7 +446,8 @@ class ScheduleLinearState extends Equatable {
     if (isGeral) {
       final serviceKey = cell.serviceKey.toLowerCase().trim();
 
-      if (serviceKey.isEmpty || serviceKey == ScheduleLinearServicesData.geralKey) {
+      if (serviceKey.isEmpty ||
+          serviceKey == ScheduleLinearServicesData.geralKey) {
         return true;
       }
 
@@ -367,7 +460,6 @@ class ScheduleLinearState extends Equatable {
 
   int get enabledLaneCount {
     if (lanes.isEmpty) return 0;
-
     return lanes.where(_laneEnabled).length;
   }
 
@@ -419,17 +511,13 @@ class ScheduleLinearState extends Equatable {
 
   int get concluidos {
     return execucoes
-        .where(
-          (cell) => _cellEnabled(cell) && cell.isConcluido,
-    )
+        .where((cell) => _cellEnabled(cell) && cell.isConcluido)
         .length;
   }
 
   int get andamento {
     return execucoes
-        .where(
-          (cell) => _cellEnabled(cell) && cell.isEmAndamento,
-    )
+        .where((cell) => _cellEnabled(cell) && cell.isEmAndamento)
         .length;
   }
 
@@ -437,7 +525,6 @@ class ScheduleLinearState extends Equatable {
 
   int get aIniciarCount {
     final remaining = totalEsperado - iniciados;
-
     return remaining < 0 ? 0 : remaining;
   }
 
@@ -471,6 +558,187 @@ class ScheduleLinearState extends Equatable {
     return remaining.clamp(0.0, 100.0);
   }
 
+  ScheduleLinearPercentValues get generalPercentValues {
+    return ScheduleLinearPercentValues(
+      concluido: pctConcluido.isFinite ? pctConcluido : 0.0,
+      andamento: pctAndamento.isFinite ? pctAndamento : 0.0,
+      aIniciar: pctAIniciar.isFinite ? pctAIniciar : 0.0,
+    );
+  }
+
+  List<ScheduleLinearCellData> get cellsWithDateForSelector {
+    final cells = execucoes
+        .where(_cellEnabled)
+        .where(isDoneOrInProgressCell)
+        .where((cell) => cell.primaryDate != null)
+        .toList(growable: false);
+
+    cells.sort((a, b) {
+      final da = a.primaryDate;
+      final db = b.primaryDate;
+
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+
+      return da.compareTo(db);
+    });
+
+    return cells;
+  }
+
+  List<ScheduleLinearCellData> get activeDateFilteredCells {
+    if (!dateFilterActive) {
+      return const <ScheduleLinearCellData>[];
+    }
+
+    return execucoes
+        .where(_cellEnabled)
+        .where(isDoneOrInProgressCell)
+        .where((cell) => dateFilterCellKeys.contains(cell.cellKey))
+        .toList(growable: false);
+  }
+
+  ScheduleLinearPercentValues get percentValuesForPanel {
+    if (!dateFilterActive) {
+      return generalPercentValues;
+    }
+
+    return _calculatePercentValuesFromCells(
+      cells: activeDateFilteredCells,
+      cumulative: dateFilterCumulative,
+    );
+  }
+
+  String? get dateFilterInfoMessage {
+    if (!dateFilterActive) return null;
+
+    final label = dateFilterLabel ?? 'período selecionado';
+    final count = activeDateFilteredCells.length;
+
+    if (dateFilterCumulative) {
+      return 'Filtro aplicado: $label. $count trecho(s) acumulado(s). '
+          'O percentual considera o total esperado do cronograma.';
+    }
+
+    return 'Filtro aplicado: $label. $count trecho(s) encontrado(s). '
+        'O percentual parcial representa somente o avanço executado nesse período sobre o total esperado, '
+        'sem repetir o saldo de "A iniciar" em cada período.';
+  }
+
+  ScheduleLinearPercentValues _calculatePercentValuesFromCells({
+    required List<ScheduleLinearCellData> cells,
+    required bool cumulative,
+  }) {
+    final total = totalEsperado;
+
+    if (total <= 0) {
+      return ScheduleLinearPercentValues.empty;
+    }
+
+    var concluidoCount = 0;
+    var andamentoCount = 0;
+
+    for (final cell in cells) {
+      switch (cell.status) {
+        case ScheduleLinearCellStatus.concluido:
+          concluidoCount++;
+          break;
+
+        case ScheduleLinearCellStatus.emAndamento:
+          andamentoCount++;
+          break;
+
+        case ScheduleLinearCellStatus.aIniciar:
+          break;
+      }
+    }
+
+    final concluidoPct =
+    (concluidoCount * 100.0 / total).clamp(0.0, 100.0);
+
+    final andamentoPct =
+    (andamentoCount * 100.0 / total).clamp(0.0, 100.0);
+
+    final aIniciarPct = cumulative
+        ? (100.0 - concluidoPct - andamentoPct).clamp(0.0, 100.0)
+        : 0.0;
+
+    return ScheduleLinearPercentValues(
+      concluido: concluidoPct,
+      andamento: andamentoPct,
+      aIniciar: aIniciarPct,
+    );
+  }
+
+  List<ScheduleLinearCellData> filterCellsForDateSelection({
+    required int selectedYear,
+    int? selectedMonth,
+    int? selectedDay,
+    required bool cumulative,
+  }) {
+    final source = cellsWithDateForSelector;
+
+    if (cumulative) {
+      final end = _endOfSelectedPeriod(
+        year: selectedYear,
+        month: selectedMonth,
+        day: selectedDay,
+      );
+
+      return source.where((cell) {
+        final date = cell.primaryDate;
+        if (date == null) return false;
+        return !date.isAfter(end);
+      }).toList(growable: false);
+    }
+
+    return source.where((cell) {
+      final date = cell.primaryDate;
+      if (date == null) return false;
+
+      return _matchesExactPeriod(
+        date: date,
+        year: selectedYear,
+        month: selectedMonth,
+        day: selectedDay,
+      );
+    }).toList(growable: false);
+  }
+
+  DateTime _endOfSelectedPeriod({
+    required int year,
+    int? month,
+    int? day,
+  }) {
+    if (month == null) {
+      return DateTime(year, 12, 31, 23, 59, 59, 999);
+    }
+
+    if (day == null) {
+      return DateTime(year, month + 1, 0, 23, 59, 59, 999);
+    }
+
+    return DateTime(year, month, day, 23, 59, 59, 999);
+  }
+
+  bool _matchesExactPeriod({
+    required DateTime date,
+    required int year,
+    int? month,
+    int? day,
+  }) {
+    if (month == null) {
+      return date.year == year;
+    }
+
+    if (day == null) {
+      return date.year == year && date.month == month;
+    }
+
+    return date.year == year && date.month == month && date.day == day;
+  }
+
   ScheduleLinearServicesData get currentServiceMeta {
     if (services.isEmpty) return ScheduleLinearServicesData.emptyGeral;
 
@@ -490,7 +758,6 @@ class ScheduleLinearState extends Equatable {
 
   String get titleForHeader {
     final meta = currentServiceMeta;
-
     final value = meta.label.isNotEmpty ? meta.label : meta.key;
 
     return value.toUpperCase();
@@ -692,7 +959,6 @@ class ScheduleLinearState extends Equatable {
     if (isGeral) {
       if (cell.isConcluido || cell.isEmAndamento) {
         final meta = _serviceMetaForCell(cell);
-
         base = meta?.color ?? ScheduleLinearServicesData.defaultServiceColor;
       } else {
         base = const Color(0xFFE0E0E0);

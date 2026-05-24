@@ -1,3 +1,5 @@
+// lib/screens/modules/financial/payments/adjustment/adjustment_payment_form_section.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -96,25 +98,37 @@ class AdjustmentPaymentFormSection extends StatelessWidget {
               repository: AdjustmentPaidRepository(
                 tenantId: tenantId,
               ),
+              initialTenantId: tenantId,
+              initialPermissions: permissionState.current,
+              moduleId: 'operation_measurements_adjustments',
             )..loadByAdjustment(
               contractId: _contractId,
               adjustmentId: adjustmentId,
+              contract: contractData,
             );
           },
           child: BlocListener<PermissionCubit, PermissionState>(
             listenWhen: (previous, current) {
-              return previous.activeTenantId != current.activeTenantId;
+              return previous.activeTenantId != current.activeTenantId ||
+                  previous.current != current.current;
             },
             listener: (context, nextPermissionState) {
               final nextTenantId = _resolveTenantId(nextPermissionState);
 
-              context.read<AdjustmentPaidCubit>().setTenantId(nextTenantId);
+              if (nextTenantId == null) {
+                context.read<AdjustmentPaidCubit>().setTenantId(null);
+                return;
+              }
 
-              if (nextTenantId == null) return;
+              context.read<AdjustmentPaidCubit>().updatePermissions(
+                permissions: nextPermissionState.current,
+                tenantId: nextTenantId,
+              );
 
               context.read<AdjustmentPaidCubit>().loadByAdjustment(
                 contractId: _contractId,
                 adjustmentId: adjustmentId,
+                contract: contractData,
               );
             },
             child: AdjustmentPaymentFormView(

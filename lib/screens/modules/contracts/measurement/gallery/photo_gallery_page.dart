@@ -99,7 +99,7 @@ class _ContractPhotoGalleryViewState extends State<_ContractPhotoGalleryView> {
         barrierColor: Colors.black,
         transitionDuration: const Duration(milliseconds: 220),
         reverseTransitionDuration: const Duration(milliseconds: 180),
-        pageBuilder: (_, animation, __) {
+        pageBuilder: (_, animation, _) {
           return FadeTransition(
             opacity: animation,
             child: SipGedPhotoPreviewPage(
@@ -119,9 +119,6 @@ class _ContractPhotoGalleryViewState extends State<_ContractPhotoGalleryView> {
         return previous.selectedPhotoIds != current.selectedPhotoIds;
       },
       listener: (context, state) {
-        debugPrint(
-          '[ContractPhotoGalleryPage] Selecionadas: ${state.selectedCount}',
-        );
       },
       child: Scaffold(
         backgroundColor: Colors.white,

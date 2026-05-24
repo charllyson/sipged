@@ -1,4 +1,4 @@
-// lib/_blocs/modules/financial/payments/report_paid_data.dart
+// lib/_blocs/modules/financial/payments/report/report_paid_data.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -162,7 +162,13 @@ class ReportPaidData {
 
     if (value is num) return value.toInt();
 
-    if (value is String) return int.tryParse(value.trim());
+    if (value is String) {
+      final clean = value.replaceAll(RegExp(r'[^0-9-]'), '').trim();
+
+      if (clean.isEmpty) return null;
+
+      return int.tryParse(clean);
+    }
 
     return null;
   }
@@ -180,25 +186,23 @@ class ReportPaidData {
   static List<Attachment>? _toAttachments(dynamic value) {
     if (value == null) return null;
 
-    if (value is List) {
-      final list = <Attachment>[];
+    if (value is! List) return null;
 
-      for (final item in value) {
-        if (item is Attachment) {
-          list.add(item);
-        } else if (item is Map) {
-          list.add(
-            Attachment.fromMap(
-              Map<String, dynamic>.from(item),
-            ),
-          );
-        }
+    final list = <Attachment>[];
+
+    for (final item in value) {
+      if (item is Attachment) {
+        list.add(item);
+      } else if (item is Map) {
+        list.add(
+          Attachment.fromMap(
+            Map<String, dynamic>.from(item),
+          ),
+        );
       }
-
-      return list;
     }
 
-    return null;
+    return list.isEmpty ? null : list;
   }
 
   static ReportPaidData _fromData({
@@ -216,6 +220,8 @@ class ReportPaidData {
             'contractId',
             'contract_id',
             'idContrato',
+            'uidContract',
+            'uidcontract',
           ],
         ),
       ) ??
@@ -401,16 +407,9 @@ class ReportPaidData {
   factory ReportPaidData.fromDocument(DocumentSnapshot snap) {
     final data = _readSnapData(snap);
 
-    final paymentCollectionRef = snap.reference.parent;
-    final measurementDocRef = paymentCollectionRef.parent;
-    final measurementsCollectionRef = measurementDocRef?.parent;
-    final contractDocRef = measurementsCollectionRef?.parent;
-
     return _fromData(
       data: data,
       documentId: snap.id,
-      contractIdFromPath: contractDocRef?.id,
-      measurementIdFromPath: measurementDocRef?.id,
     );
   }
 

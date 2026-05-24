@@ -7,8 +7,8 @@ import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
-import 'package:sipged/_widgets/DataTime/selector/selector_dates.dart';
 
+import 'package:sipged/_widgets/DataTime/selector/selector_dates.dart';
 import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
@@ -32,41 +32,18 @@ class ScheduleLinearPanel extends StatefulWidget {
 }
 
 class _ScheduleLinearPanelState extends State<ScheduleLinearPanel> {
-  List<ScheduleLinearCellData>? _filteredByDate;
-  bool _dateFilterActive = false;
-  int? _lastExecSignature;
+  bool _accumulated = false;
 
-  int _makeExecSignature(Map<String, ScheduleLinearCellData> execIndex) {
-    final orderedEntries = execIndex.entries.toList(growable: false)
-      ..sort((a, b) => a.key.compareTo(b.key));
-
-    return Object.hash(
-      execIndex.length,
-      Object.hashAll(
-        orderedEntries.map((entry) {
-          final cell = entry.value;
-
-          return Object.hash(
-            entry.key,
-            cell.status.name,
-            cell.primaryDate?.millisecondsSinceEpoch,
-            cell.updatedAt?.millisecondsSinceEpoch,
-            cell.createdAt?.millisecondsSinceEpoch,
-            cell.takenAtMs,
-            cell.fotos.length,
-            cell.comentario,
-          );
-        }),
-      ),
-    );
-  }
+  int? _selectedYear;
+  int? _selectedMonth;
+  int? _selectedDay;
 
   bool _isDoneOrInProgress(ScheduleLinearCellData cell) {
     return cell.isConcluido || cell.isEmAndamento;
   }
 
   List<ScheduleLinearCellData> _cellsWithDate(ScheduleLinearState state) {
-    final cells = state.execIndex.values
+    final cells = state.execucoes
         .where((cell) => cell.primaryDate != null)
         .where(_isDoneOrInProgress)
         .toList(growable: false);
@@ -85,10 +62,110 @@ class _ScheduleLinearPanelState extends State<ScheduleLinearPanel> {
     return cells;
   }
 
-  _SchedulePercentValues _calculatePercentagesFromCells(
-      List<ScheduleLinearCellData> cells,
+  List<ScheduleLinearCellData> _activeFilteredCells(
+      ScheduleLinearState state,
       ) {
-    if (cells.isEmpty) {
+    if (!state.dateFilterActive) {
+      return const <ScheduleLinearCellData>[];
+    }
+
+    return state.execucoes
+        .where(_isDoneOrInProgress)
+        .where((cell) => state.dateFilterCellKeys.contains(cell.cellKey))
+        .toList(growable: false);
+  }
+
+  bool _sameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  bool _sameMonth(DateTime date, int year, int month) {
+    return date.year == year && date.month == month;
+  }
+
+  bool _sameYear(DateTime date, int year) {
+    return date.year == year;
+  }
+
+  DateTime _endOfSelectedPeriod({
+    required int year,
+    int? month,
+    int? day,
+  }) {
+    if (month == null) {
+      return DateTime(year, 12, 31, 23, 59, 59, 999);
+    }
+
+    if (day == null) {
+      return DateTime(year, month + 1, 0, 23, 59, 59, 999);
+    }
+
+    return DateTime(year, month, day, 23, 59, 59, 999);
+  }
+
+  bool _matchesExactPeriod({
+    required DateTime date,
+    required int year,
+    int? month,
+    int? day,
+  }) {
+    if (month == null) {
+      return _sameYear(date, year);
+    }
+
+    if (day == null) {
+      return _sameMonth(date, year, month);
+    }
+
+    return _sameDay(date, DateTime(year, month, day));
+  }
+
+  List<ScheduleLinearCellData> _filterCellsForCurrentSelection({
+    required ScheduleLinearState state,
+  }) {
+    final year = _selectedYear;
+
+    if (year == null) {
+      return const <ScheduleLinearCellData>[];
+    }
+
+    final source = _cellsWithDate(state);
+
+    if (_accumulated) {
+      final end = _endOfSelectedPeriod(
+        year: year,
+        month: _selectedMonth,
+        day: _selectedDay,
+      );
+
+      return source.where((cell) {
+        final date = cell.primaryDate;
+        if (date == null) return false;
+
+        return !date.isAfter(end);
+      }).toList(growable: false);
+    }
+
+    return source.where((cell) {
+      final date = cell.primaryDate;
+      if (date == null) return false;
+
+      return _matchesExactPeriod(
+        date: date,
+        year: year,
+        month: _selectedMonth,
+        day: _selectedDay,
+      );
+    }).toList(growable: false);
+  }
+
+  _SchedulePercentValues _calculatePartialPercentagesFromCells({
+    required ScheduleLinearState state,
+    required List<ScheduleLinearCellData> cells,
+  }) {
+    final totalEsperado = state.totalEsperado;
+
+    if (totalEsperado <= 0) {
       return const _SchedulePercentValues(
         concluido: 0.0,
         andamento: 0.0,
@@ -114,21 +191,34 @@ class _ScheduleLinearPanelState extends State<ScheduleLinearPanel> {
       }
     }
 
-    final total = cells.length;
+    final pctConcluido = (concluido * 100.0 / totalEsperado).clamp(0.0, 100.0);
+    final pctAndamento = (andamento * 100.0 / totalEsperado).clamp(0.0, 100.0);
+    final pctAIniciar =
+    (100.0 - pctConcluido - pctAndamento).clamp(0.0, 100.0);
 
     return _SchedulePercentValues(
-      concluido: concluido * 100.0 / total,
-      andamento: andamento * 100.0 / total,
-      aIniciar: 0.0,
+      concluido: pctConcluido,
+      andamento: pctAndamento,
+      aIniciar: pctAIniciar,
     );
   }
 
   _SchedulePercentValues _valuesForState({
     required ScheduleLinearState state,
   }) {
-    if (_dateFilterActive) {
-      return _calculatePercentagesFromCells(
-        _filteredByDate ?? const <ScheduleLinearCellData>[],
+    if (state.dateFilterActive) {
+      final filtered = _activeFilteredCells(state);
+
+      if (_accumulated) {
+        return _calculateAccumulatedPercentagesFromCells(
+          state: state,
+          cells: filtered,
+        );
+      }
+
+      return _calculatePartialPercentagesFromCells(
+        state: state,
+        cells: filtered,
       );
     }
 
@@ -142,6 +232,51 @@ class _ScheduleLinearPanelState extends State<ScheduleLinearPanel> {
       aIniciar: aIniciar,
     );
   }
+
+  _SchedulePercentValues _calculateAccumulatedPercentagesFromCells({
+    required ScheduleLinearState state,
+    required List<ScheduleLinearCellData> cells,
+  }) {
+    final totalEsperado = state.totalEsperado;
+
+    if (totalEsperado <= 0) {
+      return const _SchedulePercentValues(
+        concluido: 0.0,
+        andamento: 0.0,
+        aIniciar: 0.0,
+      );
+    }
+
+    var concluido = 0;
+    var andamento = 0;
+
+    for (final cell in cells) {
+      switch (cell.status) {
+        case ScheduleLinearCellStatus.concluido:
+          concluido++;
+          break;
+
+        case ScheduleLinearCellStatus.emAndamento:
+          andamento++;
+          break;
+
+        case ScheduleLinearCellStatus.aIniciar:
+          break;
+      }
+    }
+
+    final pctConcluido = (concluido * 100.0 / totalEsperado).clamp(0.0, 100.0);
+    final pctAndamento = (andamento * 100.0 / totalEsperado).clamp(0.0, 100.0);
+    final pctAIniciar = (100.0 - pctConcluido - pctAndamento).clamp(0.0, 100.0);
+
+    return _SchedulePercentValues(
+      concluido: pctConcluido,
+      andamento: pctAndamento,
+      aIniciar: pctAIniciar,
+    );
+  }
+
+
 
   String _labelForCell(ScheduleLinearCellData cell) {
     final date = cell.primaryDate;
@@ -158,56 +293,75 @@ class _ScheduleLinearPanelState extends State<ScheduleLinearPanel> {
   }
 
   String? _dateFilterLabel({
+    required bool accumulated,
     int? selectedYear,
     int? selectedMonth,
     int? selectedDay,
   }) {
     if (selectedYear == null) return null;
 
+    String periodLabel;
+
     if (selectedMonth == null) {
-      return '$selectedYear';
+      periodLabel = '$selectedYear';
+    } else {
+      final month = selectedMonth.toString().padLeft(2, '0');
+
+      if (selectedDay == null) {
+        periodLabel = '$month/$selectedYear';
+      } else {
+        final day = selectedDay.toString().padLeft(2, '0');
+
+        periodLabel = '$day/$month/$selectedYear';
+      }
     }
 
-    final month = selectedMonth.toString().padLeft(2, '0');
-
-    if (selectedDay == null) {
-      return '$month/$selectedYear';
+    if (accumulated) {
+      return 'Acumulado até $periodLabel';
     }
 
-    final day = selectedDay.toString().padLeft(2, '0');
-
-    return '$day/$month/$selectedYear';
+    return periodLabel;
   }
 
-  void _applyDateFilterOnCubit({
+  void _applyCurrentDateFilterOnCubit({
     required BuildContext context,
-    required List<ScheduleLinearCellData> filteredItems,
-    required int? selectedYear,
-    required int? selectedMonth,
-    required int? selectedDay,
+    required ScheduleLinearState state,
   }) {
-    final hasSelection = selectedYear != null;
+    final cubit = context.read<ScheduleLinearCubit>();
 
-    if (!hasSelection) {
-      context.read<ScheduleLinearCubit>().clearDateFilter();
+    if (_selectedYear == null) {
+      cubit.clearDateFilter();
       return;
     }
 
-    context.read<ScheduleLinearCubit>().setDateFilter(
-      cells: filteredItems.where(_isDoneOrInProgress).toList(
-        growable: false,
-      ),
+    final filtered = _filterCellsForCurrentSelection(
+      state: state,
+    );
+
+    cubit.setDateFilter(
+      cells: filtered,
       label: _dateFilterLabel(
-        selectedYear: selectedYear,
-        selectedMonth: selectedMonth,
-        selectedDay: selectedDay,
+        accumulated: _accumulated,
+        selectedYear: _selectedYear,
+        selectedMonth: _selectedMonth,
+        selectedDay: _selectedDay,
       ),
     );
   }
 
-  void _resetLocalDateFilter() {
-    _filteredByDate = null;
-    _dateFilterActive = false;
+  @override
+  void dispose() {
+    try {
+      final cubit = context.read<ScheduleLinearCubit>();
+
+      if (cubit.state.dateFilterActive) {
+        cubit.clearDateFilter();
+      }
+    } catch (_) {
+      // Evita falha caso o provider já tenha sido desmontado.
+    }
+
+    super.dispose();
   }
 
   @override
@@ -217,26 +371,13 @@ class _ScheduleLinearPanelState extends State<ScheduleLinearPanel> {
         const BackgroundChange(),
         BlocBuilder<ScheduleLinearCubit, ScheduleLinearState>(
           builder: (context, state) {
-            final execSignature = _makeExecSignature(state.execIndex);
-
-            if (_lastExecSignature != execSignature) {
-              _lastExecSignature = execSignature;
-              _resetLocalDateFilter();
-
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!mounted) return;
-
-                context.read<ScheduleLinearCubit>().clearDateFilter();
-              });
-            }
-
             final dateCells = _cellsWithDate(state);
 
             final valuesByDate = _valuesForState(
               state: state,
             );
 
-            final labels = const <String>[
+            const labels = <String>[
               'Concluído',
               'Em andamento',
               'A iniciar',
@@ -259,13 +400,16 @@ class _ScheduleLinearPanelState extends State<ScheduleLinearPanel> {
                 state.loadingExecucoes ||
                 state.savingOrImporting;
 
-            final fallbackTitle = state.summarySubjectContract?.trim().isNotEmpty == true
+            final fallbackTitle =
+            state.summarySubjectContract?.trim().isNotEmpty == true
                 ? state.summarySubjectContract!.trim()
                 : widget.contract.displaySummary;
 
             final title = state.titleForHeader.trim().isEmpty
                 ? fallbackTitle
                 : state.titleForHeader;
+
+            final activeFilteredCells = _activeFilteredCells(state);
 
             return Padding(
               padding: const EdgeInsets.all(12.0),
@@ -288,6 +432,23 @@ class _ScheduleLinearPanelState extends State<ScheduleLinearPanel> {
                   ),
                   const SizedBox(height: 12.0),
                   if (dateCells.isNotEmpty) ...[
+                    _FilterModeBox(
+                      accumulated: _accumulated,
+                      enabled: widget.enabled,
+                      onChanged: (value) {
+                        if (!widget.enabled) return;
+
+                        setState(() {
+                          _accumulated = value;
+                        });
+
+                        _applyCurrentDateFilterOnCubit(
+                          context: context,
+                          state: state,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8.0),
                     _SelectorDatesBox(
                       child: SelectorDates<ScheduleLinearCellData>(
                         items: dateCells,
@@ -305,41 +466,34 @@ class _ScheduleLinearPanelState extends State<ScheduleLinearPanel> {
                         }) {
                           if (!mounted) return;
 
-                          final hasSelection = selectedYear != null;
-
-                          final validFiltered = filteredItems
-                              .where(_isDoneOrInProgress)
-                              .toList(growable: false);
-
                           setState(() {
-                            _dateFilterActive = hasSelection;
-                            _filteredByDate =
-                            hasSelection ? validFiltered : null;
+                            _selectedYear = selectedYear;
+                            _selectedMonth = selectedMonth;
+                            _selectedDay = selectedDay;
                           });
 
-                          _applyDateFilterOnCubit(
+                          _applyCurrentDateFilterOnCubit(
                             context: context,
-                            filteredItems: validFiltered,
-                            selectedYear: selectedYear,
-                            selectedMonth: selectedMonth,
-                            selectedDay: selectedDay,
+                            state: state,
                           );
                         },
                       ),
                     ),
                     const SizedBox(height: 8.0),
-                    if (_dateFilterActive)
+                    if (state.dateFilterActive)
                       _InfoBox(
                         message: state.dateFilterLabel == null
-                            ? 'Filtro de data aplicado. Exibindo somente trechos concluídos ou em andamento da seleção.'
-                            : 'Filtro aplicado: ${state.dateFilterLabel}. Exibindo somente trechos concluídos ou em andamento.',
+                            ? 'Filtro de data aplicado.'
+                            : _accumulated
+                            ? 'Filtro aplicado: ${state.dateFilterLabel}. ${activeFilteredCells.length} trecho(s) acumulado(s). O percentual considera o total esperado do cronograma.'
+                            : 'Filtro aplicado: ${state.dateFilterLabel}. ${activeFilteredCells.length} trecho(s) encontrado(s). O percentual é parcial, considerando somente o período selecionado.',
                       ),
                   ],
                   if (dateCells.isEmpty) ...[
                     const SizedBox(height: 8.0),
                     const _InfoBox(
                       message:
-                      'Nenhuma estaca concluída ou em andamento possui data registrada. O gráfico está exibindo o percentual geral do gallery.',
+                      'Nenhuma estaca concluída ou em andamento possui data registrada. O gráfico está exibindo o percentual geral do cronograma.',
                     ),
                   ],
                   if (isWorking) ...[
@@ -372,6 +526,61 @@ class _SchedulePercentValues {
   final double concluido;
   final double andamento;
   final double aIniciar;
+}
+
+class _FilterModeBox extends StatelessWidget {
+  const _FilterModeBox({
+    required this.accumulated,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool accumulated;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(12.0),
+        border: Border.all(
+          color: Colors.black.withValues(alpha: 0.08),
+        ),
+      ),
+      child: CheckboxListTile(
+        value: accumulated,
+        onChanged: enabled
+            ? (value) {
+          onChanged(value ?? false);
+        }
+            : null,
+        dense: true,
+        controlAffinity: ListTileControlAffinity.leading,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10.0,
+          vertical: 2.0,
+        ),
+        title: const Text(
+          'Percentual acumulado',
+          style: TextStyle(
+            fontSize: 13.0,
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+          ),
+        ),
+        subtitle: const Text(
+          'Quando marcado, o filtro soma tudo até o período selecionado.',
+          style: TextStyle(
+            fontSize: 12.0,
+            color: Colors.black54,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _SelectorDatesBox extends StatelessWidget {
@@ -485,7 +694,7 @@ class _PanelLoadingBox extends StatelessWidget {
           SizedBox(width: 10.0),
           Expanded(
             child: Text(
-              'Atualizando dados do gallery...',
+              'Atualizando dados do cronograma...',
               style: TextStyle(
                 fontSize: 13.0,
                 color: Colors.black87,

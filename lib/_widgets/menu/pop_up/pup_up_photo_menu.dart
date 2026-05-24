@@ -358,10 +358,17 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu>
         accentColor: Colors.red.shade700,
         onTap: () async {
           final loginCubit = context.read<LoginCubit>();
+          final userCubit = context.read<UserCubit>();
 
           _removeOverlay();
 
+          userCubit.clearCurrentUser();
+
           await loginCubit.signOut();
+
+          if (!mounted) return;
+
+          Navigator.of(context).popUntil((route) => route.isFirst);
         },
       ),
     ];

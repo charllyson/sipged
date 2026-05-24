@@ -1,18 +1,31 @@
+// lib/_blocs/system/login/login_state.dart
+
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'login_data.dart';
 
-/// Status detalhado do preview de acesso à área selecionada
-enum AreaAccessStatus { idle, needEmail, allowed, denied }
+/// Status detalhado do preview de acesso à área selecionada.
+enum AreaAccessStatus {
+  idle,
+  needEmail,
+  allowed,
+  denied,
+}
 
-/// Status geral do fluxo de login
-enum LoginStatus { idle, loading, authenticated, unauthenticated, failure }
+/// Status geral do fluxo de login.
+enum LoginStatus {
+  idle,
+  loading,
+  authenticated,
+  unauthenticated,
+  failure,
+}
 
-/// Perfil lógico
+/// Perfil lógico.
 enum LoginProfile {
   commom,
-  work, // OBRAS
-  legal, // JURÍDICO
+  work,
+  legal,
   company,
 }
 
@@ -22,19 +35,19 @@ class LoginState {
 
   final LoginData data;
 
-  /// Erro amigável para UI
+  /// Erro amigável para UI.
   final String? errorMessage;
 
-  /// Preview de acesso à área (novo)
+  /// Preview de acesso à área selecionada.
   final AreaAccessStatus areaAccessStatus;
 
-  /// Legado booleano (pra quem ainda dependia disso no UI antigo)
+  /// Legado booleano.
   final bool areaAccessPreview;
 
-  /// Firebase user atual (pode ser null)
+  /// Usuário autenticado no Firebase.
   final User? firebaseUser;
 
-  /// ✅ Indica se existe e-mail salvo localmente (SharedPreferences)
+  /// Indica se existe e-mail salvo localmente.
   final bool hasSavedEmail;
 
   const LoginState({
@@ -69,6 +82,7 @@ class LoginState {
     AreaAccessStatus? areaAccessStatus,
     bool? areaAccessPreview,
     User? firebaseUser,
+    bool clearFirebaseUser = false,
     bool? hasSavedEmail,
     bool clearError = false,
   }) {
@@ -79,17 +93,21 @@ class LoginState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       areaAccessStatus: areaAccessStatus ?? this.areaAccessStatus,
       areaAccessPreview: areaAccessPreview ?? this.areaAccessPreview,
-      firebaseUser: firebaseUser ?? this.firebaseUser,
+      firebaseUser: clearFirebaseUser ? null : (firebaseUser ?? this.firebaseUser),
       hasSavedEmail: hasSavedEmail ?? this.hasSavedEmail,
     );
   }
 
   bool get isLoading => status == LoginStatus.loading;
-  bool get isAuthenticated => status == LoginStatus.authenticated && firebaseUser != null;
+
+  bool get isAuthenticated {
+    return status == LoginStatus.authenticated && firebaseUser != null;
+  }
 
   bool get canSubmitEmailPass {
     final e = data.email.trim();
     final p = data.password.trim();
+
     return e.isNotEmpty && p.isNotEmpty;
   }
 }

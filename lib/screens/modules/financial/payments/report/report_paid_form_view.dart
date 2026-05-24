@@ -1086,8 +1086,7 @@ class _ReportMeasurementPaymentFormViewState
         final previousId = previous.selected?.id?.trim() ?? '';
         final currentId = current.selected?.id?.trim() ?? '';
 
-        return previousId != currentId ||
-            previous.selectedSideIndex != current.selectedSideIndex;
+        return previousId != currentId;
       },
       listener: (context, paymentState) {
         _fillFromPayment(paymentState.selected);
@@ -1096,6 +1095,7 @@ class _ReportMeasurementPaymentFormViewState
         builder: (context, paymentState) {
           return BlocBuilder<TenantCubit, TenantState>(
             builder: (context, tenantState) {
+
               final tenant = tenantState.tenantProfile;
               final fundingSources = tenantState.fundingSources;
 

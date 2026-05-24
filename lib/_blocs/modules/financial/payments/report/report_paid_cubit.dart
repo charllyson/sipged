@@ -1,3 +1,5 @@
+// lib/_blocs/modules/financial/payments/report/report_paid_cubit.dart
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
@@ -36,6 +38,8 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
 
   UserPermissionData? _currentPermissions;
   String _tenantId;
+
+  ReportPaidRepository get repository => _repo;
 
   static String _cleanRequiredTenantId(
       String value, {
@@ -89,6 +93,7 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
             () => loadByMeasurement(
           contractId: currentContractId,
           measurementId: currentMeasurementId,
+          autoSelectFirstPayment: false,
         ),
       );
     }
@@ -140,6 +145,7 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
             () => loadByMeasurement(
           contractId: currentContractId,
           measurementId: currentMeasurementId,
+          autoSelectFirstPayment: false,
         ),
       );
     }
@@ -219,33 +225,44 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
     );
   }
 
+  double _roundMoney(double value) {
+    if (!value.isFinite) return 0.0;
+
+    final rounded = (value * 100).roundToDouble() / 100;
+
+    if (rounded == 0.0) return 0.0;
+
+    return rounded;
+  }
+
   double paymentMainValue(ReportPaidData payment) {
     final value = payment.paymentValue ?? 0.0;
 
     if (!value.isFinite || value <= 0) return 0.0;
 
-    return value;
+    return _roundMoney(value);
   }
 
   double paymentRetentionsValue(ReportPaidData payment) {
-    final values = <double>[
-      payment.inssPaymentValue ?? 0.0,
-      payment.irpfPaymentValue ?? 0.0,
-      payment.issPaymentValue ?? 0.0,
-    ];
-
-    return values.fold<double>(
-      0.0,
-          (total, value) {
-        if (!value.isFinite || value <= 0) return total;
-
-        return total + value;
-      },
+    return _roundMoney(
+      _positive(payment.inssPaymentValue) +
+          _positive(payment.irpfPaymentValue) +
+          _positive(payment.issPaymentValue),
     );
   }
 
   double paymentTotalWithRetentions(ReportPaidData payment) {
-    return paymentMainValue(payment) + paymentRetentionsValue(payment);
+    return _roundMoney(
+      paymentMainValue(payment) + paymentRetentionsValue(payment),
+    );
+  }
+
+  double _positive(double? value) {
+    final v = value ?? 0.0;
+
+    if (!v.isFinite || v <= 0) return 0.0;
+
+    return _roundMoney(v);
   }
 
   double sumPayments(
@@ -259,7 +276,7 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
             ? paymentTotalWithRetentions(payment)
             : paymentMainValue(payment);
 
-        return total + value;
+        return _roundMoney(total + value);
       },
     );
   }
@@ -267,7 +284,7 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
   double sumRetentions(List<ReportPaidData> payments) {
     return payments.fold<double>(
       0.0,
-          (total, payment) => total + paymentRetentionsValue(payment),
+          (total, payment) => _roundMoney(total + paymentRetentionsValue(payment)),
     );
   }
 
@@ -276,7 +293,7 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
     required String measurementId,
     ContractData? contract,
     String? keepSelectedPaymentId,
-    bool autoSelectFirstPayment = true,
+    bool autoSelectFirstPayment = false,
   }) async {
     _requireTenantId();
 
@@ -435,14 +452,14 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
 
       if (measurementId.isNotEmpty) {
         totalsByMeasurementId[measurementId] =
-            (totalsByMeasurementId[measurementId] ?? 0.0) + value;
+            _roundMoney((totalsByMeasurementId[measurementId] ?? 0.0) + value);
       }
 
       final order = payment.measurementOrder;
 
       if (order != null) {
         totalsByMeasurementOrder[order] =
-            (totalsByMeasurementOrder[order] ?? 0.0) + value;
+            _roundMoney((totalsByMeasurementOrder[order] ?? 0.0) + value);
       }
     }
 
@@ -514,7 +531,7 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
       return;
     }
 
-    final safeIndex = index.clamp(0, attachments.length - 1);
+    final safeIndex = index.clamp(0, attachments.length - 1).toInt();
 
     emit(
       state.copyWith(
@@ -570,6 +587,7 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
       measurementId: cleanMeasurementId,
       contract: contract,
       keepSelectedPaymentId: data.id,
+      autoSelectFirstPayment: false,
     );
   }
 
@@ -610,6 +628,7 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
         contractId: cleanContractId,
         measurementId: cleanMeasurementId,
         contract: contract,
+        autoSelectFirstPayment: false,
       );
 
       if (wasSelected) {
@@ -671,6 +690,7 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
         measurementId: cleanMeasurementId,
         contract: contract,
         keepSelectedPaymentId: cleanPaymentId,
+        autoSelectFirstPayment: false,
       );
 
       emit(
@@ -730,6 +750,7 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
       measurementId: cleanMeasurementId,
       contract: contract,
       keepSelectedPaymentId: cleanPaymentId,
+      autoSelectFirstPayment: false,
     );
   }
 
@@ -770,6 +791,7 @@ class ReportPaidCubit extends Cubit<ReportPaidState> {
       measurementId: cleanMeasurementId,
       contract: contract,
       keepSelectedPaymentId: cleanPaymentId,
+      autoSelectFirstPayment: false,
     );
   }
 }

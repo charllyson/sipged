@@ -29,8 +29,8 @@ class AdjustmentPaidCubit extends Cubit<AdjustmentPaidState> {
         _currentPermissions = initialPermissions,
         _tenantId = _cleanOptionalTenantId(
           _firstNonEmpty(
-            initialTenantId,
-            tenantId,
+            _firstNonEmpty(initialTenantId, tenantId),
+            repository?.currentTenantId,
           ),
         ),
         super(AdjustmentPaidState.initial()) {
@@ -85,7 +85,11 @@ class AdjustmentPaidCubit extends Cubit<AdjustmentPaidState> {
   }
 
   void _syncRepositoryTenant() {
-    _repository.setActiveTenantId(_tenantId);
+    final cleanTenantId = _cleanOptionalTenantId(_tenantId);
+
+    if (cleanTenantId == null) return;
+
+    _repository.setActiveTenantId(cleanTenantId);
   }
 
   void setTenantId(String? tenantId) {
@@ -121,7 +125,7 @@ class AdjustmentPaidCubit extends Cubit<AdjustmentPaidState> {
 
   String _requireTenantId() {
     final clean = _cleanRequiredTenantId(
-      _tenantId,
+      _firstNonEmpty(_tenantId, _repository.currentTenantId),
       context: 'AdjustmentPaidCubit._requireTenantId',
     );
 
@@ -532,6 +536,8 @@ class AdjustmentPaidCubit extends Cubit<AdjustmentPaidState> {
     required AdjustmentMeasurementData adjustment,
     required AdjustmentPaidData payment,
   }) async {
+    _requireTenantId();
+
     final contractId = contract.id?.trim() ?? payment.contractId?.trim() ?? '';
     final adjustmentId =
         adjustment.id?.trim() ?? payment.adjustmentId?.trim() ?? '';
@@ -600,6 +606,8 @@ class AdjustmentPaidCubit extends Cubit<AdjustmentPaidState> {
     required AdjustmentMeasurementData adjustment,
     required AdjustmentPaidData payment,
   }) async {
+    _requireTenantId();
+
     _assertCanContractAction(
       contract: contract,
       action: 'delete',
@@ -655,6 +663,8 @@ class AdjustmentPaidCubit extends Cubit<AdjustmentPaidState> {
     required AdjustmentMeasurementData adjustment,
     required AdjustmentPaidData payment,
   }) async {
+    _requireTenantId();
+
     _assertCanContractAction(
       contract: contract,
       action: 'edit',
@@ -739,6 +749,8 @@ class AdjustmentPaidCubit extends Cubit<AdjustmentPaidState> {
     required AdjustmentPaidData payment,
     required Attachment attachment,
   }) async {
+    _requireTenantId();
+
     _assertCanContractAction(
       contract: contract,
       action: 'edit',
@@ -814,6 +826,8 @@ class AdjustmentPaidCubit extends Cubit<AdjustmentPaidState> {
     required Attachment oldItem,
     required Attachment newItem,
   }) async {
+    _requireTenantId();
+
     _assertCanContractAction(
       contract: contract,
       action: 'edit',

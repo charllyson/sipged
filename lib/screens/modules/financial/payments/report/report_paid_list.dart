@@ -1,10 +1,14 @@
+// lib/screens/modules/financial/payments/report/report_paid_list.dart
+
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_blocs/modules/financial/payments/report/report_paid_data.dart';
 import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:sipged/screens/modules/financial/payments/report/report_paid_tile.dart';
 
 class PaymentsList extends StatelessWidget {
-  const PaymentsList({super.key,
+  const PaymentsList({
+    super.key,
     required this.payments,
     required this.selected,
     required this.onSelect,
@@ -24,22 +28,40 @@ class PaymentsList extends StatelessWidget {
         '${date.year}';
   }
 
+  double _roundMoney(double value) {
+    if (!value.isFinite) return 0.0;
+
+    final rounded = (value * 100).roundToDouble() / 100;
+
+    if (rounded == 0.0) return 0.0;
+
+    return rounded;
+  }
+
   double _positive(double? value) {
     final v = value ?? 0.0;
 
     if (!v.isFinite || v <= 0) return 0.0;
 
-    return v;
+    return _roundMoney(v);
   }
 
   double _totalRetencoes(ReportPaidData payment) {
-    return _positive(payment.inssPaymentValue) +
-        _positive(payment.irpfPaymentValue) +
-        _positive(payment.issPaymentValue);
+    return _roundMoney(
+      _positive(payment.inssPaymentValue) +
+          _positive(payment.irpfPaymentValue) +
+          _positive(payment.issPaymentValue),
+    );
   }
 
   double _totalPagamento(ReportPaidData payment) {
-    return _positive(payment.paymentValue) + _totalRetencoes(payment);
+    return _roundMoney(
+      _positive(payment.paymentValue) + _totalRetencoes(payment),
+    );
+  }
+
+  String _idOf(ReportPaidData item) {
+    return item.id?.trim() ?? '';
   }
 
   @override
@@ -65,6 +87,8 @@ class PaymentsList extends StatelessWidget {
       );
     }
 
+    final selectedId = selected == null ? '' : _idOf(selected!);
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -78,16 +102,23 @@ class PaymentsList extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (int index = 0; index < payments.length; index++) ...[
-            PaymentTile(
-              payment: payments[index],
-              selected: selected?.id == payments[index].id,
-              dateText: _formatDate(payments[index].paymentDate),
-              totalRetencoes: _totalRetencoes(payments[index]),
-              totalPagamento: _totalPagamento(payments[index]),
-              onTap: () => onSelect(payments[index]),
-              onDelete: onDelete == null
-                  ? null
-                  : () => onDelete?.call(payments[index]),
+            Builder(
+              builder: (context) {
+                final payment = payments[index];
+                final paymentId = _idOf(payment);
+
+                return PaymentTile(
+                  payment: payment,
+                  selected: selectedId.isNotEmpty && selectedId == paymentId,
+                  dateText: _formatDate(payment.paymentDate),
+                  totalRetencoes: _totalRetencoes(payment),
+                  totalPagamento: _totalPagamento(payment),
+                  onTap: () => onSelect(payment),
+                  onDelete: onDelete == null
+                      ? null
+                      : () => onDelete?.call(payment),
+                );
+              },
             ),
             if (index < payments.length - 1)
               Divider(

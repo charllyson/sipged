@@ -8,11 +8,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_repository.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
 
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
@@ -175,7 +175,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       emit(
         state.copyWith(
           initialized: true,
-          error: 'contractId inválido para carregar gallery.',
+          error: 'contractId inválido para carregar cronograma linear.',
         ),
       );
       return;
@@ -213,13 +213,12 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       emit(
         state.copyWith(
           initialized: true,
-          error: 'contractId inválido para carregar gallery.',
+          error: 'contractId inválido para carregar cronograma linear.',
         ),
       );
       return;
     }
 
-    final sw = Stopwatch()..start();
     final requestedServiceKey = _cleanServiceKey(selectedServiceKey);
 
     emit(
@@ -232,8 +231,15 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
         loadingLanes: true,
         loadingExecucoes: true,
         savingOrImporting: false,
-        busyReason: 'Carregando gallery...',
+        busyReason: 'Carregando cronograma linear...',
         error: null,
+        dateFilterActive: false,
+        dateFilterCellKeys: const <String>{},
+        dateFilterLabel: null,
+        dateFilterCumulative: false,
+        dateFilterSelectedYear: null,
+        dateFilterSelectedMonth: null,
+        dateFilterSelectedDay: null,
       ),
     );
 
@@ -304,15 +310,16 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
           physfinPeriods: List<int>.from(physfin.periods),
           physfinGrid: Map<String, List<double>>.from(physfin.grid),
           busyReason: null,
+          dateFilterActive: false,
+          dateFilterCellKeys: const <String>{},
+          dateFilterLabel: null,
+          dateFilterCumulative: false,
+          dateFilterSelectedYear: null,
+          dateFilterSelectedMonth: null,
+          dateFilterSelectedDay: null,
         ),
       );
-
-      sw.stop();
-
     } catch (e) {
-      sw.stop();
-
-
       emit(
         state.copyWith(
           initialized: true,
@@ -321,7 +328,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
           loadingExecucoes: false,
           savingOrImporting: false,
           busyReason: null,
-          error: 'Erro ao carregar gallery: $e',
+          error: 'Erro ao carregar cronograma linear: $e',
         ),
       );
     }
@@ -336,7 +343,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
     if (cleanContractId == null) {
       emit(
         state.copyWith(
-          error: 'Contrato inválido para atualizar gallery.',
+          error: 'Contrato inválido para atualizar cronograma linear.',
         ),
       );
       return;
@@ -366,7 +373,11 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       return;
     }
 
-    final sw = Stopwatch()..start();
+    final wasDateFilterActive = state.dateFilterActive;
+    final selectedYear = state.dateFilterSelectedYear;
+    final selectedMonth = state.dateFilterSelectedMonth;
+    final selectedDay = state.dateFilterSelectedDay;
+    final cumulative = state.dateFilterCumulative;
 
     emit(
       state.copyWith(
@@ -396,24 +407,60 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
 
       final range = _dateRangeFromCells(execucoes);
 
-      emit(
-        state.copyWith(
-          currentServiceKey: cleanServiceKey,
-          execucoes: execucoes,
-          execIndex: ScheduleLinearState.buildExecIndex(execucoes),
-          minDate: range.minDate,
-          maxDate: range.maxDate,
-          loadingExecucoes: false,
-          busyReason: null,
-          error: null,
-        ),
+      var nextState = state.copyWith(
+        currentServiceKey: cleanServiceKey,
+        execucoes: execucoes,
+        execIndex: ScheduleLinearState.buildExecIndex(execucoes),
+        minDate: range.minDate,
+        maxDate: range.maxDate,
+        loadingExecucoes: false,
+        busyReason: null,
+        error: null,
       );
 
-      sw.stop();
+      if (wasDateFilterActive && selectedYear != null) {
+        final filtered = nextState.filterCellsForDateSelection(
+          selectedYear: selectedYear,
+          selectedMonth: selectedMonth,
+          selectedDay: selectedDay,
+          cumulative: cumulative,
+        );
 
+        final keys = filtered
+            .where(_isDoneOrInProgressCell)
+            .map((cell) => cell.cellKey)
+            .toSet();
+
+        final label = ScheduleLinearState.buildDateFilterLabel(
+          cumulative: cumulative,
+          selectedYear: selectedYear,
+          selectedMonth: selectedMonth,
+          selectedDay: selectedDay,
+        );
+
+        nextState = nextState.copyWith(
+          dateFilterActive: true,
+          dateFilterCellKeys: keys,
+          dateFilterLabel: label,
+          dateFilterCumulative: cumulative,
+          dateFilterSelectedYear: selectedYear,
+          dateFilterSelectedMonth: selectedMonth,
+          dateFilterSelectedDay: selectedDay,
+        );
+      } else {
+        nextState = nextState.copyWith(
+          dateFilterActive: false,
+          dateFilterCellKeys: const <String>{},
+          dateFilterLabel: null,
+          dateFilterCumulative: false,
+          dateFilterSelectedYear: null,
+          dateFilterSelectedMonth: null,
+          dateFilterSelectedDay: null,
+        );
+      }
+
+      emit(nextState);
     } catch (e) {
-      sw.stop();
-
       emit(
         state.copyWith(
           loadingExecucoes: false,
@@ -439,30 +486,37 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       return;
     }
 
-    final services = state.services.isNotEmpty
-        ? state.services
-        : await _repo.loadAvailableServicesFromBudget(cleanContractId);
-
-    final cleanServiceKey = _resolveSelectedServiceKey(
-      requestedServiceKey: requestedServiceKey,
-      services: services,
-    );
-
-    if (cleanServiceKey == state.currentServiceKey) {
-      return;
-    }
-
-    emit(
-      state.copyWith(
-        currentServiceKey: cleanServiceKey,
-        loadingExecucoes: true,
-        selectedPolylineId: null,
-        busyReason: 'Carregando serviço...',
-        error: null,
-      ),
-    );
-
     try {
+      final services = state.services.isNotEmpty
+          ? state.services
+          : await _repo.loadAvailableServicesFromBudget(cleanContractId);
+
+      final cleanServiceKey = _resolveSelectedServiceKey(
+        requestedServiceKey: requestedServiceKey,
+        services: services,
+      );
+
+      if (cleanServiceKey == state.currentServiceKey) {
+        return;
+      }
+
+      emit(
+        state.copyWith(
+          currentServiceKey: cleanServiceKey,
+          loadingExecucoes: true,
+          selectedPolylineId: null,
+          busyReason: 'Carregando serviço...',
+          error: null,
+          dateFilterActive: false,
+          dateFilterCellKeys: const <String>{},
+          dateFilterLabel: null,
+          dateFilterCumulative: false,
+          dateFilterSelectedYear: null,
+          dateFilterSelectedMonth: null,
+          dateFilterSelectedDay: null,
+        ),
+      );
+
       final serviceKeysForGeral = _serviceKeysForGeral(services);
 
       final execucoes = await _repo.fetchExecucoes(
@@ -483,6 +537,13 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
           loadingExecucoes: false,
           busyReason: null,
           error: null,
+          dateFilterActive: false,
+          dateFilterCellKeys: const <String>{},
+          dateFilterLabel: null,
+          dateFilterCumulative: false,
+          dateFilterSelectedYear: null,
+          dateFilterSelectedMonth: null,
+          dateFilterSelectedDay: null,
         ),
       );
     } catch (e) {
@@ -536,7 +597,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
     if (cleanContractId == null) {
       emit(
         state.copyWith(
-          error: 'Contrato inválido para salvar configuração do gallery.',
+          error: 'Contrato inválido para salvar configuração do cronograma.',
         ),
       );
       return;
@@ -605,6 +666,13 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
           savingOrImporting: false,
           busyReason: null,
           error: null,
+          dateFilterActive: false,
+          dateFilterCellKeys: const <String>{},
+          dateFilterLabel: null,
+          dateFilterCumulative: false,
+          dateFilterSelectedYear: null,
+          dateFilterSelectedMonth: null,
+          dateFilterSelectedDay: null,
         ),
       );
     } catch (e) {
@@ -789,8 +857,6 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       return const <String>[];
     }
 
-    final sw = Stopwatch()..start();
-
     emit(
       state.copyWith(
         savingOrImporting: true,
@@ -829,11 +895,8 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
         ),
       );
 
-      sw.stop();
-
       return uploadedUrls;
     } catch (e) {
-      sw.stop();
       emit(
         state.copyWith(
           savingOrImporting: false,
@@ -890,8 +953,6 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       return;
     }
 
-    final swTotal = Stopwatch()..start();
-
     emit(
       state.copyWith(
         savingOrImporting: true,
@@ -906,7 +967,6 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       final canUseFastBatch = targets.length > 1 && newFilesBytes.isEmpty;
 
       if (canUseFastBatch) {
-
         await _repo.applySquareChangesBatchFast(
           contractId: cleanContractId,
           serviceKey: cleanServiceKey,
@@ -922,19 +982,9 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
           currentUserId: currentUserId,
         );
 
-        final swReload = Stopwatch()..start();
-
         await reloadExecucoes(contractId: cleanContractId);
-
-        swReload.stop();
-
-
       } else {
-
-        for (int i = 0; i < targets.length; i++) {
-          final swItem = Stopwatch()..start();
-          final target = targets[i];
-
+        for (final target in targets) {
           await _repo.applySquareChanges(
             contractId: cleanContractId,
             serviceKey: cleanServiceKey,
@@ -953,21 +1003,12 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
             currentUserId: currentUserId,
             clearCacheAfter: false,
           );
-
-          swItem.stop();
         }
 
         _repo.clearExecCache(cleanContractId);
 
-        final swReload = Stopwatch()..start();
-
         await reloadExecucoes(contractId: cleanContractId);
-
-        swReload.stop();
-
       }
-
-      swTotal.stop();
 
       emit(
         state.copyWith(
@@ -978,8 +1019,6 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
         ),
       );
     } catch (e) {
-      swTotal.stop();
-
       emit(
         state.copyWith(
           savingOrImporting: false,
@@ -1127,9 +1166,56 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
     return cell.isConcluido || cell.isEmAndamento;
   }
 
+  void applyDateFilter({
+    required int? selectedYear,
+    required int? selectedMonth,
+    required int? selectedDay,
+    required bool cumulative,
+  }) {
+    if (selectedYear == null) {
+      clearDateFilter();
+      return;
+    }
+
+    final filtered = state.filterCellsForDateSelection(
+      selectedYear: selectedYear,
+      selectedMonth: selectedMonth,
+      selectedDay: selectedDay,
+      cumulative: cumulative,
+    );
+
+    final keys = filtered
+        .where(_isDoneOrInProgressCell)
+        .map((cell) => cell.cellKey)
+        .toSet();
+
+    final label = ScheduleLinearState.buildDateFilterLabel(
+      cumulative: cumulative,
+      selectedYear: selectedYear,
+      selectedMonth: selectedMonth,
+      selectedDay: selectedDay,
+    );
+
+    emit(
+      state.copyWith(
+        dateFilterActive: true,
+        dateFilterCellKeys: keys,
+        dateFilterLabel: label,
+        dateFilterCumulative: cumulative,
+        dateFilterSelectedYear: selectedYear,
+        dateFilterSelectedMonth: selectedMonth,
+        dateFilterSelectedDay: selectedDay,
+      ),
+    );
+  }
+
   void setDateFilter({
     required List<ScheduleLinearCellData> cells,
     String? label,
+    bool cumulative = false,
+    int? selectedYear,
+    int? selectedMonth,
+    int? selectedDay,
   }) {
     final keys = cells
         .where(_isDoneOrInProgressCell)
@@ -1141,6 +1227,10 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
         dateFilterActive: true,
         dateFilterCellKeys: keys,
         dateFilterLabel: label,
+        dateFilterCumulative: cumulative,
+        dateFilterSelectedYear: selectedYear,
+        dateFilterSelectedMonth: selectedMonth,
+        dateFilterSelectedDay: selectedDay,
       ),
     );
   }
@@ -1148,7 +1238,11 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
   void clearDateFilter() {
     if (!state.dateFilterActive &&
         state.dateFilterCellKeys.isEmpty &&
-        state.dateFilterLabel == null) {
+        state.dateFilterLabel == null &&
+        state.dateFilterSelectedYear == null &&
+        state.dateFilterSelectedMonth == null &&
+        state.dateFilterSelectedDay == null &&
+        state.dateFilterCumulative == false) {
       return;
     }
 
@@ -1157,6 +1251,10 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
         dateFilterActive: false,
         dateFilterCellKeys: const <String>{},
         dateFilterLabel: null,
+        dateFilterCumulative: false,
+        dateFilterSelectedYear: null,
+        dateFilterSelectedMonth: null,
+        dateFilterSelectedDay: null,
       ),
     );
   }

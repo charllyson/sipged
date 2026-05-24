@@ -54,7 +54,6 @@ class RevisionPaidCubit extends Cubit<RevisionPaidState> {
     required String tenantId,
   }) {
     _currentPermissions = permissions ?? _currentPermissions;
-
     setTenantId(tenantId);
   }
 
@@ -147,6 +146,34 @@ class RevisionPaidCubit extends Cubit<RevisionPaidState> {
     return _repository.sumRetentions(payments);
   }
 
+  RevisionPaidData? _findPaymentById(
+      List<RevisionPaidData> payments,
+      String paymentId,
+      ) {
+    final cleanId = paymentId.trim();
+
+    if (cleanId.isEmpty) return null;
+
+    for (final payment in payments) {
+      if ((payment.id ?? '').trim() == cleanId) {
+        return payment;
+      }
+    }
+
+    return null;
+  }
+
+  int? _safeSideIndexAfterListChange({
+    required List<Attachment> attachments,
+    int? preferredIndex,
+  }) {
+    if (attachments.isEmpty) return null;
+
+    final index = preferredIndex ?? attachments.length - 1;
+
+    return index.clamp(0, attachments.length - 1).toInt();
+  }
+
   Future<void> loadByRevision({
     required String contractId,
     required String revisionId,
@@ -180,6 +207,8 @@ class RevisionPaidCubit extends Cubit<RevisionPaidState> {
       );
     }
 
+    final previousSelectedId = state.selected?.id?.trim() ?? '';
+
     emit(
       state.copyWith(
         status: RevisionPaidStatus.loading,
@@ -195,19 +224,7 @@ class RevisionPaidCubit extends Cubit<RevisionPaidState> {
         revisionId: cleanRevisionId,
       );
 
-      RevisionPaidData? selected;
-
-      final previousSelectedId = state.selected?.id?.trim();
-
-      if (previousSelectedId != null && previousSelectedId.isNotEmpty) {
-        final index = payments.indexWhere(
-              (item) => item.id?.trim() == previousSelectedId,
-        );
-
-        if (index >= 0) {
-          selected = payments[index];
-        }
-      }
+      final selected = _findPaymentById(payments, previousSelectedId);
 
       emit(
         state.copyWith(
@@ -220,7 +237,7 @@ class RevisionPaidCubit extends Cubit<RevisionPaidState> {
           clearError: true,
           uploading: false,
           clearUploadProgress: true,
-          clearSelectedSideIndex: true,
+          clearSelectedSideIndex: selected == null,
         ),
       );
     } catch (e) {
@@ -383,10 +400,12 @@ class RevisionPaidCubit extends Cubit<RevisionPaidState> {
     required RevisionPaidData data,
     required double revisionValue,
   }) async {
+    final isEditing = data.id?.trim().isNotEmpty == true;
+
     _assertCanContractAction(
       contract: contract,
-      action: data.id?.trim().isNotEmpty == true ? 'edit' : 'create',
-      message: data.id?.trim().isNotEmpty == true
+      action: isEditing ? 'edit' : 'create',
+      message: isEditing
           ? 'Usuário sem permissão para editar pagamento de revisão.'
           : 'Usuário sem permissão para criar pagamento de revisão.',
     );
@@ -509,6 +528,13 @@ class RevisionPaidCubit extends Cubit<RevisionPaidState> {
         paymentId: cleanPaymentId,
       );
 
+      emit(
+        state.copyWith(
+          clearSelected: true,
+          clearSelectedSideIndex: true,
+        ),
+      );
+
       await loadByRevision(
         contractId: cleanContractId,
         revisionId: cleanRevisionId,
@@ -599,21 +625,35 @@ class RevisionPaidCubit extends Cubit<RevisionPaidState> {
         contract: contract,
       );
 
-      final updated = state.payments.firstWhere(
-            (item) => item.id?.trim() == cleanPaymentId,
-        orElse: () => RevisionPaidData(
-          id: cleanPaymentId,
-          contractId: cleanContractId,
-          revisionId: cleanRevisionId,
-        ),
+      final updated = _findPaymentById(
+        state.payments,
+        cleanPaymentId,
       );
 
+      if (updated == null) {
+        emit(
+          state.copyWith(
+            uploading: false,
+            clearUploadProgress: true,
+            clearSelectedSideIndex: true,
+            clearError: true,
+          ),
+        );
+
+        return attachment;
+      }
+
       final attachments = updated.attachments ?? const <Attachment>[];
+      final selectedSideIndex = _safeSideIndexAfterListChange(
+        attachments: attachments,
+        preferredIndex: attachments.length - 1,
+      );
 
       emit(
         state.copyWith(
           selected: updated,
-          selectedSideIndex: attachments.isEmpty ? null : attachments.length - 1,
+          selectedSideIndex: selectedSideIndex,
+          clearSelectedSideIndex: selectedSideIndex == null,
           uploading: false,
           clearUploadProgress: true,
           clearError: true,
@@ -680,6 +720,41 @@ class RevisionPaidCubit extends Cubit<RevisionPaidState> {
         revisionId: cleanRevisionId,
         contract: contract,
       );
+
+      final updated = _findPaymentById(
+        state.payments,
+        cleanPaymentId,
+      );
+
+      if (updated == null) {
+        emit(
+          state.copyWith(
+            uploading: false,
+            clearUploadProgress: true,
+            clearSelectedSideIndex: true,
+            clearError: true,
+          ),
+        );
+
+        return;
+      }
+
+      final attachments = updated.attachments ?? const <Attachment>[];
+      final selectedSideIndex = _safeSideIndexAfterListChange(
+        attachments: attachments,
+        preferredIndex: state.selectedSideIndex,
+      );
+
+      emit(
+        state.copyWith(
+          selected: updated,
+          selectedSideIndex: selectedSideIndex,
+          clearSelectedSideIndex: selectedSideIndex == null,
+          uploading: false,
+          clearUploadProgress: true,
+          clearError: true,
+        ),
+      );
     } catch (e) {
       emit(
         state.copyWith(
@@ -732,6 +807,30 @@ class RevisionPaidCubit extends Cubit<RevisionPaidState> {
         revisionId: cleanRevisionId,
         contract: contract,
       );
+
+      final updated = _findPaymentById(
+        state.payments,
+        cleanPaymentId,
+      );
+
+      if (updated != null) {
+        final attachments = updated.attachments ?? const <Attachment>[];
+        final selectedSideIndex = _safeSideIndexAfterListChange(
+          attachments: attachments,
+          preferredIndex: state.selectedSideIndex,
+        );
+
+        emit(
+          state.copyWith(
+            selected: updated,
+            selectedSideIndex: selectedSideIndex,
+            clearSelectedSideIndex: selectedSideIndex == null,
+            uploading: false,
+            clearUploadProgress: true,
+            clearError: true,
+          ),
+        );
+      }
 
       return true;
     } catch (e) {

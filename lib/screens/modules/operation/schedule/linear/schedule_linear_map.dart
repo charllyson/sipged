@@ -1,24 +1,25 @@
+// lib/screens/modules/operation/schedule/linear/schedule_linear_map.dart
+
 import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_stakes.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_stakes.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
 
+import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
-import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.dart';
 
 import 'package:sipged/_widgets/draw/shimmer/map_shimmer.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
@@ -48,9 +49,6 @@ const double kStakeRulerLabelGapPx = 16.0;
 
 /// Mesmo em zoom compacto, o mapa precisa manter:
 /// 1 fragmento da geometria = 1 estaca = 20 metros.
-///
-/// Antes estava 500m, agrupando várias estacas e fazendo o mapa pintar
-/// trechos onde o board ainda estava cinza.
 const double kCompactSegmentStepMeters = kStakeRulerStepMeters;
 
 /// Margem mínima, em metros, depois da borda externa da última faixa.
@@ -166,12 +164,15 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     required int estaca,
     required int faixaIndex,
   }) {
-    final services = ScheduleLinearServicesData.specificSortedByLayer(st.services);
+    final services = ScheduleLinearServicesData.specificSortedByLayer(
+      st.services,
+    );
 
     for (final service in services) {
       final serviceKey = service.key.trim();
 
-      if (serviceKey.isEmpty || serviceKey == ScheduleLinearServicesData.geralKey) {
+      if (serviceKey.isEmpty ||
+          serviceKey == ScheduleLinearServicesData.geralKey) {
         continue;
       }
 
@@ -213,9 +214,6 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     }
 
     /// Mantém o mapa limitado ao mesmo universo de estacas do board.
-    ///
-    /// Se a geometria tiver mais extensão do que o total calculado pelo DFD/TR,
-    /// os fragmentos excedentes não devem aparecer como células extras no mapa.
     if (st.totalEstacas > 0 && segIdx >= st.totalEstacas) {
       return false;
     }
@@ -355,6 +353,9 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
       actorName: actorName,
       includeCurrentUser: true,
       extra: <String, dynamic>{
+        'module': 'operation_schedule_road',
+        'route': 'operation_schedule_road',
+        'source': 'schedule_road_map',
         'actorId': actorId,
         'actorName': actorName,
         ...extra,
@@ -373,7 +374,11 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     final first = axis.first;
     final last = axis.last;
 
-    return '${axis.length}:${first.latitude.toStringAsFixed(6)},${first.longitude.toStringAsFixed(6)}>${last.latitude.toStringAsFixed(6)},${last.longitude.toStringAsFixed(6)}';
+    return '${axis.length}:'
+        '${first.latitude.toStringAsFixed(6)},'
+        '${first.longitude.toStringAsFixed(6)}>'
+        '${last.latitude.toStringAsFixed(6)},'
+        '${last.longitude.toStringAsFixed(6)}';
   }
 
   SegmentedAxis _getSegmented({
@@ -894,8 +899,11 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     final label = '$estaca';
     final dirX = math.cos(screenNormalAngle);
     final dirY = math.sin(screenNormalAngle);
-    final tickOffset =
-    Offset(dirX * (tickLength / 2.0), dirY * (tickLength / 2.0));
+    final tickOffset = Offset(
+      dirX * (tickLength / 2.0),
+      dirY * (tickLength / 2.0),
+    );
+
     final labelOffset = Offset(
       dirX * (tickLength + kStakeRulerLabelGapPx),
       dirY * (tickLength + kStakeRulerLabelGapPx),
@@ -1167,7 +1175,8 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
         '|visible=${visibleLaneIndexes.join(",")}'
         '|seg=${segmented.segmentCount}'
         '|service=${st.currentServiceKey}'
-        '|filter=${st.dateFilterSignature}';
+        '|dateFilter=${st.dateFilterSignature}'
+        '|statusFilter=${st.statusFilterSignature}';
 
     if (_laneGeometryKey == key) return _cachedLaneGeometries;
 
@@ -1256,7 +1265,8 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
         '|execRev=${st.execRevision}'
         '|laneRev=${st.lanesRevision}'
         '|serviceRev=${st.servicesRevision}'
-        '|filter=${st.dateFilterSignature}'
+        '|dateFilter=${st.dateFilterSignature}'
+        '|statusFilter=${st.statusFilterSignature}'
         '|zoom=${zoom.toStringAsFixed(2)}'
         '|lat=${latitude.toStringAsFixed(5)}'
         '|sel=${selectedKey.join(",")}';
@@ -1322,22 +1332,6 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
       visibleLaneCount: visibleLaneCount,
     );
 
-    if (kDebugMode) {
-      debugPrint(
-        '[ScheduleLinearMap][detailed] '
-            'contract=${st.contractId} '
-            'lines=${lines.length} '
-            'segments=${segmented.segmentCount} '
-            'lanes=${st.lanes.length} '
-            'visibleLaneCount=$visibleLaneCount '
-            'geometries=${geometries.length} '
-            'rulerMarkers=${markers.length} '
-            'service=${st.currentServiceKey} '
-            'filter=${st.dateFilterLabel} '
-            'zoom=${zoom.toStringAsFixed(2)}',
-      );
-    }
-
     return _DetailedRoadBuildResult(
       geometries: geometries,
       markers: markers,
@@ -1364,12 +1358,7 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
       return const _CompactRoadBuildResult.empty();
     }
 
-    /// Importante:
     /// Usa o eixo completo uma única vez.
-    ///
-    /// Antes o código segmentava cada linha separadamente no MultiLineString,
-    /// reiniciando o segIdx para cada trecho. Isso fazia o fragmento do mapa
-    /// consultar a estaca errada no execIndex.
     final axis = _flatAxisFromLines(lines);
 
     if (axis.length < 2) {
@@ -1478,7 +1467,9 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     final side = _extractSide(laneLabel);
     final name = _cleanLaneName(laneLabel);
 
-    return side.isNotEmpty ? '$name - $side - E: $estaca' : '$name - E: $estaca';
+    return side.isNotEmpty
+        ? '$name - $side - E: $estaca'
+        : '$name - E: $estaca';
   }
 
   int _segToEstaca(int segIdx) => segIdx + 1;
@@ -1736,6 +1727,7 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     if (prev.lanesRevision != curr.lanesRevision) return true;
     if (prev.servicesRevision != curr.servicesRevision) return true;
     if (prev.dateFilterSignature != curr.dateFilterSignature) return true;
+    if (prev.statusFilterSignature != curr.statusFilterSignature) return true;
 
     if (curr.loadingExecucoes) return false;
 
@@ -1818,8 +1810,7 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
             visibleLaneCount: visibleLaneCount,
           );
 
-          final tooManyPolylines =
-              pack.geometries.length > kMaxDetailedPolylines;
+          final tooManyPolylines = pack.geometries.length > kMaxDetailedPolylines;
 
           if (tooManyPolylines) {
             final compact = _buildCompactRoadForService(
@@ -1889,6 +1880,7 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
               st.execRevision,
               st.currentServiceKey,
               st.dateFilterSignature,
+              st.statusFilterSignature,
               _currentZoom,
               visibleLaneCount,
               Object.hashAll(_selectedTags.toList()..sort()),
@@ -1973,7 +1965,13 @@ class _StakeRulerProfile {
   final bool showMinorLabels;
 
   String get cacheKey {
-    return '$tickEvery:$labelEvery:${tickMinGapPx.toStringAsFixed(1)}:${labelMinGapPx.toStringAsFixed(1)}:${minorTickLength.toStringAsFixed(1)}:${majorTickLength.toStringAsFixed(1)}:${principalTickLength.toStringAsFixed(1)}:$showMinorLabels';
+    return '$tickEvery:$labelEvery:'
+        '${tickMinGapPx.toStringAsFixed(1)}:'
+        '${labelMinGapPx.toStringAsFixed(1)}:'
+        '${minorTickLength.toStringAsFixed(1)}:'
+        '${majorTickLength.toStringAsFixed(1)}:'
+        '${principalTickLength.toStringAsFixed(1)}:'
+        '$showMinorLabels';
   }
 }
 

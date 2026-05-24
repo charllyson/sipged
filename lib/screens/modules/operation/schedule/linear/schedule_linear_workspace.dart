@@ -493,8 +493,8 @@ class _ScheduleLinearWorkspaceState extends State<ScheduleLinearWorkspace> {
             : (state.busyReason ?? 'Aplicando alterações...');
 
         final details = !state.initialized
-            ? 'Carregando gallery e extensão do DFD.'
-            : 'Aguarde enquanto o gallery é atualizado.';
+            ? 'Carregando os dados.'
+            : 'Atualizando os dados...';
 
         return ScreenLock(
           locked: locked,
