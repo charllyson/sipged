@@ -9,7 +9,7 @@ class EtpData extends Equatable {
   static const sectionMotivacao = 'motivacao';
   static const sectionAlternativas = 'alternativas';
   static const sectionMercado = 'mercado';
-  static const sectionCronograma = 'cronograma';
+  static const sectionCronograma = 'gallery';
   static const sectionPremissas = 'premissas';
   static const sectionDocumentos = 'documentos';
   static const sectionConclusao = 'conclusao';

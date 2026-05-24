@@ -101,7 +101,7 @@ class _ReportMeasurementPaymentFormViewState
 
     if (!value.isFinite || value < 0) return 0.0;
 
-    return value;
+    return _roundMoney(value);
   }
 
   int? get _measurementOrder {
@@ -336,32 +336,89 @@ class _ReportMeasurementPaymentFormViewState
     return null;
   }
 
+  double _roundMoney(double value) {
+    if (!value.isFinite) return 0.0;
+
+    final rounded = (value * 100).roundToDouble() / 100;
+
+    if (rounded == 0.0) return 0.0;
+
+    return rounded;
+  }
+
+  bool _moneyIsZero(double value) {
+    return _roundMoney(value) == 0.0;
+  }
+
   double _positive(double? value) {
     final v = value ?? 0.0;
 
     if (!v.isFinite || v <= 0) return 0.0;
 
-    return v;
+    return _roundMoney(v);
   }
 
   double _paymentTotalValue(ReportPaidData payment) {
-    return _positive(payment.paymentValue) +
-        _positive(payment.inssPaymentValue) +
-        _positive(payment.irpfPaymentValue) +
-        _positive(payment.issPaymentValue);
+    return _roundMoney(
+      _positive(payment.paymentValue) +
+          _positive(payment.inssPaymentValue) +
+          _positive(payment.irpfPaymentValue) +
+          _positive(payment.issPaymentValue),
+    );
   }
 
   double _sumPaymentTotalValues(List<ReportPaidData> payments) {
     return payments.fold<double>(
       0.0,
           (totalValue, payment) {
-        return totalValue + _paymentTotalValue(payment);
+        return _roundMoney(totalValue + _paymentTotalValue(payment));
       },
     );
   }
 
   Future<void> _notifyParentPaymentsChanged() async {
     await widget.onPaymentsChanged?.call();
+  }
+
+  Future<void> _showLocalPaymentError(String message) async {
+    if (!mounted) return;
+
+    final tenantId = _activeTenantId();
+
+    await NotificationPayments.show(
+      context: context,
+      contract: widget.contractData,
+      title: 'Atenção',
+      subtitle: _contractSummary,
+      details: message,
+      kind: NotificationPaymentKind.bulletin,
+      status: NotificationStatus.warning,
+      delivery: NotificationDelivery.localBellAndPush,
+      saveInBell: false,
+      sendPush: false,
+      includeCurrentUser: true,
+      tenantId: tenantId ?? '',
+      companyId: tenantId ?? '',
+      contractSummary: _contractSummary,
+      contractTitle: _contractSummary,
+      descricaoObjeto: _contractSummary,
+      nomeDemanda: _contractSummary,
+      action: 'payment_validation_error',
+      extra: <String, dynamic>{
+        'action': 'payment_validation_error',
+        'paymentType': 'measurement_payment',
+        'sourceModule': 'financial_payments_report',
+        'tenantId': tenantId,
+        'companyId': tenantId,
+        'summarySubjectContract': _contractSummary,
+        'contractSummary': _contractSummary,
+        'contractTitle': _contractSummary,
+        'descricaoObjeto': _contractSummary,
+        'nomeDemanda': _contractSummary,
+        'measurementOrder': _measurementOrder?.toString(),
+        'measurementValue': _measurementValue,
+      },
+    );
   }
 
   Future<String?> _askNewLabel(
@@ -446,7 +503,7 @@ class _ReportMeasurementPaymentFormViewState
   }
 
   double _parseCurrency(String text) {
-    return SipGedFormatMoney.parseBrl(text) ?? 0.0;
+    return _roundMoney(SipGedFormatMoney.parseBrl(text) ?? 0.0);
   }
 
   double? _parseOptionalCurrency(String text) {
@@ -458,7 +515,7 @@ class _ReportMeasurementPaymentFormViewState
 
     if (value == null || value <= 0) return null;
 
-    return value;
+    return _roundMoney(value);
   }
 
   String _formatDate(DateTime? date) {
@@ -652,9 +709,11 @@ class _ReportMeasurementPaymentFormViewState
   }
 
   double _totalRetencoesFormulario() {
-    return (_parseOptionalCurrency(_inssValueCtrl.text) ?? 0.0) +
-        (_parseOptionalCurrency(_irpfValueCtrl.text) ?? 0.0) +
-        (_parseOptionalCurrency(_issValueCtrl.text) ?? 0.0);
+    return _roundMoney(
+      (_parseOptionalCurrency(_inssValueCtrl.text) ?? 0.0) +
+          (_parseOptionalCurrency(_irpfValueCtrl.text) ?? 0.0) +
+          (_parseOptionalCurrency(_issValueCtrl.text) ?? 0.0),
+    );
   }
 
   Future<void> _notifyPaymentSaved({
@@ -669,9 +728,9 @@ class _ReportMeasurementPaymentFormViewState
 
     final measurementOrderText = _measurementOrder?.toString().trim() ?? '';
 
-    final paymentValue = payment.paymentValue ?? 0.0;
+    final paymentValue = _roundMoney(payment.paymentValue ?? 0.0);
     final retentionsValue = _totalRetencoesFormulario();
-    final totalValue = paymentValue + retentionsValue;
+    final totalValue = _roundMoney(paymentValue + retentionsValue);
 
     final actionLabel = wasEditing ? 'atualizado' : 'registrado';
 
@@ -752,13 +811,15 @@ class _ReportMeasurementPaymentFormViewState
         ? payment.measurementOrder.toString().trim()
         : _measurementOrder?.toString().trim() ?? '';
 
-    final paymentValue = payment.paymentValue ?? 0.0;
+    final paymentValue = _roundMoney(payment.paymentValue ?? 0.0);
 
-    final retentionsValue = _positive(payment.inssPaymentValue) +
-        _positive(payment.irpfPaymentValue) +
-        _positive(payment.issPaymentValue);
+    final retentionsValue = _roundMoney(
+      _positive(payment.inssPaymentValue) +
+          _positive(payment.irpfPaymentValue) +
+          _positive(payment.issPaymentValue),
+    );
 
-    final totalValue = paymentValue + retentionsValue;
+    final totalValue = _roundMoney(paymentValue + retentionsValue);
 
     final title = measurementOrderText.isNotEmpty
         ? 'Pagamento da medição $measurementOrderText excluído'
@@ -823,7 +884,6 @@ class _ReportMeasurementPaymentFormViewState
 
   Future<void> _savePayment({
     required ReportPaidCubit cubit,
-    required ScaffoldMessengerState scaffoldMessenger,
     required ReportPaidData? selected,
     required List<Attachment> attachments,
   }) async {
@@ -840,10 +900,8 @@ class _ReportMeasurementPaymentFormViewState
     final issValue = _parseOptionalCurrency(_issValueCtrl.text);
 
     if (date == null) {
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(
-          content: Text('Informe uma data de pagamento válida.'),
-        ),
+      await _showLocalPaymentError(
+        'Informe uma data de pagamento válida.',
       );
       return;
     }
@@ -891,17 +949,12 @@ class _ReportMeasurementPaymentFormViewState
     } catch (e) {
       if (!mounted) return;
 
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-        ),
-      );
+      await _showLocalPaymentError(e.toString());
     }
   }
 
   Future<void> _deletePayment({
     required ReportPaidCubit cubit,
-    required ScaffoldMessengerState scaffoldMessenger,
     required ReportPaidData payment,
   }) async {
     final id = payment.id?.trim();
@@ -928,17 +981,12 @@ class _ReportMeasurementPaymentFormViewState
     } catch (e) {
       if (!mounted) return;
 
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-        ),
-      );
+      await _showLocalPaymentError(e.toString());
     }
   }
 
   Future<void> _uploadAttachment({
     required ReportPaidCubit cubit,
-    required ScaffoldMessengerState scaffoldMessenger,
     required ReportPaidData? selected,
   }) async {
     final selectedPayment = selected;
@@ -961,17 +1009,12 @@ class _ReportMeasurementPaymentFormViewState
     } catch (e) {
       if (!mounted) return;
 
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-        ),
-      );
+      await _showLocalPaymentError(e.toString());
     }
   }
 
   Future<void> _deleteAttachment({
     required ReportPaidCubit cubit,
-    required ScaffoldMessengerState scaffoldMessenger,
     required ReportPaidData? selected,
     required List<Attachment> attachments,
     required int index,
@@ -999,11 +1042,7 @@ class _ReportMeasurementPaymentFormViewState
     } catch (e) {
       if (!mounted) return;
 
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-        ),
-      );
+      await _showLocalPaymentError(e.toString());
     }
   }
 
@@ -1034,7 +1073,8 @@ class _ReportMeasurementPaymentFormViewState
       await _notifyParentPaymentsChanged();
 
       return true;
-    } catch (_) {
+    } catch (e) {
+      await _showLocalPaymentError(e.toString());
       return false;
     }
   }
@@ -1065,7 +1105,6 @@ class _ReportMeasurementPaymentFormViewState
                 builder: (context, constraints) {
                   final cubit = context.read<ReportPaidCubit>();
                   final tenantCubit = context.read<TenantCubit>();
-                  final scaffoldMessenger = ScaffoldMessenger.of(context);
 
                   final bool isSmallScreen = constraints.maxWidth < 700;
                   final double sideWidth =
@@ -1116,7 +1155,7 @@ class _ReportMeasurementPaymentFormViewState
                     paymentState.payments,
                   );
 
-                  final saldo = _measurementValue - totalPago;
+                  final saldo = _roundMoney(_measurementValue - totalPago);
                   final retencoesFormulario = _totalRetencoesFormulario();
 
                   final camposWrap = Wrap(
@@ -1344,9 +1383,9 @@ class _ReportMeasurementPaymentFormViewState
                         PaymentSummaryText(
                           label: 'Saldo',
                           value: SipGedFormatMoney.doubleToText(saldo),
-                          color: saldo < 0
+                          color: saldo < 0 && !_moneyIsZero(saldo)
                               ? SipGedTheme.danger
-                              : saldo == 0
+                              : _moneyIsZero(saldo)
                               ? SipGedTheme.success
                               : SipGedTheme.textDark,
                         ),
@@ -1375,7 +1414,6 @@ class _ReportMeasurementPaymentFormViewState
                             ? () async {
                           await _savePayment(
                             cubit: cubit,
-                            scaffoldMessenger: scaffoldMessenger,
                             selected: selected,
                             attachments: attachments,
                           );
@@ -1414,7 +1452,6 @@ class _ReportMeasurementPaymentFormViewState
                             ? (payment) async {
                           await _deletePayment(
                             cubit: cubit,
-                            scaffoldMessenger: scaffoldMessenger,
                             payment: payment,
                           );
                         }
@@ -1434,7 +1471,6 @@ class _ReportMeasurementPaymentFormViewState
                         ? () async {
                       await _uploadAttachment(
                         cubit: cubit,
-                        scaffoldMessenger: scaffoldMessenger,
                         selected: selected,
                       );
                     }
@@ -1446,7 +1482,6 @@ class _ReportMeasurementPaymentFormViewState
                         ? (index) async {
                       await _deleteAttachment(
                         cubit: cubit,
-                        scaffoldMessenger: scaffoldMessenger,
                         selected: selected,
                         attachments: attachments,
                         index: index,

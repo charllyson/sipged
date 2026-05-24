@@ -20,7 +20,7 @@ import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
-import 'package:sipged/_widgets/buttons/slider_control.dart';
+import 'package:sipged/_widgets/buttons/slider_button.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 import 'package:sipged/screens/modules/operation/schedule/common/header/schedule_status.dart';

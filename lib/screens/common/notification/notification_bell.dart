@@ -1,3 +1,6 @@
+// lib/_widgets/notification/notification_bell.dart
+// Ajuste o path acima se o seu arquivo estiver em outro diretório.
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +10,6 @@ import 'package:sipged/_blocs/system/notification/bell/notification_bell_cubit.d
 import 'package:sipged/_blocs/system/notification/bell/notification_bell_state.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 
-import 'package:sipged/_widgets/badge/badge_change.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
 
@@ -219,7 +221,7 @@ class _NotificationBellState extends State<NotificationBell>
 
                   final canMarkAllAsSeen = resolvedUserId != null &&
                       resolvedUserId.trim().isNotEmpty &&
-                      state.unreadUserCount > 0;
+                      state.unreadUserCountRaw > 0;
 
                   return BalloonChange(
                     targetBox: targetObject,
@@ -938,7 +940,8 @@ class _NotificationBellState extends State<NotificationBell>
             previous.error != current.error;
       },
       builder: (context, state) {
-        final unreadCount = _hasResolvedUser ? state.unreadUserCount : 0;
+        final unreadCount = _hasResolvedUser ? state.unreadUserCountRaw : 0;
+        final unreadBadgeLabel = _hasResolvedUser ? state.unreadBadgeLabel : '0';
 
         return Tooltip(
           message: widget.tooltip,
@@ -960,9 +963,9 @@ class _NotificationBellState extends State<NotificationBell>
                   if (unreadCount > 0)
                     Positioned(
                       top: 4,
-                      right: 3,
-                      child: BadgeChange(
-                        count: unreadCount,
+                      right: 1,
+                      child: _NotificationBellBadge(
+                        label: unreadBadgeLabel,
                         color: widget.badgeColor,
                       ),
                     ),
@@ -972,6 +975,68 @@ class _NotificationBellState extends State<NotificationBell>
           ),
         );
       },
+    );
+  }
+}
+
+class _NotificationBellBadge extends StatelessWidget {
+  const _NotificationBellBadge({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final cleanLabel = label.trim();
+
+    if (cleanLabel.isEmpty || cleanLabel == '0') {
+      return const SizedBox.shrink();
+    }
+
+    final isOverflow = cleanLabel == '+99';
+
+    return Container(
+      constraints: BoxConstraints(
+        minWidth: isOverflow ? 28 : 18,
+        minHeight: 18,
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: isOverflow ? 5 : 4,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: Colors.white,
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        cleanLabel,
+        maxLines: 1,
+        overflow: TextOverflow.visible,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          height: 1,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.4,
+          decoration: TextDecoration.none,
+        ),
+      ),
     );
   }
 }

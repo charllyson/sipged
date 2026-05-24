@@ -1,3 +1,5 @@
+// lib/_blocs/system/notification/bell/notification_bell_state.dart
+
 import 'package:equatable/equatable.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
@@ -11,6 +13,8 @@ class NotificationBellState extends Equatable {
     this.error,
   });
 
+  static const int maxUnreadBadgeCount = 99;
+
   final List<NotificationData> systemNotifications;
 
   /// Lista visual do sino.
@@ -18,13 +22,50 @@ class NotificationBellState extends Equatable {
   final List<NotificationData> userBellNotifications;
 
   /// Lista usada somente para badge e destaque visual.
+  /// Representa notificações não lidas.
   final List<NotificationData> unreadUserNotifications;
 
   final bool loading;
   final String? error;
 
-  int get unreadUserCount {
+  /// Total bruto carregado de notificações não lidas.
+  ///
+  /// Como o Cubit busca 100 itens quando o limite visual é 99,
+  /// este valor permite saber quando deve exibir "+99".
+  int get unreadUserCountRaw {
     return _deduplicateUserNotifications(unreadUserNotifications).length;
+  }
+
+  /// Quantidade numérica limitada para uso interno.
+  ///
+  /// Nunca passa de 99.
+  int get unreadUserCount {
+    final count = unreadUserCountRaw;
+
+    if (count > maxUnreadBadgeCount) {
+      return maxUnreadBadgeCount;
+    }
+
+    return count;
+  }
+
+  /// Indica se existem mais de 99 notificações não lidas.
+  bool get hasUnreadOverflow {
+    return unreadUserCountRaw > maxUnreadBadgeCount;
+  }
+
+  /// Texto que deve aparecer na bolinha vermelha.
+  ///
+  /// Exemplo:
+  /// - 0
+  /// - 1
+  /// - 15
+  /// - 99
+  /// - +99
+  String get unreadBadgeLabel {
+    if (hasUnreadOverflow) return '+99';
+
+    return unreadUserCount.toString();
   }
 
   List<NotificationData> get bellNotifications {

@@ -16,6 +16,7 @@ import 'package:sipged/_blocs/system/permission/permission_state.dart';
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
 import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
 
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
@@ -80,10 +81,6 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     _cubit.close();
     super.dispose();
   }
-
-  // ---------------------------------------------------------------------------
-  // Tenant helpers iguais à tela de rodovias
-  // ---------------------------------------------------------------------------
 
   String? _cleanId(dynamic value) {
     if (value == null) return null;
@@ -219,18 +216,44 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Painel / filtros
-  // ---------------------------------------------------------------------------
-
-  void _clearFilters() {
-    _cubit.clearAllFilters();
-  }
-
   void _togglePanelVisibility() {
     setState(() {
       _showPanel = !_showPanel;
     });
+  }
+
+  Widget _buildPanelToggleButton() {
+    final active = _showPanel;
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 180),
+      opacity: active ? 1.0 : 0.58,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: active
+              ? const [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ]
+              : const [],
+        ),
+        child: CircleButtonChange(
+          tooltip: active ? 'Ocultar painel' : 'Mostrar painel',
+          icon: active
+              ? Icons.view_sidebar_rounded
+              : Icons.view_sidebar_outlined,
+          onPressed: _togglePanelVisibility,
+        ),
+      ),
+    );
   }
 
   void _openDetails(ActiveOaesData data) {
@@ -250,10 +273,6 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
       _selectedSideIndex = null;
     });
   }
-
-  // ---------------------------------------------------------------------------
-  // Anexos
-  // ---------------------------------------------------------------------------
 
   String _attachmentsDir(ActiveOaesData data) {
     final id = data.id?.trim();
@@ -540,10 +559,6 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Build
-  // ---------------------------------------------------------------------------
-
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ActiveOaesCubit>.value(
@@ -571,8 +586,8 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
               final tenantIdFromTenantState =
               _tenantIdFromTenantState(tenantState);
 
-              final tenantId = tenantIdFromTenantState ??
-                  _cleanId(permissionState.activeTenantId);
+              final tenantId =
+                  tenantIdFromTenantState ?? _cleanId(permissionState.activeTenantId);
 
               _syncTenantPermissionAndWarmup(
                 tenantId: tenantId,
@@ -589,8 +604,8 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
             final tenantIdFromTenantState =
             _tenantIdFromTenantState(tenantState);
 
-            final tenantId = tenantIdFromTenantState ??
-                _cleanId(permissionState.activeTenantId);
+            final tenantId =
+                tenantIdFromTenantState ?? _cleanId(permissionState.activeTenantId);
 
             if (tenantId == null || tenantId.isEmpty) {
               return Scaffold(
@@ -609,24 +624,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
               appBar: UpBar(
                 showPhotoMenu: true,
                 actions: [
-                  IconButton(
-                    tooltip: 'Limpar filtros',
-                    icon: const Icon(
-                      Icons.filter_alt_off,
-                      color: Colors.white,
-                    ),
-                    onPressed: _clearFilters,
-                  ),
-                  IconButton(
-                    tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
-                    icon: Icon(
-                      _showPanel
-                          ? Icons.view_sidebar
-                          : Icons.view_sidebar_outlined,
-                      color: Colors.white,
-                    ),
-                    onPressed: _togglePanelVisibility,
-                  ),
+                  _buildPanelToggleButton(),
                 ],
               ),
               body: BlocBuilder<ActiveOaesCubit, ActiveOaesState>(

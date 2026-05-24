@@ -173,7 +173,7 @@ class _TabBarAdditivePageState extends State<TabBarAdditivePage> {
     if (contractId == null || contractId.isEmpty) {
       return const Center(
         child: Text(
-          'Salve o contrato antes de acessar o cronograma.',
+          'Salve o contrato antes de acessar o gallery.',
           textAlign: TextAlign.center,
         ),
       );

@@ -73,7 +73,9 @@ class _ListDemandTableState extends State<ListDemandTable> {
   DfdData? _dfd(ContractData contract) {
     final id = _contractId(contract);
 
-    if (id == null) return null;
+    if (id == null) {
+      return null;
+    }
 
     return widget.dfdByContractId[id];
   }
@@ -81,7 +83,9 @@ class _ListDemandTableState extends State<ListDemandTable> {
   EditalData? _edital(ContractData contract) {
     final id = _contractId(contract);
 
-    if (id == null) return null;
+    if (id == null) {
+      return null;
+    }
 
     return widget.editalByContractId[id];
   }
@@ -89,7 +93,9 @@ class _ListDemandTableState extends State<ListDemandTable> {
   PublicacaoExtratoData? _pub(ContractData contract) {
     final id = _contractId(contract);
 
-    if (id == null) return null;
+    if (id == null) {
+      return null;
+    }
 
     return widget.pubByContractId[id];
   }
@@ -97,7 +103,9 @@ class _ListDemandTableState extends State<ListDemandTable> {
   bool _isDfdLoading(ContractData contract) {
     final id = _contractId(contract);
 
-    if (id == null) return false;
+    if (id == null) {
+      return false;
+    }
 
     return !widget.dfdByContractId.containsKey(id);
   }
@@ -105,7 +113,9 @@ class _ListDemandTableState extends State<ListDemandTable> {
   bool _isEditalLoading(ContractData contract) {
     final id = _contractId(contract);
 
-    if (id == null) return false;
+    if (id == null) {
+      return false;
+    }
 
     return !widget.editalByContractId.containsKey(id);
   }
@@ -113,7 +123,9 @@ class _ListDemandTableState extends State<ListDemandTable> {
   bool _isPublicacaoLoading(ContractData contract) {
     final id = _contractId(contract);
 
-    if (id == null) return false;
+    if (id == null) {
+      return false;
+    }
 
     return !widget.pubByContractId.containsKey(id);
   }
@@ -131,14 +143,23 @@ class _ListDemandTableState extends State<ListDemandTable> {
   String _group(ContractData contract) {
     final natureza = _txt(_dfd(contract)?.naturezaIntervencao);
 
-    return natureza == '—' ? 'Sem natureza definida' : natureza;
+    if (natureza == '—') {
+      return 'Sem natureza definida';
+    }
+
+    return natureza;
   }
 
   int? _safeSortColumnIndex() {
     final index = widget.sortColumnIndex;
 
-    if (index == null) return null;
-    if (index < 0 || index > 5) return null;
+    if (index == null) {
+      return null;
+    }
+
+    if (index < 0 || index > 5) {
+      return null;
+    }
 
     return index;
   }
@@ -233,7 +254,13 @@ class _ListDemandTableState extends State<ListDemandTable> {
   }
 
   Future<void> _handleTapItem(ContractData contractData) async {
-    if (_navigating) return;
+    if (_navigating) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       _selected = contractData;
@@ -248,12 +275,22 @@ class _ListDemandTableState extends State<ListDemandTable> {
         ),
       );
     } finally {
-      if (!mounted) return;
+      if (mounted) {
+        setState(() {
+          _navigating = false;
+        });
+      }
+    }
+  }
 
+  Future<void> _handleDelete(ContractData contractData) async {
+    if (mounted) {
       setState(() {
-        _navigating = false;
+        _selected = contractData;
       });
     }
+
+    await widget.onDelete(contractData);
   }
 
   @override
@@ -282,11 +319,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
         unawaited(_handleTapItem(contractData));
       },
       onDelete: (contractData) async {
-        setState(() {
-          _selected = contractData;
-        });
-
-        await widget.onDelete(contractData);
+        await _handleDelete(contractData);
       },
       groupLabel: 'SERVIÇO',
       groupBy: _group,

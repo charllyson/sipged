@@ -98,7 +98,9 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       return ScheduleLinearServicesData.geralKey;
     }
 
-    final exists = services.any((service) => service.key == cleanRequested);
+    final exists = services.any((service) {
+      return service.key == cleanRequested;
+    });
 
     if (exists) {
       return cleanRequested;
@@ -173,7 +175,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       emit(
         state.copyWith(
           initialized: true,
-          error: 'contractId inválido para carregar cronograma.',
+          error: 'contractId inválido para carregar gallery.',
         ),
       );
       return;
@@ -211,7 +213,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       emit(
         state.copyWith(
           initialized: true,
-          error: 'contractId inválido para carregar cronograma.',
+          error: 'contractId inválido para carregar gallery.',
         ),
       );
       return;
@@ -230,7 +232,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
         loadingLanes: true,
         loadingExecucoes: true,
         savingOrImporting: false,
-        busyReason: 'Carregando cronograma...',
+        busyReason: 'Carregando gallery...',
         error: null,
       ),
     );
@@ -306,7 +308,11 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       );
 
       sw.stop();
+
     } catch (e) {
+      sw.stop();
+
+
       emit(
         state.copyWith(
           initialized: true,
@@ -315,7 +321,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
           loadingExecucoes: false,
           savingOrImporting: false,
           busyReason: null,
-          error: 'Erro ao carregar cronograma: $e',
+          error: 'Erro ao carregar gallery: $e',
         ),
       );
     }
@@ -330,7 +336,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
     if (cleanContractId == null) {
       emit(
         state.copyWith(
-          error: 'Contrato inválido para atualizar cronograma.',
+          error: 'Contrato inválido para atualizar gallery.',
         ),
       );
       return;
@@ -404,7 +410,10 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       );
 
       sw.stop();
+
     } catch (e) {
+      sw.stop();
+
       emit(
         state.copyWith(
           loadingExecucoes: false,
@@ -527,7 +536,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
     if (cleanContractId == null) {
       emit(
         state.copyWith(
-          error: 'Contrato inválido para salvar configuração do cronograma.',
+          error: 'Contrato inválido para salvar configuração do gallery.',
         ),
       );
       return;
@@ -824,6 +833,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
 
       return uploadedUrls;
     } catch (e) {
+      sw.stop();
       emit(
         state.copyWith(
           savingOrImporting: false,
@@ -893,37 +903,71 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
     );
 
     try {
-      for (int i = 0; i < targets.length; i++) {
-        final swItem = Stopwatch()..start();
-        final target = targets[i];
+      final canUseFastBatch = targets.length > 1 && newFilesBytes.isEmpty;
 
-        await _repo.applySquareChanges(
+      if (canUseFastBatch) {
+
+        await _repo.applySquareChangesBatchFast(
           contractId: cleanContractId,
           serviceKey: cleanServiceKey,
-          estaca: target.estaca,
-          faixaIndex: target.faixaIndex,
+          targets: targets.map((target) {
+            return ScheduleLinearBulkCellTarget(
+              estaca: target.estaca,
+              faixaIndex: target.faixaIndex,
+            );
+          }).toList(growable: false),
           status: status,
           comentario: comentario,
           takenAtForNew: takenAtForNew,
-          finalPhotoUrls: target.finalPhotoUrls,
-          newFilesBytes: targets.length > 1 ? const <Uint8List>[] : newFilesBytes,
-          newFileNames: targets.length > 1 ? null : newFileNames,
-          newPhotoMetas:
-          targets.length > 1 ? const <pm.CarouselMetadata>[] : newPhotoMetas,
           currentUserId: currentUserId,
-          clearCacheAfter: false,
         );
 
-        swItem.stop();
+        final swReload = Stopwatch()..start();
+
+        await reloadExecucoes(contractId: cleanContractId);
+
+        swReload.stop();
+
+
+      } else {
+
+        for (int i = 0; i < targets.length; i++) {
+          final swItem = Stopwatch()..start();
+          final target = targets[i];
+
+          await _repo.applySquareChanges(
+            contractId: cleanContractId,
+            serviceKey: cleanServiceKey,
+            estaca: target.estaca,
+            faixaIndex: target.faixaIndex,
+            status: status,
+            comentario: comentario,
+            takenAtForNew: takenAtForNew,
+            finalPhotoUrls: target.finalPhotoUrls,
+            newFilesBytes:
+            targets.length > 1 ? const <Uint8List>[] : newFilesBytes,
+            newFileNames: targets.length > 1 ? null : newFileNames,
+            newPhotoMetas: targets.length > 1
+                ? const <pm.CarouselMetadata>[]
+                : newPhotoMetas,
+            currentUserId: currentUserId,
+            clearCacheAfter: false,
+          );
+
+          swItem.stop();
+        }
+
+        _repo.clearExecCache(cleanContractId);
+
+        final swReload = Stopwatch()..start();
+
+        await reloadExecucoes(contractId: cleanContractId);
+
+        swReload.stop();
+
       }
 
-      _repo.clearExecCache(cleanContractId);
-
-      final swReload = Stopwatch()..start();
-
-      await reloadExecucoes(contractId: cleanContractId);
-
-      swReload.stop();
+      swTotal.stop();
 
       emit(
         state.copyWith(
@@ -933,9 +977,9 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
           error: null,
         ),
       );
-
-      swTotal.stop();
     } catch (e) {
+      swTotal.stop();
+
       emit(
         state.copyWith(
           savingOrImporting: false,

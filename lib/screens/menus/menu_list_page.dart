@@ -291,7 +291,7 @@ class _MenuListPageState extends State<MenuListPage> {
     if (tenantId == null) {
       _showNotification(
         title: 'Empresa não selecionada',
-        subtitle: 'Não foi possível abrir o cronograma sem tenant ativo.',
+        subtitle: 'Não foi possível abrir o gallery sem tenant ativo.',
         leadingLabel: 'Tenant',
         status: NotificationStatus.warning,
       );
@@ -303,7 +303,7 @@ class _MenuListPageState extends State<MenuListPage> {
     if (contractId.isEmpty) {
       _showNotification(
         title: 'Contrato sem ID',
-        subtitle: 'Não foi possível abrir o cronograma.',
+        subtitle: 'Não foi possível abrir o gallery.',
         leadingLabel: 'Contratos',
         status: NotificationStatus.error,
       );
@@ -328,7 +328,7 @@ class _MenuListPageState extends State<MenuListPage> {
     if (tipoObra.isEmpty) {
       _showNotification(
         title: 'Tipo de obra não definido no DFD',
-        subtitle: 'Cadastre o tipo no DFD para abrir o cronograma.',
+        subtitle: 'Cadastre o tipo no DFD para abrir o gallery.',
         details: resumoContrato,
         leadingLabel: 'DFD',
         status: NotificationStatus.error,

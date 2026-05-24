@@ -1,3 +1,5 @@
+// lib/_widgets/charts/gauges/gauge_chart_shimmer.dart
+
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -12,6 +14,22 @@ class GaugeCircularPercentShimmer extends StatelessWidget {
   final bool hasHeader;
   final bool hasFooter;
 
+  /// Quantidade de anéis simulados no shimmer.
+  final int ringsCount;
+
+  /// Mesmo multiplicador usado no GaugeChartChange.
+  final double strokeScale;
+
+  /// Raio já resolvido pelo GaugeChartMetrics.
+  ///
+  /// Quando informado, o shimmer usa exatamente o mesmo tamanho do gauge real.
+  final double? resolvedRadius;
+
+  /// Espessura já resolvida pelo GaugeChartChange.
+  ///
+  /// Quando informado, o shimmer usa exatamente a mesma espessura do gauge real.
+  final double? resolvedLineWidth;
+
   const GaugeCircularPercentShimmer({
     super.key,
     required this.width,
@@ -19,6 +37,10 @@ class GaugeCircularPercentShimmer extends StatelessWidget {
     this.customRadius,
     this.hasHeader = true,
     this.hasFooter = true,
+    this.ringsCount = 1,
+    this.strokeScale = 1.0,
+    this.resolvedRadius,
+    this.resolvedLineWidth,
   });
 
   @override
@@ -32,9 +54,13 @@ class GaugeCircularPercentShimmer extends StatelessWidget {
       customRadius: customRadius,
       hasHeader: hasHeader,
       hasFooter: hasFooter,
+      ringsCount: ringsCount,
+      strokeScale: strokeScale,
+      resolvedRadius: resolvedRadius,
+      resolvedLineWidth: resolvedLineWidth,
     );
 
-    final double circleSize = metrics.radius * 2 + metrics.lineWidth;
+    final double circleSize = (metrics.radius * 2) + metrics.lineWidth + 6.0;
 
     return SizedBox.expand(
       child: Center(
@@ -65,6 +91,8 @@ class GaugeCircularPercentShimmer extends StatelessWidget {
                   painter: GaugeChartPainter(
                     trackColor: base,
                     strokeWidth: metrics.lineWidth,
+                    ringsCount: metrics.ringsCount,
+                    ringGap: metrics.ringGap,
                   ),
                 ),
               ),

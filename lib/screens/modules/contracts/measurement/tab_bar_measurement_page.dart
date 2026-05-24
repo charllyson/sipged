@@ -16,14 +16,15 @@ import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_lin
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
 
+import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
-import 'package:sipged/screens/modules/contracts/measurement/report/report_executed_page.dart';
 import 'package:sipged/screens/modules/contracts/measurement/adjustment/adjustment_measurement_page.dart';
+import 'package:sipged/screens/modules/contracts/measurement/gallery/photo_gallery_page.dart';
+import 'package:sipged/screens/modules/contracts/measurement/physics_finance/physfin_widget.dart';
+import 'package:sipged/screens/modules/contracts/measurement/report/report_executed_page.dart';
 import 'package:sipged/screens/modules/contracts/measurement/revision/revision_measurement_page.dart';
 
-import 'package:sipged/screens/modules/contracts/measurement/physics_finance/physfin_widget.dart';
-import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 
 class TabBarMeasurementPage extends StatefulWidget {
   const TabBarMeasurementPage({
@@ -223,6 +224,21 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
     );
   }
 
+  Widget _buildPhotoGalleryTab(ContractData contract) {
+    final contractId = contract.id?.trim();
+
+    if (contractId == null || contractId.isEmpty) {
+      return const Center(
+        child: Text(
+          'Salve o contrato antes de acessar a galeria.',
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    return const PhotoGalleryPage();
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<PermissionCubit, PermissionState>(
@@ -254,7 +270,6 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
             builder: (contract) {
               return AdjustmentMeasurement(
                 contractData: contract!,
-
               );
             },
           ),
@@ -272,6 +287,13 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
             requireSavedContract: true,
             builder: (contract) {
               return _buildChronogramTab(contract!);
+            },
+          ),
+          ContractTabDescriptor(
+            label: 'Galeria',
+            requireSavedContract: true,
+            builder: (contract) {
+              return _buildPhotoGalleryTab(contract!);
             },
           ),
         ],

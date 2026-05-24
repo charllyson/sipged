@@ -11,7 +11,7 @@ import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:sipged/_widgets/images/photo_circle/photo_circle.dart';
+import 'package:sipged/_widgets/images/avatar/photo_circle.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';

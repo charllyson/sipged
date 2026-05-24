@@ -1,35 +1,66 @@
 // lib/_blocs/system/connectivity/connectivity_platform_web.dart
 
 import 'dart:async';
-import 'dart:html' as html;
+import 'dart:js_interop';
+
+import 'package:web/web.dart' as web;
 
 Future<bool?> browserOnlineStatus() async {
-  return html.window.navigator.onLine;
+  return web.window.navigator.onLine;
 }
 
 Stream<bool> browserOnlineChanges() {
-  final controller = StreamController<bool>.broadcast();
+  late final StreamController<bool> controller;
 
-  StreamSubscription<html.Event>? onlineSub;
-  StreamSubscription<html.Event>? offlineSub;
+  JSExportedDartFunction? onlineCallback;
+  JSExportedDartFunction? offlineCallback;
 
-  controller.onListen = () {
-    onlineSub = html.window.onOnline.listen((_) {
-      controller.add(true);
-    });
+  controller = StreamController<bool>.broadcast(
+    onListen: () {
+      onlineCallback = (() {
+        if (!controller.isClosed) {
+          controller.add(true);
+        }
+      }).toJS;
 
-    offlineSub = html.window.onOffline.listen((_) {
-      controller.add(false);
-    });
-  };
+      offlineCallback = (() {
+        if (!controller.isClosed) {
+          controller.add(false);
+        }
+      }).toJS;
 
-  controller.onCancel = () async {
-    await onlineSub?.cancel();
-    await offlineSub?.cancel();
+      web.window.addEventListener(
+        'online',
+        onlineCallback,
+      );
 
-    onlineSub = null;
-    offlineSub = null;
-  };
+      web.window.addEventListener(
+        'offline',
+        offlineCallback,
+      );
+    },
+    onCancel: () {
+      final online = onlineCallback;
+      final offline = offlineCallback;
+
+      if (online != null) {
+        web.window.removeEventListener(
+          'online',
+          online,
+        );
+      }
+
+      if (offline != null) {
+        web.window.removeEventListener(
+          'offline',
+          offline,
+        );
+      }
+
+      onlineCallback = null;
+      offlineCallback = null;
+    },
+  );
 
   return controller.stream;
 }

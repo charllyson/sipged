@@ -16,6 +16,16 @@ import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_lin
 
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
+class ScheduleLinearBulkCellTarget {
+  const ScheduleLinearBulkCellTarget({
+    required this.estaca,
+    required this.faixaIndex,
+  });
+
+  final int estaca;
+  final int faixaIndex;
+}
+
 class ScheduleLinearRepository {
   ScheduleLinearRepository({
     FirebaseFirestore? firestore,
@@ -579,7 +589,7 @@ class ScheduleLinearRepository {
 
     if (!serviceExists) {
       throw Exception(
-        'Serviço "$cleanServiceKey" não foi configurado para este cronograma.',
+        'Serviço "$cleanServiceKey" não foi configurado para este gallery.',
       );
     }
 
@@ -729,6 +739,7 @@ class ScheduleLinearRepository {
       }
 
       swUpload.stop();
+
     }
 
     final currentSnap = await docRef.get();
@@ -820,6 +831,205 @@ class ScheduleLinearRepository {
     swTotal.stop();
 
     return uploadedUrls;
+  }
+
+  Future<void> applySquareChangesBatchFast({
+    required String contractId,
+    required String serviceKey,
+    required List<ScheduleLinearBulkCellTarget> targets,
+    required ScheduleLinearCellStatus status,
+    String? comentario,
+    DateTime? takenAtForNew,
+    required String currentUserId,
+  }) async {
+    final swTotal = Stopwatch()..start();
+
+    final cleanContractId = contractId.trim();
+    final cleanServiceKey = _cleanServiceKey(serviceKey);
+
+    if (cleanContractId.isEmpty) {
+      throw ArgumentError('contractId é obrigatório.');
+    }
+
+    if (cleanServiceKey.isEmpty) {
+      throw ArgumentError('serviceKey é obrigatório.');
+    }
+
+    if (cleanServiceKey == ScheduleLinearServicesData.geralKey) {
+      throw Exception(
+        'A visão GERAL é apenas consolidada. Selecione um serviço específico para editar.',
+      );
+    }
+
+    if (targets.isEmpty) {
+      throw Exception('Nenhuma célula selecionada para salvar.');
+    }
+
+    final services = await loadAvailableServicesFromBudget(cleanContractId);
+    final serviceExists = services.any((service) {
+      return service.key == cleanServiceKey;
+    });
+
+    if (!serviceExists) {
+      throw Exception(
+        'Serviço "$cleanServiceKey" não foi configurado para este gallery.',
+      );
+    }
+
+    final lanes = await loadFaixas(cleanContractId);
+
+    if (lanes.isEmpty) {
+      throw Exception(
+        'Nenhuma faixa configurada. Configure as faixas antes de lançar execuções.',
+      );
+    }
+
+    final uniqueTargets = <String, ScheduleLinearBulkCellTarget>{};
+
+    for (final target in targets) {
+      if (target.estaca <= 0) {
+        throw Exception('Estaca inválida: ${target.estaca}.');
+      }
+
+      if (target.faixaIndex < 0 || target.faixaIndex >= lanes.length) {
+        throw Exception('Faixa inválida.');
+      }
+
+      final lane = lanes[target.faixaIndex];
+
+      if (!lane.isAllowed(cleanServiceKey)) {
+        throw Exception(
+          'Serviço "$cleanServiceKey" não é aplicável na faixa ${lane.laneLabel}.',
+        );
+      }
+
+      final key = '${target.estaca}_${target.faixaIndex}';
+      uniqueTargets[key] = target;
+    }
+
+    final normalizedTargets = uniqueTargets.values.toList(growable: false);
+
+    final hasComment = comentario?.trim().isNotEmpty ?? false;
+    final cleanComment = hasComment ? comentario!.trim() : null;
+    final takenMs = takenAtForNew?.millisecondsSinceEpoch;
+
+    final effectiveStatus =
+    status == ScheduleLinearCellStatus.aIniciar && hasComment
+        ? ScheduleLinearCellStatus.emAndamento
+        : status;
+
+    const int chunkSize = 450;
+
+    for (int start = 0; start < normalizedTargets.length; start += chunkSize) {
+      final end = math.min(start + chunkSize, normalizedTargets.length);
+      final chunk = normalizedTargets.sublist(start, end);
+
+      final swChunk = Stopwatch()..start();
+
+      final refs = chunk.map((target) {
+        final cellId = _cellDocId(
+          serviceKey: cleanServiceKey,
+          estaca: target.estaca,
+          faixaIndex: target.faixaIndex,
+        );
+
+        return _scheduleCellsItemsCol(cleanContractId).doc(cellId);
+      }).toList(growable: false);
+
+      final swReads = Stopwatch()..start();
+
+      final snaps = await Future.wait(
+        refs.map((ref) => ref.get()),
+      );
+
+      swReads.stop();
+
+      final batch = _firestore.batch();
+      final urlsToDelete = <String>[];
+
+      for (int i = 0; i < chunk.length; i++) {
+        final target = chunk[i];
+        final ref = refs[i];
+        final snap = snaps[i];
+
+        if (effectiveStatus == ScheduleLinearCellStatus.aIniciar) {
+          if (snap.exists) {
+            final data = snap.data() ?? const <String, dynamic>{};
+
+            final rawUrls = data['fotos'];
+
+            if (rawUrls is List) {
+              for (final item in rawUrls) {
+                final url = item?.toString().trim() ?? '';
+
+                if (url.isNotEmpty) {
+                  urlsToDelete.add(url);
+                }
+              }
+            }
+
+            batch.delete(ref);
+          }
+
+          continue;
+        }
+
+        final data = <String, dynamic>{
+          'tenantId': tenantId,
+          'contractId': cleanContractId,
+          'serviceKey': cleanServiceKey,
+          'numero': target.estaca,
+          'faixaIndex': target.faixaIndex,
+          'status': effectiveStatus.key,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': currentUserId,
+          'takenAtMs': ?takenMs,
+          if (takenMs == null) 'takenAtMs': FieldValue.delete(),
+          'comentario': ?cleanComment,
+          if (cleanComment == null) 'comentario': FieldValue.delete(),
+        };
+
+        if (!snap.exists) {
+          data['createdAt'] = FieldValue.serverTimestamp();
+          data['createdBy'] = currentUserId;
+        }
+
+        batch.set(
+          ref,
+          data,
+          SetOptions(merge: true),
+        );
+      }
+
+      final swCommit = Stopwatch()..start();
+
+      await batch.commit();
+
+      swCommit.stop();
+
+      final swStorage = Stopwatch()..start();
+
+      if (urlsToDelete.isNotEmpty) {
+        await Future.wait(
+          urlsToDelete.map((url) async {
+            try {
+              await _storage.refFromURL(url).delete();
+            } catch (_) {
+              // Ignora falha isolada de Storage para não travar o lote inteiro.
+            }
+          }),
+        );
+      }
+
+      swStorage.stop();
+
+      swChunk.stop();
+    }
+
+    clearExecCache(cleanContractId);
+
+    swTotal.stop();
+
   }
 
   Future<({List<int> periods, Map<String, List<double>> grid})> loadPhysFinGrid(
@@ -1104,6 +1314,7 @@ class ScheduleLinearRepository {
       'totalSegments': lines.length,
       'totalPoints': totalPoints,
       'bounds': ?bounds,
+      if (bounds == null) 'bounds': FieldValue.delete(),
       if (lines.length == 1) 'points': _toPoints(lines.first),
       if (lines.length == 1) 'multiLine': FieldValue.delete(),
       if (lines.length > 1) 'multiLine': _toMultiFirestore(lines),

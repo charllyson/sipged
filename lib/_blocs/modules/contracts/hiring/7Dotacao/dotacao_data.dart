@@ -10,7 +10,7 @@ class DotacaoData extends Equatable {
   static const sectionNaturezaDespesa = 'natureza';
   static const sectionReserva = 'reserva';
   static const sectionEmpenho = 'empenho';
-  static const sectionCronograma = 'cronograma';
+  static const sectionCronograma = 'gallery';
   static const sectionDocumentos = 'documentos';
 
   static const sectionKeys = <String>[

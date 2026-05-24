@@ -23,11 +23,17 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
 
   String? _watchingUserId;
 
+  static const int bellVisibleLimit = 99;
+  static const int unreadBadgeLimit = NotificationBellState.maxUnreadBadgeCount;
+
+  /// Busca 1 item a mais para conseguir saber se deve exibir "+99".
+  static const int _unreadOverflowQueryLimit = unreadBadgeLimit + 1;
+
   void watchBellNotifications({
     required String userId,
-    int systemLimit = 30,
-    int userBellLimit = 50,
-    int unreadUserLimit = 50,
+    int systemLimit = bellVisibleLimit,
+    int userBellLimit = bellVisibleLimit,
+    int unreadUserLimit = unreadBadgeLimit,
   }) {
     watchSystemNotifications(limit: systemLimit);
 
@@ -68,7 +74,7 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
   }
 
   void watchSystemNotifications({
-    int limit = 30,
+    int limit = bellVisibleLimit,
   }) {
     _systemSub?.cancel();
 
@@ -102,7 +108,7 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
 
   void watchUserBellNotifications({
     required String userId,
-    int limit = 50,
+    int limit = bellVisibleLimit,
   }) {
     final cleanUserId = userId.trim();
 
@@ -154,7 +160,7 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
 
   void watchUnreadUserNotifications({
     required String userId,
-    int limit = 50,
+    int limit = unreadBadgeLimit,
   }) {
     final cleanUserId = userId.trim();
 
@@ -178,10 +184,12 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
       ),
     );
 
+    final effectiveLimit = _effectiveUnreadQueryLimit(limit);
+
     _unreadUserSub = _repository
         .watchUnreadUserNotifications(
       userId: cleanUserId,
-      limit: limit,
+      limit: effectiveLimit,
     )
         .listen(
           (items) {
@@ -202,6 +210,16 @@ class NotificationBellCubit extends Cubit<NotificationBellState> {
         );
       },
     );
+  }
+
+  int _effectiveUnreadQueryLimit(int requestedLimit) {
+    final cleanLimit = requestedLimit <= 0 ? unreadBadgeLimit : requestedLimit;
+
+    if (cleanLimit <= unreadBadgeLimit) {
+      return _unreadOverflowQueryLimit;
+    }
+
+    return cleanLimit;
   }
 
   Future<void> markAsSeen({

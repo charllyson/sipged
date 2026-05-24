@@ -626,7 +626,7 @@ class NotificationDispatcher {
 
     if (_containsAny(clean, const [
       'schedule',
-      'cronograma',
+      'gallery',
       'estaca',
     ])) {
       return NotificationSubSource.scheduleGeneral.key;

@@ -7,16 +7,16 @@ import 'schedule_linear_lane_data.dart';
 import 'schedule_linear_services_data.dart';
 
 class ScheduleLinearData extends Equatable {
-  /// Identificador global do cronograma, se existir.
+  /// Identificador global do gallery, se existir.
   final String? id;
 
-  /// Contrato vinculado ao cronograma.
+  /// Contrato vinculado ao gallery.
   final String? contractId;
 
-  /// Tenant vinculado ao cronograma.
+  /// Tenant vinculado ao gallery.
   final String? tenantId;
 
-  /// Nome ou título do cronograma.
+  /// Nome ou título do gallery.
   final String? title;
 
   /// Tipo da geometria importada ou desenhada.
@@ -29,19 +29,19 @@ class ScheduleLinearData extends Equatable {
   /// Geometria principal em múltiplos segmentos.
   final List<List<LatLng>>? multiLine;
 
-  /// Geometria simples, quando o cronograma usa apenas uma linha.
+  /// Geometria simples, quando o gallery usa apenas uma linha.
   final List<LatLng>? points;
 
-  /// Faixas/lanes do cronograma.
+  /// Faixas/lanes do gallery.
   final List<ScheduleLinearLaneData> lanes;
 
-  /// Serviços disponíveis no cronograma.
+  /// Serviços disponíveis no gallery.
   final List<ScheduleLinearServicesData> services;
 
   /// Células executadas ou planejadas.
   ///
   /// Cada célula representa uma estaca.
-  /// No cronograma rodoviário, cada estaca corresponde a 20 metros.
+  /// No gallery rodoviário, cada estaca corresponde a 20 metros.
   final List<ScheduleLinearCellData> cells;
 
   final DateTime? createdAt;
@@ -49,7 +49,7 @@ class ScheduleLinearData extends Equatable {
   final DateTime? updatedAt;
   final String? updatedBy;
 
-  /// Campo livre para metadados globais do cronograma.
+  /// Campo livre para metadados globais do gallery.
   ///
   /// Use com moderação. O ideal é criar campos explícitos quando
   /// o dado passar a fazer parte da regra de negócio.

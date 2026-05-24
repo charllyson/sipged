@@ -359,7 +359,7 @@ class _ScheduleGridState extends State<ScheduleGrid> {
         if (linhas <= 0) {
           return const Center(
             child: Text(
-              'Nenhuma estaca calculada para este cronograma.',
+              'Nenhuma estaca calculada para este gallery.',
               textAlign: TextAlign.center,
             ),
           );

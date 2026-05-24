@@ -8,7 +8,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
-import 'package:sipged/_widgets/buttons/slider_control.dart';
+import 'package:sipged/_widgets/buttons/slider_button.dart';
 
 import 'package:sipged/_widgets/map/base/map_type_button.dart';
 import 'package:sipged/_widgets/map/base/map_types.dart';

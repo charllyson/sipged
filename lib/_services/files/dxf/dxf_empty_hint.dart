@@ -23,7 +23,7 @@ class DxfPdfEmptyHint extends StatelessWidget {
         const Text('Nenhum DXF selecionado', style: TextStyle(fontSize: 16)),
         const SizedBox(height: 8),
         const Text(
-          'Clique no ícone acima e escolha um arquivo DXF para visualizar e criar seu cronograma.',
+          'Clique no ícone acima e escolha um arquivo DXF para visualizar e criar seu gallery.',
           style: TextStyle(color: Colors.black54),
           textAlign: TextAlign.center,
         ),

@@ -1,10 +1,18 @@
+// lib/screens/modules/contracts/measurement/revision/revision_measurement_table_section.dart
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
+import 'package:sipged/_blocs/modules/financial/payments/revision/revision_paid_data.dart';
+
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
+
 import 'package:sipged/_widgets/table/paged/paged_colum.dart';
+import 'package:sipged/_widgets/table/paged/paged_sub_column.dart';
+import 'package:sipged/_widgets/table/paged/paged_sub_table.dart';
+import 'package:sipged/_widgets/table/paged/paged_summary_item.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 
 class RevisionMeasurementTableSection extends StatelessWidget {
@@ -12,22 +20,11 @@ class RevisionMeasurementTableSection extends StatelessWidget {
     super.key,
     required this.onTapItem,
     required this.onDelete,
-
-    /// Padrão novo.
-    this.revisionMeasurementsData,
-    this.selectedRevisionMeasurement,
-
-    /// Compatibilidade com padrão antigo.
-    this.measurementsData,
-    this.selectedMeasurement,
-
+    required this.revisionMeasurementsData,
+    required this.selectedRevisionMeasurement,
     required this.valorTotal,
-    this.balance,
-
-    /// Compatibilidade com padrão antigo.
-    this.saldo,
-
-    /// Mantidos somente para compatibilidade visual/cálculo antigo.
+    required this.balance,
+    this.payments = const <RevisionPaidData>[],
     this.valorInicial = 0.0,
     this.valorAditivos = 0.0,
     this.contractData,
@@ -36,44 +33,21 @@ class RevisionMeasurementTableSection extends StatelessWidget {
   final void Function(RevisionMeasurementData) onTapItem;
   final void Function(String revisionId) onDelete;
 
-  /// Padrão novo.
-  final List<RevisionMeasurementData>? revisionMeasurementsData;
+  final List<RevisionMeasurementData> revisionMeasurementsData;
+  final List<RevisionPaidData> payments;
+
   final RevisionMeasurementData? selectedRevisionMeasurement;
-
-  /// Compatibilidade com padrão antigo.
-  final List<RevisionMeasurementData>? measurementsData;
-  final RevisionMeasurementData? selectedMeasurement;
-
   final ContractData? contractData;
 
   final double valorInicial;
   final double valorAditivos;
   final double valorTotal;
-
-  /// Padrão novo.
-  final double? balance;
-
-  /// Compatibilidade com padrão antigo.
-  final double? saldo;
-
-  List<RevisionMeasurementData> get _data {
-    return revisionMeasurementsData ?? measurementsData ?? <RevisionMeasurementData>[];
-  }
-
-  RevisionMeasurementData? get _selected {
-    return selectedRevisionMeasurement ?? selectedMeasurement;
-  }
-
-  double get _balance {
-    return balance ?? saldo ?? 0.0;
-  }
+  final double balance;
 
   String _txt(String? value) {
     final text = (value ?? '').trim();
 
-    if (text.isEmpty || text.toLowerCase() == 'null') {
-      return '-';
-    }
+    if (text.isEmpty || text.toLowerCase() == 'null') return '-';
 
     return text;
   }
@@ -84,10 +58,20 @@ class RevisionMeasurementTableSection extends StatelessWidget {
     return SipGedFormatDates.dateToDdMMyyyy(value);
   }
 
+  double _roundMoney(double value) {
+    if (!value.isFinite) return 0.0;
+
+    final rounded = (value * 100).roundToDouble() / 100;
+
+    if (rounded == 0.0) return 0.0;
+
+    return rounded;
+  }
+
   String _money(double? value) {
     if (value == null) return '-';
 
-    return SipGedFormatMoney.doubleToText(value);
+    return SipGedFormatMoney.doubleToText(_roundMoney(value));
   }
 
   String _intText(int? value) {
@@ -96,12 +80,34 @@ class RevisionMeasurementTableSection extends StatelessWidget {
     return value.toString();
   }
 
+  double _positive(double? value) {
+    final v = value ?? 0.0;
+
+    if (!v.isFinite || v <= 0) return 0.0;
+
+    return _roundMoney(v);
+  }
+
+  double _retentionsValue(RevisionPaidData payment) {
+    return _roundMoney(
+      _positive(payment.inssPaymentValue) +
+          _positive(payment.irpfPaymentValue) +
+          _positive(payment.issPaymentValue),
+    );
+  }
+
+  double _paymentTotalValue(RevisionPaidData payment) {
+    return _roundMoney(
+      _positive(payment.paymentValue) + _retentionsValue(payment),
+    );
+  }
+
   String _itemKey(RevisionMeasurementData item) {
     final id = (item.id ?? '').trim();
 
     if (id.isNotEmpty) return id;
 
-    return <String>[
+    return [
       _intText(item.order),
       _txt(item.numberprocess),
       _date(item.date),
@@ -109,15 +115,179 @@ class RevisionMeasurementTableSection extends StatelessWidget {
     ].join('|');
   }
 
+  List<RevisionPaidData> _paymentsForRevision(
+      RevisionMeasurementData revision,
+      ) {
+    final revisionId = revision.id?.trim() ?? '';
+    final revisionOrder = revision.order;
+
+    final list = payments.where((payment) {
+      final paymentContractId = payment.contractId?.trim() ?? '';
+      final revisionContractId = revision.contractId?.trim() ?? '';
+
+      if (revisionContractId.isNotEmpty &&
+          paymentContractId.isNotEmpty &&
+          paymentContractId != revisionContractId) {
+        return false;
+      }
+
+      final paymentRevisionId = payment.revisionId?.trim() ?? '';
+
+      if (revisionId.isNotEmpty && paymentRevisionId == revisionId) {
+        return true;
+      }
+
+      if (paymentRevisionId.isEmpty &&
+          revisionOrder != null &&
+          payment.revisionOrder == revisionOrder) {
+        return true;
+      }
+
+      if (revisionId.isEmpty &&
+          revisionOrder != null &&
+          payment.revisionOrder == revisionOrder) {
+        return true;
+      }
+
+      return false;
+    }).toList();
+
+    list.sort((a, b) {
+      final dateA = a.paymentDate ?? DateTime(1900);
+      final dateB = b.paymentDate ?? DateTime(1900);
+
+      final dateCompare = dateA.compareTo(dateB);
+
+      if (dateCompare != 0) return dateCompare;
+
+      final sourceA = a.fundingSourceLabel ?? '';
+      final sourceB = b.fundingSourceLabel ?? '';
+
+      return sourceA.toLowerCase().compareTo(sourceB.toLowerCase());
+    });
+
+    return list;
+  }
+
+  double _totalPaymentsForRevision(RevisionMeasurementData revision) {
+    return _paymentsForRevision(revision).fold<double>(
+      0.0,
+          (total, payment) {
+        return _roundMoney(total + _paymentTotalValue(payment));
+      },
+    );
+  }
+
+  double _totalRetentionsForRevision(RevisionMeasurementData revision) {
+    return _paymentsForRevision(revision).fold<double>(
+      0.0,
+          (total, payment) {
+        return _roundMoney(total + _retentionsValue(payment));
+      },
+    );
+  }
+
+  double _revisionSaldo(RevisionMeasurementData revision) {
+    final revised = _roundMoney(revision.value ?? 0.0);
+    final paid = _totalPaymentsForRevision(revision);
+
+    return _roundMoney(revised - paid);
+  }
+
+  List<PagedSubColumn<RevisionPaidData>> _paymentColumns() {
+    return [
+      PagedSubColumn<RevisionPaidData>(
+        title: 'FONTE',
+        width: 260,
+        textAlign: TextAlign.left,
+        fontWeight: FontWeight.w700,
+        valueBuilder: (payment) => _txt(payment.fundingSourceLabel),
+      ),
+      PagedSubColumn<RevisionPaidData>(
+        title: 'DATA PAG.',
+        width: 120,
+        textAlign: TextAlign.center,
+        valueBuilder: (payment) => _date(payment.paymentDate),
+      ),
+      PagedSubColumn<RevisionPaidData>(
+        title: 'VALOR PAGO',
+        width: 150,
+        textAlign: TextAlign.right,
+        fontWeight: FontWeight.w900,
+        valueBuilder: (payment) => _money(payment.paymentValue),
+      ),
+      PagedSubColumn<RevisionPaidData>(
+        title: 'DATA INSS',
+        width: 120,
+        textAlign: TextAlign.center,
+        valueBuilder: (payment) => _date(payment.inssPaymentDate),
+      ),
+      PagedSubColumn<RevisionPaidData>(
+        title: 'INSS',
+        width: 130,
+        textAlign: TextAlign.right,
+        valueBuilder: (payment) => _money(payment.inssPaymentValue),
+      ),
+      PagedSubColumn<RevisionPaidData>(
+        title: 'DATA IRPF',
+        width: 120,
+        textAlign: TextAlign.center,
+        valueBuilder: (payment) => _date(payment.irpfPaymentDate),
+      ),
+      PagedSubColumn<RevisionPaidData>(
+        title: 'IRPF',
+        width: 130,
+        textAlign: TextAlign.right,
+        valueBuilder: (payment) => _money(payment.irpfPaymentValue),
+      ),
+      PagedSubColumn<RevisionPaidData>(
+        title: 'DATA ISS',
+        width: 120,
+        textAlign: TextAlign.center,
+        valueBuilder: (payment) => _date(payment.issPaymentDate),
+      ),
+      PagedSubColumn<RevisionPaidData>(
+        title: 'ISS',
+        width: 130,
+        textAlign: TextAlign.right,
+        valueBuilder: (payment) => _money(payment.issPaymentValue),
+      ),
+      PagedSubColumn<RevisionPaidData>(
+        title: 'TOTAL',
+        width: 150,
+        textAlign: TextAlign.right,
+        fontWeight: FontWeight.w900,
+        valueBuilder: (payment) => _money(_paymentTotalValue(payment)),
+      ),
+      PagedSubColumn<RevisionPaidData>(
+        title: 'OBS.',
+        width: 320,
+        textAlign: TextAlign.left,
+        valueBuilder: (payment) => _txt(payment.note),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    final revisions = _data;
-    final selected = _selected;
-
-    final totalRevisions = revisions.fold<double>(
+    final totalRevisions = revisionMeasurementsData.fold<double>(
       0.0,
           (previousTotal, item) {
-        return previousTotal + (item.value ?? 0.0);
+        return _roundMoney(previousTotal + _positive(item.value));
+      },
+    );
+
+    final totalPayments = revisionMeasurementsData.fold<double>(
+      0.0,
+          (previousTotal, item) {
+        return _roundMoney(previousTotal + _totalPaymentsForRevision(item));
+      },
+    );
+
+    final totalRetentions = revisionMeasurementsData.fold<double>(
+      0.0,
+          (previousTotal, item) {
+        return _roundMoney(previousTotal + _totalRetentionsForRevision(item));
       },
     );
 
@@ -125,24 +295,46 @@ class RevisionMeasurementTableSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PagedTableChanged<RevisionMeasurementData>(
-          listData: revisions,
+          listData: revisionMeasurementsData,
           getKey: _itemKey,
-          selectedKey: selected != null ? _itemKey(selected) : null,
+          selectedKey: selectedRevisionMeasurement != null
+              ? _itemKey(selectedRevisionMeasurement!)
+              : null,
           keepSelectionInternally: false,
           enableRowTapSelection: true,
           enablePagination: false,
           initialRowsPerPage: 10,
-          rowsPerPageOptions: const [10, 25, 50, 100],
+          rowsPerPageOptions: const <int>[10, 25, 50, 100],
           sortColumnIndex: 0,
           sortAscending: true,
-          minTableWidth: 706,
+          minTableWidth: 1800,
           defaultColumnWidth: 150,
           actionsColumnWidth: 56,
           colorHeadTable: const Color(0xFF091D68),
           colorHeadTableText: Colors.white,
           headingRowHeight: 40,
-          dataRowMinHeight: 40,
+          dataRowMinHeight: 44,
           dataRowMaxHeight: 56,
+          enableExpandableRows: true,
+          expandColumnWidth: 56,
+          canExpandRow: (revision) {
+            return _paymentsForRevision(revision).isNotEmpty;
+          },
+          expandableRowBuilder: (context, revision) {
+            return PagedSubTable<RevisionPaidData>(
+              items: _paymentsForRevision(revision),
+              columns: _paymentColumns(),
+              leadingIcon: Icons.payments_outlined,
+              leadingWidth: 44,
+              primaryColor: const Color(0xFF091D68),
+              backgroundColor: const Color(0xFFF7F9FF),
+              headerColor: const Color(0x0F091D68),
+              borderColor: const Color(0x1F091D68),
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 18),
+              cellHorizontalPadding: 10,
+              bottomRadius: 8,
+            );
+          },
           onTapItem: onTapItem,
           onDelete: (item) {
             final id = (item.id ?? '').trim();
@@ -156,113 +348,76 @@ class RevisionMeasurementTableSection extends StatelessWidget {
               title: 'ORDEM',
               getter: (item) => _intText(item.order),
               textAlign: TextAlign.center,
-              width: 100,
+              width: 80,
             ),
             PagedColum<RevisionMeasurementData>(
               title: 'Nº PROCESSO',
               getter: (item) => _txt(item.numberprocess),
               textAlign: TextAlign.center,
-              width: 200,
+              width: 240,
             ),
             PagedColum<RevisionMeasurementData>(
               title: 'DATA DA REVISÃO',
               getter: (item) => _date(item.date),
               textAlign: TextAlign.center,
-              width: 150,
+              width: 190,
             ),
             PagedColum<RevisionMeasurementData>(
               title: 'VALOR DA REVISÃO',
               getter: (item) => _money(item.value),
               textAlign: TextAlign.center,
-              width: 200,
+              width: 210,
+            ),
+            PagedColum<RevisionMeasurementData>(
+              title: 'RETENÇÕES',
+              getter: (item) => _money(_totalRetentionsForRevision(item)),
+              textAlign: TextAlign.center,
+              width: 180,
+            ),
+            PagedColum<RevisionMeasurementData>(
+              title: 'TOTAL PAGO',
+              getter: (item) => _money(_totalPaymentsForRevision(item)),
+              textAlign: TextAlign.center,
+              width: 190,
+            ),
+            PagedColum<RevisionMeasurementData>(
+              title: 'SALDO',
+              getter: (item) => _money(_revisionSaldo(item)),
+              textAlign: TextAlign.center,
+              width: 190,
             ),
           ],
         ),
         const SizedBox(height: 12),
-        _SummaryBox(
+        PagedSummaryBox(
           items: [
-            _SummaryItem(
+            PagedSummaryItem(
               label: 'TOTAL DAS REVISÕES',
-              value: totalRevisions,
+              value: _money(totalRevisions),
               backgroundColor: Colors.grey.shade200,
               fontWeight: FontWeight.w700,
             ),
-            _SummaryItem(
-              label: 'VALOR BASE DISPONÍVEL',
-              value: valorTotal,
+            PagedSummaryItem(
+              label: 'TOTAL PAGO',
+              value: _money(totalPayments),
             ),
-            _SummaryItem(
+            PagedSummaryItem(
+              label: 'TOTAL DE RETENÇÕES',
+              value: _money(totalRetentions),
+            ),
+            PagedSummaryItem(
+              label: 'VALOR BASE DISPONÍVEL',
+              value: _money(valorTotal),
+            ),
+            PagedSummaryItem(
               label: 'SALDO',
-              value: _balance,
+              value: _money(balance),
               backgroundColor: Colors.blue.shade100,
               fontWeight: FontWeight.w700,
             ),
           ],
         ),
       ],
-    );
-  }
-}
-
-class _SummaryItem {
-  const _SummaryItem({
-    required this.label,
-    required this.value,
-    this.backgroundColor,
-    this.fontWeight,
-  });
-
-  final String label;
-  final double value;
-  final Color? backgroundColor;
-  final FontWeight? fontWeight;
-}
-
-class _SummaryBox extends StatelessWidget {
-  const _SummaryBox({
-    required this.items,
-  });
-
-  final List<_SummaryItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: items.map((item) {
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: item.backgroundColor ?? Colors.white,
-            border: Border(
-              bottom: BorderSide(
-                color: Colors.grey.shade300,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  item.label,
-                  style: TextStyle(
-                    fontWeight: item.fontWeight,
-                  ),
-                ),
-              ),
-              Text(
-                SipGedFormatMoney.doubleToText(item.value),
-                style: TextStyle(
-                  fontWeight: item.fontWeight,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
     );
   }
 }

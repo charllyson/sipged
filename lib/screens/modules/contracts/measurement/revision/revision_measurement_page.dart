@@ -15,6 +15,9 @@ import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_me
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_state.dart';
 
+import 'package:sipged/_blocs/modules/financial/payments/revision/revision_paid_data.dart';
+import 'package:sipged/_blocs/modules/financial/payments/revision/revision_paid_repository.dart';
+
 import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
@@ -75,6 +78,12 @@ class RevisionMeasurement extends StatelessWidget {
               'Empresa ativa não selecionada para carregar revisões.',
               textAlign: TextAlign.center,
             ),
+          );
+        }
+
+        if (permissionState.current == null) {
+          return const Center(
+            child: LoadingTreeDots(size: 110),
           );
         }
 
@@ -143,8 +152,11 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   final dateCtrl = TextEditingController();
 
   late DfdRepository _dfdRepository;
+  late RevisionPaidRepository _paymentRepository;
 
   DfdData? _dfdData;
+
+  List<RevisionPaidData> _payments = <RevisionPaidData>[];
 
   bool formValidated = false;
 
@@ -157,6 +169,13 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
     if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
       return descricaoObjeto;
+    }
+
+    final displaySummary = widget.contractData.displaySummary.trim();
+
+    if (displaySummary.isNotEmpty &&
+        !_looksLikeIdOnly(displaySummary)) {
+      return displaySummary;
     }
 
     if (_contractId.isNotEmpty) {
@@ -176,12 +195,27 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
     return _contractId;
   }
 
+  bool _looksLikeIdOnly(String value) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) return false;
+
+    final withoutSeparators = clean.replaceAll(RegExp(r'[-_/.\s]'), '');
+
+    if (withoutSeparators.length < 16) return false;
+
+    final hasLetter = RegExp(r'[A-Za-z]').hasMatch(withoutSeparators);
+    final hasNumber = RegExp(r'[0-9]').hasMatch(withoutSeparators);
+
+    return hasLetter && hasNumber;
+  }
+
   @override
   void initState() {
     super.initState();
 
     _configureRepositories();
-    _loadDfdDisplayData();
+    _loadInitialData();
 
     orderCtrl.addListener(_validateForm);
     processCtrl.addListener(_validateForm);
@@ -202,10 +236,12 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
       setState(() {
         _dfdData = null;
+        _payments = <RevisionPaidData>[];
         _selectedSideIndex = null;
+        formValidated = false;
       });
 
-      _loadDfdDisplayData();
+      _loadInitialData();
     }
   }
 
@@ -233,9 +269,26 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
   void _configureRepositories() {
     final tenantId = widget.tenantId.trim();
 
+    if (tenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para carregar revisões.',
+      );
+    }
+
     _dfdRepository = DfdRepository(
       tenantId: tenantId,
     );
+
+    _paymentRepository = RevisionPaidRepository(
+      tenantId: tenantId,
+    );
+  }
+
+  Future<void> _loadInitialData() async {
+    await Future.wait([
+      _loadDfdDisplayData(),
+      _loadPaymentsForContract(),
+    ]);
   }
 
   Future<void> _loadDfdDisplayData() async {
@@ -255,6 +308,117 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
       debugPrint('Falha ao carregar DFD do contrato em revisão: $e');
       debugPrintStack(stackTrace: stack);
     }
+  }
+
+  Future<void> _loadPaymentsForContract() async {
+    final contractId = _contractId;
+
+    if (contractId.isEmpty) return;
+
+    try {
+      final payments = await _paymentRepository.getPaymentsByContract(
+        contractId: contractId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _payments = payments;
+      });
+    } catch (e, stack) {
+      debugPrint('Falha ao carregar pagamentos do contrato em revisões: $e');
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) return;
+
+      setState(() {
+        _payments = <RevisionPaidData>[];
+      });
+    }
+  }
+
+  double _roundMoney(double value) {
+    if (!value.isFinite) return 0.0;
+
+    final rounded = (value * 100).roundToDouble() / 100;
+
+    if (rounded == 0.0) return 0.0;
+
+    return rounded;
+  }
+
+  double _positive(double? value) {
+    final v = value ?? 0.0;
+
+    if (!v.isFinite || v <= 0) return 0.0;
+
+    return _roundMoney(v);
+  }
+
+  double _totalPaymentValue(RevisionPaidData payment) {
+    return _roundMoney(
+      _positive(payment.paymentValue) +
+          _positive(payment.inssPaymentValue) +
+          _positive(payment.irpfPaymentValue) +
+          _positive(payment.issPaymentValue),
+    );
+  }
+
+  double _sumPaymentsTotal(List<RevisionPaidData> payments) {
+    return payments.fold<double>(
+      0.0,
+          (previousTotal, payment) {
+        return _roundMoney(previousTotal + _totalPaymentValue(payment));
+      },
+    );
+  }
+
+  List<RevisionPaidData> _paymentsForRevision(
+      RevisionMeasurementData revision,
+      ) {
+    final revisionId = revision.id?.trim() ?? '';
+    final revisionOrder = revision.order;
+
+    return _payments.where((payment) {
+      final paymentContractId = payment.contractId?.trim() ?? '';
+      final revisionContractId = revision.contractId?.trim() ?? '';
+
+      if (revisionContractId.isNotEmpty &&
+          paymentContractId.isNotEmpty &&
+          paymentContractId != revisionContractId) {
+        return false;
+      }
+
+      final paymentRevisionId = payment.revisionId?.trim() ?? '';
+
+      if (revisionId.isNotEmpty && paymentRevisionId == revisionId) {
+        return true;
+      }
+
+      if (paymentRevisionId.isEmpty &&
+          revisionOrder != null &&
+          payment.revisionOrder == revisionOrder) {
+        return true;
+      }
+
+      if (revisionId.isEmpty &&
+          revisionOrder != null &&
+          payment.revisionOrder == revisionOrder) {
+        return true;
+      }
+
+      return false;
+    }).toList();
+  }
+
+  List<double> _buildPaymentValuesForRevisions(
+      List<RevisionMeasurementData> revisions,
+      ) {
+    return revisions.map((revision) {
+      final list = _paymentsForRevision(revision);
+
+      return _sumPaymentsTotal(list);
+    }).toList();
   }
 
   String _currentActorLabel() {
@@ -484,26 +648,44 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
           );
         }
 
-        final labels = state.revisions
+        final canCreate = cubit.canCreateContract(widget.contractData);
+        final canEdit = cubit.canEditContract(widget.contractData);
+        final canDelete = cubit.canDeleteContract(widget.contractData);
+
+        final canEditCurrentForm = state.selected == null ? canCreate : canEdit;
+        final canEditAttachments = state.selected != null && canEdit;
+
+        final revisions = state.revisions;
+
+        final labels = revisions
             .map((item) => (item.order ?? 0).toString())
             .toList();
 
-        final values = state.revisions
-            .map((item) => item.value ?? 0.0)
-            .toList();
+        final values = revisions.map((item) => item.value ?? 0.0).toList();
 
-        final total = state.revisions.fold<double>(
+        final revisionIds = revisions.map((item) => item.id?.trim() ?? '').toList();
+
+        final revisionOrders = revisions.map((item) => item.order).toList();
+
+        final paymentValues = _buildPaymentValuesForRevisions(revisions);
+
+        final total = revisions.fold<double>(
           0.0,
-              (previousTotal, item) => previousTotal + (item.value ?? 0.0),
+              (previousTotal, item) {
+            return _roundMoney(previousTotal + (item.value ?? 0.0));
+          },
         );
 
+        final totalPagamentos = _sumPaymentsTotal(_payments);
+
         final valorTotalDisponivel = total;
-        final saldo = valorTotalDisponivel - total;
+
+        final saldo = _roundMoney(valorTotalDisponivel - total);
 
         final selectedIndex = state.selectedIndex;
         final nextOrder = _computeNextOrder(state);
 
-        final usedOrders = state.revisions
+        final usedOrders = revisions
             .map((item) => item.order)
             .whereType<int>()
             .toSet()
@@ -519,13 +701,6 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
         final attachments = state.attachments;
 
-        final canCreate = cubit.canCreateContract(widget.contractData);
-        final canEdit = cubit.canEditContract(widget.contractData);
-        final canDelete = cubit.canDeleteContract(widget.contractData);
-
-        final canEditCurrentForm = state.selected == null ? canCreate : canEdit;
-        final canEditAttachments = state.selected != null && canEdit;
-
         return Stack(
           children: [
             Column(
@@ -539,6 +714,11 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                         RevisionMeasurementGraphSection(
                           labels: labels,
                           values: values,
+                          revisionIds: revisionIds,
+                          revisionOrders: revisionOrders,
+                          payments: _payments,
+                          paymentValues: paymentValues,
+                          totalPagamentos: totalPagamentos,
                           valorTotal: valorTotalDisponivel,
                           totalMedicoes: total,
                           selectedIndex: selectedIndex,
@@ -561,6 +741,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                             valueRevisionController: valueCtrl,
                             sideLoading: state.uploading,
                             sideUploadProgress: state.uploadProgress,
+                            onPaymentsChanged: _loadPaymentsForContract,
                             onSave: () async {
                               if (!canEditCurrentForm) {
                                 await _safeNotify(
@@ -583,7 +764,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               final parsedOrder = _parseInt(orderCtrl.text);
 
                               final effectiveOrder =
-                              (parsedOrder == null || parsedOrder <= 0)
+                              parsedOrder == null || parsedOrder <= 0
                                   ? _computeNextOrder(state)
                                   : parsedOrder;
 
@@ -630,6 +811,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                   data: data,
                                 );
 
+                                await _loadPaymentsForContract();
+
                                 final actorName = _currentActorLabel();
 
                                 await _safeNotify(
@@ -651,7 +834,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                     'revisionOrder': data.order,
                                     'revisionProcess': data.numberprocess,
                                     'revisionValue': data.value,
-                                    'revisionDate': data.date?.toIso8601String(),
+                                    'revisionDate':
+                                    data.date?.toIso8601String(),
                                   },
                                 );
                               } catch (e) {
@@ -674,6 +858,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                             sideItems: attachments,
                             selectedSideIndex: _selectedSideIndex,
                             onAddSideItem: canEditAttachments &&
+                                state.selected != null &&
                                 state.selected?.id != null &&
                                 contractId != null &&
                                 contractId.isNotEmpty
@@ -918,7 +1103,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
 
                               if (picked == null || picked <= 0) return;
 
-                              final index = state.revisions.indexWhere(
+                              final index = revisions.indexWhere(
                                     (item) => (item.order ?? -1) == picked,
                               );
 
@@ -936,7 +1121,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                         ),
                         RevisionMeasurementTableSection(
                           onTapItem: (RevisionMeasurementData data) {
-                            final index = state.revisions.indexWhere(
+                            final index = revisions.indexWhere(
                                   (item) => item.id == data.id,
                             );
 
@@ -974,7 +1159,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               return;
                             }
 
-                            final deleted = state.revisions.firstWhere(
+                            final deleted = revisions.firstWhere(
                                   (item) => item.id == id,
                               orElse: () {
                                 return RevisionMeasurementData(id: id);
@@ -987,6 +1172,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                                 contractId: contractId,
                                 revisionId: id,
                               );
+
+                              await _loadPaymentsForContract();
 
                               final actorName = _currentActorLabel();
 
@@ -1019,7 +1206,8 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                               );
                             }
                           },
-                          revisionMeasurementsData: state.revisions,
+                          revisionMeasurementsData: revisions,
+                          payments: _payments,
                           valorTotal: valorTotalDisponivel,
                           balance: saldo,
                           contractData: widget.contractData,
@@ -1033,7 +1221,7 @@ class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
                 const FootBar(),
               ],
             ),
-            if (state.isSaving)
+            if (state.isSaving || state.uploading)
               Stack(
                 children: [
                   ModalBarrier(

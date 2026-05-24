@@ -339,7 +339,7 @@ class _ScheduleLinearPanelState extends State<ScheduleLinearPanel> {
                     const SizedBox(height: 8.0),
                     const _InfoBox(
                       message:
-                      'Nenhuma estaca concluída ou em andamento possui data registrada. O gráfico está exibindo o percentual geral do cronograma.',
+                      'Nenhuma estaca concluída ou em andamento possui data registrada. O gráfico está exibindo o percentual geral do gallery.',
                     ),
                   ],
                   if (isWorking) ...[
@@ -485,7 +485,7 @@ class _PanelLoadingBox extends StatelessWidget {
           SizedBox(width: 10.0),
           Expanded(
             child: Text(
-              'Atualizando dados do cronograma...',
+              'Atualizando dados do gallery...',
               style: TextStyle(
                 fontSize: 13.0,
                 color: Colors.black87,

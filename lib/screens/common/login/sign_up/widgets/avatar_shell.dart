@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/_widgets/images/photo_circle/photo_circle.dart';
+import 'package:sipged/_widgets/images/avatar/photo_circle.dart';
 
 class AvatarShell extends StatelessWidget {
   const AvatarShell({

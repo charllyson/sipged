@@ -16,6 +16,9 @@ import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustmen
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_state.dart';
 
+import 'package:sipged/_blocs/modules/financial/payments/adjustment/adjustment_paid_data.dart';
+import 'package:sipged/_blocs/modules/financial/payments/adjustment/adjustment_paid_repository.dart';
+
 import 'package:sipged/_blocs/system/notification/helpers/notification_measurements.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
@@ -76,6 +79,12 @@ class AdjustmentMeasurement extends StatelessWidget {
               'Empresa ativa não selecionada para carregar reajustes.',
               textAlign: TextAlign.center,
             ),
+          );
+        }
+
+        if (permissionState.current == null) {
+          return const Center(
+            child: LoadingTreeDots(size: 110),
           );
         }
 
@@ -145,10 +154,13 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
   late DfdRepository _dfdRepository;
   late ApostillesRepository _apostillesRepository;
+  late AdjustmentPaidRepository _paymentRepository;
 
   DfdData? _dfdData;
 
   double _totalApostillesValue = 0.0;
+
+  List<AdjustmentPaidData> _payments = <AdjustmentPaidData>[];
 
   bool formValidated = false;
 
@@ -161,6 +173,13 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
     if (descricaoObjeto != null && descricaoObjeto.isNotEmpty) {
       return descricaoObjeto;
+    }
+
+    final displaySummary = widget.contractData.displaySummary.trim();
+
+    if (displaySummary.isNotEmpty &&
+        !_looksLikeIdOnly(displaySummary)) {
+      return displaySummary;
     }
 
     if (_contractId.isNotEmpty) {
@@ -180,14 +199,27 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
     return _contractId;
   }
 
+  bool _looksLikeIdOnly(String value) {
+    final clean = value.trim();
+
+    if (clean.isEmpty) return false;
+
+    final withoutSeparators = clean.replaceAll(RegExp(r'[-_/.\s]'), '');
+
+    if (withoutSeparators.length < 16) return false;
+
+    final hasLetter = RegExp(r'[A-Za-z]').hasMatch(withoutSeparators);
+    final hasNumber = RegExp(r'[0-9]').hasMatch(withoutSeparators);
+
+    return hasLetter && hasNumber;
+  }
+
   @override
   void initState() {
     super.initState();
 
     _configureRepositories();
-
-    _loadDfdDisplayData();
-    _loadApostillesValue();
+    _loadInitialData();
 
     orderCtrl.addListener(_validateForm);
     processCtrl.addListener(_validateForm);
@@ -209,11 +241,12 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
       setState(() {
         _dfdData = null;
         _totalApostillesValue = 0.0;
+        _payments = <AdjustmentPaidData>[];
         _selectedSideIndex = null;
+        formValidated = false;
       });
 
-      _loadDfdDisplayData();
-      _loadApostillesValue();
+      _loadInitialData();
     }
   }
 
@@ -241,6 +274,12 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
   void _configureRepositories() {
     final tenantId = widget.tenantId.trim();
 
+    if (tenantId.isEmpty) {
+      throw ArgumentError(
+        'tenantId é obrigatório para carregar reajustes.',
+      );
+    }
+
     _dfdRepository = DfdRepository(
       tenantId: tenantId,
     );
@@ -248,6 +287,18 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
     _apostillesRepository = ApostillesRepository(
       tenantId: tenantId,
     );
+
+    _paymentRepository = AdjustmentPaidRepository(
+      tenantId: tenantId,
+    );
+  }
+
+  Future<void> _loadInitialData() async {
+    await Future.wait([
+      _loadDfdDisplayData(),
+      _loadApostillesValue(),
+      _loadPaymentsForContract(),
+    ]);
   }
 
   Future<void> _loadDfdDisplayData() async {
@@ -302,6 +353,117 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
         _totalApostillesValue = 0.0;
       });
     }
+  }
+
+  Future<void> _loadPaymentsForContract() async {
+    final contractId = _contractId;
+
+    if (contractId.isEmpty) return;
+
+    try {
+      final payments = await _paymentRepository.getPaymentsByContract(
+        contractId: contractId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _payments = payments;
+      });
+    } catch (e, stack) {
+      debugPrint('Falha ao carregar pagamentos do contrato em reajustes: $e');
+      debugPrintStack(stackTrace: stack);
+
+      if (!mounted) return;
+
+      setState(() {
+        _payments = <AdjustmentPaidData>[];
+      });
+    }
+  }
+
+  double _roundMoney(double value) {
+    if (!value.isFinite) return 0.0;
+
+    final rounded = (value * 100).roundToDouble() / 100;
+
+    if (rounded == 0.0) return 0.0;
+
+    return rounded;
+  }
+
+  double _positive(double? value) {
+    final v = value ?? 0.0;
+
+    if (!v.isFinite || v <= 0) return 0.0;
+
+    return _roundMoney(v);
+  }
+
+  double _totalPaymentValue(AdjustmentPaidData payment) {
+    return _roundMoney(
+      _positive(payment.paymentValue) +
+          _positive(payment.inssPaymentValue) +
+          _positive(payment.irpfPaymentValue) +
+          _positive(payment.issPaymentValue),
+    );
+  }
+
+  double _sumPaymentsTotal(List<AdjustmentPaidData> payments) {
+    return payments.fold<double>(
+      0.0,
+          (previousTotal, payment) {
+        return _roundMoney(previousTotal + _totalPaymentValue(payment));
+      },
+    );
+  }
+
+  List<AdjustmentPaidData> _paymentsForAdjustment(
+      AdjustmentMeasurementData adjustment,
+      ) {
+    final adjustmentId = adjustment.id?.trim() ?? '';
+    final adjustmentOrder = adjustment.order;
+
+    return _payments.where((payment) {
+      final paymentContractId = payment.contractId?.trim() ?? '';
+      final adjustmentContractId = adjustment.contractId?.trim() ?? '';
+
+      if (adjustmentContractId.isNotEmpty &&
+          paymentContractId.isNotEmpty &&
+          paymentContractId != adjustmentContractId) {
+        return false;
+      }
+
+      final paymentAdjustmentId = payment.adjustmentId?.trim() ?? '';
+
+      if (adjustmentId.isNotEmpty && paymentAdjustmentId == adjustmentId) {
+        return true;
+      }
+
+      if (paymentAdjustmentId.isEmpty &&
+          adjustmentOrder != null &&
+          payment.adjustmentOrder == adjustmentOrder) {
+        return true;
+      }
+
+      if (adjustmentId.isEmpty &&
+          adjustmentOrder != null &&
+          payment.adjustmentOrder == adjustmentOrder) {
+        return true;
+      }
+
+      return false;
+    }).toList();
+  }
+
+  List<double> _buildPaymentValuesForAdjustments(
+      List<AdjustmentMeasurementData> adjustments,
+      ) {
+    return adjustments.map((adjustment) {
+      final list = _paymentsForAdjustment(adjustment);
+
+      return _sumPaymentsTotal(list);
+    }).toList();
   }
 
   String _currentActorLabel() {
@@ -531,27 +693,42 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
         final canEditCurrentForm = state.selected == null ? canCreate : canEdit;
         final canEditAttachments = state.selected != null && canEdit;
 
-        final labels = state.adjustments
+        final adjustments = state.adjustments;
+
+        final labels = adjustments
             .map((item) => (item.order ?? 0).toString())
             .toList();
 
-        final values = state.adjustments.map((item) => item.value ?? 0.0).toList();
+        final values = adjustments.map((item) => item.value ?? 0.0).toList();
 
-        final total = state.adjustments.fold<double>(
+        final adjustmentIds = adjustments
+            .map((item) => item.id?.trim() ?? '')
+            .toList();
+
+        final adjustmentOrders = adjustments.map((item) => item.order).toList();
+
+        final paymentValues = _buildPaymentValuesForAdjustments(adjustments);
+
+        final total = adjustments.fold<double>(
           0.0,
-              (previousTotal, item) => previousTotal + (item.value ?? 0.0),
+              (previousTotal, item) => _roundMoney(previousTotal + (item.value ?? 0.0)),
         );
 
-        final totalApostilles = _totalApostillesValue;
-        final totalAdditives = 0.0;
+        final totalPagamentos = _sumPaymentsTotal(_payments);
 
-        final valorTotalDisponivel = totalApostilles;
-        final saldo = valorTotalDisponivel - total;
+        final totalApostilles = _totalApostillesValue;
+        final totalRevisions = 0.0;
+
+        final valorTotalDisponivel = _roundMoney(
+          totalApostilles + totalRevisions,
+        );
+
+        final saldo = _roundMoney(valorTotalDisponivel - total);
 
         final selectedIndex = state.selectedIndex;
         final nextOrder = _computeNextOrder(state);
 
-        final usedOrders = state.adjustments
+        final usedOrders = adjustments
             .map((item) => item.order)
             .whereType<int>()
             .toSet()
@@ -580,6 +757,11 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                         AdjustmentMeasurementGraphSection(
                           labels: labels,
                           values: values,
+                          adjustmentIds: adjustmentIds,
+                          adjustmentOrders: adjustmentOrders,
+                          payments: _payments,
+                          paymentValues: paymentValues,
+                          totalPagamentos: totalPagamentos,
                           valorTotal: valorTotalDisponivel,
                           totalMedicoes: total,
                           selectedIndex: selectedIndex,
@@ -602,6 +784,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                             valueAdjustmentController: valueCtrl,
                             sideLoading: state.uploading,
                             sideUploadProgress: state.uploadProgress,
+                            onPaymentsChanged: _loadPaymentsForContract,
                             onSave: () async {
                               if (!canEditCurrentForm) {
                                 await _safeNotify(
@@ -670,6 +853,8 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                   contract: widget.contractData,
                                   data: data,
                                 );
+
+                                await _loadPaymentsForContract();
 
                                 final actorName = _currentActorLabel();
 
@@ -791,7 +976,8 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
                               if (selected?.id == null) return;
 
-                              if (index < 0 || index >= attachments.length) {
+                              if (index < 0 ||
+                                  index >= attachments.length) {
                                 return;
                               }
 
@@ -946,7 +1132,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
 
                               if (picked == null || picked <= 0) return;
 
-                              final index = state.adjustments.indexWhere(
+                              final index = adjustments.indexWhere(
                                     (item) => (item.order ?? -1) == picked,
                               );
 
@@ -964,7 +1150,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                         ),
                         AdjustmentMeasurementTableSection(
                           onTapItem: (AdjustmentMeasurementData data) {
-                            final index = state.adjustments.indexWhere(
+                            final index = adjustments.indexWhere(
                                   (item) => item.id == data.id,
                             );
 
@@ -1002,7 +1188,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                               return;
                             }
 
-                            final deleted = state.adjustments.firstWhere(
+                            final deleted = adjustments.firstWhere(
                                   (item) => item.id == id,
                               orElse: () {
                                 return AdjustmentMeasurementData(id: id);
@@ -1015,6 +1201,8 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                                 contractId: contractId,
                                 adjustmentId: id,
                               );
+
+                              await _loadPaymentsForContract();
 
                               final actorName = _currentActorLabel();
 
@@ -1047,9 +1235,10 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                               );
                             }
                           },
-                          adjustmentMeasurementsData: state.adjustments,
+                          adjustmentMeasurementsData: adjustments,
+                          payments: _payments,
                           valueApostilles: totalApostilles,
-                          valueRevisions: totalAdditives,
+                          valueRevisions: totalRevisions,
                           valorTotal: valorTotalDisponivel,
                           balance: saldo,
                           contractData: widget.contractData,
@@ -1063,7 +1252,7 @@ class _AdjustmentMeasurementViewState extends State<_AdjustmentMeasurementView> 
                 const FootBar(),
               ],
             ),
-            if (state.isSaving)
+            if (state.isSaving || state.uploading)
               Stack(
                 children: [
                   ModalBarrier(

@@ -1,3 +1,5 @@
+// lib/_blocs/modules/financial/payments/report/report_paid_repository.dart
+
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -28,7 +30,10 @@ class ReportPaidRepository {
 
   static String? _cleanTenantId(String? value) {
     final clean = value?.trim();
-    return clean == null || clean.isEmpty ? null : clean;
+
+    if (clean == null || clean.isEmpty) return null;
+
+    return clean;
   }
 
   String get tenantId {
@@ -60,10 +65,6 @@ class ReportPaidRepository {
     return 'tenants/$tenantId/financial/payments/report';
   }
 
-  String _uid() {
-    return _auth.currentUser?.uid ?? '';
-  }
-
   CollectionReference<Map<String, dynamic>> _paymentsCol() {
     return _db.collection(paymentsCollectionPath);
   }
@@ -71,7 +72,31 @@ class ReportPaidRepository {
   DocumentReference<Map<String, dynamic>> _paymentDoc({
     required String paymentId,
   }) {
-    return _paymentsCol().doc(paymentId.trim());
+    final cleanPaymentId = paymentId.trim();
+
+    if (cleanPaymentId.isEmpty) {
+      throw Exception('paymentId é obrigatório.');
+    }
+
+    return _paymentsCol().doc(cleanPaymentId);
+  }
+
+  String _uid() {
+    return _auth.currentUser?.uid ?? '';
+  }
+
+  double _roundMoney(double value) {
+    if (!value.isFinite) return 0.0;
+
+    final rounded = (value * 100).roundToDouble() / 100;
+
+    if (rounded == 0.0) return 0.0;
+
+    return rounded;
+  }
+
+  bool _moneyGreaterThan(double left, double right) {
+    return _roundMoney(left) > _roundMoney(right);
   }
 
   double _safePositive(double? value) {
@@ -79,68 +104,28 @@ class ReportPaidRepository {
 
     if (!v.isFinite || v <= 0) return 0.0;
 
-    return v;
+    return _roundMoney(v);
   }
 
   double totalPaymentValue(ReportPaidData payment) {
-    return _safePositive(payment.paymentValue) +
-        _safePositive(payment.inssPaymentValue) +
-        _safePositive(payment.irpfPaymentValue) +
-        _safePositive(payment.issPaymentValue);
+    return _roundMoney(
+      _safePositive(payment.paymentValue) +
+          _safePositive(payment.inssPaymentValue) +
+          _safePositive(payment.irpfPaymentValue) +
+          _safePositive(payment.issPaymentValue),
+    );
   }
 
   double mainPaymentValue(ReportPaidData payment) {
-    return _safePositive(payment.paymentValue);
+    return _roundMoney(_safePositive(payment.paymentValue));
   }
 
   double retentionsValue(ReportPaidData payment) {
-    return _safePositive(payment.inssPaymentValue) +
-        _safePositive(payment.irpfPaymentValue) +
-        _safePositive(payment.issPaymentValue);
-  }
-
-  String _safeExt(String? name) {
-    final cleanName = (name ?? '').trim();
-
-    if (cleanName.isEmpty) return '.pdf';
-
-    final index = cleanName.lastIndexOf('.');
-
-    if (index <= 0) return '.pdf';
-
-    final ext = cleanName.substring(index).toLowerCase();
-
-    return ext.isEmpty ? '.pdf' : ext;
-  }
-
-  String _safeLabelFromName(String? name) {
-    final cleanName = (name ?? '').trim();
-
-    if (cleanName.isEmpty) return 'Arquivo';
-
-    final index = cleanName.lastIndexOf('.');
-
-    if (index <= 0) return cleanName;
-
-    return cleanName.substring(0, index);
-  }
-
-  String _storageFilePath({
-    required String contractId,
-    required String measurementId,
-    required String paymentId,
-    required String attachmentId,
-    required String ext,
-  }) {
-    final cleanExt = ext.startsWith('.') ? ext : '.$ext';
-
-    return 'tenants/$tenantId/'
-        'financial/payments/report/$paymentId/files/'
-        '$attachmentId$cleanExt';
-  }
-
-  Reference _storageRef(String path) {
-    return _storage.ref(path);
+    return _roundMoney(
+      _safePositive(payment.inssPaymentValue) +
+          _safePositive(payment.irpfPaymentValue) +
+          _safePositive(payment.issPaymentValue),
+    );
   }
 
   bool _sameText(String? a, String? b) {
@@ -351,11 +336,18 @@ class ReportPaidRepository {
         'companyId': tenantId,
         'contractId': contractId,
         'measurementId': measurementId,
+        'uidContract': contractId,
+        'uidcontract': contractId,
         'recordPath': docRef.path,
         'sourceCollectionModel': 'tenant_financial_payments_report',
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': _uid(),
       });
+
+    _applyNullableFieldDeletes(
+      payload: payload,
+      data: data,
+    );
 
     final hasCreatedAt =
         existing.exists && existing.data()?['createdAt'] != null;
@@ -371,6 +363,64 @@ class ReportPaidRepository {
     await docRef.set(payload, SetOptions(merge: true));
   }
 
+  void _applyNullableFieldDeletes({
+    required Map<String, dynamic> payload,
+    required ReportPaidData data,
+  }) {
+    if (data.measurementOrder == null) {
+      payload['measurementOrder'] = FieldValue.delete();
+    }
+
+    if (data.fundingSourceId == null || data.fundingSourceId!.trim().isEmpty) {
+      payload['fundingSourceId'] = FieldValue.delete();
+    }
+
+    if (data.fundingSourceLabel == null ||
+        data.fundingSourceLabel!.trim().isEmpty) {
+      payload['fundingSourceLabel'] = FieldValue.delete();
+    }
+
+    if (data.paymentDate == null) {
+      payload['paymentDate'] = FieldValue.delete();
+    }
+
+    if (data.paymentValue == null) {
+      payload['paymentValue'] = FieldValue.delete();
+    }
+
+    if (data.inssPaymentDate == null) {
+      payload['inssPaymentDate'] = FieldValue.delete();
+    }
+
+    if (data.inssPaymentValue == null) {
+      payload['inssPaymentValue'] = FieldValue.delete();
+    }
+
+    if (data.irpfPaymentDate == null) {
+      payload['irpfPaymentDate'] = FieldValue.delete();
+    }
+
+    if (data.irpfPaymentValue == null) {
+      payload['irpfPaymentValue'] = FieldValue.delete();
+    }
+
+    if (data.issPaymentDate == null) {
+      payload['issPaymentDate'] = FieldValue.delete();
+    }
+
+    if (data.issPaymentValue == null) {
+      payload['issPaymentValue'] = FieldValue.delete();
+    }
+
+    if (data.note == null || data.note!.trim().isEmpty) {
+      payload['note'] = FieldValue.delete();
+    }
+
+    if (data.attachments == null || data.attachments!.isEmpty) {
+      payload['attachments'] = FieldValue.delete();
+    }
+  }
+
   Future<void> deletePayment({
     required String contractId,
     required String measurementId,
@@ -380,9 +430,9 @@ class ReportPaidRepository {
 
     final cleanPaymentId = paymentId.trim();
 
-    if (cleanPaymentId.isEmpty) {
-      return;
-    }
+    if (cleanPaymentId.isEmpty) return;
+
+    final deleteTasks = <Future<void>>[];
 
     try {
       final folder = _storage.ref(
@@ -392,11 +442,15 @@ class ReportPaidRepository {
       final list = await folder.listAll();
 
       for (final item in list.items) {
-        try {
-          await item.delete();
-        } catch (_) {}
+        deleteTasks.add(
+          item.delete().catchError((_) {}),
+        );
       }
     } catch (_) {}
+
+    if (deleteTasks.isNotEmpty) {
+      await Future.wait(deleteTasks);
+    }
 
     await _paymentDoc(paymentId: cleanPaymentId).delete();
   }
@@ -408,29 +462,47 @@ class ReportPaidRepository {
     required double newPaymentValue,
     required double measurementValue,
   }) async {
+    final cleanMeasurementValue = _roundMoney(measurementValue);
+
+    if (cleanMeasurementValue <= 0) {
+      throw Exception(
+        'O valor medido precisa ser maior que zero para registrar pagamento.',
+      );
+    }
+
     final payments = await getPaymentsByMeasurement(
       contractId: contractId,
       measurementId: measurementId,
     );
 
+    final cleanEditingPaymentId = editingPaymentId.trim();
+
     final totalWithoutCurrent = payments.fold<double>(
       0.0,
           (total, item) {
-        if ((item.id ?? '').trim() == editingPaymentId.trim()) {
+        final itemId = (item.id ?? '').trim();
+
+        if (itemId == cleanEditingPaymentId) {
           return total;
         }
 
-        return total + totalPaymentValue(item);
+        return _roundMoney(total + totalPaymentValue(item));
       },
     );
 
-    final nextTotal = totalWithoutCurrent + newPaymentValue;
+    final cleanNewPaymentValue = _roundMoney(newPaymentValue);
+    final nextTotal = _roundMoney(totalWithoutCurrent + cleanNewPaymentValue);
 
-    if (nextTotal > measurementValue) {
+    if (_moneyGreaterThan(nextTotal, cleanMeasurementValue)) {
+      final remaining = _roundMoney(cleanMeasurementValue - totalWithoutCurrent);
+
       throw Exception(
-        'O total pago não pode ultrapassar o valor medido. '
-            'Valor medido: ${measurementValue.toStringAsFixed(2)} | '
-            'Total informado: ${nextTotal.toStringAsFixed(2)}',
+        'O total pago não pode ultrapassar o valor medido.\n'
+            'Valor medido: ${cleanMeasurementValue.toStringAsFixed(2)}\n'
+            'Já pago nesta medição: ${totalWithoutCurrent.toStringAsFixed(2)}\n'
+            'Saldo disponível: ${remaining.toStringAsFixed(2)}\n'
+            'Novo pagamento informado: ${cleanNewPaymentValue.toStringAsFixed(2)}\n'
+            'Total após salvar: ${nextTotal.toStringAsFixed(2)}',
       );
     }
   }
@@ -442,10 +514,12 @@ class ReportPaidRepository {
     return payments.fold<double>(
       0.0,
           (total, item) {
-        return total +
-            (includeRetentions
-                ? totalPaymentValue(item)
-                : mainPaymentValue(item));
+        return _roundMoney(
+          total +
+              (includeRetentions
+                  ? totalPaymentValue(item)
+                  : mainPaymentValue(item)),
+        );
       },
     );
   }
@@ -453,8 +527,50 @@ class ReportPaidRepository {
   double sumRetentions(List<ReportPaidData> payments) {
     return payments.fold<double>(
       0.0,
-          (total, item) => total + retentionsValue(item),
+          (total, item) => _roundMoney(total + retentionsValue(item)),
     );
+  }
+
+  String _safeExt(String? name) {
+    final cleanName = (name ?? '').trim();
+
+    if (cleanName.isEmpty) return '.pdf';
+
+    final index = cleanName.lastIndexOf('.');
+
+    if (index <= 0) return '.pdf';
+
+    final ext = cleanName.substring(index).toLowerCase();
+
+    return ext.isEmpty ? '.pdf' : ext;
+  }
+
+  String _safeLabelFromName(String? name) {
+    final cleanName = (name ?? '').trim();
+
+    if (cleanName.isEmpty) return 'Arquivo';
+
+    final index = cleanName.lastIndexOf('.');
+
+    if (index <= 0) return cleanName;
+
+    return cleanName.substring(0, index);
+  }
+
+  String _storageFilePath({
+    required String paymentId,
+    required String attachmentId,
+    required String ext,
+  }) {
+    final cleanExt = ext.startsWith('.') ? ext : '.$ext';
+
+    return 'tenants/$tenantId/'
+        'financial/payments/report/$paymentId/files/'
+        '$attachmentId$cleanExt';
+  }
+
+  Reference _storageRef(String path) {
+    return _storage.ref(path);
   }
 
   Future<Attachment> pickAndUploadAttachment({
@@ -507,11 +623,9 @@ class ReportPaidRepository {
         ? forcedLabel!.trim()
         : _safeLabelFromName(file.name);
 
-    final attachmentId = _db.collection('_').doc().id;
+    final attachmentId = _paymentsCol().doc().id;
 
     final path = _storageFilePath(
-      contractId: cleanContractId,
-      measurementId: cleanMeasurementId,
       paymentId: cleanPaymentId,
       attachmentId: attachmentId,
       ext: ext,
@@ -522,7 +636,8 @@ class ReportPaidRepository {
     final task = ref.putData(
       bytes,
       SettableMetadata(
-        contentType: 'application/pdf',
+        contentType:
+        ext == '.pdf' ? 'application/pdf' : 'application/octet-stream',
         customMetadata: {
           'tenantId': tenantId,
           'companyId': tenantId,
@@ -576,53 +691,56 @@ class ReportPaidRepository {
   }) async {
     if (!hasTenant) return;
 
+    final cleanContractId = contractId.trim();
+    final cleanMeasurementId = measurementId.trim();
     final cleanPaymentId = paymentId.trim();
 
-    if (cleanPaymentId.isEmpty) return;
+    if (cleanContractId.isEmpty ||
+        cleanMeasurementId.isEmpty ||
+        cleanPaymentId.isEmpty) {
+      return;
+    }
 
     final docRef = _paymentDoc(paymentId: cleanPaymentId);
 
-    await docRef.set(
-      {
-        'tenantId': tenantId,
-        'companyId': tenantId,
-        'contractId': contractId,
-        'measurementId': measurementId,
-        'recordPath': docRef.path,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': _uid(),
-      },
-      SetOptions(merge: true),
-    );
+    await _db.runTransaction((transaction) async {
+      final snap = await transaction.get(docRef);
+      final data = snap.data() ?? <String, dynamic>{};
+      final raw = data['attachments'];
 
-    final snap = await docRef.get();
-    final data = snap.data() ?? <String, dynamic>{};
-    final raw = data['attachments'];
+      final list = <Map<String, dynamic>>[];
 
-    final list = <Map<String, dynamic>>[];
-
-    if (raw is List) {
-      for (final item in raw) {
-        if (item is Map) {
-          list.add(Map<String, dynamic>.from(item));
+      if (raw is List) {
+        for (final item in raw) {
+          if (item is Map) {
+            list.add(Map<String, dynamic>.from(item));
+          }
         }
       }
-    }
 
-    list.removeWhere((item) {
-      return item['id']?.toString() == attachment.id;
+      list.removeWhere((item) {
+        return item['id']?.toString() == attachment.id;
+      });
+
+      list.add(attachment.toMap());
+
+      transaction.set(
+        docRef,
+        {
+          'attachments': list,
+          'tenantId': tenantId,
+          'companyId': tenantId,
+          'contractId': cleanContractId,
+          'measurementId': cleanMeasurementId,
+          'uidContract': cleanContractId,
+          'uidcontract': cleanContractId,
+          'recordPath': docRef.path,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': _uid(),
+        },
+        SetOptions(merge: true),
+      );
     });
-
-    list.add(attachment.toMap());
-
-    await docRef.set(
-      {
-        'attachments': list,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': _uid(),
-      },
-      SetOptions(merge: true),
-    );
   }
 
   Future<void> deleteAttachment({
@@ -633,45 +751,54 @@ class ReportPaidRepository {
   }) async {
     if (!hasTenant) return;
 
+    final cleanContractId = contractId.trim();
+    final cleanMeasurementId = measurementId.trim();
     final cleanPaymentId = paymentId.trim();
 
-    if (cleanPaymentId.isEmpty) {
+    if (cleanContractId.isEmpty ||
+        cleanMeasurementId.isEmpty ||
+        cleanPaymentId.isEmpty) {
       return;
     }
 
     final docRef = _paymentDoc(paymentId: cleanPaymentId);
 
-    final snap = await docRef.get();
-    final data = snap.data() ?? <String, dynamic>{};
-    final raw = data['attachments'];
+    await _db.runTransaction((transaction) async {
+      final snap = await transaction.get(docRef);
+      final data = snap.data() ?? <String, dynamic>{};
+      final raw = data['attachments'];
 
-    final list = <Map<String, dynamic>>[];
+      final list = <Map<String, dynamic>>[];
 
-    if (raw is List) {
-      for (final item in raw) {
-        if (item is Map) {
-          list.add(Map<String, dynamic>.from(item));
+      if (raw is List) {
+        for (final item in raw) {
+          if (item is Map) {
+            list.add(Map<String, dynamic>.from(item));
+          }
         }
       }
-    }
 
-    list.removeWhere((item) {
-      return item['id']?.toString() == attachment.id;
+      list.removeWhere((item) {
+        return item['id']?.toString() == attachment.id;
+      });
+
+      transaction.set(
+        docRef,
+        {
+          'attachments': list.isEmpty ? FieldValue.delete() : list,
+          'tenantId': tenantId,
+          'companyId': tenantId,
+          'contractId': cleanContractId,
+          'measurementId': cleanMeasurementId,
+          'uidContract': cleanContractId,
+          'uidcontract': cleanContractId,
+          'recordPath': docRef.path,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': _uid(),
+        },
+        SetOptions(merge: true),
+      );
     });
-
-    await docRef.set(
-      {
-        'attachments': list.isEmpty ? FieldValue.delete() : list,
-        'tenantId': tenantId,
-        'companyId': tenantId,
-        'contractId': contractId,
-        'measurementId': measurementId,
-        'recordPath': docRef.path,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': _uid(),
-      },
-      SetOptions(merge: true),
-    );
 
     final path = attachment.path.trim();
 
@@ -691,49 +818,65 @@ class ReportPaidRepository {
   }) async {
     if (!hasTenant) return;
 
+    final cleanContractId = contractId.trim();
+    final cleanMeasurementId = measurementId.trim();
     final cleanPaymentId = paymentId.trim();
 
-    if (cleanPaymentId.isEmpty) {
+    if (cleanContractId.isEmpty ||
+        cleanMeasurementId.isEmpty ||
+        cleanPaymentId.isEmpty) {
       return;
     }
 
     final docRef = _paymentDoc(paymentId: cleanPaymentId);
 
-    final snap = await docRef.get();
-    final data = snap.data() ?? <String, dynamic>{};
-    final raw = data['attachments'];
+    await _db.runTransaction((transaction) async {
+      final snap = await transaction.get(docRef);
+      final data = snap.data() ?? <String, dynamic>{};
+      final raw = data['attachments'];
 
-    final list = <Map<String, dynamic>>[];
+      final list = <Map<String, dynamic>>[];
 
-    if (raw is List) {
-      for (final item in raw) {
-        if (item is Map) {
-          list.add(Map<String, dynamic>.from(item));
+      if (raw is List) {
+        for (final item in raw) {
+          if (item is Map) {
+            list.add(Map<String, dynamic>.from(item));
+          }
         }
       }
-    }
 
-    for (int index = 0; index < list.length; index++) {
-      final id = list[index]['id']?.toString() ?? '';
+      var replaced = false;
 
-      if (id == oldItem.id) {
-        list[index] = newItem.toMap();
-        break;
+      for (int index = 0; index < list.length; index++) {
+        final id = list[index]['id']?.toString() ?? '';
+
+        if (id == oldItem.id) {
+          list[index] = newItem.toMap();
+          replaced = true;
+          break;
+        }
       }
-    }
 
-    await docRef.set(
-      {
-        'attachments': list,
-        'tenantId': tenantId,
-        'companyId': tenantId,
-        'contractId': contractId,
-        'measurementId': measurementId,
-        'recordPath': docRef.path,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': _uid(),
-      },
-      SetOptions(merge: true),
-    );
+      if (!replaced) {
+        return;
+      }
+
+      transaction.set(
+        docRef,
+        {
+          'attachments': list.isEmpty ? FieldValue.delete() : list,
+          'tenantId': tenantId,
+          'companyId': tenantId,
+          'contractId': cleanContractId,
+          'measurementId': cleanMeasurementId,
+          'uidContract': cleanContractId,
+          'uidcontract': cleanContractId,
+          'recordPath': docRef.path,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': _uid(),
+        },
+        SetOptions(merge: true),
+      );
+    });
   }
 }

@@ -56,10 +56,20 @@ class ReportExecutedTable extends StatelessWidget {
     return SipGedFormatDates.dateToDdMMyyyy(value);
   }
 
+  double _roundMoney(double value) {
+    if (!value.isFinite) return 0.0;
+
+    final rounded = (value * 100).roundToDouble() / 100;
+
+    if (rounded == 0.0) return 0.0;
+
+    return rounded;
+  }
+
   String _money(double? value) {
     if (value == null) return '-';
 
-    return SipGedFormatMoney.doubleToText(value);
+    return SipGedFormatMoney.doubleToText(_roundMoney(value));
   }
 
   String _intText(int? value) {
@@ -73,17 +83,21 @@ class ReportExecutedTable extends StatelessWidget {
 
     if (!v.isFinite || v <= 0) return 0.0;
 
-    return v;
+    return _roundMoney(v);
   }
 
   double _retentionsValue(ReportPaidData payment) {
-    return _positive(payment.inssPaymentValue) +
-        _positive(payment.irpfPaymentValue) +
-        _positive(payment.issPaymentValue);
+    return _roundMoney(
+      _positive(payment.inssPaymentValue) +
+          _positive(payment.irpfPaymentValue) +
+          _positive(payment.issPaymentValue),
+    );
   }
 
   double _paymentTotalValue(ReportPaidData payment) {
-    return _positive(payment.paymentValue) + _retentionsValue(payment);
+    return _roundMoney(
+      _positive(payment.paymentValue) + _retentionsValue(payment),
+    );
   }
 
   String _itemKey(ReportExecutedData item) {
@@ -156,15 +170,26 @@ class ReportExecutedTable extends StatelessWidget {
   double _totalPaymentsForMeasurement(ReportExecutedData measurement) {
     return _paymentsForMeasurement(measurement).fold<double>(
       0.0,
-          (total, payment) => total + _paymentTotalValue(payment),
+          (total, payment) {
+        return _roundMoney(total + _paymentTotalValue(payment));
+      },
     );
   }
 
   double _totalRetentionsForMeasurement(ReportExecutedData measurement) {
     return _paymentsForMeasurement(measurement).fold<double>(
       0.0,
-          (total, payment) => total + _retentionsValue(payment),
+          (total, payment) {
+        return _roundMoney(total + _retentionsValue(payment));
+      },
     );
+  }
+
+  double _measurementSaldo(ReportExecutedData measurement) {
+    final measured = _roundMoney(measurement.value ?? 0.0);
+    final paid = _totalPaymentsForMeasurement(measurement);
+
+    return _roundMoney(measured - paid);
   }
 
   List<PagedSubColumn<ReportPaidData>> _paymentColumns() {
@@ -245,7 +270,9 @@ class ReportExecutedTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final totalReports = measurementsData.fold<double>(
       0.0,
-          (previousTotal, item) => previousTotal + (item.value ?? 0.0),
+          (previousTotal, item) {
+        return _roundMoney(previousTotal + _positive(item.value));
+      },
     );
 
     return Column(
@@ -338,12 +365,7 @@ class ReportExecutedTable extends StatelessWidget {
             ),
             PagedColum<ReportExecutedData>(
               title: 'SALDO',
-              getter: (item) {
-                final measured = item.value ?? 0.0;
-                final paid = _totalPaymentsForMeasurement(item);
-
-                return _money(measured - paid);
-              },
+              getter: (item) => _money(_measurementSaldo(item)),
               textAlign: TextAlign.center,
               width: 190,
             ),

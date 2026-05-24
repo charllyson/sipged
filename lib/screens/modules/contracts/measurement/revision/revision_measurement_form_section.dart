@@ -6,15 +6,19 @@ import 'package:flutter/services.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 
-import 'package:sipged/_utils/mask/sipged_masks.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
+import 'package:sipged/_utils/mask/sipged_masks.dart';
+import 'package:sipged/_utils/theme/sipged_theme.dart';
 
-import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
-import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
-import 'package:sipged/_widgets/list/files/box_list_files.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/box_list_files.dart';
+import 'package:sipged/_widgets/menu/tab_form/tab_form.dart';
+
+import 'package:sipged/screens/modules/financial/payments/revision/revision_payment_form_section.dart';
 
 class RevisionMeasurementFormSection extends StatelessWidget {
   const RevisionMeasurementFormSection({
@@ -42,12 +46,18 @@ class RevisionMeasurementFormSection extends StatelessWidget {
     required this.orderOptions,
     required this.greyOrderItems,
     required this.onChangedOrder,
+    this.paymentsChild,
+    this.initialTabIndex = 0,
+    this.onTabChanged,
+    this.onPaymentsChanged,
   });
 
   final bool isEditable;
   final bool formValidated;
+
   final RevisionMeasurementData? selectedRevisionMeasurement;
   final String? currentRevisionMeasurementId;
+
   final ContractData contractData;
 
   final TextEditingController orderRevisionController;
@@ -79,38 +89,27 @@ class RevisionMeasurementFormSection extends StatelessWidget {
   final Set<String> greyOrderItems;
   final void Function(String?) onChangedOrder;
 
-  double _inputWidth(BuildContext context, {required double reserved}) {
-    return responsiveInputWidth(
-      context: context,
-      itemsPerLine: 4,
-      reservedWidth: reserved,
-      spacing: 12.0,
-      margin: 12.0,
-      extraPadding: 24.0,
-      spaceBetweenReserved: 12.0,
-    );
-  }
+  final Widget? paymentsChild;
+
+  final int initialTabIndex;
+  final ValueChanged<int>? onTabChanged;
+
+  final Future<void> Function()? onPaymentsChanged;
 
   Widget _input(
       double width,
       TextEditingController controller,
       String label, {
+        required bool isEditable,
         bool enabled = true,
         bool tooltip = false,
         bool money = false,
         bool date = false,
-        List<TextInputFormatter>? mask,
+        TextInputFormatter? mask,
       }) {
-    final formatters = <TextInputFormatter>[
-      if (date) FilteringTextInputFormatter.digitsOnly,
-      if (date) SipGedMasks.dateDDMMYYYY,
-      if (money) const SipGedMoneyFormatter(),
-      if (mask != null) ...mask,
-    ];
-
-    final customTextField = CustomTextField(
+    final field = CustomTextField(
       width: width,
-      enabled: enabled,
+      enabled: enabled && isEditable,
       labelText: label,
       controller: controller,
       keyboardType: money
@@ -122,86 +121,109 @@ class RevisionMeasurementFormSection extends StatelessWidget {
       prefixStyle: const TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF111827),
+        color: SipGedTheme.textDark,
       ),
-      inputFormatters: formatters,
+      inputFormatters: [
+        if (date) FilteringTextInputFormatter.digitsOnly,
+        if (date) SipGedMasks.dateDDMMYYYY,
+        if (money) const SipGedMoneyFormatter(),
+        ?mask,
+      ],
     );
 
-    if (!tooltip) return customTextField;
+    if (!tooltip) return field;
 
     return Tooltip(
       message: 'Este campo é calculado automaticamente.',
-      child: customTextField,
+      child: field,
     );
   }
 
   Widget _buildSideBox({
     required double width,
   }) {
-    final progress = sideUploadProgress;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        BoxListFiles(
-          title: 'Arquivos da Revisão',
-          items: sideItems,
-          selectedIndex: selectedSideIndex,
-          onAddPressed:
-          selectedRevisionMeasurement != null && isEditable && !sideLoading
-              ? onAddSideItem
-              : null,
-          onTap: onTapSideItem,
-          onDelete: isEditable && !sideLoading ? onDeleteSideItem : null,
-          enableRename: isEditable && !sideLoading,
-          onRenamePersist: onRenamePersist,
-          onItemsChanged: isEditable && !sideLoading ? onSideItemsChanged : null,
-          width: width,
-        ),
-        if (sideLoading) ...[
-          const SizedBox(height: 8),
-          SizedBox(
-            width: width,
-            child: LinearProgressIndicator(
-              value: progress?.clamp(0.0, 1.0),
-              minHeight: 4,
-            ),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: width,
-            child: Text(
-              progress == null
-                  ? 'Processando arquivo...'
-                  : 'Enviando arquivo ${(progress.clamp(0.0, 1.0) * 100).toStringAsFixed(0)}%',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF6B7280),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ],
+    return BoxListFiles(
+      title: 'Arquivos da Revisão',
+      items: sideItems,
+      selectedIndex: selectedSideIndex,
+      onAddPressed:
+      selectedRevisionMeasurement != null && isEditable && !sideLoading
+          ? onAddSideItem
+          : null,
+      onTap: onTapSideItem,
+      onDelete: isEditable && !sideLoading ? onDeleteSideItem : null,
+      enableRename:
+      isEditable && !sideLoading && selectedRevisionMeasurement != null,
+      onRenamePersist: onRenamePersist,
+      onItemsChanged: isEditable && !sideLoading ? onSideItemsChanged : null,
+      loading: sideLoading,
+      uploadProgress: sideUploadProgress,
+      width: width,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final mediaWidth = MediaQuery.of(context).size.width;
-    final isSmall = mediaWidth < 700;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isSmallScreen = constraints.maxWidth < 700;
+        final double sideWidth = isSmallScreen ? constraints.maxWidth : 300.0;
 
-    final double sideWidth = isSmall ? mediaWidth : 300.0;
-    final double reserved = isSmall ? 0.0 : sideWidth + 12.0;
-    final double inputWidth = _inputWidth(context, reserved: reserved);
+        final double inputsWidth = responsiveInputWidth(
+          context: context,
+          itemsPerLine: 4,
+          reservedWidth: isSmallScreen ? 0.0 : sideWidth + 12.0,
+          spacing: 12.0,
+          margin: 12.0,
+          extraPadding: 24.0,
+          spaceBetweenReserved: 12.0,
+        );
 
+        return TabForm(
+          initialIndex: initialTabIndex,
+          onChanged: onTabChanged,
+          minHeight: 170,
+          items: [
+            TabFormItem(
+              title: 'Revisões',
+              icon: Icons.fact_check_outlined,
+              child: _buildRevisionTab(
+                context: context,
+                isSmallScreen: isSmallScreen,
+                sideWidth: sideWidth,
+                inputsWidth: inputsWidth,
+              ),
+            ),
+            TabFormItem(
+              title: 'Pagamentos',
+              icon: Icons.payments_outlined,
+              child: paymentsChild ??
+                  RevisionPaymentFormSection(
+                    contractData: contractData,
+                    selectedRevisionMeasurement: selectedRevisionMeasurement,
+                    orderController: orderRevisionController,
+                    isEditable: isEditable,
+                    onPaymentsChanged: onPaymentsChanged,
+                  ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRevisionTab({
+    required BuildContext context,
+    required bool isSmallScreen,
+    required double sideWidth,
+    required double inputsWidth,
+  }) {
     final camposWrap = Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
         DropDownChange(
-          width: inputWidth,
+          width: inputsWidth,
           controller: orderRevisionController,
           labelText: 'Ordem da revisão',
           items: orderOptions,
@@ -210,41 +232,47 @@ class RevisionMeasurementFormSection extends StatelessWidget {
           onChanged: onChangedOrder,
         ),
         _input(
-          inputWidth,
+          inputsWidth,
           processNumberRevisionController,
           'Nº processo da revisão',
-          enabled: isEditable && !sideLoading,
-          mask: [SipGedMasks.processo],
+          isEditable: isEditable,
+          enabled: !sideLoading,
+          mask: SipGedMasks.processo,
         ),
         DateFieldChange(
-          width: inputWidth,
+          width: inputsWidth,
           enabled: isEditable && !sideLoading,
           controller: dateRevisionController,
           initialValue: selectedRevisionMeasurement?.date,
           labelText: 'Data da revisão',
           onChanged: (date) {
-            selectedRevisionMeasurement?.date = date;
+            if (selectedRevisionMeasurement != null) {
+              selectedRevisionMeasurement!.date = date;
+            }
           },
         ),
         _input(
-          inputWidth,
+          inputsWidth,
           valueRevisionController,
           'Valor da revisão',
-          enabled: isEditable && !sideLoading,
+          isEditable: isEditable,
+          enabled: !sideLoading,
           money: true,
         ),
       ],
     );
 
-    final botoes = Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+    final botoesDireita = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         TextButton.icon(
           icon: const Icon(Icons.save),
           label: Text(
             currentRevisionMeasurementId != null ? 'Atualizar' : 'Salvar',
           ),
-          onPressed: formValidated && isEditable && !sideLoading ? onSave : null,
+          onPressed: formValidated && isEditable && !sideLoading
+              ? onSave
+              : null,
         ),
         const SizedBox(width: 12),
         if (currentRevisionMeasurementId != null)
@@ -256,41 +284,46 @@ class RevisionMeasurementFormSection extends StatelessWidget {
       ],
     );
 
+    final barraAcoes = Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: botoesDireita,
+      ),
+    );
+
     final corpo = Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         camposWrap,
         const SizedBox(height: 12),
-        botoes,
+        barraAcoes,
       ],
     );
 
     final side = _buildSideBox(width: sideWidth);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: isSmall
-          ? Column(
+    if (isSmallScreen) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           side,
           const SizedBox(height: 12),
           corpo,
         ],
-      )
-          : Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          side,
-          const SizedBox(width: 12),
-          Expanded(child: corpo),
-        ],
-      ),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        side,
+        const SizedBox(width: 12),
+        Expanded(child: corpo),
+      ],
     );
   }
 }

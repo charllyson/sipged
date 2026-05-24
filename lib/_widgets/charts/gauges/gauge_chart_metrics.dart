@@ -1,3 +1,5 @@
+// lib/_widgets/charts/gauges/gauge_chart_metrics.dart
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -45,6 +47,9 @@ class GaugeChartMetrics {
     required String centerText,
     required String footerText,
     required String headerText,
+    bool isSeriesMode = false,
+    bool showLegend = false,
+    int seriesCount = 1,
   }) {
     final bool ultraCompact = maxWidth <= 210 || maxHeight <= 180;
     final bool veryCompact = maxWidth <= 250 || maxHeight <= 210;
@@ -52,6 +57,7 @@ class GaugeChartMetrics {
 
     final bool hasHeader = headerText.trim().isNotEmpty;
     final bool hasFooter = footerText.trim().isNotEmpty;
+    final bool hasLegend = isSeriesMode && showLegend && seriesCount > 1;
 
     final EdgeInsets cardPadding = ultraCompact
         ? const EdgeInsets.symmetric(horizontal: 8, vertical: 8)
@@ -111,6 +117,16 @@ class GaugeChartMetrics {
         : 6.0
         : 0.0;
 
+    final double legendReservedHeight = hasLegend
+        ? ultraCompact
+        ? 18.0
+        : veryCompact
+        ? 20.0
+        : compact
+        ? 22.0
+        : 24.0
+        : 0.0;
+
     final double reservedHeaderHeight =
     hasHeader ? headerFontSize * 1.20 : 0.0;
 
@@ -123,14 +139,23 @@ class GaugeChartMetrics {
           reservedHeaderHeight -
           reservedFooterHeight -
           headerSpacing -
-          footerSpacing,
+          footerSpacing -
+          legendReservedHeight,
     );
 
     final double circleAreaWidth = innerWidth;
 
     final double rawDiameter = math.min(circleAreaWidth, circleAreaHeight);
 
-    final double diameterScale = ultraCompact
+    final double diameterScale = isSeriesMode
+        ? ultraCompact
+        ? 0.88
+        : veryCompact
+        ? 0.90
+        : compact
+        ? 0.93
+        : 0.96
+        : ultraCompact
         ? 0.92
         : veryCompact
         ? 0.94

@@ -10,6 +10,7 @@ import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
 import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
 
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
@@ -60,7 +61,7 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
     final text = value.toString().trim();
 
     if (text.isEmpty) return null;
-    if (text == 'null') return null;
+    if (text.toLowerCase() == 'null') return null;
 
     return text;
   }
@@ -173,17 +174,49 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
     });
   }
 
-  void _clearFilters() {
-    _cubit.clearAllFilters();
+  void _togglePanel() {
+    setState(() {
+      _showPanel = !_showPanel;
+    });
   }
 
-  void _togglePanel() {
-    setState(() => _showPanel = !_showPanel);
+  Widget _buildPanelToggleButton() {
+    final active = _showPanel;
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 180),
+      opacity: active ? 1.0 : 0.58,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: active
+              ? const [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ]
+              : const [],
+        ),
+        child: CircleButtonChange(
+          tooltip: active ? 'Ocultar painel' : 'Mostrar painel',
+          icon: active
+              ? Icons.view_sidebar_rounded
+              : Icons.view_sidebar_outlined,
+          onPressed: _togglePanel,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
+    return BlocProvider<ActiveRoadsCubit>.value(
       value: _cubit,
       child: BlocListener<TenantCubit, TenantState>(
         listener: (context, tenantState) {
@@ -210,24 +243,7 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
               appBar: UpBar(
                 showPhotoMenu: true,
                 actions: [
-                  IconButton(
-                    tooltip: 'Limpar filtros',
-                    icon: const Icon(
-                      Icons.filter_alt_off,
-                      color: Colors.white,
-                    ),
-                    onPressed: _clearFilters,
-                  ),
-                  IconButton(
-                    tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
-                    icon: Icon(
-                      _showPanel
-                          ? Icons.view_sidebar
-                          : Icons.view_sidebar_outlined,
-                      color: Colors.white,
-                    ),
-                    onPressed: _togglePanel,
-                  ),
+                  _buildPanelToggleButton(),
                 ],
               ),
               body: BlocBuilder<ActiveRoadsCubit, ActiveRoadsState>(

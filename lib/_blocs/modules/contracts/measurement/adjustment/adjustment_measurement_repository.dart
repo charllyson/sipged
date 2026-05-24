@@ -1,3 +1,5 @@
+// lib/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_repository.dart
+
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -51,10 +53,16 @@ class AdjustmentMeasurementRepository {
   String get currentTenantId => _tenantId;
 
   void setActiveTenantId(String value) {
-    _tenantId = _cleanRequiredTenantId(
+    final clean = _cleanRequiredTenantId(
       value,
       context: 'AdjustmentMeasurementRepository.setActiveTenantId',
     );
+
+    if (_tenantId == clean) {
+      return;
+    }
+
+    _tenantId = clean;
   }
 
   void _requireTenant() {
@@ -114,6 +122,52 @@ class AdjustmentMeasurementRepository {
     return _auth.currentUser?.uid ?? '';
   }
 
+  double _asDouble(dynamic value) {
+    if (value == null) return 0.0;
+
+    if (value is num) return value.toDouble();
+
+    if (value is String) {
+      final normalized = value
+          .replaceAll('R\$', '')
+          .replaceAll(' ', '')
+          .replaceAll('.', '')
+          .replaceAll(',', '.')
+          .trim();
+
+      return double.tryParse(normalized) ?? 0.0;
+    }
+
+    return 0.0;
+  }
+
+  double _sumField(
+      QuerySnapshot<Map<String, dynamic>> snapshot,
+      List<String> possibleKeys,
+      ) {
+    double total = 0.0;
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      for (final key in possibleKeys) {
+        final value = data[key];
+
+        if (value is num) {
+          total += value.toDouble();
+          break;
+        }
+
+        if (value is String) {
+          total += _asDouble(value);
+          break;
+        }
+      }
+    }
+
+    return total;
+  }
+
   bool _isTenantAdjustmentPath(String path) {
     _requireTenant();
 
@@ -144,11 +198,7 @@ class AdjustmentMeasurementRepository {
 
     final qs = await _col(contractId).orderBy('order').get();
 
-    final list = qs.docs.map(AdjustmentMeasurementData.fromDocument).toList();
-
-    list.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
-
-    return list;
+    return qs.docs.map(AdjustmentMeasurementData.fromDocument).toList();
   }
 
   Future<List<AdjustmentMeasurementData>>
@@ -248,6 +298,8 @@ class AdjustmentMeasurementRepository {
     final snap = await docRef.get();
     final data = snap.data();
 
+    final deleteTasks = <Future<void>>[];
+
     if (data != null) {
       final raw = data['attachments'];
 
@@ -259,7 +311,7 @@ class AdjustmentMeasurementRepository {
             );
 
             if (att.path.trim().isNotEmpty) {
-              await deleteStorageByPath(att.path);
+              deleteTasks.add(deleteStorageByPath(att.path));
             }
           }
         }
@@ -275,11 +327,15 @@ class AdjustmentMeasurementRepository {
       final list = await folder.listAll();
 
       for (final item in list.items) {
-        try {
-          await item.delete();
-        } catch (_) {}
+        deleteTasks.add(
+          item.delete().catchError((_) {}),
+        );
       }
     } catch (_) {}
+
+    if (deleteTasks.isNotEmpty) {
+      await Future.wait(deleteTasks);
+    }
 
     await docRef.delete();
 
@@ -726,70 +782,70 @@ class AdjustmentMeasurementRepository {
       throw Exception('contractId é obrigatório para recalcular percentual.');
     }
 
-    double total = 0.0;
+    final contractRef = _contractDoc(cleanContractId);
 
-    final reps = await _contractDoc(cleanContractId)
-        .collection('reportsMeasurement')
-        .get();
+    final futures = await Future.wait<dynamic>([
+      contractRef.collection('reportsMeasurement').get(),
+      contractRef.collection(AdjustmentMeasurementData.collectionName).get(),
+      contractRef.collection('revisionsMeasurement').get(),
+      contractRef.get(),
+      contractRef.collection('additives').get(),
+      contractRef.collection('apostilles').get(),
+    ]);
 
-    for (final doc in reps.docs) {
-      final value = doc.data()['value'];
-      total += value is num ? value.toDouble() : 0.0;
-    }
+    final reportsSnapshot =
+    futures[0] as QuerySnapshot<Map<String, dynamic>>;
+    final adjustmentsSnapshot =
+    futures[1] as QuerySnapshot<Map<String, dynamic>>;
+    final revisionsSnapshot =
+    futures[2] as QuerySnapshot<Map<String, dynamic>>;
+    final contractSnap =
+    futures[3] as DocumentSnapshot<Map<String, dynamic>>;
+    final additivesSnapshot =
+    futures[4] as QuerySnapshot<Map<String, dynamic>>;
+    final apostillesSnapshot =
+    futures[5] as QuerySnapshot<Map<String, dynamic>>;
 
-    final adjs = await _contractDoc(cleanContractId)
-        .collection(AdjustmentMeasurementData.collectionName)
-        .get();
+    final total = _sumField(
+      reportsSnapshot,
+      const ['value', 'measurementinitialvalue', 'measurementInitialValue'],
+    ) +
+        _sumField(
+          adjustmentsSnapshot,
+          const ['value', 'adjustmentValue', 'adjustmentvalue'],
+        ) +
+        _sumField(
+          revisionsSnapshot,
+          const ['value', 'revisionValue', 'revisionvalue'],
+        );
 
-    for (final doc in adjs.docs) {
-      final value = doc.data()['value'];
-      total += value is num ? value.toDouble() : 0.0;
-    }
+    final contractData = contractSnap.data() ?? <String, dynamic>{};
 
-    final revs = await _contractDoc(cleanContractId)
-        .collection('revisionsMeasurement')
-        .get();
+    final baseInicial = _asDouble(
+      contractData['initialContractValue'],
+    );
 
-    for (final doc in revs.docs) {
-      final value = doc.data()['value'];
-      total += value is num ? value.toDouble() : 0.0;
-    }
+    final totalAditivos = _sumField(
+      additivesSnapshot,
+      const ['additiveValue', 'additivevalue', 'value'],
+    );
 
-    final contractSnap = await _contractDoc(cleanContractId).get();
-    final initialValue = contractSnap.data()?['initialContractValue'];
-    final baseInicial = initialValue is num ? initialValue.toDouble() : 0.0;
-
-    final adds =
-    await _contractDoc(cleanContractId).collection('additives').get();
-
-    double totalAditivos = 0.0;
-
-    for (final doc in adds.docs) {
-      final value = doc.data()['additiveValue'] ?? doc.data()['additivevalue'];
-      totalAditivos += value is num ? value.toDouble() : 0.0;
-    }
-
-    final apos =
-    await _contractDoc(cleanContractId).collection('apostilles').get();
-
-    double totalApostilas = 0.0;
-
-    for (final doc in apos.docs) {
-      final value =
-          doc.data()['apostilleValue'] ?? doc.data()['apostillevalue'];
-      totalApostilas += value is num ? value.toDouble() : 0.0;
-    }
+    final totalApostilas = _sumField(
+      apostillesSnapshot,
+      const ['apostilleValue', 'apostillevalue', 'value'],
+    );
 
     final totalBase = baseInicial + totalAditivos + totalApostilas;
 
     final percent = totalBase > 0 ? (total / totalBase) * 100.0 : 0.0;
 
-    await _contractDoc(cleanContractId).set(
+    await contractRef.set(
       {
         'financialPercentage': percent,
         'tenantId': tenantId,
         'companyId': tenantId,
         'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': _uid(),
       },
       SetOptions(merge: true),
     );

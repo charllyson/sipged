@@ -3,18 +3,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:sipged/_utils/mask/sipged_masks.dart';
-import 'package:sipged/_utils/formatters/sipged_format_money.dart';
-
-import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/DataTime/date_field_change.dart';
-import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
-import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
-
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
-import 'package:sipged/_widgets/list/files/box_list_files.dart';
+
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
+import 'package:sipged/_utils/mask/sipged_masks.dart';
+import 'package:sipged/_utils/theme/sipged_theme.dart';
+
+import 'package:sipged/_widgets/DataTime/date_field_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/box_list_files.dart';
+import 'package:sipged/_widgets/menu/tab_form/tab_form.dart';
+import 'package:sipged/screens/modules/financial/payments/adjustment/adjustment_payment_form_section.dart';
 
 class AdjustmentMeasurementFormSection extends StatelessWidget {
   const AdjustmentMeasurementFormSection({
@@ -42,6 +45,10 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
     required this.orderOptions,
     required this.greyOrderItems,
     required this.onChangedOrder,
+    this.paymentsChild,
+    this.initialTabIndex = 0,
+    this.onTabChanged,
+    this.onPaymentsChanged,
   });
 
   final bool isEditable;
@@ -81,41 +88,27 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
   final Set<String> greyOrderItems;
   final void Function(String?) onChangedOrder;
 
-  double _inputWidth(
-      BuildContext context, {
-        required double reserved,
-      }) {
-    return responsiveInputWidth(
-      context: context,
-      itemsPerLine: 4,
-      reservedWidth: reserved,
-      spacing: 12.0,
-      margin: 12.0,
-      extraPadding: 24.0,
-      spaceBetweenReserved: 12.0,
-    );
-  }
+  final Widget? paymentsChild;
+
+  final int initialTabIndex;
+  final ValueChanged<int>? onTabChanged;
+
+  final Future<void> Function()? onPaymentsChanged;
 
   Widget _input(
       double width,
       TextEditingController controller,
       String label, {
+        required bool isEditable,
         bool enabled = true,
         bool tooltip = false,
         bool money = false,
         bool date = false,
-        List<TextInputFormatter>? mask,
+        TextInputFormatter? mask,
       }) {
-    final formatters = <TextInputFormatter>[
-      if (date) FilteringTextInputFormatter.digitsOnly,
-      if (date) SipGedMasks.dateDDMMYYYY,
-      if (money) const SipGedMoneyFormatter(),
-      if (mask != null) ...mask,
-    ];
-
     final field = CustomTextField(
       width: width,
-      enabled: enabled,
+      enabled: enabled && isEditable,
       labelText: label,
       controller: controller,
       keyboardType: money
@@ -127,9 +120,14 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       prefixStyle: const TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF111827),
+        color: SipGedTheme.textDark,
       ),
-      inputFormatters: formatters,
+      inputFormatters: [
+        if (date) FilteringTextInputFormatter.digitsOnly,
+        if (date) SipGedMasks.dateDDMMYYYY,
+        if (money) const SipGedMoneyFormatter(),
+        ?mask,
+      ],
     );
 
     if (!tooltip) return field;
@@ -154,7 +152,9 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
           : null,
       onTap: onTapSideItem,
       onDelete: isEditable && !sideLoading ? onDeleteSideItem : null,
-      enableRename: isEditable && !sideLoading,
+      enableRename: isEditable &&
+          !sideLoading &&
+          selectedAdjustmentMeasurement != null,
       onRenamePersist: onRenamePersist,
       onItemsChanged: isEditable && !sideLoading ? onSideItemsChanged : null,
       loading: sideLoading,
@@ -165,58 +165,108 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mediaWidth = MediaQuery.of(context).size.width;
-    final bool isSmall = mediaWidth < 700;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isSmallScreen = constraints.maxWidth < 700;
+        final double sideWidth =
+        isSmallScreen ? constraints.maxWidth : 300.0;
 
-    final double sideWidth = isSmall ? mediaWidth : 300.0;
-    final double reserved = isSmall ? 0.0 : sideWidth + 12.0;
-    final double inputWidth = _inputWidth(
-      context,
-      reserved: reserved,
+        final double inputsWidth = responsiveInputWidth(
+          context: context,
+          itemsPerLine: 4,
+          reservedWidth: isSmallScreen ? 0.0 : sideWidth + 12.0,
+          spacing: 12.0,
+          margin: 12.0,
+          extraPadding: 24.0,
+          spaceBetweenReserved: 12.0,
+        );
+
+        return TabForm(
+          initialIndex: initialTabIndex,
+          onChanged: onTabChanged,
+          minHeight: 170,
+          items: [
+            TabFormItem(
+              title: 'Reajustes',
+              icon: Icons.trending_up_outlined,
+              child: _buildAdjustmentTab(
+                context: context,
+                isSmallScreen: isSmallScreen,
+                sideWidth: sideWidth,
+                inputsWidth: inputsWidth,
+              ),
+            ),
+            TabFormItem(
+              title: 'Pagamentos',
+              icon: Icons.payments_outlined,
+              child: paymentsChild ??
+                  AdjustmentPaymentFormSection(
+                    contractData: contractData,
+                    selectedAdjustmentMeasurement:
+                    selectedAdjustmentMeasurement,
+                    orderController: orderAdjustmentController,
+                    isEditable: isEditable,
+                    onPaymentsChanged: onPaymentsChanged,
+                  ),
+            ),
+          ],
+        );
+      },
     );
+  }
 
+  Widget _buildAdjustmentTab({
+    required BuildContext context,
+    required bool isSmallScreen,
+    required double sideWidth,
+    required double inputsWidth,
+  }) {
     final camposWrap = Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
         DropDownChange(
-          width: inputWidth,
+          width: inputsWidth,
           controller: orderAdjustmentController,
-          labelText: 'Ordem da medição',
+          labelText: 'Ordem do reajuste',
           items: orderOptions,
           greyItems: greyOrderItems,
           enabled: isEditable && !sideLoading,
           onChanged: onChangedOrder,
         ),
         _input(
-          inputWidth,
+          inputsWidth,
           processNumberAdjustmentController,
-          'Nº processo da medição',
-          enabled: isEditable && !sideLoading,
-          mask: [SipGedMasks.processo],
+          'Nº processo do reajuste',
+          isEditable: isEditable,
+          enabled: !sideLoading,
+          mask: SipGedMasks.processo,
         ),
         DateFieldChange(
-          width: inputWidth,
+          width: inputsWidth,
           enabled: isEditable && !sideLoading,
           controller: dateAdjustmentController,
           initialValue: selectedAdjustmentMeasurement?.date,
-          labelText: 'Data da Medição',
+          labelText: 'Data do Reajuste',
           onChanged: (date) {
-            selectedAdjustmentMeasurement?.date = date;
+            if (selectedAdjustmentMeasurement != null) {
+              selectedAdjustmentMeasurement!.date = date;
+            }
           },
         ),
         _input(
-          inputWidth,
+          inputsWidth,
           valueAdjustmentController,
-          'Valor da medição',
-          enabled: isEditable && !sideLoading,
+          'Valor do reajuste',
+          isEditable: isEditable,
+          enabled: !sideLoading,
           money: true,
         ),
       ],
     );
 
-    final botoes = Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+    final botoesDireita = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         TextButton.icon(
           icon: const Icon(Icons.save),
@@ -237,47 +287,46 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       ],
     );
 
+    final barraAcoes = Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: botoesDireita,
+      ),
+    );
+
     final corpo = Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         camposWrap,
         const SizedBox(height: 12),
-        botoes,
+        barraAcoes,
       ],
     );
 
-    final side = _buildSideBox(
-      width: sideWidth,
-    );
+    final side = _buildSideBox(width: sideWidth);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(
-          color: Colors.grey,
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: isSmall
-          ? Column(
+    if (isSmallScreen) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           side,
           const SizedBox(height: 12),
           corpo,
         ],
-      )
-          : Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          side,
-          const SizedBox(width: 12),
-          Expanded(
-            child: corpo,
-          ),
-        ],
-      ),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        side,
+        const SizedBox(width: 12),
+        Expanded(child: corpo),
+      ],
     );
   }
 }

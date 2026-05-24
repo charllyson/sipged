@@ -11,7 +11,7 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
 
-import 'package:sipged/_widgets/images/mini_avatars/mini_avatars.dart';
+import 'package:sipged/_widgets/images/avatar/mini_avatars.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';

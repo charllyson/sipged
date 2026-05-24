@@ -1,3 +1,5 @@
+// lib/_widgets/charts/gauges/gauge_chart_shimmer_metrics.dart
+
 import 'dart:math' as math;
 
 class GaugeChartShimmerMetrics {
@@ -16,6 +18,9 @@ class GaugeChartShimmerMetrics {
   final bool showHeader;
   final bool showFooter;
 
+  final int ringsCount;
+  final double ringGap;
+
   const GaugeChartShimmerMetrics({
     required this.radius,
     required this.lineWidth,
@@ -27,6 +32,8 @@ class GaugeChartShimmerMetrics {
     required this.footerSpacing,
     required this.showHeader,
     required this.showFooter,
+    required this.ringsCount,
+    required this.ringGap,
   });
 
   static GaugeChartShimmerMetrics resolve({
@@ -35,7 +42,17 @@ class GaugeChartShimmerMetrics {
     double? customRadius,
     bool hasHeader = true,
     bool hasFooter = true,
+    int ringsCount = 1,
+    double strokeScale = 1.0,
+
+    /// Valores vindos diretamente do GaugeChartMetrics/GaugeChartChange.
+    ///
+    /// Quando informados, têm prioridade sobre o cálculo automático.
+    double? resolvedRadius,
+    double? resolvedLineWidth,
   }) {
+    final int safeRingsCount = ringsCount.clamp(1, 6);
+
     final bool ultraCompact = maxWidth <= 210 || maxHeight <= 180;
     final bool veryCompact = maxWidth <= 250 || maxHeight <= 210;
 
@@ -81,11 +98,15 @@ class GaugeChartShimmerMetrics {
 
     final double autoRadius = rawDiameter / 2.0;
 
-    final double resolvedRadius = customRadius != null
+    final double radiusByAuto = customRadius != null
         ? math.min(customRadius, autoRadius)
         : autoRadius;
 
-    final double lineWidth = (resolvedRadius *
+    final double radius = resolvedRadius != null && resolvedRadius.isFinite
+        ? resolvedRadius
+        : radiusByAuto;
+
+    final double baseLineWidth = (radius *
         (ultraCompact
             ? 0.16
             : veryCompact
@@ -93,8 +114,20 @@ class GaugeChartShimmerMetrics {
             : 0.18))
         .clamp(7.0, 20.0);
 
+    final double lineWidthByAuto = (baseLineWidth * strokeScale).clamp(
+      7.0,
+      28.0,
+    );
+
+    final double lineWidth =
+    resolvedLineWidth != null && resolvedLineWidth.isFinite
+        ? resolvedLineWidth
+        : lineWidthByAuto;
+
+    final double ringGap = safeRingsCount <= 2 ? 7.0 : 5.0;
+
     return GaugeChartShimmerMetrics(
-      radius: resolvedRadius,
+      radius: radius,
       lineWidth: lineWidth,
       headerHeight: headerHeight,
       footerHeight: footerHeight,
@@ -104,6 +137,8 @@ class GaugeChartShimmerMetrics {
       footerSpacing: footerSpacing,
       showHeader: hasHeader,
       showFooter: hasFooter,
+      ringsCount: safeRingsCount,
+      ringGap: ringGap,
     );
   }
 }

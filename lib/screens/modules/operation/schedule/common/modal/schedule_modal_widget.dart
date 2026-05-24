@@ -50,7 +50,7 @@ class ScheduleModalWidget extends StatefulWidget {
   final String? initialComment;
   final double? initialProgress;
 
-  /// Usado somente para apagar área no cronograma civil.
+  /// Usado somente para apagar área no gallery civil.
   final VoidCallback? onDelete;
 
   /// Mantido por compatibilidade.
