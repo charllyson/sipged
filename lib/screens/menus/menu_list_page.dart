@@ -374,7 +374,9 @@ class _MenuListPageState extends State<MenuListPage> {
           builder: (_) => MultiBlocProvider(
             providers: [
               BlocProvider<CivilScheduleBloc>(
-                create: (_) => CivilScheduleBloc()
+                create: (_) => CivilScheduleBloc(
+                  tenantId: tenantId
+                )
                   ..add(
                     CivilWarmupRequested(contractId),
                   ),

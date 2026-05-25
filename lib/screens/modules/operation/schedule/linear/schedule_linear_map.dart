@@ -22,7 +22,6 @@ import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/draw/shimmer/map_shimmer.dart';
-import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 import 'package:sipged/_widgets/map/map/map_change.dart';
 
 import 'package:sipged/screens/modules/operation/schedule/common/header/schedule_status.dart';
@@ -131,13 +130,8 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     required ScheduleLinearState st,
     required ScheduleLinearCellData? cell,
   }) {
-    if (!st.hasActiveDateFilter) {
-      return true;
-    }
-
-    if (cell == null) {
-      return false;
-    }
+    if (!st.hasActiveDateFilter) return true;
+    if (cell == null) return false;
 
     return st.matchesActiveDateFilter(cell);
   }
@@ -150,13 +144,51 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     switch (status) {
       case ScheduleLinearCellStatus.concluido:
         return ScheduleStatus.concluido;
-
       case ScheduleLinearCellStatus.emAndamento:
         return ScheduleStatus.emAndamento;
-
       case ScheduleLinearCellStatus.aIniciar:
         return ScheduleStatus.aIniciar;
     }
+  }
+
+  Map<String, Map<String, dynamic>> _photoMetaByUrlFromCell(
+      ScheduleLinearCellData? cell,
+      List<String> urls,
+      ) {
+    final metaByUrl = <String, Map<String, dynamic>>{};
+
+    final metas = cell?.fotosMeta ?? const <Map<String, dynamic>>[];
+
+    for (final rawMeta in metas) {
+      final meta = Map<String, dynamic>.from(rawMeta);
+      final url = meta['url']?.toString().trim() ?? '';
+
+      if (url.isEmpty) continue;
+
+      metaByUrl[url] = <String, dynamic>{
+        ...meta,
+        'id': meta['id']?.toString() ?? url,
+        'url': url,
+        'name': meta['name']?.toString() ?? url.split('/').last,
+      };
+    }
+
+    for (final rawUrl in urls) {
+      final url = rawUrl.trim();
+
+      if (url.isEmpty) continue;
+      if (metaByUrl.containsKey(url)) continue;
+
+      metaByUrl[url] = <String, dynamic>{
+        'id': url,
+        'url': url,
+        'name': url.split('/').last,
+        if (cell?.primaryDate != null)
+          'takenAtMs': cell!.primaryDate!.millisecondsSinceEpoch,
+      };
+    }
+
+    return metaByUrl;
   }
 
   ScheduleLinearCellData? _priorityCellForGeral({
@@ -209,11 +241,8 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     required int faixaIndex,
     required ScheduleLinearState st,
   }) {
-    if (segIdx < 0) {
-      return false;
-    }
+    if (segIdx < 0) return false;
 
-    /// Mantém o mapa limitado ao mesmo universo de estacas do board.
     if (st.totalEstacas > 0 && segIdx >= st.totalEstacas) {
       return false;
     }
@@ -257,9 +286,7 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     required int visibleOrderIndex,
     required int visibleLaneCount,
   }) {
-    if (visibleLaneCount <= 1) {
-      return 0.0;
-    }
+    if (visibleLaneCount <= 1) return 0.0;
 
     final center = (visibleLaneCount - 1) / 2.0;
 
@@ -311,6 +338,7 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
 
   String _actorName() {
     final user = FirebaseAuth.instance.currentUser;
+
     final displayName = user?.displayName?.trim() ?? '';
     if (displayName.isNotEmpty) return displayName;
 
@@ -606,9 +634,8 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
       compact: compact,
     );
 
-    final rawHalfStrokeMeters = pixelsPerMeter <= 0
-        ? 0.0
-        : (laneStrokeWidthPx / pixelsPerMeter) / 2.0;
+    final rawHalfStrokeMeters =
+    pixelsPerMeter <= 0 ? 0.0 : (laneStrokeWidthPx / pixelsPerMeter) / 2.0;
 
     final halfStrokeMeters = rawHalfStrokeMeters.clamp(0.0, 2.2).toDouble();
 
@@ -635,9 +662,9 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     final scale = tileSize * math.pow(2.0, zoom).toDouble();
     final sinLat = math.sin(point.latitude * math.pi / 180.0);
     final x = (point.longitude + 180.0) / 360.0 * scale;
-    final y = (0.5 -
-        math.log((1.0 + sinLat) / (1.0 - sinLat)) / (4.0 * math.pi)) *
-        scale;
+    final y =
+        (0.5 - math.log((1.0 + sinLat) / (1.0 - sinLat)) / (4.0 * math.pi)) *
+            scale;
 
     return Offset(x, y);
   }
@@ -899,6 +926,7 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     final label = '$estaca';
     final dirX = math.cos(screenNormalAngle);
     final dirY = math.sin(screenNormalAngle);
+
     final tickOffset = Offset(
       dirX * (tickLength / 2.0),
       dirY * (tickLength / 2.0),
@@ -1358,7 +1386,6 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
       return const _CompactRoadBuildResult.empty();
     }
 
-    /// Usa o eixo completo uma única vez.
     final axis = _flatAxisFromLines(lines);
 
     if (axis.length < 2) {
@@ -1561,7 +1588,6 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
         'Este serviço não é aplicável nesta faixa.',
         type: NotificationStatus.warning,
       );
-
       return;
     }
 
@@ -1583,34 +1609,7 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
     final data = st.execIndex[indexKey];
     final existedBefore = data != null;
     final fotosAtuais = st.fotosAtuaisFor(estaca, faixaIndex);
-    final metaByUrl = <String, pm.CarouselMetadata>{};
-    final metas = data?.fotosMeta ?? const <Map<String, dynamic>>[];
-
-    for (final m in metas) {
-      final url = m['url']?.toString() ?? '';
-      if (url.isEmpty) continue;
-
-      metaByUrl[url] = pm.CarouselMetadata(
-        name: m['name']?.toString(),
-        takenAt: (m['takenAtMs'] is num)
-            ? DateTime.fromMillisecondsSinceEpoch(
-          (m['takenAtMs'] as num).toInt(),
-        )
-            : (m['takenAt'] is num)
-            ? DateTime.fromMillisecondsSinceEpoch(
-          (m['takenAt'] as num).toInt(),
-        )
-            : null,
-        lat: (m['lat'] as num?)?.toDouble(),
-        lng: (m['lng'] as num?)?.toDouble(),
-        make: m['make']?.toString(),
-        model: m['model']?.toString(),
-        orientation: (m['orientation'] is num)
-            ? (m['orientation'] as num).toInt()
-            : int.tryParse(m['orientation']?.toString() ?? ''),
-        url: url,
-      );
-    }
+    final metaByUrl = _photoMetaByUrlFromCell(data, fotosAtuais);
 
     final initialStatus = data == null
         ? ScheduleStatus.aIniciar
@@ -1659,6 +1658,7 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
       if (!mounted) return;
 
       final afterState = cubit.state;
+
       final existsAfter = afterState.execIndex.containsKey(
         _cellKey(
           serviceKey: afterState.currentServiceKey,
@@ -1810,7 +1810,8 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
             visibleLaneCount: visibleLaneCount,
           );
 
-          final tooManyPolylines = pack.geometries.length > kMaxDetailedPolylines;
+          final tooManyPolylines =
+              pack.geometries.length > kMaxDetailedPolylines;
 
           if (tooManyPolylines) {
             final compact = _buildCompactRoadForService(
@@ -1824,7 +1825,8 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
               renderPolylines: compact.renderPolylines,
             );
 
-            fitAxis = compact.fitAxis.isNotEmpty ? compact.fitAxis : fallbackAxis;
+            fitAxis =
+            compact.fitAxis.isNotEmpty ? compact.fitAxis : fallbackAxis;
 
             externalMarkers = _buildCompactStakeRulerMarkers(
               axis: fitAxis,

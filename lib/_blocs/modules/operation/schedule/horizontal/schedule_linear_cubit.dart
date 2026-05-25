@@ -3,7 +3,6 @@
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -14,7 +13,7 @@ import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_lin
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
 
-import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/models/photo_data.dart';
 
 class ScheduleLinearApplyTarget {
   const ScheduleLinearApplyTarget({
@@ -828,9 +827,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
     String? comentario,
     DateTime? takenAtForNew,
     required List<String> finalPhotoUrls,
-    required List<Uint8List> newFilesBytes,
-    List<String>? newFileNames,
-    List<pm.CarouselMetadata> newPhotoMetas = const [],
+    required List<PhotoData> newPhotos,
     required String currentUserId,
     bool reloadAfter = true,
   }) async {
@@ -875,9 +872,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
         comentario: comentario,
         takenAtForNew: takenAtForNew,
         finalPhotoUrls: finalPhotoUrls,
-        newFilesBytes: newFilesBytes,
-        newFileNames: newFileNames,
-        newPhotoMetas: newPhotoMetas,
+        newPhotos: newPhotos,
         currentUserId: currentUserId,
         clearCacheAfter: true,
       );
@@ -916,9 +911,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
     required ScheduleLinearCellStatus status,
     String? comentario,
     DateTime? takenAtForNew,
-    required List<Uint8List> newFilesBytes,
-    List<String>? newFileNames,
-    List<pm.CarouselMetadata> newPhotoMetas = const [],
+    required List<PhotoData> newPhotos,
     required String currentUserId,
   }) async {
     final cleanContractId = _resolveContractId(contractId);
@@ -964,7 +957,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
     );
 
     try {
-      final canUseFastBatch = targets.length > 1 && newFilesBytes.isEmpty;
+      final canUseFastBatch = targets.length > 1 && newPhotos.isEmpty;
 
       if (canUseFastBatch) {
         await _repo.applySquareChangesBatchFast(
@@ -994,12 +987,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
             comentario: comentario,
             takenAtForNew: takenAtForNew,
             finalPhotoUrls: target.finalPhotoUrls,
-            newFilesBytes:
-            targets.length > 1 ? const <Uint8List>[] : newFilesBytes,
-            newFileNames: targets.length > 1 ? null : newFileNames,
-            newPhotoMetas: targets.length > 1
-                ? const <pm.CarouselMetadata>[]
-                : newPhotoMetas,
+            newPhotos: targets.length > 1 ? const <PhotoData>[] : newPhotos,
             currentUserId: currentUserId,
             clearCacheAfter: false,
           );
@@ -1038,9 +1026,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
     String? comentario,
     DateTime? takenAt,
     required List<String> finalPhotoUrls,
-    required List<Uint8List> newFilesBytes,
-    List<String>? newFileNames,
-    List<pm.CarouselMetadata> newPhotoMetas = const [],
+    required List<PhotoData> newPhotos,
     required String currentUserId,
     bool reloadAfter = true,
   }) async {
@@ -1076,9 +1062,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
       comentario: comentario,
       takenAtForNew: takenAt,
       finalPhotoUrls: finalPhotoUrls,
-      newFilesBytes: newFilesBytes,
-      newFileNames: newFileNames,
-      newPhotoMetas: newPhotoMetas,
+      newPhotos: newPhotos,
       currentUserId: currentUserId,
       reloadAfter: reloadAfter,
     );

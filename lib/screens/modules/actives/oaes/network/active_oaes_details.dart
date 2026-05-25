@@ -1,7 +1,6 @@
 // lib/screens/modules/actives/oaes/network/active_oaes_details.dart
 
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,12 +13,11 @@ import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_widgets/DataTime/selector/selector_dates.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_photo_thumb.dart';
+import 'package:sipged/_widgets/images/carousel/models/photo_data.dart';
 import 'package:sipged/_widgets/images/carousel/photo_gallery_dialog.dart';
-import 'package:sipged/_widgets/images/carousel/photo_item.dart';
 import 'package:sipged/_widgets/images/carousel/photo_picker_square.dart';
-import 'package:sipged/_widgets/images/carousel/photo_thumb.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/box_list_files.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
@@ -81,8 +79,8 @@ class ActiveOaesDetails extends StatefulWidget {
 class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
   ActiveOaesRepository get _repo => widget.repository;
 
-  List<Attachment> _allPhotos = const [];
-  List<Attachment> _filtered = const [];
+  List<Attachment> _allPhotos = const <Attachment>[];
+  List<Attachment> _filtered = const <Attachment>[];
 
   int? _selectedYear;
   int? _selectedMonth;
@@ -105,8 +103,8 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     if (oldId != newId) {
       _selectedYear = null;
       _selectedMonth = null;
-      _allPhotos = const [];
-      _filtered = const [];
+      _allPhotos = const <Attachment>[];
+      _filtered = const <Attachment>[];
       _loadInitialPhotos();
 
       if (mounted) setState(() {});
@@ -178,8 +176,8 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
       final id = widget.data.id;
 
       if (id == null) {
-        _allPhotos = const [];
-        _filtered = const [];
+        _allPhotos = const <Attachment>[];
+        _filtered = const <Attachment>[];
 
         if (mounted) setState(() {});
         return;
@@ -192,8 +190,8 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
 
       _applyCurrentFilter();
     } catch (_) {
-      _allPhotos = const [];
-      _filtered = const [];
+      _allPhotos = const <Attachment>[];
+      _filtered = const <Attachment>[];
 
       if (mounted) setState(() {});
     }
@@ -207,21 +205,43 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     await _repo.savePhotos(id, _allPhotos);
   }
 
-  Future<void> _addPhotoFromBytes(Uint8List bytes) async {
+  Future<void> _addPhotoFromPhoto(PhotoData photo) async {
     await _withBusy(() async {
       final d = widget.data;
 
       if (d.id == null) return;
 
+      final bytes = photo.bytes;
+
+      if (bytes == null || bytes.isEmpty) {
+        _notifyError('A foto selecionada não possui bytes para envio.');
+        return;
+      }
+
+      final photoName = photo.name.trim().isNotEmpty
+          ? photo.name.trim()
+          : 'photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final createdAt = photo.takenAt ?? DateTime.now();
+
       final att = await _repo.uploadPhotoBytes(
         oaeId: d.id!,
         bytes: bytes,
-        originalName: 'photo_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        originalName: photoName,
         onProgress: (_) {},
-        forcedLabel: 'Foto ${DateTime.now().toIso8601String()}',
+        forcedLabel: photoName,
       );
 
-      _allPhotos = [..._allPhotos, att];
+      final normalized = att.copyWith(
+        label: att.label.trim().isNotEmpty ? att.label : photoName,
+        createdAt: att.createdAt ?? createdAt,
+        updatedBy: att.updatedBy ?? photo.uploadedBy,
+      );
+
+      _allPhotos = <Attachment>[
+        ..._allPhotos,
+        normalized,
+      ];
 
       _applyCurrentFilter();
 
@@ -416,8 +436,8 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                           if (hasAdder && index == 0) {
                             return PhotoPickerSquare(
                               enabled: !_busy,
-                              onPickFromCamera: _addPhotoFromBytes,
-                              onPickFromGallery: _addPhotoFromBytes,
+                              onPickFromCamera: _addPhotoFromPhoto,
+                              onPickFromGallery: _addPhotoFromPhoto,
                               editorMaxScale: 5.0,
                               editorExportQuality: 100,
                               editorCircleCrop: false,
@@ -426,24 +446,24 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                           }
 
                           final att = _filtered[index - offset];
-                          final item = att.toPhotoItem();
+                          final photo = att.toPhotoData();
 
-                          return PhotoThumb(
-                            item: item,
+                          return CarouselPhotoThumb(
+                            photo: photo,
                             theme: carouselTheme,
                             onTap: () async {
-                              final items = _filtered
-                                  .map((a) => a.toPhotoItem())
-                                  .toList();
+                              final photos = _filtered
+                                  .map((a) => a.toPhotoData())
+                                  .toList(growable: false);
 
-                              if (items.isEmpty) return;
+                              if (photos.isEmpty) return;
 
                               final start =
-                              (index - offset).clamp(0, items.length - 1);
+                              (index - offset).clamp(0, photos.length - 1);
 
                               await showPhotoGalleryDialog(
                                 context,
-                                items: items,
+                                photos: photos,
                                 initialIndex: start,
                               );
                             },
@@ -594,19 +614,33 @@ class _PositionedFillBusy extends StatelessWidget {
   }
 }
 
-extension _AttachmentToPhoto on Attachment {
-  PhotoItem toPhotoItem() {
-    final meta = pm.CarouselMetadata(
-      url: url,
-      name: label,
+extension _AttachmentToPhotoData on Attachment {
+  PhotoData toPhotoData() {
+    final cleanUrl = url.trim();
+
+    return PhotoData.fromUrl(
+      id: path.trim().isNotEmpty ? path.trim() : cleanUrl,
+      name: label.trim().isNotEmpty ? label.trim() : _nameFromUrl(cleanUrl),
+      url: cleanUrl,
       takenAt: createdAt,
       uploadedAtMs: createdAt?.millisecondsSinceEpoch,
       uploadedBy: updatedBy,
     );
+  }
 
-    return PhotoUrlItem(
-      url,
-      meta: meta,
-    );
+  static String _nameFromUrl(String url) {
+    final clean = url.split('?').first.trim();
+
+    if (clean.isEmpty) {
+      return 'foto.jpg';
+    }
+
+    final parts = clean.split('/');
+
+    if (parts.isEmpty || parts.last.trim().isEmpty) {
+      return 'foto.jpg';
+    }
+
+    return parts.last.trim();
   }
 }

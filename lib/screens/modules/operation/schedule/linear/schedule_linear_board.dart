@@ -9,19 +9,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
 
+import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
-import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
 import 'package:sipged/_widgets/buttons/slider_button.dart';
-import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 import 'package:sipged/screens/modules/operation/schedule/common/header/schedule_status.dart';
 import 'package:sipged/screens/modules/operation/schedule/common/modal/schedule_modal_widget.dart';
@@ -111,7 +110,6 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
   Future<void> _loadSavedCellWidth() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-
       final savedValue = prefs.getDouble(_cellWidthPrefsKey);
 
       if (savedValue == null) return;
@@ -377,6 +375,43 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
     }
   }
 
+  Map<String, Map<String, dynamic>> _photoMetaByUrlFromCell(
+      ScheduleLinearCellData cell,
+      ) {
+    final metaByUrl = <String, Map<String, dynamic>>{};
+
+    for (final rawMeta in cell.fotosMeta) {
+      final meta = Map<String, dynamic>.from(rawMeta);
+      final url = meta['url']?.toString().trim() ?? '';
+
+      if (url.isEmpty) continue;
+
+      metaByUrl[url] = <String, dynamic>{
+        ...meta,
+        'id': meta['id']?.toString() ?? url,
+        'url': url,
+        'name': meta['name']?.toString() ?? url.split('/').last,
+      };
+    }
+
+    for (final url in cell.fotos) {
+      final cleanUrl = url.trim();
+
+      if (cleanUrl.isEmpty) continue;
+      if (metaByUrl.containsKey(cleanUrl)) continue;
+
+      metaByUrl[cleanUrl] = <String, dynamic>{
+        'id': cleanUrl,
+        'url': cleanUrl,
+        'name': cleanUrl.split('/').last,
+        if (cell.primaryDate != null)
+          'takenAtMs': cell.primaryDate!.millisecondsSinceEpoch,
+      };
+    }
+
+    return metaByUrl;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -515,34 +550,7 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
     try {
       _modalOpen = true;
 
-      final metaByUrl = <String, pm.CarouselMetadata>{};
-
-      for (final m in cell.fotosMeta) {
-        final url = m['url']?.toString() ?? '';
-
-        if (url.isEmpty) continue;
-
-        metaByUrl[url] = pm.CarouselMetadata(
-          name: m['name']?.toString(),
-          takenAt: (m['takenAtMs'] is num)
-              ? DateTime.fromMillisecondsSinceEpoch(
-            (m['takenAtMs'] as num).toInt(),
-          )
-              : (m['takenAt'] is num)
-              ? DateTime.fromMillisecondsSinceEpoch(
-            (m['takenAt'] as num).toInt(),
-          )
-              : null,
-          lat: (m['lat'] as num?)?.toDouble(),
-          lng: (m['lng'] as num?)?.toDouble(),
-          make: m['make']?.toString(),
-          model: m['model']?.toString(),
-          orientation: (m['orientation'] is num)
-              ? (m['orientation'] as num).toInt()
-              : int.tryParse(m['orientation']?.toString() ?? ''),
-          url: url,
-        );
-      }
+      final metaByUrl = _photoMetaByUrlFromCell(cell);
 
       final initialStatus = _scheduleStatusFromCellStatus(cell.status);
       final laneLabel = state.lanes[cell.faixaIndex].laneLabel;
@@ -743,7 +751,7 @@ class _ScheduleLinearBoardState extends State<ScheduleLinearBoard>
           estaca: estaca,
           faixaIndex: faixa,
           existingUrls: fotosAtuais,
-          existingMetaByUrl: const {},
+          existingMetaByUrl: const <String, Map<String, dynamic>>{},
         ),
       );
     }

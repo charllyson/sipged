@@ -1,919 +1,628 @@
+// lib/_widgets/images/carousel/photo_preview_page.dart
+
 import 'dart:async';
-import 'dart:io' show File, Platform;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:exif/exif.dart' as exif;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart' as geocoding;
-import 'package:geolocator/geolocator.dart';
-import 'package:image/image.dart' as im;
-import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart' as ll;
-import 'package:native_exif/native_exif.dart';
-import 'package:path_provider/path_provider.dart';
-
-import 'package:sipged/_widgets/images/carousel/photo_editor_page.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 class PhotoPreviewPage extends StatefulWidget {
-  final Uint8List originalBytes;
-
-  final String? overlayLogradouro;
-  final String? overlayMunicipio;
-  final String? overlayUF;
-  final DateTime? exifDateTime;
-  final double? exifLatitude;
-  final double? exifLongitude;
-
-  final bool writeExif;
-  final int outputJpegQuality;
-
-  final BoxFit previewFit;
-  final bool showOverlayInPreview;
-  final bool debugLog;
-
   const PhotoPreviewPage({
     super.key,
     required this.originalBytes,
-    this.overlayLogradouro,
-    this.overlayMunicipio,
-    this.overlayUF,
-    this.exifDateTime,
-    this.exifLatitude,
-    this.exifLongitude,
-    this.writeExif = true,
     this.outputJpegQuality = 100,
     this.previewFit = BoxFit.contain,
     this.showOverlayInPreview = true,
     this.debugLog = false,
+    this.stampDate,
+    this.stampName,
+    this.stampLatitude,
+    this.stampLongitude,
+    this.stampDevice,
+    this.stampAddress,
+    this.stampCity,
+    this.stampState,
   });
+
+  final Uint8List originalBytes;
+  final int outputJpegQuality;
+  final BoxFit previewFit;
+  final bool showOverlayInPreview;
+  final bool debugLog;
+
+  final DateTime? stampDate;
+  final String? stampName;
+  final double? stampLatitude;
+  final double? stampLongitude;
+  final String? stampDevice;
+  final String? stampAddress;
+  final String? stampCity;
+  final String? stampState;
 
   @override
   State<PhotoPreviewPage> createState() => _PhotoPreviewPageState();
 }
 
 class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
-  late Uint8List _bytes;
-  _OrigExif? _orig;
-
-  Uint8List? _previewBytes;
-  bool _busy = false;
-  bool _preparing = true;
+  bool _exporting = false;
   late BoxFit _fit;
 
-  double? _latUsed;
-  double? _lonUsed;
-  String? _street;
-  String? _city;
-  String? _state;
-
-  int _prepareToken = 0;
+  Future<ui.Image>? _imageFuture;
 
   @override
   void initState() {
     super.initState();
-    _bytes = widget.originalBytes;
     _fit = widget.previewFit;
-    _preparePreview();
+    _imageFuture = _decodeImage(widget.originalBytes);
   }
 
-  @override
-  void didUpdateWidget(covariant PhotoPreviewPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  String _formatDate(DateTime? date) {
+    final d = date ?? DateTime.now();
 
-    if (!listEquals(oldWidget.originalBytes, widget.originalBytes)) {
-      _bytes = widget.originalBytes;
-      _preparePreview();
+    String two(int v) => v.toString().padLeft(2, '0');
+
+    return '${two(d.day)}/${two(d.month)}/${d.year} '
+        '${two(d.hour)}:${two(d.minute)}:${two(d.second)}';
+  }
+
+  String _coordValue(double? value) {
+    if (value == null) return '—';
+    return value.toStringAsFixed(6);
+  }
+
+  String _coordLine() {
+    if (widget.stampLatitude == null || widget.stampLongitude == null) {
+      return 'Sem coordenadas na foto';
     }
+
+    return '${_coordValue(widget.stampLatitude)}, '
+        '${_coordValue(widget.stampLongitude)}';
   }
 
-  void _debugError(String message, Object error, StackTrace? stackTrace) {
-    debugPrint('[PhotoPreviewPage] $message: $error');
+  String _cityStateLine() {
+    final city = widget.stampCity?.trim() ?? '';
+    final state = widget.stampState?.trim() ?? '';
 
-    if (stackTrace != null) {
-      debugPrintStack(stackTrace: stackTrace);
+    if (city.isNotEmpty && state.isNotEmpty) {
+      return '$city - $state';
     }
+
+    if (city.isNotEmpty) {
+      return city;
+    }
+
+    if (state.isNotEmpty) {
+      return state;
+    }
+
+    return 'Cidade não disponível';
   }
 
-  LocationSettings _bestLocationSettings({
-    LocationAccuracy accuracy = LocationAccuracy.high,
-    Duration? timeLimit,
+  List<String> _stampLines() {
+    final address = widget.stampAddress?.trim();
+
+    return <String>[
+      _formatDate(widget.stampDate),
+      _coordLine(),
+      address == null || address.isEmpty ? 'Endereço não disponível' : address,
+      _cityStateLine(),
+    ];
+  }
+
+  Future<ui.Image> _decodeImage(Uint8List bytes) async {
+    final completer = Completer<ui.Image>();
+
+    ui.decodeImageFromList(bytes, (image) {
+      completer.complete(image);
+    });
+
+    return completer.future;
+  }
+
+  Rect _destinationRect({
+    required Size imageSize,
+    required Size canvasSize,
+    required BoxFit fit,
   }) {
-    if (kIsWeb) {
-      return WebSettings(
-        accuracy: accuracy,
-        timeLimit: timeLimit,
-      );
-    }
+    final fitted = applyBoxFit(fit, imageSize, canvasSize);
+    final destinationSize = fitted.destination;
 
-    if (Platform.isAndroid) {
-      return AndroidSettings(
-        accuracy: accuracy,
-        timeLimit: timeLimit,
-        distanceFilter: 0,
-        forceLocationManager: false,
-      );
-    }
+    final dx = (canvasSize.width - destinationSize.width) / 2.0;
+    final dy = (canvasSize.height - destinationSize.height) / 2.0;
 
-    if (Platform.isIOS || Platform.isMacOS) {
-      return AppleSettings(
-        accuracy: accuracy,
-        timeLimit: timeLimit,
-        distanceFilter: 0,
-        pauseLocationUpdatesAutomatically: false,
-      );
-    }
-
-    return LocationSettings(
-      accuracy: accuracy,
-      timeLimit: timeLimit,
+    return Rect.fromLTWH(
+      dx,
+      dy,
+      destinationSize.width,
+      destinationSize.height,
     );
   }
 
-  Future<void> _preparePreview() async {
-    final int token = ++_prepareToken;
+  Rect _sourceRect({
+    required Size imageSize,
+    required Size canvasSize,
+    required BoxFit fit,
+  }) {
+    final fitted = applyBoxFit(fit, imageSize, canvasSize);
+    final sourceSize = fitted.source;
 
-    if (mounted) {
-      setState(() {
-        _preparing = true;
-        _previewBytes = null;
-      });
+    final dx = (imageSize.width - sourceSize.width) / 2.0;
+    final dy = (imageSize.height - sourceSize.height) / 2.0;
+
+    return Rect.fromLTWH(
+      dx,
+      dy,
+      sourceSize.width,
+      sourceSize.height,
+    );
+  }
+
+  TextPainter _textPainter({
+    required String text,
+    required double fontSize,
+    required FontWeight fontWeight,
+    required TextAlign textAlign,
+    int maxLines = 1,
+  }) {
+    return TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          height: 1.16,
+          shadows: [
+            Shadow(
+              color: Colors.black.withValues(alpha: 0.86),
+              blurRadius: 5,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+      ),
+      textAlign: textAlign,
+      textDirection: TextDirection.ltr,
+      maxLines: maxLines,
+      ellipsis: '…',
+    );
+  }
+
+  Future<Uint8List> _buildStampedImage() async {
+    final image = await _decodeImage(widget.originalBytes);
+
+    final outputSize = Size(
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, outputSize.width, outputSize.height),
+    );
+
+    final imagePaint = Paint()
+      ..isAntiAlias = true
+      ..filterQuality = FilterQuality.high;
+
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, outputSize.width, outputSize.height),
+      Rect.fromLTWH(0, 0, outputSize.width, outputSize.height),
+      imagePaint,
+    );
+
+    _paintStampOnCanvas(
+      canvas: canvas,
+      visibleImageRect: Rect.fromLTWH(
+        0,
+        0,
+        outputSize.width,
+        outputSize.height,
+      ),
+      scaleBase: outputSize.shortestSide,
+    );
+
+    final picture = recorder.endRecording();
+
+    final stampedImage = await picture.toImage(
+      outputSize.width.round(),
+      outputSize.height.round(),
+    );
+
+    final byteData = await stampedImage.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+
+    image.dispose();
+    stampedImage.dispose();
+
+    if (byteData == null) {
+      throw StateError('Não foi possível gerar a imagem carimbada.');
     }
 
+    return byteData.buffer.asUint8List();
+  }
+
+  void _paintStampOnCanvas({
+    required Canvas canvas,
+    required Rect visibleImageRect,
+    required double scaleBase,
+  }) {
+    final rect = visibleImageRect;
+
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    final double fontSize =
+    (scaleBase * 0.030).clamp(12.0, 34.0).toDouble();
+
+    final double padding =
+    (scaleBase * 0.022).clamp(10.0, 28.0).toDouble();
+
+    final double innerPadding =
+    (scaleBase * 0.016).clamp(8.0, 20.0).toDouble();
+
+    final double radius =
+    (scaleBase * 0.018).clamp(8.0, 18.0).toDouble();
+
+    final lines = _stampLines();
+
+    final painter = _textPainter(
+      text: lines.join('\n'),
+      fontSize: fontSize,
+      fontWeight: FontWeight.w800,
+      textAlign: TextAlign.right,
+      maxLines: 4,
+    );
+
+    final maxStampWidth = rect.width * 0.68;
+
+    painter.layout(
+      minWidth: 0,
+      maxWidth: maxStampWidth,
+    );
+
+    final stampWidth = painter.width + (innerPadding * 2);
+    final stampHeight = painter.height + (innerPadding * 2);
+
+    final maxLeft = rect.right - stampWidth - padding;
+    final maxTop = rect.bottom - stampHeight - padding;
+
+    final left = maxLeft.clamp(
+      rect.left + padding,
+      rect.right - stampWidth - padding,
+    );
+
+    final top = maxTop.clamp(
+      rect.top + padding,
+      rect.bottom - stampHeight - padding,
+    );
+
+    final stampRect = Rect.fromLTWH(
+      left,
+      top,
+      stampWidth,
+      stampHeight,
+    );
+
+    final shadowRRect = RRect.fromRectAndRadius(
+      stampRect.shift(const Offset(0, 2)),
+      Radius.circular(radius),
+    );
+
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.34)
+      ..maskFilter = const MaskFilter.blur(
+        BlurStyle.normal,
+        8,
+      );
+
+    canvas.drawRRect(shadowRRect, shadowPaint);
+
+    final backgroundRRect = RRect.fromRectAndRadius(
+      stampRect,
+      Radius.circular(radius),
+    );
+
+    final backgroundPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.58);
+
+    canvas.drawRRect(backgroundRRect, backgroundPaint);
+
+    final borderPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.24)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (scaleBase * 0.002).clamp(0.8, 2.0).toDouble();
+
+    canvas.drawRRect(backgroundRRect, borderPaint);
+
+    painter.paint(
+      canvas,
+      Offset(
+        stampRect.left + innerPadding,
+        stampRect.top + innerPadding,
+      ),
+    );
+  }
+
+  Future<void> _confirm() async {
+    if (_exporting) return;
+
+    setState(() => _exporting = true);
+
     try {
-      final bakeF = compute(_bakeOrientationBytesTopLevel, _bytes);
-      final exifF = _readOriginalExif(_bytes);
+      final stampedBytes = await _buildStampedImage();
 
-      final baked = await bakeF;
-      final orig = await exifF;
+      if (!mounted) return;
 
-      if (!mounted || token != _prepareToken) return;
-
-      if (widget.debugLog) {
-        final o = await _probe(_bytes);
-        final b = await _probe(baked);
-
-        debugPrint(
-          'ORIG: ${o.width}x${o.height} | '
-              'BAKED: ${b.width}x${b.height} '
-              'bytes=${_bytes.length}→${baked.length}',
-        );
-      }
-
-      setState(() {
-        _previewBytes = baked;
-        _orig = orig;
-        _preparing = false;
-      });
-
-      unawaited(_resolveAddressAndCoords(token));
+      Navigator.of(context).pop<Uint8List>(stampedBytes);
     } catch (e, s) {
-      if (!mounted || token != _prepareToken) return;
+      debugPrint('[PhotoPreviewPage] Falha ao exportar foto carimbada: $e');
+      debugPrintStack(stackTrace: s);
 
-      _debugError('Falha ao preparar pré-visualização', e, s);
+      if (!mounted) return;
 
-      setState(() {
-        _previewBytes = null;
-        _preparing = false;
-      });
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text('Falha ao gerar a foto com carimbo: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _exporting = false);
+      }
     }
   }
 
-  Future<void> _resolveAddressAndCoords(int token) async {
-    try {
-      double? lat = widget.exifLatitude ?? _orig?.latitude;
-      double? lon = widget.exifLongitude ?? _orig?.longitude;
-
-      if ((lat == null || lon == null) && !kIsWeb) {
-        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-
-        if (!serviceEnabled) {
-          if (!mounted || token != _prepareToken) return;
-
-          setState(() {
-            _latUsed = null;
-            _lonUsed = null;
-          });
-
-          return;
-        }
-
-        var permission = await Geolocator.checkPermission();
-
-        if (permission == LocationPermission.denied) {
-          permission = await Geolocator.requestPermission();
-        }
-
-        if (permission != LocationPermission.denied &&
-            permission != LocationPermission.deniedForever) {
-          final pos = await Geolocator.getCurrentPosition(
-            locationSettings: _bestLocationSettings(
-              accuracy: LocationAccuracy.high,
-            ),
-          );
-
-          lat = pos.latitude;
-          lon = pos.longitude;
-        }
-      }
-
-      if (!mounted || token != _prepareToken) return;
-
-      if (lat != null && lon != null) {
-        final placemarks = await geocoding.placemarkFromCoordinates(
-          lat,
-          lon,
-        );
-
-        if (!mounted || token != _prepareToken) return;
-
-        if (placemarks.isNotEmpty) {
-          final p = placemarks.first;
-
-          final street = _joinNotEmpty(
-            [
-              p.thoroughfare,
-              p.subThoroughfare,
-            ],
-            ', ',
-          );
-
-          final city = (p.locality?.isNotEmpty ?? false)
-              ? p.locality
-              : p.subAdministrativeArea;
-
-          final ufRaw = p.administrativeArea;
-
-          setState(() {
-            _latUsed = lat;
-            _lonUsed = lon;
-            _street = street?.isNotEmpty == true
-                ? street
-                : widget.overlayLogradouro;
-            _city = city?.isNotEmpty == true
-                ? city
-                : widget.overlayMunicipio;
-            _state = ufRaw?.isNotEmpty == true ? ufRaw : widget.overlayUF;
-          });
-
-          return;
-        }
-      }
-
-      setState(() {
-        _latUsed = lat;
-        _lonUsed = lon;
-        _street = widget.overlayLogradouro;
-        _city = widget.overlayMunicipio;
-        _state = widget.overlayUF;
-      });
-    } catch (e, s) {
-      if (!mounted || token != _prepareToken) return;
-
-      _debugError('Falha ao resolver endereço/coordenadas', e, s);
-
-      setState(() {
-        _street = widget.overlayLogradouro;
-        _city = widget.overlayMunicipio;
-        _state = widget.overlayUF;
-      });
-    }
+  void _toggleFit() {
+    setState(() {
+      _fit = _fit == BoxFit.contain ? BoxFit.cover : BoxFit.contain;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final lines = _buildOverlayLines();
+    final label = _fit == BoxFit.contain ? 'Preencher' : 'Ajustar';
+    final icon = _fit == BoxFit.contain
+        ? Icons.crop_free_rounded
+        : Icons.fit_screen_rounded;
 
     return Scaffold(
-      backgroundColor: Colors.black26,
-      appBar: AppBar(
-        title: const Text('Pré-visualização'),
-        backgroundColor: Colors.black54,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            tooltip: _fit == BoxFit.contain
-                ? 'Preencher (pode cortar)'
-                : 'Encaixar (sem corte)',
-            onPressed: _busy
-                ? null
-                : () {
-              setState(() {
-                _fit = _fit == BoxFit.contain
-                    ? BoxFit.cover
-                    : BoxFit.contain;
-              });
-            },
-            icon: Icon(
-              _fit == BoxFit.contain ? Icons.fullscreen : Icons.fit_screen,
-            ),
-          ),
-          TextButton.icon(
-            onPressed: _busy || _preparing ? null : _confirm,
-            icon: const Icon(Icons.check),
-            label: const Text('Usar'),
-            style: TextButton.styleFrom(foregroundColor: Colors.white),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          if (_previewBytes == null)
-            const Positioned.fill(
-              child: ColoredBox(color: Colors.black),
-            )
-          else
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
             Positioned.fill(
-              child: ColoredBox(
-                color: Colors.black,
-                child: SizedBox.expand(
-                  child: Image.memory(
-                    _previewBytes!,
-                    fit: _fit,
-                    alignment: Alignment.center,
-                    gaplessPlayback: true,
-                    filterQuality: FilterQuality.high,
-                  ),
-                ),
-              ),
-            ),
-          Positioned(
-            left: 16,
-            bottom: 16,
-            child: Material(
-              color: Colors.black54,
-              shape: const CircleBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: _busy || _preparing ? null : _openCrop,
-                child: const Padding(
-                  padding: EdgeInsets.all(14),
-                  child: Icon(
-                    Icons.crop,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          if (widget.showOverlayInPreview &&
-              lines.isNotEmpty &&
-              _previewBytes != null)
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: IgnorePointer(
-                child: _PreviewStamp(
-                  lines: lines,
-                  fontSize: 18,
-                  lineHeight: 1.15,
-                ),
-              ),
-            ),
-          if (_preparing) _buildBlocking('Preparando pré-visualização…'),
-          if (_busy) _buildBlocking('Finalizando…'),
-        ],
-      ),
-    );
-  }
+              bottom: 86,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final canvasSize = Size(
+                    constraints.maxWidth,
+                    constraints.maxHeight,
+                  );
 
-  Widget _buildBlocking(String message) {
-    return Stack(
-      children: [
-        const Positioned.fill(
-          child: ModalBarrier(
-            dismissible: false,
-            color: Color(0x80000000),
-          ),
-        ),
-        Positioned.fill(
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 14,
+                  return FutureBuilder<ui.Image>(
+                    future: _imageFuture,
+                    builder: (context, snapshot) {
+                      final image = snapshot.data;
+
+                      if (image == null) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+
+                      final imageSize = Size(
+                        image.width.toDouble(),
+                        image.height.toDouble(),
+                      );
+
+                      final destRect = _destinationRect(
+                        imageSize: imageSize,
+                        canvasSize: canvasSize,
+                        fit: _fit,
+                      );
+
+                      final sourceRect = _sourceRect(
+                        imageSize: imageSize,
+                        canvasSize: canvasSize,
+                        fit: _fit,
+                      );
+
+                      return CustomPaint(
+                        size: canvasSize,
+                        painter: _PhotoPreviewPainter(
+                          image: image,
+                          sourceRect: sourceRect,
+                          destinationRect: destRect,
+                          paintStamp: widget.showOverlayInPreview
+                              ? ({
+                            required Canvas canvas,
+                            required Rect visibleImageRect,
+                            required double scaleBase,
+                          }) {
+                            _paintStampOnCanvas(
+                              canvas: canvas,
+                              visibleImageRect: visibleImageRect,
+                              scaleBase: scaleBase,
+                            );
+                          }
+                              : null,
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: const Color(0xFF6E6E6E),
+            ),
+            Positioned(
+              top: 12,
+              left: 12,
+              child: _TopActionButton(
+                icon: icon,
+                label: label,
+                onTap: _exporting ? null : _toggleFit,
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                tooltip: 'Fechar',
+                onPressed: _exporting
+                    ? null
+                    : () => Navigator.of(context).pop<Uint8List?>(null),
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: Colors.white,
+                  size: 30,
                 ),
               ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 18,
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const LoadingTreeDots(
-                    size: 22,
-                    strokeWidth: 2.6,
-                    color: Colors.white,
-                    centered: false,
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _exporting
+                          ? null
+                          : () => Navigator.of(context).pop<Uint8List?>(null),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                      ),
+                      child: const Text('Cancelar'),
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    message,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _exporting ? null : _confirm,
+                      icon: _exporting
+                          ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                        ),
+                      )
+                          : const Icon(Icons.check_rounded),
+                      label: Text(_exporting ? 'Gerando...' : 'Usar foto'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _openCrop() async {
-    final edited = await Navigator.of(context).push<Uint8List?>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => PhotoEditorPage(
-          originalBytes: _bytes,
-          exportQuality: 100,
+          ],
         ),
       ),
     );
-
-    if (edited == null || !mounted) return;
-
-    setState(() {
-      _bytes = edited;
-      _orig = null;
-      _previewBytes = null;
-      _street = null;
-      _city = null;
-      _state = null;
-      _latUsed = null;
-      _lonUsed = null;
-      _preparing = true;
-    });
-
-    await _preparePreview();
-  }
-
-  Future<void> _confirm() async {
-    if (_busy) return;
-
-    setState(() => _busy = true);
-
-    try {
-      final stamped = await _burnStampOnImage(
-        _bytes,
-        _buildOverlayLines(),
-      );
-
-      final withExif = await _applyExifIfSupported(stamped);
-
-      if (!mounted) return;
-
-      Navigator.of(context).pop<Uint8List>(withExif);
-    } catch (e, s) {
-      _debugError('Falha ao finalizar foto', e, s);
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
-    }
-  }
-
-  List<String> _buildOverlayLines() {
-    final dt = widget.exifDateTime ?? _orig?.dateTime ?? DateTime.now();
-
-    final df = DateFormat(
-      "d 'de' MMM. 'de' y HH:mm:ss",
-      'pt_BR',
-    );
-
-    final dateLine = df.format(dt);
-
-    final lat = _latUsed ?? widget.exifLatitude ?? _orig?.latitude;
-    final lon = _lonUsed ?? widget.exifLongitude ?? _orig?.longitude;
-
-    final lines = <String>[dateLine];
-
-    if (lat != null && lon != null) {
-      lines.add(_toDms(ll.LatLng(lat, lon)));
-    } else {
-      lines.add('Sem coordenadas');
-    }
-
-    final rua = _street ?? widget.overlayLogradouro;
-    lines.add((rua ?? '').isNotEmpty ? rua! : 'Rua não disponível');
-
-    final cidade = _city ?? widget.overlayMunicipio;
-    lines.add((cidade ?? '').isNotEmpty ? cidade! : 'Cidade não disponível');
-
-    final ufRaw = _state ?? widget.overlayUF;
-    final ufFull = _fullStateNameBR(ufRaw);
-
-    lines.add(
-      (ufFull ?? '').isNotEmpty ? ufFull! : 'Estado não disponível',
-    );
-
-    return lines;
-  }
-
-  Future<_OrigExif?> _readOriginalExif(Uint8List data) async {
-    try {
-      final tags = await exif.readExifFromBytes(data);
-
-      if (tags.isEmpty) return null;
-
-      DateTime? dt;
-
-      for (final key in const [
-        'Image DateTime',
-        'EXIF DateTimeOriginal',
-        'EXIF DateTimeDigitized',
-      ]) {
-        final v = tags[key]?.printable;
-
-        if (v != null) {
-          final parsed = _tryParseExifDate(v);
-
-          if (parsed != null) {
-            dt = parsed;
-            break;
-          }
-        }
-      }
-
-      double? lat;
-      double? lon;
-
-      final latTag = tags['GPS GPSLatitude'];
-      final latRef = tags['GPS GPSLatitudeRef']?.printable;
-      final lonTag = tags['GPS GPSLongitude'];
-      final lonRef = tags['GPS GPSLongitudeRef']?.printable;
-
-      double? ratiosToDeg(exif.IfdValues? v) {
-        if (v is exif.IfdRatios && v.ratios.length >= 3) {
-          final d = v.ratios[0].toDouble();
-          final m = v.ratios[1].toDouble();
-          final s = v.ratios[2].toDouble();
-
-          return d + (m / 60.0) + (s / 3600.0);
-        }
-
-        return null;
-      }
-
-      if (latTag != null &&
-          lonTag != null &&
-          latRef != null &&
-          lonRef != null) {
-        lat = ratiosToDeg(latTag.values);
-        lon = ratiosToDeg(lonTag.values);
-
-        if (lat != null && lon != null) {
-          if (latRef.toUpperCase().startsWith('S')) {
-            lat = -lat;
-          }
-
-          if (lonRef.toUpperCase().startsWith('W')) {
-            lon = -lon;
-          }
-        }
-      }
-
-      return _OrigExif(
-        dateTime: dt,
-        latitude: lat,
-        longitude: lon,
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<Uint8List> _applyExifIfSupported(Uint8List jpeg) async {
-    if (!widget.writeExif) return jpeg;
-    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return jpeg;
-
-    try {
-      final temp = await getTemporaryDirectory();
-
-      final f = File(
-        '${temp.path}/preview_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
-
-      await f.writeAsBytes(jpeg, flush: true);
-
-      final ex = await Exif.fromPath(f.path);
-
-      final now = DateTime.now();
-
-      final dt = widget.exifDateTime ?? _orig?.dateTime ?? now;
-      final lat = _latUsed ?? widget.exifLatitude ?? _orig?.latitude;
-      final lon = _lonUsed ?? widget.exifLongitude ?? _orig?.longitude;
-
-      String two(int v) => v.toString().padLeft(2, '0');
-
-      final dateStr =
-          '${dt.year}:${two(dt.month)}:${two(dt.day)} '
-          '${two(dt.hour)}:${two(dt.minute)}:${two(dt.second)}';
-
-      await ex.writeAttributes({
-        'DateTime': dateStr,
-        'DateTimeOriginal': dateStr,
-        'DateTimeDigitized': dateStr,
-      });
-
-      if (lat != null && lon != null) {
-        final latRef = lat >= 0 ? 'N' : 'S';
-        final lonRef = lon >= 0 ? 'E' : 'W';
-
-        await ex.writeAttributes({
-          'GPSLatitude': lat.toString(),
-          'GPSLatitudeRef': latRef,
-          'GPSLongitude': lon.toString(),
-          'GPSLongitudeRef': lonRef,
-        });
-      }
-
-      await ex.close();
-
-      return await f.readAsBytes();
-    } catch (_) {
-      return jpeg;
-    }
-  }
-
-  Future<Uint8List> _burnStampOnImage(
-      Uint8List jpgBytes,
-      List<String> lines,
-      ) async {
-    if (lines.isEmpty) return jpgBytes;
-
-    final baked = await compute(
-      _bakeOrientationBytesTopLevel,
-      jpgBytes,
-    );
-
-    final uiImage = await _decodeUiImage(baked);
-
-    final width = uiImage.width;
-    final height = uiImage.height;
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final size = Size(width.toDouble(), height.toDouble());
-
-    canvas.drawImage(uiImage, Offset.zero, Paint());
-
-    final font = (width / 22).clamp(24, 64).toDouble();
-
-    final textSpan = TextSpan(
-      text: lines.join('\n'),
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: font,
-        height: 1.15,
-        shadows: const [
-          Shadow(
-            blurRadius: 4,
-            color: Colors.black87,
-            offset: Offset(1, 1),
-          ),
-          Shadow(
-            blurRadius: 6,
-            color: Colors.black87,
-            offset: Offset(0, 0),
-          ),
-        ],
-      ),
-    );
-
-    final tp = TextPainter(
-      text: textSpan,
-      textAlign: TextAlign.right,
-      textDirection: ui.TextDirection.ltr,
-    )..layout(maxWidth: size.width * 0.9);
-
-    final dx = size.width - tp.width - 24;
-    final dy = size.height - tp.height - 24;
-
-    tp.paint(canvas, Offset(dx, dy));
-
-    final picture = recorder.endRecording();
-    final stamped = await picture.toImage(width, height);
-
-    final byteData = await stamped.toByteData(
-      format: ui.ImageByteFormat.png,
-    );
-
-    if (byteData == null) {
-      throw 'Falha ao rasterizar imagem final.';
-    }
-
-    final pngBytes = byteData.buffer.asUint8List();
-    final raster = im.decodeImage(pngBytes);
-
-    if (raster == null) {
-      throw 'Falha ao decodificar imagem final.';
-    }
-
-    return Uint8List.fromList(
-      im.JpegEncoder(
-        quality: widget.outputJpegQuality.clamp(1, 100),
-      ).encode(raster),
-    );
-  }
-
-  static Future<ui.Image> _decodeUiImage(Uint8List bytes) {
-    final completer = Completer<ui.Image>();
-
-    ui.decodeImageFromList(
-      bytes,
-          (img) => completer.complete(img),
-    );
-
-    return completer.future;
-  }
-
-  static Future<ui.Image> _probe(Uint8List bytes) {
-    final completer = Completer<ui.Image>();
-
-    ui.decodeImageFromList(
-      bytes,
-          (img) => completer.complete(img),
-    );
-
-    return completer.future;
-  }
-
-  static DateTime? _tryParseExifDate(String s) {
-    try {
-      final parts = s.trim().split(' ');
-      final d = parts[0].split(':');
-      final t = (parts.length > 1 ? parts[1] : '00:00:00').split(':');
-
-      if (d.length == 3 && t.length >= 2) {
-        return DateTime(
-          int.parse(d[0]),
-          int.parse(d[1]),
-          int.parse(d[2]),
-          int.parse(t[0]),
-          int.parse(t[1]),
-          t.length > 2 ? int.parse(t[2]) : 0,
-        );
-      }
-    } catch (_) {}
-
-    return null;
-  }
-
-  static String? _joinNotEmpty(List<String?> parts, String sep) {
-    final nonEmpty = parts
-        .where((e) => e != null && e.trim().isNotEmpty)
-        .map((e) => e!.trim())
-        .toList(growable: false);
-
-    if (nonEmpty.isEmpty) return null;
-
-    return nonEmpty.join(sep);
-  }
-
-  String _toDms(ll.LatLng p) {
-    String fmt(double v, {required bool isLat}) {
-      final hemi = isLat ? (v >= 0 ? 'N' : 'S') : (v >= 0 ? 'E' : 'W');
-      final av = v.abs();
-      final d = av.floor();
-      final mFloat = (av - d) * 60.0;
-      final m = mFloat.floor();
-      final s = (mFloat - m) * 60.0;
-
-      final dPad = isLat
-          ? d.toString().padLeft(2, '0')
-          : d.toString().padLeft(3, '0');
-
-      final mPad = m.toString().padLeft(2, '0');
-      final sPad = s.toStringAsFixed(1).padLeft(4, '0');
-
-      return '$hemi $dPad° $mPad\' $sPad"';
-    }
-
-    return '${fmt(p.latitude, isLat: true)}   '
-        '${fmt(p.longitude, isLat: false)}';
-  }
-
-  String? _fullStateNameBR(String? input) {
-    if (input == null) return null;
-
-    var s = input.trim();
-
-    if (s.isEmpty) return null;
-
-    final re = RegExp(
-      r'^\s*Estado\s+de\s+',
-      caseSensitive: false,
-    );
-
-    s = s.replaceFirst(re, '');
-
-    final uf = s.toUpperCase();
-
-    if (_ufToNomeBR.containsKey(uf)) {
-      return _ufToNomeBR[uf];
-    }
-
-    return s;
   }
 }
 
-Uint8List _bakeOrientationBytesTopLevel(Uint8List data) {
-  final decoded = im.decodeImage(data);
-
-  if (decoded == null) {
-    throw 'Imagem inválida';
-  }
-
-  final baked = im.bakeOrientation(decoded);
-
-  return Uint8List.fromList(
-    im.JpegEncoder(quality: 100).encode(baked),
-  );
-}
-
-const Map<String, String> _ufToNomeBR = {
-  'AC': 'Acre',
-  'AL': 'Alagoas',
-  'AP': 'Amapá',
-  'AM': 'Amazonas',
-  'BA': 'Bahia',
-  'CE': 'Ceará',
-  'DF': 'Distrito Federal',
-  'ES': 'Espírito Santo',
-  'GO': 'Goiás',
-  'MA': 'Maranhão',
-  'MT': 'Mato Grosso',
-  'MS': 'Mato Grosso do Sul',
-  'MG': 'Minas Gerais',
-  'PA': 'Pará',
-  'PB': 'Paraíba',
-  'PR': 'Paraná',
-  'PE': 'Pernambuco',
-  'PI': 'Piauí',
-  'RJ': 'Rio de Janeiro',
-  'RN': 'Rio Grande do Norte',
-  'RS': 'Rio Grande do Sul',
-  'RO': 'Rondônia',
-  'RR': 'Roraima',
-  'SC': 'Santa Catarina',
-  'SP': 'São Paulo',
-  'SE': 'Sergipe',
-  'TO': 'Tocantins',
-};
-
-class _OrigExif {
-  final DateTime? dateTime;
-  final double? latitude;
-  final double? longitude;
-
-  const _OrigExif({
-    this.dateTime,
-    this.latitude,
-    this.longitude,
+class _PhotoPreviewPainter extends CustomPainter {
+  const _PhotoPreviewPainter({
+    required this.image,
+    required this.sourceRect,
+    required this.destinationRect,
+    this.paintStamp,
   });
+
+  final ui.Image image;
+  final Rect sourceRect;
+  final Rect destinationRect;
+
+  final void Function({
+  required Canvas canvas,
+  required Rect visibleImageRect,
+  required double scaleBase,
+  })? paintStamp;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final imagePaint = Paint()
+      ..isAntiAlias = true
+      ..filterQuality = FilterQuality.high;
+
+    canvas.drawImageRect(
+      image,
+      sourceRect,
+      destinationRect,
+      imagePaint,
+    );
+
+    paintStamp?.call(
+      canvas: canvas,
+      visibleImageRect: destinationRect,
+      scaleBase: destinationRect.shortestSide,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PhotoPreviewPainter oldDelegate) {
+    return oldDelegate.image != image ||
+        oldDelegate.sourceRect != sourceRect ||
+        oldDelegate.destinationRect != destinationRect ||
+        oldDelegate.paintStamp != paintStamp;
+  }
 }
 
-class _PreviewStamp extends StatelessWidget {
-  final List<String> lines;
-  final double fontSize;
-  final double lineHeight;
-
-  const _PreviewStamp({
-    required this.lines,
-    this.fontSize = 18,
-    this.lineHeight = 1.15,
+class _TopActionButton extends StatelessWidget {
+  const _TopActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
   });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      lines.join('\n'),
-      textAlign: TextAlign.right,
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: fontSize,
-        height: lineHeight,
-        shadows: const [
-          Shadow(
-            blurRadius: 4,
-            color: Colors.black87,
-            offset: Offset(1, 1),
+    return Material(
+      color: Colors.white.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 10,
           ),
-          Shadow(
-            blurRadius: 6,
-            color: Colors.black87,
-            offset: Offset(0, 0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

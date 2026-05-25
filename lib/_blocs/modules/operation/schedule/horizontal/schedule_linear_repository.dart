@@ -5,16 +5,15 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
 
-import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/models/photo_data.dart';
 
 class ScheduleLinearBulkCellTarget {
   const ScheduleLinearBulkCellTarget({
@@ -130,7 +129,9 @@ class ScheduleLinearRepository {
     return _contractRef(contractId).collection('schedule').doc('config');
   }
 
-  DocumentReference<Map<String, dynamic>> _scheduleCellsDoc(String contractId) {
+  DocumentReference<Map<String, dynamic>> _scheduleCellsDoc(
+      String contractId,
+      ) {
     return _contractRef(contractId).collection('schedule').doc('cells');
   }
 
@@ -175,6 +176,7 @@ class ScheduleLinearRepository {
     if (lower.endsWith('.gif')) return 'image/gif';
     if (lower.endsWith('.bmp')) return 'image/bmp';
     if (lower.endsWith('.heic')) return 'image/heic';
+    if (lower.endsWith('.heif')) return 'image/heif';
 
     if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
       return 'image/jpeg';
@@ -189,6 +191,35 @@ class ScheduleLinearRepository {
     required int faixaIndex,
   }) {
     return '${_safeStorageKey(serviceKey)}_${faixaIndex}_$estaca';
+  }
+
+  Map<String, dynamic> _photoMetaMap({
+    required PhotoData photo,
+    required String url,
+    required String storedName,
+    DateTime? fallbackTakenAt,
+    int? fallbackUploadedAtMs,
+    String? fallbackUploadedBy,
+  }) {
+    final taken = photo.takenAt ?? fallbackTakenAt;
+    final uploadedAtMs = photo.uploadedAtMs ?? fallbackUploadedAtMs;
+    final uploadedBy = photo.uploadedBy ?? fallbackUploadedBy;
+
+    return <String, dynamic>{
+      'id': photo.id,
+      'url': url,
+      'name': photo.name.trim().isNotEmpty ? photo.name.trim() : storedName,
+      if (taken != null) 'takenAt': taken.millisecondsSinceEpoch,
+      if (taken != null) 'takenAtMs': taken.millisecondsSinceEpoch,
+      if (photo.lat != null) 'lat': photo.lat,
+      if (photo.lng != null) 'lng': photo.lng,
+      if (photo.make != null) 'make': photo.make,
+      if (photo.model != null) 'model': photo.model,
+      if (photo.orientation != null) 'orientation': photo.orientation,
+      if (uploadedAtMs != null) 'uploadedAtMs': uploadedAtMs,
+      if (uploadedBy != null && uploadedBy.trim().isNotEmpty)
+        'uploadedBy': uploadedBy,
+    };
   }
 
   Future<void> saveScheduleConfiguration({
@@ -218,7 +249,7 @@ class ScheduleLinearRepository {
       'lanes': cleanLanes.map((lane) => lane.toMap()).toList(growable: false),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
-      'version': 6,
+      'version': 7,
     }, SetOptions(merge: true));
 
     clearContractCache(cleanContractId);
@@ -265,7 +296,6 @@ class ScheduleLinearRepository {
       if (b.key == ScheduleLinearServicesData.geralKey) return 1;
 
       final byLayer = a.layerOrder.compareTo(b.layerOrder);
-
       if (byLayer != 0) return byLayer;
 
       return a.label.compareTo(b.label);
@@ -287,26 +317,30 @@ class ScheduleLinearRepository {
         .map((service) => service.key)
         .toSet();
 
-    return List<ScheduleLinearLaneData>.generate(lanes.length, (index) {
-      final lane = lanes[index];
+    return List<ScheduleLinearLaneData>.generate(
+      lanes.length,
+          (index) {
+        final lane = lanes[index];
 
-      final allowedByService = <String, bool>{
-        for (final key in specificServiceKeys)
-          key: lane.allowedByService[key] ?? true,
-      };
+        final allowedByService = <String, bool>{
+          for (final key in specificServiceKeys)
+            key: lane.allowedByService[key] ?? true,
+        };
 
-      return ScheduleLinearLaneData.create(
-        faixaIndex: index,
-        pos: lane.resolvedPos,
-        nome: lane.resolvedNome,
-        altura: lane.resolvedAltura,
-        anchor: lane.anchor,
-        allowedByService: allowedByService,
-        color: lane.color,
-        iconKey: lane.iconKey,
-        icon: lane.icon,
-      );
-    }, growable: false);
+        return ScheduleLinearLaneData.create(
+          faixaIndex: index,
+          pos: lane.resolvedPos,
+          nome: lane.resolvedNome,
+          altura: lane.resolvedAltura,
+          anchor: lane.anchor,
+          allowedByService: allowedByService,
+          color: lane.color,
+          iconKey: lane.iconKey,
+          icon: lane.icon,
+        );
+      },
+      growable: false,
+    );
   }
 
   Future<void> saveFaixas(
@@ -338,10 +372,7 @@ class ScheduleLinearRepository {
     }
 
     final cached = _servicesCache[cleanContractId];
-
     if (cached != null) return cached;
-
-    final sw = Stopwatch()..start();
 
     final doc = await _scheduleConfigDoc(cleanContractId).get();
 
@@ -353,9 +384,6 @@ class ScheduleLinearRepository {
       );
 
       _servicesCache[cleanContractId] = defaults;
-
-      sw.stop();
-
       return defaults;
     }
 
@@ -377,11 +405,9 @@ class ScheduleLinearRepository {
     }
 
     final prepared = _prepareServices(services);
-
     final frozen = List<ScheduleLinearServicesData>.unmodifiable(prepared);
-    _servicesCache[cleanContractId] = frozen;
 
-    sw.stop();
+    _servicesCache[cleanContractId] = frozen;
 
     return frozen;
   }
@@ -394,10 +420,7 @@ class ScheduleLinearRepository {
     }
 
     final cached = _lanesCache[cleanContractId];
-
     if (cached != null) return cached;
-
-    final sw = Stopwatch()..start();
 
     final doc = await _scheduleConfigDoc(cleanContractId).get();
 
@@ -436,7 +459,6 @@ class ScheduleLinearRepository {
       rows.length,
           (index) {
         final row = rows[index];
-
         return row.copyWith(faixaIndex: index);
       },
       growable: false,
@@ -444,8 +466,6 @@ class ScheduleLinearRepository {
 
     final frozen = List<ScheduleLinearLaneData>.unmodifiable(prepared);
     _lanesCache[cleanContractId] = frozen;
-
-    sw.stop();
 
     return frozen;
   }
@@ -458,7 +478,6 @@ class ScheduleLinearRepository {
     }
 
     final cached = _totalsCache[cleanContractId];
-
     if (cached != null) return cached;
 
     final services = await loadAvailableServicesFromBudget(cleanContractId);
@@ -497,10 +516,7 @@ class ScheduleLinearRepository {
         : '$cleanContractId|$cleanSelectedKey';
 
     final cached = _execCache[cacheKey];
-
     if (cached != null) return cached;
-
-    final sw = Stopwatch()..start();
 
     Query<Map<String, dynamic>> query = _scheduleCellsItemsCol(cleanContractId);
 
@@ -543,8 +559,6 @@ class ScheduleLinearRepository {
     final list = List<ScheduleLinearCellData>.unmodifiable(map.values);
     _execCache[cacheKey] = list;
 
-    sw.stop();
-
     return list;
   }
 
@@ -557,14 +571,10 @@ class ScheduleLinearRepository {
     String? comentario,
     DateTime? takenAtForNew,
     required List<String> finalPhotoUrls,
-    required List<Uint8List> newFilesBytes,
-    List<String>? newFileNames,
-    List<pm.CarouselMetadata> newPhotoMetas = const [],
+    required List<PhotoData> newPhotos,
     required String currentUserId,
     bool clearCacheAfter = true,
   }) async {
-    final swTotal = Stopwatch()..start();
-
     final cleanContractId = contractId.trim();
     final cleanServiceKey = _cleanServiceKey(serviceKey);
 
@@ -589,7 +599,7 @@ class ScheduleLinearRepository {
 
     if (!serviceExists) {
       throw Exception(
-        'Serviço "$cleanServiceKey" não foi configurado para este gallery.',
+        'Serviço "$cleanServiceKey" não foi configurado para este cronograma.',
       );
     }
 
@@ -621,8 +631,7 @@ class ScheduleLinearRepository {
     final snap = await docRef.get();
 
     final hasComment = comentario?.trim().isNotEmpty ?? false;
-    final hasPhotos = finalPhotoUrls.isNotEmpty || newFilesBytes.isNotEmpty;
-
+    final hasPhotos = finalPhotoUrls.isNotEmpty || newPhotos.isNotEmpty;
     final takenMs = takenAtForNew?.millisecondsSinceEpoch;
 
     final effectiveStatus =
@@ -651,8 +660,6 @@ class ScheduleLinearRepository {
         clearExecCache(cleanContractId);
       }
 
-      swTotal.stop();
-
       return const <String>[];
     }
 
@@ -665,7 +672,7 @@ class ScheduleLinearRepository {
       'status': effectiveStatus.key,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      'takenAtMs': ?takenMs,
+      if (takenMs != null) 'takenAtMs': takenMs,
       if (takenMs == null) 'takenAtMs': FieldValue.delete(),
       if (hasComment) 'comentario': comentario!.trim(),
       if (!hasComment) 'comentario': FieldValue.delete(),
@@ -684,9 +691,18 @@ class ScheduleLinearRepository {
     final uploadedUrls = <String>[];
     final uploadedMetas = <Map<String, dynamic>>[];
 
-    if (newFilesBytes.isNotEmpty) {
-      final swUpload = Stopwatch()..start();
+    final directUrlPhotos = <PhotoData>[];
+    final uploadPhotos = <PhotoData>[];
 
+    for (final photo in newPhotos) {
+      if (photo.bytes != null) {
+        uploadPhotos.add(photo);
+      } else if (photo.url != null && photo.url!.trim().isNotEmpty) {
+        directUrlPhotos.add(photo);
+      }
+    }
+
+    if (uploadPhotos.isNotEmpty) {
       final folder = _photosFolderRef(
         contractId: cleanContractId,
         serviceKey: cleanServiceKey,
@@ -694,14 +710,13 @@ class ScheduleLinearRepository {
         faixaIndex: faixaIndex,
       );
 
-      final now = DateTime.now();
-      final nowMs = now.millisecondsSinceEpoch;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
 
-      for (int i = 0; i < newFilesBytes.length; i++) {
-        final suggested = (newFileNames != null &&
-            i < newFileNames.length &&
-            newFileNames[i].trim().isNotEmpty)
-            ? _sanitizeName(newFileNames[i])
+      for (int i = 0; i < uploadPhotos.length; i++) {
+        final photo = uploadPhotos[i];
+
+        final suggested = photo.name.trim().isNotEmpty
+            ? _sanitizeName(photo.name.trim())
             : 'img_${nowMs}_$i.jpg';
 
         final unique = '${DateTime.now().microsecondsSinceEpoch}_$suggested';
@@ -709,38 +724,55 @@ class ScheduleLinearRepository {
         final ref = folder.child(unique);
 
         final task = await ref.putData(
-          newFilesBytes[i],
-          SettableMetadata(contentType: contentType),
+          photo.bytes!,
+          SettableMetadata(
+            contentType: contentType,
+            customMetadata: {
+              'tenantId': tenantId,
+              'contractId': cleanContractId,
+              'serviceKey': cleanServiceKey,
+              'estaca': estaca.toString(),
+              'faixaIndex': faixaIndex.toString(),
+              'photoId': photo.id,
+              'uploadedBy': photo.uploadedBy ?? currentUserId,
+            },
+          ),
         );
 
         final url = await task.ref.getDownloadURL();
 
         uploadedUrls.add(url);
 
-        final meta = i < newPhotoMetas.length
-            ? newPhotoMetas[i]
-            : const pm.CarouselMetadata();
-
-        final taken = meta.takenAt ?? takenAtForNew;
-
-        uploadedMetas.add({
-          'url': url,
-          'name': meta.name ?? unique,
-          if (taken != null) 'takenAt': taken.millisecondsSinceEpoch,
-          if (taken != null) 'takenAtMs': taken.millisecondsSinceEpoch,
-          if (meta.lat != null) 'lat': meta.lat,
-          if (meta.lng != null) 'lng': meta.lng,
-          if (meta.make != null) 'make': meta.make,
-          if (meta.model != null) 'model': meta.model,
-          if (meta.orientation != null) 'orientation': meta.orientation,
-          'uploadedAtMs': meta.uploadedAtMs ?? nowMs,
-          'uploadedBy': meta.uploadedBy ?? currentUserId,
-        });
+        uploadedMetas.add(
+          _photoMetaMap(
+            photo: photo,
+            url: url,
+            storedName: unique,
+            fallbackTakenAt: takenAtForNew,
+            fallbackUploadedAtMs: nowMs,
+            fallbackUploadedBy: currentUserId,
+          ),
+        );
       }
-
-      swUpload.stop();
-
     }
+
+    final directUrls = directUrlPhotos
+        .map((photo) => photo.url?.trim() ?? '')
+        .where((url) => url.isNotEmpty)
+        .toList(growable: false);
+
+    final directMetas = directUrlPhotos
+        .where((photo) => photo.url != null && photo.url!.trim().isNotEmpty)
+        .map((photo) {
+      return _photoMetaMap(
+        photo: photo,
+        url: photo.url!.trim(),
+        storedName: photo.name,
+        fallbackTakenAt: takenAtForNew,
+        fallbackUploadedAtMs: photo.uploadedAtMs,
+        fallbackUploadedBy: photo.uploadedBy ?? currentUserId,
+      );
+    }).toList(growable: false);
 
     final currentSnap = await docRef.get();
     final currentData = currentSnap.data() ?? const <String, dynamic>{};
@@ -749,10 +781,14 @@ class ScheduleLinearRepository {
         ? List<String>.from(currentData['fotos'] as List)
         : const <String>[];
 
+    final orderedUrls = <String>[
+      ...finalPhotoUrls.where((url) => url.trim().isNotEmpty),
+      ...directUrls,
+      ...uploadedUrls,
+    ];
+
     final removed = currentUrls
-        .where(
-          (url) => !finalPhotoUrls.contains(url) && !uploadedUrls.contains(url),
-    )
+        .where((url) => !orderedUrls.contains(url))
         .toList(growable: false);
 
     for (final url in removed) {
@@ -780,25 +816,28 @@ class ScheduleLinearRepository {
     final byUrl = <String, Map<String, dynamic>>{};
 
     for (final meta in oldMetas) {
-      final url = (meta['url'] as String?) ?? '';
+      final url = meta['url']?.toString() ?? '';
 
       if (url.isNotEmpty && !removed.contains(url)) {
         byUrl[url] = meta;
       }
     }
 
-    for (final meta in uploadedMetas) {
-      final url = (meta['url'] as String?) ?? '';
+    for (final meta in directMetas) {
+      final url = meta['url']?.toString() ?? '';
 
       if (url.isNotEmpty) {
         byUrl[url] = meta;
       }
     }
 
-    final orderedUrls = <String>[
-      ...finalPhotoUrls.where((url) => url.trim().isNotEmpty),
-      ...uploadedUrls,
-    ];
+    for (final meta in uploadedMetas) {
+      final url = meta['url']?.toString() ?? '';
+
+      if (url.isNotEmpty) {
+        byUrl[url] = meta;
+      }
+    }
 
     final orderedMetas = orderedUrls.map((url) {
       final meta = byUrl[url];
@@ -820,15 +859,13 @@ class ScheduleLinearRepository {
       if (orderedMetas.isNotEmpty) 'fotosMeta': orderedMetas,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      'takenAtMs': ?takenMs,
+      if (takenMs != null) 'takenAtMs': takenMs,
       if (takenMs == null) 'takenAtMs': FieldValue.delete(),
     }, SetOptions(merge: true));
 
     if (clearCacheAfter) {
       clearExecCache(cleanContractId);
     }
-
-    swTotal.stop();
 
     return uploadedUrls;
   }
@@ -842,8 +879,6 @@ class ScheduleLinearRepository {
     DateTime? takenAtForNew,
     required String currentUserId,
   }) async {
-    final swTotal = Stopwatch()..start();
-
     final cleanContractId = contractId.trim();
     final cleanServiceKey = _cleanServiceKey(serviceKey);
 
@@ -872,7 +907,7 @@ class ScheduleLinearRepository {
 
     if (!serviceExists) {
       throw Exception(
-        'Serviço "$cleanServiceKey" não foi configurado para este gallery.',
+        'Serviço "$cleanServiceKey" não foi configurado para este cronograma.',
       );
     }
 
@@ -924,8 +959,6 @@ class ScheduleLinearRepository {
       final end = math.min(start + chunkSize, normalizedTargets.length);
       final chunk = normalizedTargets.sublist(start, end);
 
-      final swChunk = Stopwatch()..start();
-
       final refs = chunk.map((target) {
         final cellId = _cellDocId(
           serviceKey: cleanServiceKey,
@@ -936,13 +969,9 @@ class ScheduleLinearRepository {
         return _scheduleCellsItemsCol(cleanContractId).doc(cellId);
       }).toList(growable: false);
 
-      final swReads = Stopwatch()..start();
-
       final snaps = await Future.wait(
         refs.map((ref) => ref.get()),
       );
-
-      swReads.stop();
 
       final batch = _firestore.batch();
       final urlsToDelete = <String>[];
@@ -983,9 +1012,9 @@ class ScheduleLinearRepository {
           'status': effectiveStatus.key,
           'updatedAt': FieldValue.serverTimestamp(),
           'updatedBy': currentUserId,
-          'takenAtMs': ?takenMs,
+          if (takenMs != null) 'takenAtMs': takenMs,
           if (takenMs == null) 'takenAtMs': FieldValue.delete(),
-          'comentario': ?cleanComment,
+          if (cleanComment != null) 'comentario': cleanComment,
           if (cleanComment == null) 'comentario': FieldValue.delete(),
         };
 
@@ -1001,35 +1030,20 @@ class ScheduleLinearRepository {
         );
       }
 
-      final swCommit = Stopwatch()..start();
-
       await batch.commit();
-
-      swCommit.stop();
-
-      final swStorage = Stopwatch()..start();
 
       if (urlsToDelete.isNotEmpty) {
         await Future.wait(
           urlsToDelete.map((url) async {
             try {
               await _storage.refFromURL(url).delete();
-            } catch (_) {
-              // Ignora falha isolada de Storage para não travar o lote inteiro.
-            }
+            } catch (_) {}
           }),
         );
       }
-
-      swStorage.stop();
-
-      swChunk.stop();
     }
 
     clearExecCache(cleanContractId);
-
-    swTotal.stop();
-
   }
 
   Future<({List<int> periods, Map<String, List<double>> grid})> loadPhysFinGrid(
@@ -1042,7 +1056,6 @@ class ScheduleLinearRepository {
     }
 
     final cached = _physfinCache[cleanContractId];
-
     if (cached != null) return cached;
 
     final doc = await _physFinDoc(cleanContractId).get();
@@ -1313,7 +1326,7 @@ class ScheduleLinearRepository {
       'storageMode': 'inline_v1',
       'totalSegments': lines.length,
       'totalPoints': totalPoints,
-      'bounds': ?bounds,
+      if (bounds != null) 'bounds': bounds,
       if (bounds == null) 'bounds': FieldValue.delete(),
       if (lines.length == 1) 'points': _toPoints(lines.first),
       if (lines.length == 1) 'multiLine': FieldValue.delete(),

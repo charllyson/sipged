@@ -1,10 +1,14 @@
 // lib/_blocs/modules/operation/operation/civil/civil_schedule_event.dart
+
 import 'dart:typed_data';
+
 import 'package:equatable/equatable.dart';
-import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+
+import 'package:sipged/_widgets/images/carousel/models/photo_data.dart';
 
 abstract class CivilScheduleEvent extends Equatable {
   const CivilScheduleEvent();
+
   @override
   List<Object?> get props => [];
 }
@@ -12,7 +16,17 @@ abstract class CivilScheduleEvent extends Equatable {
 class CivilWarmupRequested extends CivilScheduleEvent {
   final String contractId;
   final int? initialPage; // 0-based
-  const CivilWarmupRequested(this.contractId, {this.initialPage});
+
+  const CivilWarmupRequested(
+      this.contractId, {
+        this.initialPage,
+      });
+
+  @override
+  List<Object?> get props => [
+    contractId,
+    initialPage,
+  ];
 }
 
 class CivilRefreshRequested extends CivilScheduleEvent {
@@ -21,19 +35,30 @@ class CivilRefreshRequested extends CivilScheduleEvent {
 
 class CivilPageSelected extends CivilScheduleEvent {
   final int page;
+
   const CivilPageSelected(this.page);
-  @override List<Object?> get props => [page];
+
+  @override
+  List<Object?> get props => [page];
 }
 
 class CivilAssetUploadRequested extends CivilScheduleEvent {
   final String filename;
   final Uint8List bytes;
   final String currentUserId;
+
   const CivilAssetUploadRequested({
     required this.filename,
     required this.bytes,
     required this.currentUserId,
   });
+
+  @override
+  List<Object?> get props => [
+    filename,
+    bytes,
+    currentUserId,
+  ];
 }
 
 class CivilPolygonUpsertRequested extends CivilScheduleEvent {
@@ -48,6 +73,7 @@ class CivilPolygonUpsertRequested extends CivilScheduleEvent {
   final List<Map<String, double>> points;
   final int? takenAtMs;
   final String currentUserId;
+
   const CivilPolygonUpsertRequested({
     this.polygonId,
     required this.page,
@@ -61,6 +87,21 @@ class CivilPolygonUpsertRequested extends CivilScheduleEvent {
     this.takenAtMs,
     required this.currentUserId,
   });
+
+  @override
+  List<Object?> get props => [
+    polygonId,
+    page,
+    name,
+    tipo,
+    status,
+    comentario,
+    areaM2,
+    perimeterM,
+    points,
+    takenAtMs,
+    currentUserId,
+  ];
 }
 
 class CivilPolygonApplyRequested extends CivilScheduleEvent {
@@ -69,24 +110,36 @@ class CivilPolygonApplyRequested extends CivilScheduleEvent {
   final String? comentario;
   final int? takenAtMs;
   final List<String> finalPhotoUrls;
-  final List<Uint8List> newFilesBytes;
-  final List<String>? newFileNames;
-  final List<pm.CarouselMetadata> newPhotoMetas;
+  final List<PhotoData> newPhotos;
   final String currentUserId;
+
   const CivilPolygonApplyRequested({
     required this.polygonId,
     required this.status,
     this.comentario,
     this.takenAtMs,
     required this.finalPhotoUrls,
-    required this.newFilesBytes,
-    this.newFileNames,
-    this.newPhotoMetas = const [],
+    required this.newPhotos,
     required this.currentUserId,
   });
+
+  @override
+  List<Object?> get props => [
+    polygonId,
+    status,
+    comentario,
+    takenAtMs,
+    finalPhotoUrls,
+    newPhotos,
+    currentUserId,
+  ];
 }
 
 class CivilPolygonDeleteRequested extends CivilScheduleEvent {
   final String polygonId;
+
   const CivilPolygonDeleteRequested(this.polygonId);
+
+  @override
+  List<Object?> get props => [polygonId];
 }

@@ -1,16 +1,16 @@
 // lib/screens/modules/operation/schedule/common/modal/schedule_modal_widget.dart
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cubit.dart';
-import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_services_data.dart';
+import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
 
-import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/models/photo_data.dart';
+import 'package:sipged/_widgets/images/carousel/services/photo_stamp_service.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/sheets/draggable_sheet/draggable_sheet.dart';
 
@@ -50,7 +50,7 @@ class ScheduleModalWidget extends StatefulWidget {
   final String? initialComment;
   final double? initialProgress;
 
-  /// Usado somente para apagar área no gallery civil.
+  /// Usado somente para apagar área no cronograma civil.
   final VoidCallback? onDelete;
 
   /// Mantido por compatibilidade.
@@ -90,12 +90,11 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
   bool _saving = false;
 
   List<String> _existingUrls = <String>[];
+
   Map<String, Map<String, dynamic>> _existingMetaByUrl =
   <String, Map<String, dynamic>>{};
 
-  final List<Uint8List> _newPhotos = <Uint8List>[];
-  final List<pm.CarouselMetadata> _newMetas = <pm.CarouselMetadata>[];
-  final List<String> _newNames = <String>[];
+  final List<PhotoData> _newPhotos = <PhotoData>[];
 
   bool get _isMulti => widget.targets.length > 1;
 
@@ -139,6 +138,30 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
     }
 
     return '';
+  }
+
+  String _photoId() {
+    return 'photo_${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  String _safePhotoName(String suggestedName) {
+    final clean = suggestedName.trim();
+
+    if (clean.isEmpty) {
+      return 'foto_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    }
+
+    return clean;
+  }
+
+  PhotoData _normalizePickedPhoto(PhotoData photo) {
+    return photo.copyWith(
+      id: photo.id.trim().isEmpty ? _photoId() : photo.id,
+      name: photo.name.trim().isEmpty ? _safePhotoName('foto.jpg') : photo.name,
+      takenAt: photo.takenAt ?? _selectedDate,
+      uploadedAtMs: photo.uploadedAtMs ?? DateTime.now().millisecondsSinceEpoch,
+      uploadedBy: photo.uploadedBy ?? widget.currentUserId,
+    );
   }
 
   void _showError(String message) {
@@ -245,7 +268,7 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
     final metaMap = <String, Map<String, dynamic>>{};
 
     for (final meta in data.fotosMeta) {
-      final url = (meta['url'] as String?) ?? '';
+      final url = meta['url']?.toString() ?? '';
 
       if (url.isNotEmpty) {
         metaMap[url] = Map<String, dynamic>.from(meta);
@@ -277,6 +300,12 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
 
     setState(() {
       _selectedDate = date;
+
+      for (int i = 0; i < _newPhotos.length; i++) {
+        _newPhotos[i] = _newPhotos[i].copyWith(
+          takenAt: date,
+        );
+      }
     });
   }
 
@@ -303,65 +332,27 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
     });
   }
 
-  Future<void> _addNewPhotoBytes(
-      Uint8List bytes,
-      String suggestedName,
-      ) async {
+  Future<void> _addNewPhoto(PhotoData photo) async {
+    if (_isBusy) return;
+
     setState(() {
-      _newPhotos.add(bytes);
-      _newMetas.add(const pm.CarouselMetadata());
-      _newNames.add(suggestedName);
+      _newPhotos.add(_normalizePickedPhoto(photo));
     });
 
     _bumpProgressIfNeeded();
   }
 
-  Future<void> _pickPhotos() async {
+  Future<void> _addNewPhotos(List<PhotoData> photos) async {
     if (_isBusy) return;
+    if (photos.isEmpty) return;
 
-    try {
-      setState(() {
-        _picking = true;
-      });
-
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        withData: true,
-        type: FileType.image,
+    setState(() {
+      _newPhotos.addAll(
+        photos.map(_normalizePickedPhoto),
       );
+    });
 
-      if (result == null) return;
-
-      final addedBytes = <Uint8List>[];
-      final addedNames = <String>[];
-
-      for (final file in result.files) {
-        final bytes = file.bytes;
-
-        if (bytes == null || bytes.isEmpty) continue;
-
-        addedBytes.add(bytes);
-        addedNames.add(file.name.isNotEmpty ? file.name : 'file.jpg');
-      }
-
-      if (addedBytes.isEmpty) return;
-
-      setState(() {
-        for (int i = 0; i < addedBytes.length; i++) {
-          _newPhotos.add(addedBytes[i]);
-          _newMetas.add(const pm.CarouselMetadata());
-          _newNames.add(addedNames[i]);
-        }
-      });
-
-      _bumpProgressIfNeeded();
-    } finally {
-      if (mounted) {
-        setState(() {
-          _picking = false;
-        });
-      }
-    }
+    _bumpProgressIfNeeded();
   }
 
   void _removeNewAt(int index) {
@@ -370,8 +361,6 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
 
     setState(() {
       _newPhotos.removeAt(index);
-      _newMetas.removeAt(index);
-      _newNames.removeAt(index);
     });
   }
 
@@ -383,6 +372,48 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
       _existingMetaByUrl.remove(_existingUrls[index]);
       _existingUrls.removeAt(index);
     });
+  }
+
+  Future<List<PhotoData>> _buildStampedPhotosForUpload({
+    required List<PhotoData> photos,
+    required DateTime takenAt,
+  }) async {
+    final output = <PhotoData>[];
+
+    for (final photo in photos) {
+      final normalized = photo.copyWith(
+        takenAt: photo.takenAt ?? takenAt,
+        uploadedAtMs:
+        photo.uploadedAtMs ?? DateTime.now().millisecondsSinceEpoch,
+        uploadedBy: photo.uploadedBy ?? widget.currentUserId,
+      );
+
+      final bytes = normalized.bytes;
+
+      if (bytes == null || bytes.isEmpty) {
+        output.add(normalized);
+        continue;
+      }
+
+      try {
+        final stampedBytes = await PhotoStampService.stampPhoto(
+          photo: normalized,
+        );
+
+        output.add(
+          normalized.copyWith(
+            bytes: stampedBytes,
+          ),
+        );
+      } catch (e, s) {
+        debugPrint('[ScheduleModalWidget] Falha ao carimbar foto no upload: $e');
+        debugPrintStack(stackTrace: s);
+
+        output.add(normalized);
+      }
+    }
+
+    return output;
   }
 
   List<ScheduleLinearApplyTarget> _buildApplyTargets({
@@ -426,7 +457,8 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
 
     if (serviceKey.isEmpty) {
       _showError(
-        'Selecione um serviço específico antes de salvar a execução. O modo GERAL é apenas leitura.',
+        'Selecione um serviço específico antes de salvar a execução. '
+            'O modo GERAL é apenas leitura.',
       );
       return;
     }
@@ -453,15 +485,20 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
         serviceKey: serviceKey,
       );
 
+      final photosToSend = _isMulti
+          ? const <PhotoData>[]
+          : await _buildStampedPhotosForUpload(
+        photos: _newPhotos,
+        takenAt: takenAt,
+      );
+
       await cubit.applySquareChangesBatch(
         serviceKey: serviceKey,
         targets: applyTargets,
         status: cellStatus,
         comentario: comment,
         takenAtForNew: takenAt,
-        newFilesBytes: _isMulti ? const <Uint8List>[] : _newPhotos,
-        newFileNames: _isMulti ? null : _newNames,
-        newPhotoMetas: _isMulti ? const <pm.CarouselMetadata>[] : _newMetas,
+        newPhotos: photosToSend,
         currentUserId: widget.currentUserId,
       );
 
@@ -558,12 +595,13 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
                       isMulti: _isMulti,
                       picking: _picking,
                       saving: _saving,
+                      currentUserId: widget.currentUserId,
                       existingUrls: _existingUrls,
                       existingMetaByUrl: _existingMetaByUrl,
                       newPhotos: _newPhotos,
-                      newMetas: _newMetas,
-                      onAddNewPhotoBytes: _isMulti ? null : _addNewPhotoBytes,
-                      onPickPhotos: _isMulti || !kIsWeb ? null : _pickPhotos,
+                      onAddNewPhoto: _isMulti ? null : _addNewPhoto,
+                      onAddNewPhotos: _isMulti ? null : _addNewPhotos,
+                      onPickPhotos: null,
                       onRemoveNew: _isMulti ? null : _removeNewAt,
                       onRemoveExisting: _isMulti ? null : _removeExistingAt,
                     ),
