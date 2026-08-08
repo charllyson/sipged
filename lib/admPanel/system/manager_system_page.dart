@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -9,12 +10,11 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 import 'package:sipged/admPanel/system/users/manager_users.dart';
 import 'package:sipged/admPanel/system/tenants/manager_tenants_page.dart';
 
-import '../../_widgets/buttons/circle_button_change.dart';
-import '../../_widgets/menu/upBar/up_bar.dart';
 
 class ManagerSystemPage extends StatelessWidget {
   const ManagerSystemPage({super.key});

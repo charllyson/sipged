@@ -1,20 +1,106 @@
-// lib/_widgets/timeline/timeline_shimmer.dart
-// ou lib/screens/commons/timeline/timeline_shimmer.dart
-
 import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart';
+import 'timeline_modern.dart';
 
-class TimelineShimmer extends StatelessWidget {
-  final double height;
-  final int itemCount;
-  final bool showHeader;
-
+class TimelineShimmer extends StatefulWidget {
   const TimelineShimmer({
     super.key,
     this.height = 310,
     this.itemCount = 4,
     this.showHeader = true,
+    this.contentPadding = const EdgeInsets.only(
+      left: 12,
+      top: 12,
+    ),
   });
+
+  final double height;
+  final int itemCount;
+  final bool showHeader;
+  final EdgeInsets contentPadding;
+
+  @override
+  State<TimelineShimmer> createState() => _TimelineShimmerState();
+}
+
+class _TimelineShimmerState extends State<TimelineShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1350),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _TimelineSkeletonShimmer(
+      animation: _controller,
+      child: SizedBox(
+        height: widget.height,
+        width: double.infinity,
+        child: Padding(
+          padding: widget.contentPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (widget.showHeader) ...[
+                const _TimelineHeaderSkeleton(),
+                const SizedBox(height: 12),
+              ],
+              Expanded(
+                child: ScrollConfiguration(
+                  behavior: const TimelineModernNoGlowScrollBehavior(),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.only(
+                      left: 4,
+                      right: 18,
+                    ),
+                    itemCount: widget.itemCount,
+                    itemBuilder: (context, index) {
+                      final isFirst = index == 0;
+                      final isLast = index == widget.itemCount - 1;
+                      final isTop = index.isEven;
+
+                      return _TimelineNodeSkeleton(
+                        index: index,
+                        isFirst: isFirst,
+                        isLast: isLast,
+                        isTop: isTop,
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineSkeletonShimmer extends StatelessWidget {
+  const _TimelineSkeletonShimmer({
+    required this.animation,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -29,59 +115,47 @@ class TimelineShimmer extends StatelessWidget {
         ? const Color(0xFF334155)
         : const Color(0xFFD7DEE8);
 
-    return SizedBox(
-      height: height,
-      width: double.infinity,
-      child: Padding(
-        padding: const EdgeInsets.only(
-          left: 12,
-          top: 12,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (showHeader) ...[
-              Shimmer.fromColors(
-                baseColor: baseColor,
-                highlightColor: highlightColor,
-                child: const _TimelineHeaderSkeleton(),
-              ),
-              const SizedBox(height: 12),
-            ],
-            Expanded(
-              child: Shimmer.fromColors(
-                baseColor: baseColor,
-                highlightColor: highlightColor,
-                child: ScrollConfiguration(
-                  behavior: const _NoGlowScrollBehavior(),
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.only(
-                      left: 4,
-                      right: 18,
-                    ),
-                    itemCount: itemCount,
-                    itemBuilder: (context, index) {
-                      final isFirst = index == 0;
-                      final isLast = index == itemCount - 1;
-                      final isTop = index.isEven;
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return ShaderMask(
+          blendMode: BlendMode.srcATop,
+          shaderCallback: (bounds) {
+            final width = bounds.width;
+            final dx = (animation.value * 2 - 1) * width;
 
-                      return _TimelineNodeSkeleton(
-                        index: index,
-                        isFirst: isFirst,
-                        isLast: isLast,
-                        isTop: isTop,
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+            return LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                baseColor,
+                highlightColor,
+                baseColor,
+              ],
+              stops: const [
+                0.25,
+                0.50,
+                0.75,
+              ],
+              transform: _SlidingGradientTransform(dx),
+            ).createShader(bounds);
+          },
+          child: child,
+        );
+      },
+      child: child,
     );
+  }
+}
+
+class _SlidingGradientTransform extends GradientTransform {
+  const _SlidingGradientTransform(this.dx);
+
+  final double dx;
+
+  @override
+  Matrix4 transform(Rect bounds, {TextDirection? textDirection}) {
+    return Matrix4.translationValues(dx, 0, 0);
   }
 }
 
@@ -90,8 +164,8 @@ class _TimelineHeaderSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: const [
+    return const Row(
+      children: [
         _SkeletonBox(
           width: 42,
           height: 42,
@@ -122,6 +196,13 @@ class _TimelineHeaderSkeleton extends StatelessWidget {
 }
 
 class _TimelineNodeSkeleton extends StatelessWidget {
+  const _TimelineNodeSkeleton({
+    required this.index,
+    required this.isFirst,
+    required this.isLast,
+    required this.isTop,
+  });
+
   final int index;
   final bool isFirst;
   final bool isLast;
@@ -142,13 +223,6 @@ class _TimelineNodeSkeleton extends StatelessWidget {
 
   static const double _topCardTop = _markerTop - _cardGap - _cardHeight;
   static const double _bottomCardTop = _markerBottom + _cardGap;
-
-  const _TimelineNodeSkeleton({
-    required this.index,
-    required this.isFirst,
-    required this.isLast,
-    required this.isTop,
-  });
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +246,6 @@ class _TimelineNodeSkeleton extends StatelessWidget {
               radius: 99,
             ),
           ),
-
           Positioned(
             top: isTop ? _topCardTop + _cardHeight : _markerBottom,
             left: (nodeWidth / 2) - 1.5,
@@ -182,13 +255,11 @@ class _TimelineNodeSkeleton extends StatelessWidget {
               radius: 99,
             ),
           ),
-
           Positioned(
             top: _markerTop,
             left: (nodeWidth / 2) - (_markerSize / 2),
             child: const _TimelineMarkerSkeleton(),
           ),
-
           Positioned(
             top: cardTop,
             left: 10,
@@ -241,11 +312,11 @@ class _TimelineMarkerSkeleton extends StatelessWidget {
 }
 
 class _TimelineCardSkeleton extends StatelessWidget {
-  final int index;
-
   const _TimelineCardSkeleton({
     required this.index,
   });
+
+  final int index;
 
   @override
   Widget build(BuildContext context) {
@@ -376,15 +447,15 @@ class _TimelineCardSkeleton extends StatelessWidget {
 }
 
 class _SkeletonBox extends StatelessWidget {
-  final double width;
-  final double height;
-  final double radius;
-
   const _SkeletonBox({
     required this.width,
     required this.height,
     required this.radius,
   });
+
+  final double width;
+  final double height;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -400,11 +471,11 @@ class _SkeletonBox extends StatelessWidget {
 }
 
 class _SkeletonCircle extends StatelessWidget {
-  final double size;
-
   const _SkeletonCircle({
     required this.size,
   });
+
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -416,18 +487,5 @@ class _SkeletonCircle extends StatelessWidget {
         shape: BoxShape.circle,
       ),
     );
-  }
-}
-
-class _NoGlowScrollBehavior extends ScrollBehavior {
-  const _NoGlowScrollBehavior();
-
-  @override
-  Widget buildOverscrollIndicator(
-      BuildContext context,
-      Widget child,
-      ScrollableDetails details,
-      ) {
-    return child;
   }
 }

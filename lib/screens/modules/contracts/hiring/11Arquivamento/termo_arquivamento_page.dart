@@ -787,52 +787,64 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          SectionMetadadosTA(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionMetadadosTA(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionMotivoAbrangenciaTA(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionMotivoAbrangenciaTA(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionFundamentacaoTA(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionFundamentacaoTA(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionPecasAnexasTA(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionPecasAnexasTA(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionDecisaoAutoridadeTA(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionDecisaoAutoridadeTA(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionReaberturaTA(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionReaberturaTA(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 8),
                         ],

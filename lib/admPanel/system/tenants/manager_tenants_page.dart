@@ -1,5 +1,6 @@
 // lib/admPanel/system/tenants/manager_tenants_page.dart
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -707,10 +708,10 @@ class _TenantLogoShell extends StatelessWidget {
               size: 24,
             ),
           )
-              : Image.network(
-            logoUrl,
+              : CachedNetworkImage(
+            imageUrl: logoUrl,
             fit: BoxFit.cover,
-            errorBuilder: (_, _, _) {
+            errorWidget: (_, _, _) {
               return ColoredBox(
                 color: const Color(0xFFF2F4F7),
                 child: Icon(

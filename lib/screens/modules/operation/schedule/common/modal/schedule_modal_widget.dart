@@ -1,6 +1,5 @@
 // lib/screens/modules/operation/schedule/common/modal/schedule_modal_widget.dart
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -10,9 +9,8 @@ import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_lin
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_state.dart';
 
 import 'package:sipged/_widgets/images/carousel/models/photo_data.dart';
-import 'package:sipged/_widgets/images/carousel/services/photo_stamp_service.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_widgets/sheets/draggable_sheet/draggable_sheet.dart';
+import 'package:sipged/_widgets/sheets/draggable_sheet.dart';
 
 import 'package:sipged/screens/modules/operation/schedule/common/header/schedule_status.dart';
 import 'package:sipged/screens/modules/operation/schedule/common/modal/schedule_modal_buttons.dart';
@@ -86,7 +84,7 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
 
   bool _progressTouched = false;
 
-  bool _picking = false;
+  final bool _picking = false;
   bool _saving = false;
 
   List<String> _existingUrls = <String>[];
@@ -152,6 +150,17 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
     }
 
     return clean;
+  }
+
+  bool _photoHasUsableSource(PhotoData photo) {
+    final hasBytes = photo.bytes != null && photo.bytes!.isNotEmpty;
+    final hasUrl = photo.url != null && photo.url!.trim().isNotEmpty;
+
+    return hasBytes || hasUrl;
+  }
+
+  List<PhotoData> _filterValidPhotos(List<PhotoData> photos) {
+    return photos.where(_photoHasUsableSource).toList(growable: false);
   }
 
   PhotoData _normalizePickedPhoto(PhotoData photo) {
@@ -335,8 +344,18 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
   Future<void> _addNewPhoto(PhotoData photo) async {
     if (_isBusy) return;
 
+    final normalized = _normalizePickedPhoto(photo);
+
+    if (!_photoHasUsableSource(normalized)) {
+      _showError(
+        'A foto selecionada não possui imagem válida para salvar. '
+            'Tente escolher novamente pela câmera ou galeria.',
+      );
+      return;
+    }
+
     setState(() {
-      _newPhotos.add(_normalizePickedPhoto(photo));
+      _newPhotos.add(normalized);
     });
 
     _bumpProgressIfNeeded();
@@ -346,10 +365,38 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
     if (_isBusy) return;
     if (photos.isEmpty) return;
 
-    setState(() {
-      _newPhotos.addAll(
-        photos.map(_normalizePickedPhoto),
+    final normalizedPhotos = photos.map(_normalizePickedPhoto).toList();
+    final validPhotos = _filterValidPhotos(normalizedPhotos);
+
+    if (validPhotos.isEmpty) {
+      _showError(
+        'Nenhuma das fotos selecionadas possui imagem válida para salvar.',
       );
+      return;
+    }
+
+    setState(() {
+      _newPhotos.addAll(validPhotos);
+    });
+
+    _bumpProgressIfNeeded();
+  }
+
+  Future<void> _editNewPhotoAt(int index, PhotoData photo) async {
+    if (_isBusy) return;
+    if (index < 0 || index >= _newPhotos.length) return;
+
+    final normalized = _normalizePickedPhoto(photo);
+
+    if (!_photoHasUsableSource(normalized)) {
+      _showError(
+        'A foto editada não possui imagem válida para salvar.',
+      );
+      return;
+    }
+
+    setState(() {
+      _newPhotos[index] = normalized;
     });
 
     _bumpProgressIfNeeded();
@@ -374,7 +421,7 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
     });
   }
 
-  Future<List<PhotoData>> _buildStampedPhotosForUpload({
+  Future<List<PhotoData>> _preparePhotosForUpload({
     required List<PhotoData> photos,
     required DateTime takenAt,
   }) async {
@@ -388,29 +435,18 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
         uploadedBy: photo.uploadedBy ?? widget.currentUserId,
       );
 
-      final bytes = normalized.bytes;
+      final hasBytes = normalized.bytes != null && normalized.bytes!.isNotEmpty;
+      final hasUrl = normalized.url != null && normalized.url!.trim().isNotEmpty;
 
-      if (bytes == null || bytes.isEmpty) {
-        output.add(normalized);
+      if (!hasBytes && !hasUrl) {
+        debugPrint(
+          '[ScheduleModalWidget] Foto ignorada: sem bytes e sem URL. '
+              'id=${normalized.id}, name=${normalized.name}',
+        );
         continue;
       }
 
-      try {
-        final stampedBytes = await PhotoStampService.stampPhoto(
-          photo: normalized,
-        );
-
-        output.add(
-          normalized.copyWith(
-            bytes: stampedBytes,
-          ),
-        );
-      } catch (e, s) {
-        debugPrint('[ScheduleModalWidget] Falha ao carimbar foto no upload: $e');
-        debugPrintStack(stackTrace: s);
-
-        output.add(normalized);
-      }
+      output.add(normalized);
     }
 
     return output;
@@ -487,7 +523,7 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
 
       final photosToSend = _isMulti
           ? const <PhotoData>[]
-          : await _buildStampedPhotosForUpload(
+          : await _preparePhotosForUpload(
         photos: _newPhotos,
         takenAt: takenAt,
       );
@@ -601,6 +637,7 @@ class _ScheduleModalWidgetState extends State<ScheduleModalWidget> {
                       newPhotos: _newPhotos,
                       onAddNewPhoto: _isMulti ? null : _addNewPhoto,
                       onAddNewPhotos: _isMulti ? null : _addNewPhotos,
+                      onEditNewPhoto: _isMulti ? null : _editNewPhotoAt,
                       onPickPhotos: null,
                       onRemoveNew: _isMulti ? null : _removeNewAt,
                       onRemoveExisting: _isMulti ? null : _removeExistingAt,

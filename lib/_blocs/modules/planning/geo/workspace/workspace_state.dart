@@ -21,6 +21,20 @@ class WorkspaceState {
   final bool isSaving;
   final bool loaded;
 
+  /// Versão do documento de escopo do dashboard conforme lida/salva pela
+  /// última vez no Firestore. `-1` significa "ainda não sabemos" (antes do
+  /// primeiro load bem-sucedido) — nesse caso a próxima gravação não faz
+  /// checagem de conflito. Usada para detectar edições concorrentes (ver
+  /// [WorkspaceConflictException]) sem sobrescrever silenciosamente uma
+  /// mudança de outra sessão/usuário no mesmo dashboard.
+  final int scopeVersion;
+
+  /// Mensagem de erro/aviso mais recente (ex.: conflito de edição
+  /// concorrente). Não participa de igualdade estrutural para não forçar
+  /// rebuilds de quem não escuta erros — quem precisa reagir deve comparar
+  /// esse campo diretamente em `listenWhen`.
+  final String? error;
+
   const WorkspaceState({
     required this.scope,
     required this.items,
@@ -33,6 +47,8 @@ class WorkspaceState {
     required this.isLoading,
     required this.isSaving,
     required this.loaded,
+    this.scopeVersion = -1,
+    this.error,
   });
 
   factory WorkspaceState.initial({
@@ -52,6 +68,8 @@ class WorkspaceState {
       isLoading: false,
       isSaving: false,
       loaded: false,
+      scopeVersion: -1,
+      error: null,
     );
   }
 
@@ -70,6 +88,9 @@ class WorkspaceState {
     bool? isLoading,
     bool? isSaving,
     bool? loaded,
+    int? scopeVersion,
+    String? error,
+    bool clearError = false,
   }) {
     return WorkspaceState(
       scope: scope ?? this.scope,
@@ -85,6 +106,8 @@ class WorkspaceState {
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
       loaded: loaded ?? this.loaded,
+      scopeVersion: scopeVersion ?? this.scopeVersion,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 

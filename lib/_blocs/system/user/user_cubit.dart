@@ -2,7 +2,6 @@
 
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/user/user_repository.dart';
@@ -10,27 +9,18 @@ import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 class UserCubit extends Cubit<UserState> {
+  UserCubit(this.repo) : super(const UserState());
+
   final UserRepository repo;
 
   StreamSubscription<List<UserData>>? _usersSub;
   StreamSubscription<UserData?>? _meSub;
 
-  UserCubit(this.repo) : super(const UserState());
-
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-
-  CollectionReference<Map<String, dynamic>> get _usersCol {
-    return _db.collection('users');
-  }
-
-  DocumentReference<Map<String, dynamic>> _userDoc(String uid) {
-    return _usersCol.doc(uid.trim());
-  }
-
   @override
   Future<void> close() async {
     await _usersSub?.cancel();
     await _meSub?.cancel();
+
     return super.close();
   }
 
@@ -41,7 +31,7 @@ class UserCubit extends Cubit<UserState> {
     emit(
       state.copyWith(
         isLoadingUsers: true,
-        loadUsersError: null,
+        clearLoadUsersError: true,
       ),
     );
 
@@ -49,8 +39,8 @@ class UserCubit extends Cubit<UserState> {
       final users = await repo.getAll();
 
       final byId = <String, UserData>{
-        for (final u in users)
-          if ((u.uid ?? '').isNotEmpty) u.uid!: u,
+        for (final user in users)
+          if ((user.uid ?? '').trim().isNotEmpty) user.uid!.trim(): user,
       };
 
       emit(
@@ -104,7 +94,7 @@ class UserCubit extends Cubit<UserState> {
     emit(
       state.copyWith(
         isLoadingUsers: true,
-        loadUsersError: null,
+        clearLoadUsersError: true,
       ),
     );
 
@@ -112,8 +102,8 @@ class UserCubit extends Cubit<UserState> {
       final users = await repo.getAll();
 
       final byId = <String, UserData>{
-        for (final u in users)
-          if ((u.uid ?? '').isNotEmpty) u.uid!: u,
+        for (final user in users)
+          if ((user.uid ?? '').trim().isNotEmpty) user.uid!.trim(): user,
       };
 
       emit(
@@ -189,6 +179,7 @@ class UserCubit extends Cubit<UserState> {
     if (id.isEmpty) return null;
 
     final cached = state.byId[id];
+
     if (cached != null) return cached;
 
     try {
@@ -205,11 +196,35 @@ class UserCubit extends Cubit<UserState> {
   }
 
   Future<void> saveUser(UserData user) async {
+    emit(
+      state.copyWith(
+        isSavingUser: true,
+        clearSaveUserError: true,
+      ),
+    );
+
     try {
       await repo.save(user);
+
       _upsertUserInState(user);
-    } catch (_) {
-      // Opcional: expor saveError no UserState.
+
+      emit(
+        state.copyWith(
+          isSavingUser: false,
+          saveUserError: '',
+        ),
+      );
+    } catch (err) {
+      if (isClosed) return;
+
+      emit(
+        state.copyWith(
+          isSavingUser: false,
+          saveUserError: '$err',
+        ),
+      );
+
+      rethrow;
     }
   }
 
@@ -219,7 +234,7 @@ class UserCubit extends Cubit<UserState> {
     if (id.isEmpty) return;
 
     await repo.deactivateUser(id);
-    await refreshUsers();
+    await _refreshUserAfterDirectUpdate(id);
   }
 
   Future<void> reactivateUser(String uid) async {
@@ -228,7 +243,7 @@ class UserCubit extends Cubit<UserState> {
     if (id.isEmpty) return;
 
     await repo.reactivateUser(id);
-    await refreshUsers();
+    await _refreshUserAfterDirectUpdate(id);
   }
 
   Future<void> blockUser(String uid) async {
@@ -237,7 +252,7 @@ class UserCubit extends Cubit<UserState> {
     if (id.isEmpty) return;
 
     await repo.blockUser(id);
-    await refreshUsers();
+    await _refreshUserAfterDirectUpdate(id);
   }
 
   Future<void> softDeleteUser(String uid) async {
@@ -246,7 +261,7 @@ class UserCubit extends Cubit<UserState> {
     if (id.isEmpty) return;
 
     await repo.softDeleteUser(id);
-    await refreshUsers();
+    await _refreshUserAfterDirectUpdate(id);
   }
 
   Future<void> hardDeleteUserDocument(String uid) async {
@@ -256,7 +271,7 @@ class UserCubit extends Cubit<UserState> {
 
     await repo.hardDeleteUserDocument(id);
 
-    final all = [...state.all]..removeWhere((u) => u.uid == id);
+    final all = [...state.all]..removeWhere((user) => user.uid == id);
     final byId = Map<String, UserData>.from(state.byId)..remove(id);
 
     final isCurrentDeleted = state.current?.uid == id;
@@ -307,11 +322,14 @@ class UserCubit extends Cubit<UserState> {
   }
 
   List<String> tenantIdsOf(UserData? user) {
-    final raw = user?.userSnap?.data();
+    if (user == null) return const <String>[];
 
-    if (raw == null) return const <String>[];
+    final ids = <String>[
+      ...user.tenantIds,
+      ...UserData.tenantIdsFromRawData(user.rawData),
+    ];
 
-    return _tenantIdsFromMap(raw);
+    return _cleanStringList(ids);
   }
 
   List<String> tenantIdsOfUid(String uid) {
@@ -327,9 +345,13 @@ class UserCubit extends Cubit<UserState> {
   }
 
   String? currentTenantIdOf(UserData? user) {
-    final raw = user?.userSnap?.data();
+    if (user == null) return null;
 
-    if (raw == null) return null;
+    final active = user.activeTenantId?.trim();
+
+    if (active != null && active.isNotEmpty) return active;
+
+    final raw = user.rawData;
 
     final value = raw['currentTenantId'] ??
         raw['selectedTenantId'] ??
@@ -383,52 +405,10 @@ class UserCubit extends Cubit<UserState> {
 
     if (cleanUid.isEmpty) return;
 
-    final cleanedTenantIds = _cleanStringList(tenantIds);
-
-    final cleanCurrentTenantId = currentTenantId?.trim();
-
-    final effectiveCurrentTenantId = cleanCurrentTenantId != null &&
-        cleanCurrentTenantId.isNotEmpty &&
-        cleanedTenantIds.contains(cleanCurrentTenantId)
-        ? cleanCurrentTenantId
-        : cleanedTenantIds.isNotEmpty
-        ? cleanedTenantIds.first
-        : null;
-
-    final tenantAccessUpdates = <String, dynamic>{};
-
-    for (final tenantId in cleanedTenantIds) {
-      tenantAccessUpdates[tenantId] = {
-        'enabled': true,
-      };
-    }
-
-    final data = <String, dynamic>{
-      'tenantIds': cleanedTenantIds,
-      'allowedTenantIds': cleanedTenantIds,
-      'accessibleTenantIds': cleanedTenantIds,
-      'companyIds': cleanedTenantIds,
-      'allowedCompanyIds': cleanedTenantIds,
-      'accessibleCompanyIds': cleanedTenantIds,
-      'tenantAccess': tenantAccessUpdates,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (effectiveCurrentTenantId == null || effectiveCurrentTenantId.isEmpty) {
-      data['currentTenantId'] = FieldValue.delete();
-      data['selectedTenantId'] = FieldValue.delete();
-      data['activeTenantId'] = FieldValue.delete();
-      data['lastTenantId'] = FieldValue.delete();
-    } else {
-      data['currentTenantId'] = effectiveCurrentTenantId;
-      data['selectedTenantId'] = effectiveCurrentTenantId;
-      data['activeTenantId'] = effectiveCurrentTenantId;
-      data['lastTenantId'] = effectiveCurrentTenantId;
-    }
-
-    await _userDoc(cleanUid).set(
-      data,
-      SetOptions(merge: true),
+    await repo.setUserTenantAccess(
+      uid: cleanUid,
+      tenantIds: tenantIds,
+      currentTenantId: currentTenantId,
     );
 
     if (refreshAfterSave) {
@@ -446,38 +426,10 @@ class UserCubit extends Cubit<UserState> {
 
     if (cleanUid.isEmpty || cleanTenantId.isEmpty) return;
 
-    final user = state.byId[cleanUid] ?? await repo.getById(cleanUid);
-    final currentTenantIds = tenantIdsOf(user);
-
-    final updatedTenantIds = _replaceOrAppendString(
-      currentTenantIds,
-      cleanTenantId,
-    );
-
-    final currentTenantId = makeCurrent
-        ? cleanTenantId
-        : currentTenantIdOf(user) ?? cleanTenantId;
-
-    await _userDoc(cleanUid).set(
-      {
-        'tenantAccess': {
-          cleanTenantId: {
-            'enabled': true,
-          },
-        },
-        'tenantIds': updatedTenantIds,
-        'allowedTenantIds': updatedTenantIds,
-        'accessibleTenantIds': updatedTenantIds,
-        'companyIds': updatedTenantIds,
-        'allowedCompanyIds': updatedTenantIds,
-        'accessibleCompanyIds': updatedTenantIds,
-        'currentTenantId': currentTenantId,
-        'selectedTenantId': currentTenantId,
-        'activeTenantId': currentTenantId,
-        'lastTenantId': currentTenantId,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
+    await repo.addTenantToUser(
+      uid: cleanUid,
+      tenantId: cleanTenantId,
+      makeCurrent: makeCurrent,
     );
 
     await _refreshUserAfterDirectUpdate(cleanUid);
@@ -492,49 +444,12 @@ class UserCubit extends Cubit<UserState> {
 
     if (cleanUid.isEmpty || cleanTenantId.isEmpty) return;
 
-    final user = state.byId[cleanUid] ?? await repo.getById(cleanUid);
-    final currentTenantIds = tenantIdsOf(user);
-
-    final updatedTenantIds = _removeStringItem(
-      currentTenantIds,
-      cleanTenantId,
-    );
-
-    final oldCurrentTenantId = currentTenantIdOf(user);
-
-    final nextCurrentTenantId =
-    oldCurrentTenantId == cleanTenantId ? null : oldCurrentTenantId;
-
-    await _userDoc(cleanUid).set(
-      {
-        'tenantAccess': {
-          cleanTenantId: FieldValue.delete(),
-        },
-        'tenantsAccess': {
-          cleanTenantId: FieldValue.delete(),
-        },
-        'companyAccess': {
-          cleanTenantId: FieldValue.delete(),
-        },
-        'companiesAccess': {
-          cleanTenantId: FieldValue.delete(),
-        },
-        'tenantRoles': {
-          cleanTenantId: FieldValue.delete(),
-        },
-        'tenantModuleOverrides': {
-          cleanTenantId: FieldValue.delete(),
-        },
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-
-    await setUserTenantAccess(
+    await repo.removeTenantFromUser(
       uid: cleanUid,
-      tenantIds: updatedTenantIds,
-      currentTenantId: nextCurrentTenantId,
+      tenantId: cleanTenantId,
     );
+
+    await _refreshUserAfterDirectUpdate(cleanUid);
   }
 
   Future<void> toggleTenantAccessForUser({
@@ -574,15 +489,9 @@ class UserCubit extends Cubit<UserState> {
       );
     }
 
-    await _userDoc(cleanUid).set(
-      {
-        'currentTenantId': cleanTenantId,
-        'selectedTenantId': cleanTenantId,
-        'activeTenantId': cleanTenantId,
-        'lastTenantId': cleanTenantId,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
+    await repo.setCurrentTenantForUser(
+      uid: cleanUid,
+      tenantId: cleanTenantId,
     );
 
     await _refreshUserAfterDirectUpdate(cleanUid);
@@ -595,29 +504,7 @@ class UserCubit extends Cubit<UserState> {
 
     if (cleanUid.isEmpty) return;
 
-    await _userDoc(cleanUid).set(
-      {
-        'tenantIds': <String>[],
-        'allowedTenantIds': <String>[],
-        'accessibleTenantIds': <String>[],
-        'companyIds': <String>[],
-        'allowedCompanyIds': <String>[],
-        'accessibleCompanyIds': <String>[],
-        'tenantAccess': <String, dynamic>{},
-        'tenantsAccess': <String, dynamic>{},
-        'companyAccess': <String, dynamic>{},
-        'companiesAccess': <String, dynamic>{},
-        'tenantRoles': <String, dynamic>{},
-        'tenantModuleOverrides': <String, dynamic>{},
-        'currentTenantId': FieldValue.delete(),
-        'selectedTenantId': FieldValue.delete(),
-        'activeTenantId': FieldValue.delete(),
-        'lastTenantId': FieldValue.delete(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-
+    await repo.clearUserTenantAccess(uid: cleanUid);
     await _refreshUserAfterDirectUpdate(cleanUid);
   }
 
@@ -642,12 +529,12 @@ class UserCubit extends Cubit<UserState> {
     if (id.isEmpty) return;
 
     final all = [...state.all];
-    final idx = all.indexWhere((x) => x.uid == id);
+    final index = all.indexWhere((item) => item.uid == id);
 
-    if (idx == -1) {
+    if (index == -1) {
       all.add(user);
     } else {
-      all[idx] = user;
+      all[index] = user;
     }
 
     final byId = Map<String, UserData>.from(state.byId);
@@ -672,11 +559,12 @@ class UserCubit extends Cubit<UserState> {
         if (isClosed) return;
 
         final byId = <String, UserData>{
-          for (final u in list)
-            if ((u.uid ?? '').isNotEmpty) u.uid!: u,
+          for (final user in list)
+            if ((user.uid ?? '').trim().isNotEmpty) user.uid!.trim(): user,
         };
 
         final currentUid = state.current?.uid?.trim();
+
         final current = currentUid == null || currentUid.isEmpty
             ? state.current
             : byId[currentUid] ?? state.current;
@@ -691,7 +579,7 @@ class UserCubit extends Cubit<UserState> {
           ),
         );
       },
-      onError: (err, [st]) {
+      onError: (err, [stackTrace]) {
         if (isClosed) return;
 
         emit(
@@ -731,12 +619,12 @@ class UserCubit extends Cubit<UserState> {
         }
 
         final all = [...state.all];
-        final idx = all.indexWhere((item) => item.uid == id);
+        final index = all.indexWhere((item) => item.uid == id);
 
-        if (idx == -1) {
+        if (index == -1) {
           all.add(user);
         } else {
-          all[idx] = user;
+          all[index] = user;
         }
 
         final byId = Map<String, UserData>.from(state.byId);
@@ -750,7 +638,7 @@ class UserCubit extends Cubit<UserState> {
           ),
         );
       },
-      onError: (err, [st]) {
+      onError: (err, [stackTrace]) {
         if (isClosed) return;
 
         emit(
@@ -760,76 +648,6 @@ class UserCubit extends Cubit<UserState> {
         );
       },
     );
-  }
-
-  List<String> _tenantIdsFromMap(Map<String, dynamic> data) {
-    final ids = <String>[
-      ..._listFromDynamic(data['tenantIds']),
-      ..._listFromDynamic(data['allowedTenantIds']),
-      ..._listFromDynamic(data['accessibleTenantIds']),
-      ..._listFromDynamic(data['companyIds']),
-      ..._listFromDynamic(data['allowedCompanyIds']),
-      ..._listFromDynamic(data['accessibleCompanyIds']),
-      ..._mapKeysFromDynamic(data['tenantAccess']),
-      ..._mapKeysFromDynamic(data['tenantsAccess']),
-      ..._mapKeysFromDynamic(data['companyAccess']),
-      ..._mapKeysFromDynamic(data['companiesAccess']),
-      ..._mapKeysFromDynamic(data['tenantRoles']),
-      ..._mapKeysFromDynamic(data['tenantModuleOverrides']),
-    ];
-
-    return _cleanStringList(ids);
-  }
-
-  List<String> _listFromDynamic(dynamic value) {
-    if (value == null) return const <String>[];
-
-    if (value is List) {
-      return _cleanStringList(
-        value
-            .map((item) => item?.toString() ?? '')
-            .where((item) => item.trim().isNotEmpty),
-      );
-    }
-
-    if (value is String) {
-      return _cleanStringList(
-        value
-            .split(RegExp(r'[\n,;]'))
-            .map((item) => item.trim())
-            .where((item) => item.isNotEmpty),
-      );
-    }
-
-    return const <String>[];
-  }
-
-  List<String> _mapKeysFromDynamic(dynamic value) {
-    if (value is! Map) return const <String>[];
-
-    final keys = <String>[];
-
-    for (final entry in value.entries) {
-      final key = entry.key?.toString().trim() ?? '';
-
-      if (key.isEmpty) continue;
-
-      final rawValue = entry.value;
-
-      if (rawValue is Map) {
-        final enabled = rawValue['enabled'];
-        final active = rawValue['active'];
-        final allowed = rawValue['allowed'];
-
-        if (enabled == false || active == false || allowed == false) {
-          continue;
-        }
-      }
-
-      keys.add(key);
-    }
-
-    return _cleanStringList(keys);
   }
 
   List<String> _cleanStringList(Iterable<String> values) {
@@ -842,43 +660,5 @@ class UserCubit extends Cubit<UserState> {
     list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     return list;
-  }
-
-  List<String> _replaceOrAppendString(
-      List<String> list,
-      String value,
-      ) {
-    final clean = value.trim();
-
-    if (clean.isEmpty) return _cleanStringList(list);
-
-    final updated = [...list];
-
-    final index = updated.indexWhere(
-          (item) => item.trim().toLowerCase() == clean.toLowerCase(),
-    );
-
-    if (index < 0) {
-      updated.add(clean);
-    } else {
-      updated[index] = clean;
-    }
-
-    return _cleanStringList(updated);
-  }
-
-  List<String> _removeStringItem(
-      List<String> list,
-      String value,
-      ) {
-    final clean = value.trim().toLowerCase();
-
-    if (clean.isEmpty) return _cleanStringList(list);
-
-    return _cleanStringList(
-      list.where(
-            (item) => item.trim().toLowerCase() != clean,
-      ),
-    );
   }
 }

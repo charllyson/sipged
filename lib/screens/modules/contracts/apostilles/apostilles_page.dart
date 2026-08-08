@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
@@ -27,7 +28,6 @@ import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'apostilles_form_section.dart';
 import 'apostilles_graph_section.dart';

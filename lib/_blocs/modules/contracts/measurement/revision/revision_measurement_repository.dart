@@ -474,7 +474,7 @@ class RevisionMeasurementRepository {
   }
 
   Future<(Uint8List bytes, String originalName)> pickFileBytes() async {
-    final result = await FilePicker.platform.pickFiles(withData: true);
+    final result = await FilePicker.pickFiles(withData: true);
 
     if (result == null || result.files.single.bytes == null) {
       throw Exception('Nenhum arquivo selecionado ou arquivo vazio.');

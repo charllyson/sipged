@@ -10,7 +10,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/registers/register_class.dart';
+import 'package:sipged/_blocs/system/notification/register_class.dart';
 
 class AdditivesRepository {
   AdditivesRepository({
@@ -764,7 +764,7 @@ class AdditivesRepository {
   }
 
   Future<(Uint8List bytes, String originalName)> pickFileBytes() async {
-    final result = await FilePicker.platform.pickFiles(withData: true);
+    final result = await FilePicker.pickFiles(withData: true);
 
     if (result == null || result.files.single.bytes == null) {
       throw Exception('Nenhum arquivo selecionado ou arquivo vazio.');

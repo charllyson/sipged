@@ -24,17 +24,14 @@ import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ValidityCubit extends Cubit<ValidityState> {
   ValidityCubit({
-    required ValidityRepository repository,
+    required this._repository,
     UserPermissionData? initialPermissions,
     required String initialTenantId,
     this.moduleId = 'contracts_validity',
     this.enforcePermissions = true,
-    PublicacaoExtratoRepository? publicacaoRepository,
-    TrRepository? trRepository,
-  })  : _repository = repository,
-        _publicacaoRepository = publicacaoRepository,
-        _trRepository = trRepository,
-        _currentPermissions = initialPermissions,
+    this._publicacaoRepository,
+    this._trRepository,
+  })  : _currentPermissions = initialPermissions,
         _tenantId = _cleanRequiredTenantId(
           initialTenantId,
           context: 'ValidityCubit.constructor',
@@ -42,6 +39,18 @@ class ValidityCubit extends Cubit<ValidityState> {
         super(ValidityState.initial()) {
     _syncRepositoryTenant();
   }
+
+  static const String ordemInicio = 'ORDEM DE INÍCIO';
+  static const String ordemParalisacao = 'ORDEM DE PARALISAÇÃO';
+  static const String ordemReinicio = 'ORDEM DE REINÍCIO';
+  static const String ordemFinalizacao = 'ORDEM DE FINALIZAÇÃO';
+
+  static const List<String> tiposDeOrdem = <String>[
+    ordemInicio,
+    ordemParalisacao,
+    ordemReinicio,
+    ordemFinalizacao,
+  ];
 
   final ValidityRepository _repository;
 
@@ -255,32 +264,64 @@ class ValidityCubit extends Cubit<ValidityState> {
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
 
+  String? _cleanOrderType(String? value) {
+    final text = value?.trim();
+
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+
+    if (!tiposDeOrdem.contains(text)) {
+      throw ArgumentError(
+        'Tipo de ordem inválido: "$text". '
+            'Use um dos valores oficiais: ${tiposDeOrdem.join(', ')}.',
+      );
+    }
+
+    return text;
+  }
+
   List<String> _rulesOrderTypes(List<ValidityData> validities) {
     final sorted = _sorted(validities);
 
-    final newOrders = <String>[];
-
-    final lastOrder = sorted.isEmpty ? null : sorted.last.ordertype;
-
-    if (lastOrder == null) {
-      newOrders.addAll(ValidityData.typeOfOrder);
-    } else if (lastOrder == 'ORDEM DE INÍCIO') {
-      newOrders.addAll(<String>[
-        'ORDEM DE PARALISAÇÃO',
-        'ORDEM DE FINALIZAÇÃO',
-      ]);
-    } else if (lastOrder == 'ORDEM DE PARALISAÇÃO') {
-      newOrders.add('ORDEM DE REINÍCIO');
-    } else if (lastOrder == 'ORDEM DE REINÍCIO') {
-      newOrders.addAll(<String>[
-        'ORDEM DE PARALISAÇÃO',
-        'ORDEM DE FINALIZAÇÃO',
-      ]);
-    } else if (lastOrder != 'ORDEM DE FINALIZAÇÃO') {
-      newOrders.addAll(ValidityData.typeOfOrder);
+    if (sorted.isEmpty) {
+      return tiposDeOrdem;
     }
 
-    return newOrders;
+    final lastOrder = sorted.last.ordertype?.trim();
+
+    if (lastOrder == null || lastOrder.isEmpty) {
+      return tiposDeOrdem;
+    }
+
+    if (lastOrder == ordemInicio) {
+      return const <String>[
+        ordemParalisacao,
+        ordemFinalizacao,
+      ];
+    }
+
+    if (lastOrder == ordemParalisacao) {
+      return const <String>[
+        ordemReinicio,
+      ];
+    }
+
+    if (lastOrder == ordemReinicio) {
+      return const <String>[
+        ordemParalisacao,
+        ordemFinalizacao,
+      ];
+    }
+
+    if (lastOrder == ordemFinalizacao) {
+      return const <String>[];
+    }
+
+    throw StateError(
+      'Último tipo de ordem inválido: "$lastOrder". '
+          'Corrija o dado salvo no Firestore.',
+    );
   }
 
   List<ValidityData> _sorted(List<ValidityData> list) {
@@ -291,6 +332,51 @@ class ValidityCubit extends Cubit<ValidityState> {
     );
 
     return List<ValidityData>.unmodifiable(sorted);
+  }
+
+  ValidityData _draftForCurrentContract({
+    int? orderNumber,
+    String? ordertype,
+    DateTime? orderdate,
+  }) {
+    final contract = state.contract;
+
+    if (contract == null || contract.id == null || contract.id!.trim().isEmpty) {
+      throw Exception('Contrato não carregado para criar vigência.');
+    }
+
+    final nextOrder = orderNumber ?? state.nextOrderNumber;
+
+    return ValidityData(
+      uidContract: contract.id!.trim(),
+      orderNumber: nextOrder,
+      ordertype: ordertype,
+      orderdate: orderdate,
+    );
+  }
+
+  ValidityData _ensureSelectedDraft({
+    int? orderNumber,
+  }) {
+    final current = state.selectedValidity;
+
+    if (current != null) {
+      return current;
+    }
+
+    final draft = _draftForCurrentContract(
+      orderNumber: orderNumber,
+    );
+
+    emit(
+      state.copyWith(
+        selectedValidity: draft,
+        attachments: const <Attachment>[],
+        clearError: true,
+      ),
+    );
+
+    return draft;
   }
 
   ValidityState _stateWithListMetadata({
@@ -395,6 +481,11 @@ class ValidityCubit extends Cubit<ValidityState> {
       final existingSet = _existingOrders(sortedValidities);
       final nextOrder = _nextAvailableOrder(existingSet);
 
+      final draft = ValidityData(
+        uidContract: cleanContractId,
+        orderNumber: nextOrder,
+      );
+
       emit(
         state.copyWith(
           isLoading: false,
@@ -405,8 +496,8 @@ class ValidityCubit extends Cubit<ValidityState> {
           orderNumberOptions: _orderNumberOptionsFromSet(existingSet),
           greyOrderItems: existingSet.map((e) => e.toString()).toSet(),
           availableOrderTypes: _rulesOrderTypes(sortedValidities),
-          clearSelectedValidity: true,
-          clearAttachments: true,
+          selectedValidity: draft,
+          attachments: const <Attachment>[],
           clearError: true,
           isEditable: _canWrite(),
         ),
@@ -438,14 +529,7 @@ class ValidityCubit extends Cubit<ValidityState> {
       return;
     }
 
-    final contractId = state.contract?.id?.trim();
-
-    if (contractId == null || contractId.isEmpty) {
-      throw Exception('Contrato não carregado para criar vigência.');
-    }
-
-    final draft = ValidityData(
-      uidContract: contractId,
+    final draft = _draftForCurrentContract(
       orderNumber: picked,
     );
 
@@ -503,17 +587,10 @@ class ValidityCubit extends Cubit<ValidityState> {
       _requireTenantId();
     }
 
-    final contract = state.contract;
-
-    if (contract == null || contract.id == null || contract.id!.trim().isEmpty) {
-      throw Exception('Contrato não carregado para criar vigência.');
-    }
-
     final existingSet = _existingOrders(state.validities);
     final nextOrder = _nextAvailableOrder(existingSet);
 
-    final draft = ValidityData(
-      uidContract: contract.id,
+    final draft = _draftForCurrentContract(
       orderNumber: nextOrder,
     );
 
@@ -528,32 +605,41 @@ class ValidityCubit extends Cubit<ValidityState> {
   }
 
   void updateOrderType(String? type) {
-    final current = state.selectedValidity;
+    _requireTenantId();
 
-    if (current == null) return;
+    final cleanType = _cleanOrderType(type);
+
+    final current = _ensureSelectedDraft();
 
     emit(
       state.copyWith(
-        selectedValidity: current.copyWith(ordertype: type),
+        selectedValidity: current.copyWith(
+          ordertype: cleanType,
+          clearOrderType: cleanType == null,
+        ),
+        clearError: true,
       ),
     );
   }
 
   void updateOrderDate(String? ddMMyyyy) {
-    final current = state.selectedValidity;
-
-    if (current == null) return;
+    _requireTenantId();
 
     final cleanDate = ddMMyyyy?.trim() ?? '';
+
+    final parsedDate = cleanDate.isNotEmpty
+        ? SipGedFormatDates.ddMMyyyyToDate(cleanDate)
+        : null;
+
+    final current = _ensureSelectedDraft();
 
     emit(
       state.copyWith(
         selectedValidity: current.copyWith(
-          orderdate: cleanDate.isNotEmpty
-              ? SipGedFormatDates.ddMMyyyyToDate(cleanDate)
-              : null,
+          orderdate: parsedDate,
           clearOrderDate: cleanDate.isEmpty,
         ),
+        clearError: true,
       ),
     );
   }
@@ -572,6 +658,16 @@ class ValidityCubit extends Cubit<ValidityState> {
       throw Exception('Contrato sem ID para salvar vigência.');
     }
 
+    final cleanOrderType = _cleanOrderType(current.ordertype);
+
+    if (cleanOrderType == null) {
+      throw Exception('Tipo da ordem é obrigatório.');
+    }
+
+    if (current.orderdate == null) {
+      throw Exception('Data da ordem é obrigatória.');
+    }
+
     emit(
       state.copyWith(
         isSaving: true,
@@ -581,7 +677,9 @@ class ValidityCubit extends Cubit<ValidityState> {
 
     try {
       final toSave = current.copyWith(
-        uidContract: contract.id,
+        uidContract: contract.id!.trim(),
+        ordertype: cleanOrderType,
+        orderTypeCode: ValidityOrderType.fromLabel(cleanOrderType)?.code,
         attachments: state.attachments,
       );
 
@@ -643,11 +741,18 @@ class ValidityCubit extends Cubit<ValidityState> {
       final list = List<ValidityData>.from(state.validities)
         ..removeWhere((e) => e.id == cleanValidityId);
 
+      final existingSet = _existingOrders(list);
+      final nextOrder = _nextAvailableOrder(existingSet);
+
+      final draft = _draftForCurrentContract(
+        orderNumber: nextOrder,
+      );
+
       emit(
         _stateWithListMetadata(
           validities: list,
+          selected: draft,
           attachments: const <Attachment>[],
-          clearSelected: true,
         ).copyWith(
           isSaving: false,
         ),

@@ -14,24 +14,27 @@ class PhotoData {
   final String name;
 
   final String? url;
+  final String? thumbUrl;
   final Uint8List? bytes;
 
   final DateTime? takenAt;
   final double? lat;
   final double? lng;
 
-  /// Endereço resolvido a partir das coordenadas da própria foto.
   final String? address;
-
-  /// Cidade resolvida a partir das coordenadas da própria foto.
   final String? city;
-
-  /// Estado/UF resolvido a partir das coordenadas da própria foto.
   final String? state;
 
   final String? make;
   final String? model;
   final int? orientation;
+
+  final int? width;
+  final int? height;
+  final int? sizeBytes;
+  final int? thumbSizeBytes;
+
+  final bool stamped;
 
   final int? uploadedAtMs;
   final String? uploadedBy;
@@ -40,6 +43,7 @@ class PhotoData {
     required this.id,
     required this.name,
     this.url,
+    this.thumbUrl,
     this.bytes,
     this.takenAt,
     this.lat,
@@ -50,6 +54,11 @@ class PhotoData {
     this.make,
     this.model,
     this.orientation,
+    this.width,
+    this.height,
+    this.sizeBytes,
+    this.thumbSizeBytes,
+    this.stamped = false,
     this.uploadedAtMs,
     this.uploadedBy,
   });
@@ -58,6 +67,7 @@ class PhotoData {
     required String id,
     required String name,
     required String url,
+    String? thumbUrl,
     DateTime? takenAt,
     double? lat,
     double? lng,
@@ -67,6 +77,11 @@ class PhotoData {
     String? make,
     String? model,
     int? orientation,
+    int? width,
+    int? height,
+    int? sizeBytes,
+    int? thumbSizeBytes,
+    bool stamped = false,
     int? uploadedAtMs,
     String? uploadedBy,
   }) {
@@ -74,6 +89,7 @@ class PhotoData {
       id: id,
       name: name,
       url: url,
+      thumbUrl: thumbUrl,
       takenAt: takenAt,
       lat: lat,
       lng: lng,
@@ -83,6 +99,11 @@ class PhotoData {
       make: make,
       model: model,
       orientation: orientation,
+      width: width,
+      height: height,
+      sizeBytes: sizeBytes,
+      thumbSizeBytes: thumbSizeBytes,
+      stamped: stamped,
       uploadedAtMs: uploadedAtMs,
       uploadedBy: uploadedBy,
     );
@@ -101,6 +122,11 @@ class PhotoData {
     String? make,
     String? model,
     int? orientation,
+    int? width,
+    int? height,
+    int? sizeBytes,
+    int? thumbSizeBytes,
+    bool stamped = false,
     int? uploadedAtMs,
     String? uploadedBy,
   }) {
@@ -117,6 +143,11 @@ class PhotoData {
       make: make,
       model: model,
       orientation: orientation,
+      width: width,
+      height: height,
+      sizeBytes: sizeBytes ?? bytes.length,
+      thumbSizeBytes: thumbSizeBytes,
+      stamped: stamped,
       uploadedAtMs: uploadedAtMs,
       uploadedBy: uploadedBy,
     );
@@ -131,6 +162,28 @@ class PhotoData {
 
   bool get isUrl => url != null && url!.trim().isNotEmpty;
 
+  bool get hasThumbUrl => thumbUrl != null && thumbUrl!.trim().isNotEmpty;
+
+  String? get bestPreviewUrl {
+    final thumb = thumbUrl?.trim() ?? '';
+    if (thumb.isNotEmpty) return thumb;
+
+    final main = url?.trim() ?? '';
+    if (main.isNotEmpty) return main;
+
+    return null;
+  }
+
+  String? get bestFullUrl {
+    final main = url?.trim() ?? '';
+    if (main.isNotEmpty) return main;
+
+    final thumb = thumbUrl?.trim() ?? '';
+    if (thumb.isNotEmpty) return thumb;
+
+    return null;
+  }
+
   bool get hasGps => lat != null && lng != null;
 
   bool get hasAddress {
@@ -144,7 +197,7 @@ class PhotoData {
       return PhotoUtils.sniffFormat(bytes!) == ImgFmt.heic;
     }
 
-    final cleanUrl = (url ?? '').split('?').first.toLowerCase();
+    final cleanUrl = (url ?? thumbUrl ?? '').split('?').first.toLowerCase();
 
     return cleanUrl.endsWith('.heic') || cleanUrl.endsWith('.heif');
   }
@@ -153,6 +206,7 @@ class PhotoData {
     String? id,
     String? name,
     String? url,
+    String? thumbUrl,
     Uint8List? bytes,
     DateTime? takenAt,
     double? lat,
@@ -163,9 +217,15 @@ class PhotoData {
     String? make,
     String? model,
     int? orientation,
+    int? width,
+    int? height,
+    int? sizeBytes,
+    int? thumbSizeBytes,
+    bool? stamped,
     int? uploadedAtMs,
     String? uploadedBy,
     bool clearUrl = false,
+    bool clearThumbUrl = false,
     bool clearBytes = false,
     bool clearTakenAt = false,
     bool clearLat = false,
@@ -176,6 +236,10 @@ class PhotoData {
     bool clearMake = false,
     bool clearModel = false,
     bool clearOrientation = false,
+    bool clearWidth = false,
+    bool clearHeight = false,
+    bool clearSizeBytes = false,
+    bool clearThumbSizeBytes = false,
     bool clearUploadedAtMs = false,
     bool clearUploadedBy = false,
   }) {
@@ -183,6 +247,7 @@ class PhotoData {
       id: id ?? this.id,
       name: name ?? this.name,
       url: clearUrl ? null : url ?? this.url,
+      thumbUrl: clearThumbUrl ? null : thumbUrl ?? this.thumbUrl,
       bytes: clearBytes ? null : bytes ?? this.bytes,
       takenAt: clearTakenAt ? null : takenAt ?? this.takenAt,
       lat: clearLat ? null : lat ?? this.lat,
@@ -193,6 +258,12 @@ class PhotoData {
       make: clearMake ? null : make ?? this.make,
       model: clearModel ? null : model ?? this.model,
       orientation: clearOrientation ? null : orientation ?? this.orientation,
+      width: clearWidth ? null : width ?? this.width,
+      height: clearHeight ? null : height ?? this.height,
+      sizeBytes: clearSizeBytes ? null : sizeBytes ?? this.sizeBytes,
+      thumbSizeBytes:
+      clearThumbSizeBytes ? null : thumbSizeBytes ?? this.thumbSizeBytes,
+      stamped: stamped ?? this.stamped,
       uploadedAtMs: clearUploadedAtMs ? null : uploadedAtMs ?? this.uploadedAtMs,
       uploadedBy: clearUploadedBy ? null : uploadedBy ?? this.uploadedBy,
     );
@@ -203,6 +274,7 @@ class PhotoData {
       'id': id,
       'name': name,
       if (url != null) 'url': url,
+      if (thumbUrl != null) 'thumbUrl': thumbUrl,
       if (takenAt != null) 'takenAtMs': takenAt!.millisecondsSinceEpoch,
       if (lat != null) 'lat': lat,
       if (lng != null) 'lng': lng,
@@ -212,6 +284,11 @@ class PhotoData {
       if (make != null) 'make': make,
       if (model != null) 'model': model,
       if (orientation != null) 'orientation': orientation,
+      if (width != null) 'width': width,
+      if (height != null) 'height': height,
+      if (sizeBytes != null) 'sizeBytes': sizeBytes,
+      if (thumbSizeBytes != null) 'thumbSizeBytes': thumbSizeBytes,
+      'stamped': stamped,
       if (uploadedAtMs != null) 'uploadedAtMs': uploadedAtMs,
       if (uploadedBy != null) 'uploadedBy': uploadedBy,
     };
@@ -243,6 +320,13 @@ class PhotoData {
       return int.tryParse(value.toString());
     }
 
+    bool parseBool(dynamic value) {
+      if (value == null) return false;
+      if (value is bool) return value;
+      final text = value.toString().trim().toLowerCase();
+      return text == 'true' || text == '1' || text == 'sim' || text == 'yes';
+    }
+
     String? parseString(dynamic value) {
       final text = value?.toString().trim() ?? '';
       return text.isEmpty ? null : text;
@@ -250,6 +334,7 @@ class PhotoData {
 
     final id = map['id']?.toString() ??
         map['url']?.toString() ??
+        map['thumbUrl']?.toString() ??
         DateTime.now().microsecondsSinceEpoch.toString();
 
     final name = map['name']?.toString() ?? 'foto.jpg';
@@ -260,6 +345,7 @@ class PhotoData {
       id: id,
       name: name,
       url: parseString(map['url']),
+      thumbUrl: parseString(map['thumbUrl']),
       takenAt: parseDate(takenAtRaw),
       lat: parseDouble(map['lat']),
       lng: parseDouble(map['lng']),
@@ -269,6 +355,11 @@ class PhotoData {
       make: parseString(map['make']),
       model: parseString(map['model']),
       orientation: parseInt(map['orientation']),
+      width: parseInt(map['width']),
+      height: parseInt(map['height']),
+      sizeBytes: parseInt(map['sizeBytes']),
+      thumbSizeBytes: parseInt(map['thumbSizeBytes']),
+      stamped: parseBool(map['stamped']),
       uploadedAtMs: parseInt(map['uploadedAtMs']),
       uploadedBy: parseString(map['uploadedBy']),
     );

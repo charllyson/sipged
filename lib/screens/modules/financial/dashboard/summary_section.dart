@@ -5,15 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/cards/expandable/expandable_card.dart';
 import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
+
 class SummarySection extends StatelessWidget {
-  final double totalsOrcamento;
-  final double totalsEmpenhado;
-  final double totalsLiquidado;
-  final double totalsPago;
-  final double totalsSaldo;
-
-  final ThemeData theme;
-
   const SummarySection({
     super.key,
     required this.totalsOrcamento,
@@ -23,6 +17,14 @@ class SummarySection extends StatelessWidget {
     required this.totalsSaldo,
     required this.theme,
   });
+
+  final double totalsOrcamento;
+  final double totalsEmpenhado;
+  final double totalsLiquidado;
+  final double totalsPago;
+  final double totalsSaldo;
+
+  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
@@ -35,44 +37,49 @@ class SummarySection extends StatelessWidget {
       verticalGap: 12,
       children: [
             (context, m, i) => ExpandableCard(
-          title: "Orçamento",
+          title: 'Orçamento',
           icon: Icons.monetization_on_outlined,
           colorIcon: theme.colorScheme.primary,
           totalOverride: totalsOrcamento,
           loading: false,
           formatAsCurrency: true,
+          valueFormatter: SipGedFormatMoney.doubleToText,
         ),
             (context, m, i) => ExpandableCard(
-          title: "Empenhado",
+          title: 'Empenhado',
           icon: Icons.assignment_turned_in,
           colorIcon: theme.colorScheme.primary,
           totalOverride: totalsEmpenhado,
           loading: false,
           formatAsCurrency: true,
+          valueFormatter: SipGedFormatMoney.doubleToText,
         ),
             (context, m, i) => ExpandableCard(
-          title: "Medido",
+          title: 'Medido',
           icon: Icons.fact_check,
           colorIcon: theme.colorScheme.primary,
           totalOverride: totalsLiquidado,
           loading: false,
           formatAsCurrency: true,
+          valueFormatter: SipGedFormatMoney.doubleToText,
         ),
             (context, m, i) => ExpandableCard(
-          title: "Pago",
+          title: 'Pago',
           icon: Icons.payments,
           colorIcon: theme.colorScheme.primary,
           totalOverride: totalsPago,
           loading: false,
           formatAsCurrency: true,
+          valueFormatter: SipGedFormatMoney.doubleToText,
         ),
             (context, m, i) => ExpandableCard(
-          title: "Saldo",
+          title: 'Saldo',
           icon: Icons.account_balance_wallet,
           colorIcon: theme.colorScheme.primary,
           totalOverride: saldoSafe,
           loading: false,
           formatAsCurrency: true,
+          valueFormatter: SipGedFormatMoney.doubleToText,
         ),
       ],
     );

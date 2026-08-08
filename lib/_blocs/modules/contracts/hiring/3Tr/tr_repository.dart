@@ -511,7 +511,7 @@ class TrRepository {
 
     await _ensureHiringMain(cleanContractId);
 
-    final picked = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
       withData: true,

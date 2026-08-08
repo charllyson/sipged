@@ -791,52 +791,64 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          SectionMetadados(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionMetadados(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionEmpresa(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionEmpresa(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionCertidoes(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionCertidoes(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionJuridicaTecnica(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionJuridicaTecnica(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionLicitation(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionLicitation(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionConsolidation(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionConsolidation(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 8),
                         ],

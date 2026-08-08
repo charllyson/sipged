@@ -1,3 +1,5 @@
+// lib/_blocs/system/module/module_catalog.dart
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_utils/theme/sipged_theme.dart';
@@ -27,6 +29,7 @@ class ModuleCatalog {
 
   // PLANEJAMENTO
   static const String modPlanningSigmineRecords = 'planning-sigmine-records';
+  static const String modPlanningGanttSchedule = 'planning-gantt-schedule';
 
   // TRÁFEGO
   static const String modTrafficAccidentsDashboard =
@@ -162,6 +165,14 @@ class ModuleCatalog {
           permissionModule: modPlanningSigmineRecords,
           colorModuleLabel: SipGedTheme.drawerModuleLabelColor,
           homeModuleIcon: Icons.architecture,
+          homeModuleColor: SipGedTheme.planningColor,
+        ),
+        ModuleData(
+          labelModule: 'CRONOGRAMA',
+          menuModuleItem: ModuleEnum.planningGanttSchedule,
+          permissionModule: modPlanningGanttSchedule,
+          colorModuleLabel: SipGedTheme.drawerModuleLabelColor,
+          homeModuleIcon: Icons.view_timeline_rounded,
           homeModuleColor: SipGedTheme.planningColor,
         ),
       ],

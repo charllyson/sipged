@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import 'package:sipged/_widgets/cards/chip/chip_card.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
@@ -8,7 +8,8 @@ import 'package:sipged/_blocs/modules/contracts/measurement/report/report_execut
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 
-import 'package:sipged/_widgets/cards/chip/chip_card.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
+
 import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
 class GeneralDashboardList extends StatelessWidget {
@@ -54,6 +55,7 @@ class GeneralDashboardList extends StatelessWidget {
           orElse: () => AdjustmentMeasurementData(),
         );
       }
+
       return item.value ?? 0.0;
     }
 
@@ -71,6 +73,7 @@ class GeneralDashboardList extends StatelessWidget {
           orElse: () => RevisionMeasurementData(),
         );
       }
+
       return item.value ?? 0.0;
     }
 
@@ -90,7 +93,8 @@ class GeneralDashboardList extends StatelessWidget {
                 if (contractId == null) return;
 
                 final processCubit = context.read<ContractCubit>();
-                final ContractData? contrato = await processCubit.getById(contractId);
+                final ContractData? contrato =
+                await processCubit.getById(contractId);
 
                 if (!context.mounted) return;
                 if (contrato == null) return;
@@ -120,7 +124,10 @@ class GeneralDashboardList extends StatelessWidget {
                     runSpacing: 12,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Icon(Icons.description, color: Colors.blueAccent),
+                      const Icon(
+                        Icons.description,
+                        color: Colors.blueAccent,
+                      ),
                       ConstrainedBox(
                         constraints: BoxConstraints(
                           maxWidth: MediaQuery.of(context).size.width * 0.5,
@@ -147,9 +154,24 @@ class GeneralDashboardList extends StatelessWidget {
                             ),
                             backgroundColor: Colors.grey.shade100,
                           ),
-                          ChipCard('Medição', valorReport, Icons.bar_chart),
-                          ChipCard('Reajuste', valorAdjustment, Icons.trending_up),
-                          ChipCard('Revisão', valorRevision, Icons.change_circle),
+                          ChipCard(
+                            'Medição',
+                            valorReport,
+                            Icons.bar_chart,
+                            valueFormatter: SipGedFormatMoney.doubleToText,
+                          ),
+                          ChipCard(
+                            'Reajuste',
+                            valorAdjustment,
+                            Icons.trending_up,
+                            valueFormatter: SipGedFormatMoney.doubleToText,
+                          ),
+                          ChipCard(
+                            'Revisão',
+                            valorRevision,
+                            Icons.change_circle,
+                            valueFormatter: SipGedFormatMoney.doubleToText,
+                          ),
                         ],
                       ),
                     ],

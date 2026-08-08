@@ -758,54 +758,68 @@ class _DotacaoPageState extends State<DotacaoPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          SectionIdentificacao(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionIdentificacao(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
-                          SectionVinculacaoProgramatica(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionVinculacaoProgramatica(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
-                          SectionNaturezaDespesa(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionNaturezaDespesa(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
-                          SectionReserva(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionReserva(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
-                          SectionEmpenho(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionEmpenho(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
-                          SectionCronograma(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionCronograma(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
-                          SectionDocumentosLinks(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionDocumentosLinks(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                         ],
                       ),

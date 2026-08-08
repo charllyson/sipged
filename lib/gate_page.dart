@@ -9,8 +9,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/connectivity/connectivity_cubit.dart';
 
-import 'package:sipged/_blocs/system/login/login_cubit.dart';
-import 'package:sipged/_blocs/system/login/login_state.dart';
+import 'package:sipged/screens/common/login/sign_in/login_cubit.dart';
+import 'package:sipged/screens/common/login/sign_in/login_state.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_host.dart';
@@ -78,20 +78,22 @@ class _GatePageState extends State<GatePage> {
         text.contains('failed to fetch') ||
         text.contains('client is offline') ||
         text.contains('deadline-exceeded') ||
-        text.contains('firebaseexception') && text.contains('unavailable');
+        (text.contains('firebaseexception') && text.contains('unavailable'));
   }
 
   Future<UserData?> _loadUserOnce({
     required String uid,
     required UserRepository userRepo,
   }) {
-    if (_loadedUserUid != uid || _userLoadFuture == null) {
-      _loadedUserUid = uid;
+    final cleanUid = uid.trim();
 
-      _userLoadFuture = userRepo.getById(uid).timeout(
+    if (_loadedUserUid != cleanUid || _userLoadFuture == null) {
+      _loadedUserUid = cleanUid;
+
+      _userLoadFuture = userRepo.getById(cleanUid).timeout(
         const Duration(seconds: 20),
         onTimeout: () {
-          debugPrint('[GatePage] Timeout ao carregar usuário uid=$uid.');
+          debugPrint('[GatePage] Timeout ao carregar usuário uid=$cleanUid.');
 
           throw TimeoutException(
             'Tempo limite excedido ao carregar os dados do usuário.',
@@ -108,11 +110,13 @@ class _GatePageState extends State<GatePage> {
     required String uid,
     required UserData userData,
   }) {
-    if (_loadedStartupUid != uid || _startupLoadFuture == null) {
-      _loadedStartupUid = uid;
+    final cleanUid = uid.trim();
+
+    if (_loadedStartupUid != cleanUid || _startupLoadFuture == null) {
+      _loadedStartupUid = cleanUid;
 
       _startupLoadFuture = _loadStartupData(
-        uid: uid,
+        uid: cleanUid,
         userData: userData,
       ).timeout(
         const Duration(seconds: 30),
@@ -139,6 +143,12 @@ class _GatePageState extends State<GatePage> {
     final tenantCubit = context.read<TenantCubit>();
 
     userCubit.setCurrentUser(userData);
+
+    // Só agora sabemos que há um usuário autenticado: carrega a lista
+    // completa de usuários (e liga o listener em tempo real) em segundo
+    // plano, em vez de fazer isso incondicionalmente no boot do app.
+    unawaited(userCubit.ensureLoaded(listenRealtime: true));
+    unawaited(userCubit.setCurrentUserBindEnabled(true));
 
     await permissionCubit.loadByUid(uid);
 
@@ -217,17 +227,10 @@ class _GatePageState extends State<GatePage> {
     required String uid,
     required UserData userData,
   }) {
-    final raw = userData.userSnap?.data();
-
-    if (raw is Map<String, dynamic>) {
-      return perm.UserPermissionData.fromMap(
-        uid: uid,
-        map: raw,
-      );
-    }
+    final cleanUid = uid.trim();
 
     return perm.UserPermissionData(
-      uid: uid,
+      uid: cleanUid,
     );
   }
 
@@ -264,6 +267,8 @@ class _GatePageState extends State<GatePage> {
         .selectableTenantIds(
       availableTenantIds: availableIds,
     )
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
         .toSet();
 
     final fallbackIds = <String>{
@@ -367,70 +372,22 @@ class _GatePageState extends State<GatePage> {
   }
 
   List<String> _tenantIdsFromUser(UserData userData) {
-    final raw = userData.userSnap?.data();
-
-    if (raw == null) return const <String>[];
-
     final values = <String>{};
 
-    void addValue(dynamic value) {
-      if (value == null) return;
+    void addValue(String? value) {
+      final clean = value?.trim();
 
-      if (value is String) {
-        final clean = value.trim();
-
-        if (clean.isNotEmpty) {
-          values.add(clean);
-        }
-
-        return;
-      }
-
-      if (value is Iterable) {
-        for (final item in value) {
-          addValue(item);
-        }
-
-        return;
-      }
-
-      if (value is Map) {
-        for (final entry in value.entries) {
-          final key = entry.key?.toString().trim() ?? '';
-          final itemValue = entry.value;
-
-          if (itemValue == true && key.isNotEmpty) {
-            values.add(key);
-            continue;
-          }
-
-          if (itemValue is Map) {
-            final enabled = itemValue['enabled'] != false &&
-                itemValue['active'] != false &&
-                itemValue['allowed'] != false &&
-                itemValue['disabled'] != true;
-
-            if (enabled && key.isNotEmpty) {
-              values.add(key);
-            }
-          }
-        }
+      if (clean != null && clean.isNotEmpty) {
+        values.add(clean);
       }
     }
 
-    addValue(raw['tenantIds']);
-    addValue(raw['allowedTenantIds']);
-    addValue(raw['accessibleTenantIds']);
-    addValue(raw['companyIds']);
-    addValue(raw['allowedCompanyIds']);
-    addValue(raw['accessibleCompanyIds']);
-    addValue(raw['tenants']);
-    addValue(raw['tenantAccess']);
-    addValue(raw['tenantsAccess']);
-    addValue(raw['companyAccess']);
-    addValue(raw['companiesAccess']);
-    addValue(raw['tenantRoles']);
-    addValue(raw['tenantModuleOverrides']);
+    for (final tenantId in userData.tenantIds) {
+      addValue(tenantId);
+    }
+
+    addValue(userData.primaryTenantId);
+    addValue(userData.activeTenantId);
 
     final list = values.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
@@ -439,23 +396,22 @@ class _GatePageState extends State<GatePage> {
   }
 
   String? _currentTenantIdFromUser(UserData userData) {
-    final raw = userData.userSnap?.data();
+    final active = userData.activeTenantId?.trim();
 
-    if (raw == null) return null;
+    if (active != null && active.isNotEmpty) {
+      return active;
+    }
 
-    final candidates = [
-      raw['currentTenantId'],
-      raw['selectedTenantId'],
-      raw['activeTenantId'],
-      raw['lastTenantId'],
-    ];
+    final primary = userData.primaryTenantId?.trim();
 
-    for (final candidate in candidates) {
-      final value = candidate?.toString().trim();
+    if (primary != null && primary.isNotEmpty) {
+      return primary;
+    }
 
-      if (value != null && value.isNotEmpty) {
-        return value;
-      }
+    final effective = userData.effectiveTenantId?.trim();
+
+    if (effective != null && effective.isNotEmpty) {
+      return effective;
     }
 
     return null;
@@ -562,6 +518,22 @@ class _GatePageState extends State<GatePage> {
     );
   }
 
+  Widget _buildUserLoading() {
+    return const Scaffold(
+      body: LoadingTreeDots(
+        message: Text('Carregando os dados...'),
+      ),
+    );
+  }
+
+  Widget _buildStartupLoading() {
+    return const Scaffold(
+      body: LoadingTreeDots(
+        message: Text('Carregando a configuração...'),
+      ),
+    );
+  }
+
   Widget _buildAuthenticatedArea({
     required UserData userData,
     required String uid,
@@ -578,11 +550,7 @@ class _GatePageState extends State<GatePage> {
         final isOnline = context.watch<ConnectivityCubit>().state;
 
         if (startupSnapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: LoadingTreeDots(
-              message: Text('Carregando a configuração...'),
-            ),
-          );
+          return _buildStartupLoading();
         }
 
         if (startupSnapshot.hasError) {
@@ -767,7 +735,13 @@ class _GatePageState extends State<GatePage> {
             return const SignIn();
           }
 
-          final uid = firebaseUser.uid;
+          final uid = firebaseUser.uid.trim();
+
+          if (uid.isEmpty) {
+            _resetCachedUser();
+
+            return const SignIn();
+          }
 
           return FutureBuilder<UserData?>(
             future: _loadUserOnce(
@@ -778,11 +752,7 @@ class _GatePageState extends State<GatePage> {
               final isOnline = context.watch<ConnectivityCubit>().state;
 
               if (userSnapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  body: LoadingTreeDots(
-                    message: Text('Carregando os dados...'),
-                  ),
-                );
+                return _buildUserLoading();
               }
 
               if (userSnapshot.hasError) {

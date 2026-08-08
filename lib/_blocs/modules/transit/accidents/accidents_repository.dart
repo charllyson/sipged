@@ -30,14 +30,11 @@ class AccidentsRepository {
     /// Se informado, tem prioridade sobre o tenant dinâmico.
     String? baseCollectionPath,
 
-    /// Compatibilidade com estrutura antiga:
-    /// trafficAccidents/{year}/records
-    bool enableLegacyFallback = true,
+    this._enableLegacyFallback = true,
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
         _tenantId = _cleanNullable(tenantId),
         _baseCollectionPath = _cleanNullable(baseCollectionPath),
-        _enableLegacyFallback = enableLegacyFallback,
         _publicReportBaseUrl = _resolvePublicReportBaseUrl(publicReportBaseUrl);
 
   final FirebaseFirestore _db;

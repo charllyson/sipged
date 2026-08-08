@@ -16,7 +16,6 @@ import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart'
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
-import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
@@ -206,7 +205,7 @@ class _ListResumedState extends State<ListResumed> {
       return Colors.grey.shade700;
     }
 
-    return GeneralDashboardStyle.statusColors[key] ?? Colors.black;
+    return ContractData.statusColors[key] ?? Colors.black;
   }
 
   String _statusFor(ContractData contrato) {

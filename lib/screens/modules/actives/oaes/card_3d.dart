@@ -93,7 +93,7 @@ class _OaeModel3DCardState extends State<OaeModel3DCard> {
     if (!_canEdit) return;
 
     await _withBusy(() async {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['ifc'],
         withData: true,

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+ import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_repository.dart';
@@ -223,9 +224,13 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
       title: 'Detalhes • $region',
       width: (size.width * 0.92).clamp(420.0, 980.0),
       barrierDismissible: true,
-      usePointerInterceptor: true,
       contentPadding: EdgeInsets.zero,
       useSafeArea: true,
+      dialogWrapper: (dialog) {
+        return PointerInterceptor(
+          child: dialog,
+        );
+      },
       child: SizedBox(
         height: (size.height * 0.78).clamp(420.0, 900.0),
         child: ShowCityDetails(

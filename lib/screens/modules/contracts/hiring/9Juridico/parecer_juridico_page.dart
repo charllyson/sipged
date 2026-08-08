@@ -789,49 +789,61 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          SectionMetadados(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            users: users,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionMetadados(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              users: users,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
-                          SectionDocumentos(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionDocumentos(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
-                          SectionChecklist(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionChecklist(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
-                          SectionConclusao(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionConclusao(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
-                          SectionPendencias(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionPendencias(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
-                          SectionAssinaturas(
-                            data: _formData,
-                            isEditable: _isEditable,
-                            users: users,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionAssinaturas(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              users: users,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                         ],
                       ),

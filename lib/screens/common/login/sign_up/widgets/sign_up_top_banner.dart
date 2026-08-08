@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/screens/common/login/sign_up/sign_up.dart';
+ import 'package:sipged/screens/common/login/sign_up/sign_up_data.dart';
 
 class SignUpTopBanner extends StatelessWidget {
   const SignUpTopBanner({

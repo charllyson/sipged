@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
 // Dados do contrato
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
@@ -16,9 +17,6 @@ import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_lin
 
 // Widget que renderiza GERAL + serviços
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_schedules_details.dart';
-
-// Layout responsivo
-import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
 class SpecificDashboardSchedules extends StatefulWidget {
   const SpecificDashboardSchedules({

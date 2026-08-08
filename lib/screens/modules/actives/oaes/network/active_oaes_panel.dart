@@ -1,4 +1,5 @@
 // lib/screens/modules/actives/oaes/active_oaes_panel.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -11,7 +12,10 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 
 class ActiveOaesPanel extends StatelessWidget {
-  const ActiveOaesPanel({super.key, this.onClose});
+  const ActiveOaesPanel({
+    super.key,
+    this.onClose,
+  });
 
   final VoidCallback? onClose;
 
@@ -29,13 +33,10 @@ class ActiveOaesPanel extends StatelessWidget {
           children: [
             Expanded(
               child: BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
-                // 🔥 Painel só recalcula quando dados ou filtros mudam
                 buildWhen: (prev, curr) {
                   return prev.all != curr.all ||
-                      prev.selectedPieIndexFilter !=
-                          curr.selectedPieIndexFilter ||
-                      prev.selectedRegionFilter !=
-                          curr.selectedRegionFilter ||
+                      prev.selectedPieIndexFilter != curr.selectedPieIndexFilter ||
+                      prev.selectedRegionFilter != curr.selectedRegionFilter ||
                       prev.regionLabels != curr.regionLabels;
                 },
                 builder: (context, st) {
@@ -61,27 +62,20 @@ class ActiveOaesPanel extends StatelessWidget {
                                   builder: (context, constraints) {
                                     final double side = constraints.maxWidth;
                                     final double dynamicRadius = side * 0.35;
-                                    final double dynamicFontSize =
-                                        dynamicRadius * 0.5;
+                                    final double dynamicFontSize = dynamicRadius * 0.5;
 
                                     return Padding(
-                                      padding:
-                                      const EdgeInsets.only(top: 12.0),
+                                      padding: const EdgeInsets.only(top: 12.0),
                                       child: GaugeChartChange(
-                                        centerLabel: gaugeVm.percent
-                                            .clamp(0.0, 1.0),
+                                        centerLabel: gaugeVm.percent.clamp(0.0, 1.0),
                                         footerLabel: gaugeVm.label,
-                                        headerMode:
-                                        GaugeTextMode.number,
-                                        centerMode:
-                                        GaugeTextMode.number,
+                                        headerMode: GaugeTextMode.number,
+                                        centerMode: GaugeTextMode.number,
                                         values: [gaugeVm.count],
-                                        footerMode:
-                                        GaugeTextMode.explicit,
+                                        footerMode: GaugeTextMode.explicit,
                                         radius: dynamicRadius,
                                         widthGraphic: side,
-                                        centerFontSize:
-                                        dynamicFontSize,
+                                        centerFontSize: dynamicFontSize,
                                         footerFontSize: 12,
                                       ),
                                     );
@@ -102,19 +96,19 @@ class ActiveOaesPanel extends StatelessWidget {
                                       ),
                                       child: DonutChartChanged(
                                         colorCard: Colors.white,
-                                        valueFormatType:
-                                        ValueFormatType.integer,
+                                        valueFormatType: ValueFormatType.integer,
                                         labels: st.pieLabelsForChart,
                                         values: st.pieValuesForChart,
-                                        colorsSlices:
-                                        st.pieColorsForChart,
-                                        selectedIndex:
-                                        st.selectedPieIndexFilter,
+                                        colorsSlices: st.pieColorsForChart,
+                                        selectedIndex: st.selectedPieIndexFilter,
                                         widthGraphic: side,
                                         heightGraphic: 295,
-                                        onTouch: (idx) {
-                                          cubit.setPieFilter(idx);
-                                        },
+
+                                        // Ao clicar em uma fatia:
+                                        // - se for nova, seleciona;
+                                        // - se for a mesma, o próprio Donut envia null.
+                                        // O Cubit também foi blindado para alternar.
+                                        onTouch: cubit.setPieFilter,
                                       ),
                                     );
                                   },
@@ -124,33 +118,32 @@ class ActiveOaesPanel extends StatelessWidget {
                             ],
                           ),
                         ),
+
                         const SizedBox(height: 12),
 
                         // === Barras por região =================================================
                         LayoutBuilder(
                           builder: (context, constraints) {
-                            final double availableWidth =
-                            constraints.hasBoundedWidth
+                            final double availableWidth = constraints.hasBoundedWidth
                                 ? constraints.maxWidth
                                 : MediaQuery.of(context).size.width;
 
                             final int n = st.regionLabels.length;
+
                             final double minContentWidth =
                                 16 + n * (kBarWidth + kBarGap) + 16;
 
-                            final double contentWidth =
-                            minContentWidth > availableWidth
+                            final double contentWidth = minContentWidth > availableWidth
                                 ? minContentWidth
                                 : availableWidth;
 
-                            final selectedRegionIdx =
+                            final int? selectedRegionIdx =
                             st.selectedRegionFilter == null
                                 ? null
                                 : st.regionLabels.indexWhere(
-                                  (r) =>
-                              r.toUpperCase() ==
-                                  st.selectedRegionFilter!
-                                      .toUpperCase(),
+                                  (region) =>
+                              region.trim().toUpperCase() ==
+                                  st.selectedRegionFilter!.trim().toUpperCase(),
                             );
 
                             return SingleChildScrollView(
@@ -159,25 +152,25 @@ class ActiveOaesPanel extends StatelessWidget {
                                 width: contentWidth,
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12.0),
+                                    horizontal: 12.0,
+                                  ),
                                   child: BarChartChanged(
                                     colorCard: Colors.white,
-                                    valueFormatter: (v) =>
-                                        v.toStringAsFixed(0),
+                                    valueFormatter: (value) => value.toStringAsFixed(0),
                                     heightGraphic: 260,
                                     widthBar: kBarWidth,
                                     labels: st.regionLabels,
-                                    values: st
-                                        .regionCountsFilteredByPie(),
-                                    selectedIndex: selectedRegionIdx,
-                                    onBarTap: (label) {
-                                      final newRegion =
-                                      label ==
-                                          st.selectedRegionFilter
-                                          ? null
-                                          : label;
-                                      cubit.setRegionFilter(newRegion);
-                                    },
+                                    values: st.regionCountsFilteredByPie(),
+                                    selectedIndex: selectedRegionIdx != null &&
+                                        selectedRegionIdx >= 0
+                                        ? selectedRegionIdx
+                                        : null,
+
+                                    // Aqui estava o problema:
+                                    // onBarTap não recebe null quando clica novamente.
+                                    // onBarSelectionChanged recebe null e limpa a seleção.
+                                    onBarSelectionChanged: cubit.setRegionFilter,
+
                                     expandToMaxWidth: true,
                                   ),
                                 ),

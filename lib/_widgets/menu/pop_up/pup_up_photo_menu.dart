@@ -1,17 +1,22 @@
 // lib/_widgets/menu/upBar/pop_up_photo_menu.dart
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/login/login_cubit.dart';
+import 'package:sipged/screens/common/login/sign_in/login_cubit.dart';
+
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart' as perm;
+
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
 import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
+
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 import 'package:sipged/_widgets/images/avatar/photo_circle.dart';
+
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
 import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
@@ -127,14 +132,6 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu>
 
   perm.UserPermissionData _fallbackPermissionFromUser(UserData userData) {
     final uid = (userData.uid ?? '').trim();
-    final raw = userData.userSnap?.data();
-
-    if (raw is Map<String, dynamic>) {
-      return perm.UserPermissionData.fromMap(
-        uid: uid,
-        map: raw,
-      );
-    }
 
     return perm.UserPermissionData(
       uid: uid,
@@ -150,7 +147,10 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu>
     final fantasyName = (tenant.fantasyName ?? '').trim();
     if (fantasyName.isNotEmpty) return fantasyName;
 
-    return tenant.label.trim();
+    final label = tenant.label.trim();
+    if (label.isNotEmpty) return label;
+
+    return tenant.id.trim();
   }
 
   Widget _buildTenantLogo(TenantData tenant) {
@@ -166,17 +166,15 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu>
         width: 38,
         height: 38,
         color: Colors.white,
-        child: Image.network(
-          logoUrl,
+        child: CachedNetworkImage(
+          imageUrl: logoUrl,
           width: 38,
           height: 38,
           fit: BoxFit.cover,
-          errorBuilder: (_, _, _) {
+          errorWidget: (_, _, _) {
             return _buildTenantLogoFallback();
           },
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-
+          placeholder: (context, url) {
             return Center(
               child: SizedBox.square(
                 dimension: 16,

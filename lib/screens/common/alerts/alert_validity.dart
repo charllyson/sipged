@@ -3,10 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
+
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_repository.dart';
@@ -14,8 +17,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_repository.dart';
 
-import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
-import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_state.dart';
@@ -56,6 +58,9 @@ class AlertValidity extends StatefulWidget {
 
 class _AlertValidityState extends State<AlertValidity>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  static const String _statusEmAndamento = 'EM ANDAMENTO';
+  static const String _statusAIniciar = 'A INICIAR';
+
   static final Map<String, Future<_ValidityAlertInfo?>> _futureCache =
   <String, Future<_ValidityAlertInfo?>>{};
 
@@ -74,6 +79,9 @@ class _AlertValidityState extends State<AlertValidity>
   static final Map<String, AdditivesRepository> _additivesRepoByTenant =
   <String, AdditivesRepository>{};
 
+  static final Map<String, ValidityRepository> _validityRepoByTenant =
+  <String, ValidityRepository>{};
+
   static void clearCache() {
     _futureCache.clear();
     _resultCache.clear();
@@ -82,6 +90,7 @@ class _AlertValidityState extends State<AlertValidity>
     _publicacaoRepoByTenant.clear();
     _trRepoByTenant.clear();
     _additivesRepoByTenant.clear();
+    _validityRepoByTenant.clear();
   }
 
   final GlobalKey _buttonKey = GlobalKey();
@@ -236,6 +245,15 @@ class _AlertValidityState extends State<AlertValidity>
     );
   }
 
+  ValidityRepository _validityRepository(String tenantId) {
+    return _validityRepoByTenant.putIfAbsent(
+      tenantId,
+          () => ValidityRepository(
+        tenantId: tenantId,
+      ),
+    );
+  }
+
   Future<_ValidityAlertInfo?> _getCachedFuture({
     required ContractData contract,
     required String? tenantId,
@@ -287,7 +305,7 @@ class _AlertValidityState extends State<AlertValidity>
     return future;
   }
 
-  Future<DfdData?> _loadDfdStatus({
+  Future<DfdData?> _loadDfd({
     required String tenantId,
     required String contractId,
     DfdData? provided,
@@ -369,7 +387,7 @@ class _AlertValidityState extends State<AlertValidity>
     if (text.isEmpty) return 0;
 
     return int.tryParse(
-      text.replaceAll(RegExp(r'[^\d-]'), ''),
+      text.replaceAll(RegExp(r'[^0-9-]'), ''),
     ) ??
         0;
   }
@@ -377,7 +395,26 @@ class _AlertValidityState extends State<AlertValidity>
   bool _isEligibleStatus(String status) {
     final cleanStatus = status.trim().toUpperCase();
 
-    return cleanStatus == 'EM ANDAMENTO' || cleanStatus == 'A INICIAR';
+    return cleanStatus == _statusEmAndamento ||
+        cleanStatus == _statusAIniciar;
+  }
+
+  int _remainingDays(DateTime targetDate) {
+    final now = DateTime.now();
+
+    final today = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    );
+
+    final target = DateTime(
+      targetDate.year,
+      targetDate.month,
+      targetDate.day,
+    );
+
+    return target.difference(today).inDays;
   }
 
   Future<_ValidityAlertInfo?> _loadInfo({
@@ -393,7 +430,7 @@ class _AlertValidityState extends State<AlertValidity>
       return null;
     }
 
-    final dfd = await _loadDfdStatus(
+    final dfd = await _loadDfd(
       tenantId: cleanTenantId,
       contractId: cleanContractId,
       provided: dfdData,
@@ -423,57 +460,24 @@ class _AlertValidityState extends State<AlertValidity>
 
     final publicacao = results[0] as PublicacaoExtratoData?;
     final tr = results[1] as TrData?;
-    final aditivos = results[2] as List<AdditivesData>;
+    final additives = results[2] as List<AdditivesData>;
+
+    final dataFinalContrato =
+    _validityRepository(cleanTenantId).calcularDataFinalContratoLocal(
+      publicacao: publicacao,
+      tr: tr,
+      additives: additives,
+    );
 
     final dataPublicacao = publicacao?.dataPublicacao;
-    final int vigenciaDias = _toIntFromText(tr?.vigenciaDias);
+    final vigenciaDias = _toIntFromText(tr?.vigenciaDias);
 
-    if (dataPublicacao == null) {
-      return _ValidityAlertInfo(
-        contractId: cleanContractId,
-        tenantId: cleanTenantId,
-        status: status,
-        dataPublicacao: null,
-        vigenciaDias: vigenciaDias,
-        additiveDays: 0,
-        additivesCount: 0,
-        finalDate: null,
-        remainingDays: null,
-      );
-    }
-
-    final int diasAditivos = aditivos.fold<int>(
+    final additiveDays = additives.fold<int>(
       0,
-          (totalAtual, aditivo) {
-        return totalAtual + (aditivo.additiveValidityContractDays ?? 0);
+          (total, additive) {
+        return total + (additive.additiveValidityContractDays ?? 0);
       },
     );
-
-    final int totalDiasContrato = vigenciaDias + diasAditivos;
-
-    final DateTime dataFinal = dataPublicacao.add(
-      Duration(days: totalDiasContrato),
-    );
-
-    final DateTime today = DateTime.now();
-
-    final DateTime normalizedToday = DateTime(
-      today.year,
-      today.month,
-      today.day,
-    );
-
-    final DateTime normalizedFinalDate = DateTime(
-      dataFinal.year,
-      dataFinal.month,
-      dataFinal.day,
-    );
-
-    final int diasRestantes = normalizedFinalDate
-        .difference(
-      normalizedToday,
-    )
-        .inDays;
 
     return _ValidityAlertInfo(
       contractId: cleanContractId,
@@ -481,10 +485,11 @@ class _AlertValidityState extends State<AlertValidity>
       status: status,
       dataPublicacao: dataPublicacao,
       vigenciaDias: vigenciaDias,
-      additiveDays: diasAditivos,
-      additivesCount: aditivos.length,
-      finalDate: dataFinal,
-      remainingDays: diasRestantes,
+      additiveDays: additiveDays,
+      additivesCount: additives.length,
+      finalDate: dataFinalContrato,
+      remainingDays:
+      dataFinalContrato == null ? null : _remainingDays(dataFinalContrato),
     );
   }
 
@@ -502,7 +507,7 @@ class _AlertValidityState extends State<AlertValidity>
     final dias = info.remainingDays;
 
     if (dias == null) {
-      return 'Vigência sem data de publicação definida';
+      return 'Vigência sem data final calculada';
     }
 
     if (dias < 0) {
@@ -609,7 +614,7 @@ class _AlertValidityState extends State<AlertValidity>
       ),
       BalloonTileData.simple(
         id: 'aditivos',
-        title: 'Aditivos de prazo',
+        title: 'Aditivos de prazo contratual',
         subtitle:
         '${info.additiveDays} dias em ${info.additivesCount} aditivo(s)',
         icon: Icons.add_alarm_outlined,
@@ -893,6 +898,7 @@ class _AlertValidityShimmerState extends State<_AlertValidityShimmer>
   @override
   void dispose() {
     _controller.dispose();
+
     super.dispose();
   }
 

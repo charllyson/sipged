@@ -225,6 +225,68 @@ class _SymbologyFormState extends State<SymbologyForm> {
       ),
       titleLabel: 'Nome da camada',
       textLabel: 'Texto da camada',
+
+      // Opcional: passe aqui os campos disponíveis do GeoJSON/Feature.
+      // availableTextFields: camposDisponiveis,
+      // useFieldSelectorWhenAvailable: true,
+
+      textFieldBuilder: ({
+        required context,
+        required controller,
+        required labelText,
+        required onChanged,
+      }) {
+        return CustomTextField(
+          controller: controller,
+          labelText: labelText,
+          onChanged: onChanged,
+        );
+      },
+
+      dropdownBuilder: ({
+        required context,
+        required controller,
+        required labelText,
+        required items,
+        required onChanged,
+        required enabled,
+      }) {
+        return DropDownChange(
+          controller: controller,
+          labelText: labelText,
+          width: double.infinity,
+          items: items,
+          enabled: enabled,
+          onChanged: onChanged,
+        );
+      },
+
+      numberFieldBuilder: ({
+        required context,
+        required label,
+        required value,
+        required onChanged,
+      }) {
+        return NumberField(
+          label: label,
+          value: value,
+          onChanged: onChanged,
+        );
+      },
+
+      colorPickerBuilder: ({
+        required context,
+        required title,
+        required selectedColorValue,
+        required onChanged,
+      }) {
+        return ColorsChangeCatalog(
+          title: title,
+          selectedColorValue: selectedColorValue,
+          onChanged: onChanged,
+        );
+      },
+
       onChanged: (value) {
         _emit(
           _local.copyWith(

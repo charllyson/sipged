@@ -17,12 +17,12 @@ enum ModuleEnum {
   operationMonitoringWork,
 
   planningProjectRegistration,
+  planningGanttSchedule,
 
   trafficAccidentsDashboard,
   trafficAccidentsRecords,
   trafficInfractionsDashboard,
   trafficInfractionsRecords,
-
 
   activeRoadRegistration,
   activeRoadNetwork,

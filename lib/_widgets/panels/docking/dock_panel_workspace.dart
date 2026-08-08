@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/panels/docking/dock_panel_cubit.dart';
-import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
-import 'package:sipged/_blocs/system/panels/docking/dock_panel_state.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_controller.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_data.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_state.dart';
 
 import 'package:sipged/_widgets/panels/docking/dock_panel_floating.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_group.dart';
@@ -16,6 +15,7 @@ class DockPanelWorkspace extends StatefulWidget {
     required this.child,
     required this.groups,
     required this.onChanged,
+    this.controller,
     this.contentPadding = EdgeInsets.zero,
     this.snapThickness = 16,
     this.backgroundOverlayColor,
@@ -23,10 +23,21 @@ class DockPanelWorkspace extends StatefulWidget {
   });
 
   final Widget child;
+
   final List<DockPanelData> groups;
+
   final ValueChanged<List<DockPanelData>> onChanged;
+
+  /// Controller externo opcional.
+  ///
+  /// Se informado, o widget não cria controller interno.
+  /// Útil quando a tela pai precisa controlar ou observar o estado do dock.
+  final DockPanelController? controller;
+
   final EdgeInsets contentPadding;
+
   final double snapThickness;
+
   final Color? backgroundOverlayColor;
 
   /// Use Size.zero para mapas.
@@ -42,16 +53,33 @@ class DockPanelWorkspace extends StatefulWidget {
 class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   final GlobalKey _stackKey = GlobalKey();
 
-  late DockPanelCubit _cubit;
+  late DockPanelController _controller;
+
+  bool _ownsController = false;
 
   @override
   void initState() {
     super.initState();
-    _cubit = _createCubit();
+
+    _setupController();
   }
 
-  DockPanelCubit _createCubit() {
-    return DockPanelCubit(
+  void _setupController() {
+    final externalController = widget.controller;
+
+    if (externalController != null) {
+      _controller = externalController;
+      _ownsController = false;
+      _controller.updateOnCommit(widget.onChanged);
+      return;
+    }
+
+    _controller = _createController();
+    _ownsController = true;
+  }
+
+  DockPanelController _createController() {
+    return DockPanelController(
       initialGroups: widget.groups,
       onCommit: widget.onChanged,
       snapThickness: widget.snapThickness,
@@ -125,17 +153,32 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   void didUpdateWidget(covariant DockPanelWorkspace oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    /// Não recrie o Cubit por mudança de callback.
-    ///
-    /// Recriar o Cubit aqui provoca um frame sem workspaceSize válido,
-    /// e isso causava a tela branca de "Carregando painéis..." ao abrir/fechar
-    /// os PushPanels ou ao trocar conteúdos.
-    final mustRecreateCubit = oldWidget.snapThickness != widget.snapThickness;
+    final controllerChanged = oldWidget.controller != widget.controller;
 
-    if (mustRecreateCubit) {
-      final oldCubit = _cubit;
-      _cubit = _createCubit();
-      oldCubit.close();
+    if (controllerChanged) {
+      if (_ownsController) {
+        _controller.dispose();
+      }
+
+      _setupController();
+
+      return;
+    }
+
+    _controller.updateOnCommit(widget.onChanged);
+
+    final mustRecreateInternalController =
+        widget.controller == null &&
+            oldWidget.snapThickness != widget.snapThickness;
+
+    if (mustRecreateInternalController) {
+      final oldController = _controller;
+
+      _controller = _createController();
+      _ownsController = true;
+
+      oldController.dispose();
+
       return;
     }
 
@@ -145,13 +188,16 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
     );
 
     if (layoutChanged) {
-      _cubit.syncFromExternal(widget.groups);
+      _controller.syncFromExternal(widget.groups);
     }
   }
 
   @override
   void dispose() {
-    _cubit.close();
+    if (_ownsController) {
+      _controller.dispose();
+    }
+
     super.dispose();
   }
 
@@ -202,31 +248,44 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
         group: group,
         isFloating: isFloating,
         isDragging: isGroupDragging,
-        onToggleFloating: () => _cubit.toggleFloating(group.id),
-        onHide: () => _cubit.setGroupVisible(group.id, false),
-        onMinimize: () => _cubit.setGroupVisible(group.id, false),
-        onTabSelected: (itemId) => _cubit.setGroupActiveItem(
-          group.id,
-          itemId,
-        ),
-        onDragStarted: () => _cubit.startDrag(group.id),
+        onToggleFloating: () => _controller.toggleFloating(group.id),
+        onHide: () => _controller.setGroupVisible(group.id, false),
+        onMinimize: () => _controller.setGroupVisible(group.id, false),
+        onTabSelected: (itemId) {
+          _controller.setGroupActiveItem(
+            group.id,
+            itemId,
+          );
+        },
+        onDragStarted: () {
+          _controller.startDrag(group.id);
+        },
         onDragUpdate: (details) {
           final local = _globalToLocal(details.globalPosition);
-          _cubit.updateDrag(group.id, local);
+
+          _controller.updateDrag(
+            group.id,
+            local,
+          );
         },
         onDragEnd: (details) {
           final fallbackLocal = _globalToLocal(details.offset);
 
-          _cubit.endDrag(
+          _controller.endDrag(
             groupId: group.id,
             fallbackLocalPosition: fallbackLocal,
           );
         },
-        onResizeStart: _cubit.startFloatingResize,
+        onResizeStart: _controller.startFloatingResize,
         onResizeUpdate: (details) {
-          _cubit.resizeFloatingGroup(group.id, details);
+          _controller.resizeFloatingGroup(
+            group.id,
+            details,
+          );
         },
-        onResizeEnd: (_) => _cubit.endFloatingResize(),
+        onResizeEnd: (_) {
+          _controller.endFloatingResize();
+        },
       ),
     );
   }
@@ -243,7 +302,8 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _cubit.setWorkspaceSize(nextWorkspaceSize);
+
+      _controller.setWorkspaceSize(nextWorkspaceSize);
     });
   }
 
@@ -264,40 +324,93 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<DockPanelCubit>.value(
-      value: _cubit,
-      child: BlocBuilder<DockPanelCubit, DockPanelState>(
-        builder: (context, state) {
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final nextWorkspaceSize = Size(
-                constraints.maxWidth.isFinite ? constraints.maxWidth : 0,
-                constraints.maxHeight.isFinite ? constraints.maxHeight : 0,
-              );
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final state = _controller.state;
 
-              _syncWorkspaceSizeIfNeeded(nextWorkspaceSize, state);
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final nextWorkspaceSize = Size(
+              constraints.maxWidth.isFinite ? constraints.maxWidth : 0,
+              constraints.maxHeight.isFinite ? constraints.maxHeight : 0,
+            );
 
-              final effectiveWorkspaceSize = _effectiveWorkspaceSize(
-                nextWorkspaceSize,
-                state,
-              );
+            _syncWorkspaceSizeIfNeeded(
+              nextWorkspaceSize,
+              state,
+            );
 
-              return SizedBox.expand(
-                key: _stackKey,
-                child: Stack(
-                  clipBehavior: Clip.hardEdge,
-                  children: [
-                    const Positioned.fill(
-                      child: ColoredBox(
-                        color: Colors.white,
+            final effectiveWorkspaceSize = _effectiveWorkspaceSize(
+              nextWorkspaceSize,
+              state,
+            );
+
+            return SizedBox.expand(
+              key: _stackKey,
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  const Positioned.fill(
+                    child: ColoredBox(
+                      color: Colors.white,
+                    ),
+                  ),
+
+                  Positioned.fill(
+                    child: DockPanelLayout(
+                      state: state,
+                      contentPadding: widget.contentPadding,
+                      contentMinSize: widget.contentMinSize,
+                      buildGroupCard: (group, isFloating) {
+                        return _buildGroupCard(
+                          state,
+                          group,
+                          isFloating,
+                        );
+                      },
+                      onSideExtentResizeStart:
+                      _controller.startDockExtentResize,
+                      onSideExtentResizeEnd:
+                      _controller.endDockExtentResize,
+                      onSideExtentResize:
+                      _controller.resizeAreaExtent,
+                      onWeightResizeStart:
+                      _controller.startDockWeightResize,
+                      onWeightResizeEnd:
+                      _controller.endDockWeightResize,
+                      onWeightResize: (
+                          groups,
+                          leadingIndex,
+                          deltaPixels,
+                          totalPixels,
+                          ) {
+                        _controller.resizeDockWeights(
+                          groups: groups,
+                          leadingIndex: leadingIndex,
+                          deltaPixels: deltaPixels,
+                          totalAvailablePixels: totalPixels,
+                        );
+                      },
+                      child: widget.child,
+                    ),
+                  ),
+
+                  if (state.hasDialogPanel)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: ColoredBox(
+                          color: Colors.black.withValues(alpha: 0.16),
+                        ),
                       ),
                     ),
 
+                  if (effectiveWorkspaceSize.width > 0 &&
+                      effectiveWorkspaceSize.height > 0)
                     Positioned.fill(
-                      child: DockPanelLayout(
-                        state: state,
-                        contentPadding: widget.contentPadding,
-                        contentMinSize: widget.contentMinSize,
+                      child: DockPanelFloating(
+                        floatingGroups: state.floatingGroups,
+                        workspaceSize: effectiveWorkspaceSize,
                         buildGroupCard: (group, isFloating) {
                           return _buildGroupCard(
                             state,
@@ -305,67 +418,21 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                             isFloating,
                           );
                         },
-                        onSideExtentResizeStart:
-                        _cubit.startDockExtentResize,
-                        onSideExtentResizeEnd: _cubit.endDockExtentResize,
-                        onSideExtentResize: _cubit.resizeAreaExtent,
-                        onWeightResizeStart: _cubit.startDockWeightResize,
-                        onWeightResizeEnd: _cubit.endDockWeightResize,
-                        onWeightResize: (
-                            groups,
-                            leadingIndex,
-                            deltaPixels,
-                            totalPixels,
-                            ) {
-                          _cubit.resizeDockWeights(
-                            groups: groups,
-                            leadingIndex: leadingIndex,
-                            deltaPixels: deltaPixels,
-                            totalAvailablePixels: totalPixels,
-                          );
-                        },
-                        child: widget.child,
                       ),
                     ),
 
-                    if (state.hasDialogPanel)
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: ColoredBox(
-                            color: Colors.black.withValues(alpha: 0.16),
-                          ),
-                        ),
-                      ),
-
-                    if (effectiveWorkspaceSize.width > 0 &&
-                        effectiveWorkspaceSize.height > 0)
-                      Positioned.fill(
-                        child: DockPanelFloating(
-                          floatingGroups: state.floatingGroups,
-                          workspaceSize: effectiveWorkspaceSize,
-                          buildGroupCard: (group, isFloating) {
-                            return _buildGroupCard(
-                              state,
-                              group,
-                              isFloating,
-                            );
-                          },
-                        ),
-                      ),
-
-                    DockPanelSnap(
-                      visible: state.isDragging,
-                      snapArea: state.hoveredSnapArea,
-                      previewRect: state.previewRect,
-                      backgroundOverlayColor: widget.backgroundOverlayColor,
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+                  DockPanelSnap(
+                    visible: state.isDragging,
+                    snapArea: state.hoveredSnapArea,
+                    previewRect: state.previewRect,
+                    backgroundOverlayColor: widget.backgroundOverlayColor,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -830,54 +830,66 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          SectionDivulgacaoRecebimento(
-                            isEditable: _isEditable,
-                            data: _formData,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionDivulgacaoRecebimento(
+                              isEditable: _isEditable,
+                              data: _formData,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionSessaoJulgamento(
-                            isEditable: _isEditable,
-                            data: _formData,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionSessaoJulgamento(
+                              isEditable: _isEditable,
+                              data: _formData,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionPropostas(
-                            isEditable: _isEditable,
-                            data: _formData,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
-                            onDefinirVencedorEIr: _definirVencedorEIr,
+                          RepaintBoundary(
+                            child: SectionPropostas(
+                              isEditable: _isEditable,
+                              data: _formData,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                              onDefinirVencedorEIr: _definirVencedorEIr,
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionLances(
-                            isEditable: _isEditable,
-                            data: _formData,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionLances(
+                              isEditable: _isEditable,
+                              data: _formData,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionParecerRecursos(
-                            isEditable: _isEditable,
-                            data: _formData,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionParecerRecursos(
+                              isEditable: _isEditable,
+                              data: _formData,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          SectionResultado(
-                            isEditable: _isEditable,
-                            data: _formData,
-                            keyResultado: _resultadoKey,
-                            onChanged: (updated) {
-                              setState(() => _formData = updated);
-                            },
+                          RepaintBoundary(
+                            child: SectionResultado(
+                              isEditable: _isEditable,
+                              data: _formData,
+                              keyResultado: _resultadoKey,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
                           ),
                         ],
                       ),

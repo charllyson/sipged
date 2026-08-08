@@ -1,9 +1,12 @@
-// lib/_widgets/input/drop_down_change.dart
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/input/text_field_change.dart';
+
 import 'package:sipged/_widgets/dialog/windows/window_dialog.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
+import 'package:sipged/_widgets/overlays/balloon/balloon_tile.dart';
+import 'package:sipged/_widgets/overlays/balloon/balloon_tip.dart';
 
 class DropDownChange extends StatefulWidget {
   const DropDownChange({
@@ -15,12 +18,34 @@ class DropDownChange extends StatefulWidget {
     this.enabled,
     this.validator,
     this.width,
+    this.height,
 
     // UI
     this.labelText,
+    this.labelStyle,
+    this.labelFontSize = 14.0,
+    this.valueColor,
+    this.valueFontSize = 14.0,
+    this.valueFontWeight,
+    this.fillColor,
     this.greyItems = const <String>{},
     this.menuMaxHeight = 260,
     this.tooltipMessage,
+
+    // Aparência da borda
+    this.borderRadius = 10.0,
+    this.borderColor,
+    this.focusedBorderColor,
+    this.errorBorderColor = Colors.red,
+    this.borderWidth = 1.0,
+    this.contentPadding,
+    this.textAlignVertical,
+
+    // Balloon
+    this.useBalloon = true,
+    this.balloonWidth,
+    this.balloonTipSide = BalloonTipSide.top,
+    this.closeBalloonOnScroll = true,
 
     // Callbacks
     this.onChanged,
@@ -46,11 +71,31 @@ class DropDownChange extends StatefulWidget {
   final bool? enabled;
   final String? Function(String?)? validator;
   final double? width;
+  final double? height;
 
   final String? labelText;
+  final TextStyle? labelStyle;
+  final double labelFontSize;
+  final Color? valueColor;
+  final double valueFontSize;
+  final FontWeight? valueFontWeight;
+  final Color? fillColor;
   final Set<String> greyItems;
   final double menuMaxHeight;
   final String? tooltipMessage;
+
+  final double borderRadius;
+  final Color? borderColor;
+  final Color? focusedBorderColor;
+  final Color errorBorderColor;
+  final double borderWidth;
+  final EdgeInsetsGeometry? contentPadding;
+  final TextAlignVertical? textAlignVertical;
+
+  final bool useBalloon;
+  final double? balloonWidth;
+  final BalloonTipSide balloonTipSide;
+  final bool closeBalloonOnScroll;
 
   final void Function(String?)? onChanged;
 
@@ -75,11 +120,18 @@ class DropDownChange extends StatefulWidget {
 class _DropDownChangeState extends State<DropDownChange> {
   static const String _kSpecialValue = '__dropdown_action__';
 
+  final GlobalKey _fieldKey = GlobalKey();
+
   late List<String> _items;
   String? _selected;
   String? _lastControllerText;
 
   bool _handlingSpecialAction = false;
+  bool _balloonOpen = false;
+  bool _scheduledBalloonRebuild = false;
+
+  OverlayEntry? _overlayEntry;
+  ScrollPosition? _scrollPosition;
 
   @override
   void initState() {
@@ -95,15 +147,44 @@ class _DropDownChangeState extends State<DropDownChange> {
     } else {
       _selected = null;
     }
+
+    widget.controller.addListener(_handleControllerChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _bindNearestScrollPosition();
   }
 
   @override
   void didUpdateWidget(covariant DropDownChange oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    bool shouldUpdate = false;
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleControllerChanged);
+      widget.controller.addListener(_handleControllerChanged);
 
-    if (oldWidget.items != widget.items) {
+      _lastControllerText = widget.controller.text.trim();
+
+      final controllerText = _lastControllerText ?? '';
+
+      if (_items.contains(controllerText)) {
+        _selected = controllerText;
+      } else if (controllerText.isEmpty) {
+        _selected = null;
+      }
+    }
+
+    if (oldWidget.closeBalloonOnScroll != widget.closeBalloonOnScroll) {
+      _bindNearestScrollPosition();
+    }
+
+    bool shouldRefreshVisualState = false;
+
+    if (oldWidget.items != widget.items ||
+        oldWidget.allowDuplicates != widget.allowDuplicates ||
+        oldWidget.sortTransformer != widget.sortTransformer) {
       _items = _dedupe(widget.items);
       _applySort();
 
@@ -117,7 +198,7 @@ class _DropDownChangeState extends State<DropDownChange> {
         _selected = null;
       }
 
-      shouldUpdate = true;
+      shouldRefreshVisualState = true;
     }
 
     final currentControllerText = widget.controller.text.trim();
@@ -131,22 +212,80 @@ class _DropDownChangeState extends State<DropDownChange> {
         _selected = null;
       }
 
-      shouldUpdate = true;
+      shouldRefreshVisualState = true;
     }
 
-    if (shouldUpdate && mounted) {
+    if (shouldRefreshVisualState) {
+      _scheduleRebuildBalloon();
+    }
+  }
+
+  @override
+  void dispose() {
+    _closeBalloon();
+    _unbindScrollPosition();
+    widget.controller.removeListener(_handleControllerChanged);
+    super.dispose();
+  }
+
+  void _handleControllerChanged() {
+    final currentControllerText = widget.controller.text.trim();
+
+    if (currentControllerText == _lastControllerText) return;
+
+    _lastControllerText = currentControllerText;
+
+    if (_items.contains(currentControllerText)) {
+      _selected = currentControllerText;
+    } else if (currentControllerText.isEmpty) {
+      _selected = null;
+    }
+
+    if (mounted) {
       setState(() {});
+    }
+
+    _scheduleRebuildBalloon();
+  }
+
+  void _bindNearestScrollPosition() {
+    _unbindScrollPosition();
+
+    if (!widget.closeBalloonOnScroll) return;
+
+    final scrollable = Scrollable.maybeOf(context);
+    final position = scrollable?.position;
+
+    if (position == null) return;
+
+    _scrollPosition = position;
+    _scrollPosition!.isScrollingNotifier.addListener(_handleScrollActivity);
+  }
+
+  void _unbindScrollPosition() {
+    _scrollPosition?.isScrollingNotifier.removeListener(_handleScrollActivity);
+    _scrollPosition = null;
+  }
+
+  void _handleScrollActivity() {
+    if (!widget.closeBalloonOnScroll) return;
+
+    final position = _scrollPosition;
+    if (position == null) return;
+
+    if (position.isScrollingNotifier.value) {
+      _closeBalloon();
     }
   }
 
   List<String> _dedupe(List<String> source) {
+    final clean = source.map((e) => e.trim()).where((e) => e.isNotEmpty);
+
     if (widget.allowDuplicates) {
-      return source.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      return clean.toList();
     }
 
-    return LinkedHashSet<String>.from(
-      source.map((e) => e.trim()).where((e) => e.isNotEmpty),
-    ).toList();
+    return LinkedHashSet<String>.from(clean).toList();
   }
 
   void _applySort() {
@@ -159,94 +298,92 @@ class _DropDownChangeState extends State<DropDownChange> {
     return (value is String ? value : value?.toString() ?? '').trim();
   }
 
-  TextStyle _styleFor(String value, {bool asSelected = false}) {
+  TextStyle _styleFor(
+      String value, {
+        bool asSelected = false,
+      }) {
     final isGrey = widget.greyItems.contains(value);
 
     return TextStyle(
-      color: isGrey ? Colors.grey : Colors.black,
-      fontWeight: asSelected ? FontWeight.w500 : FontWeight.normal,
+      color: widget.valueColor ?? (isGrey ? Colors.grey : Colors.black),
+      fontWeight:
+      widget.valueFontWeight ?? (asSelected ? FontWeight.w500 : FontWeight.normal),
+      fontSize: widget.valueFontSize,
+      height: 1.0,
     );
   }
 
-  List<DropdownMenuItem<String>> _buildItemsInternal() {
-    final list = <DropdownMenuItem<String>>[];
-
-    for (final value in _items) {
-      list.add(
-        DropdownMenuItem<String>(
-          value: value,
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  value,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: _styleFor(value),
-                ),
-              ),
-              if (widget.onDetailsTap != null)
-                IconButton(
-                  icon: const Icon(Icons.info_outline, size: 18),
-                  visualDensity: VisualDensity.compact,
-                  tooltip: 'Detalhes',
-                  onPressed: () async {
-                    await widget.onDetailsTap!(context, value);
-                  },
-                ),
-              if (widget.onEditItem != null)
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  visualDensity: VisualDensity.compact,
-                  tooltip: 'Editar',
-                  onPressed: () async {
-                    await widget.onEditItem!(context, value);
-                  },
-                ),
-              if (widget.onDeleteItem != null)
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  visualDensity: VisualDensity.compact,
-                  tooltip: 'Excluir',
-                  onPressed: () async {
-                    await widget.onDeleteItem!(context, value);
-                  },
-                ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final canShowSpecial = widget.specialItemLabel.trim().isNotEmpty &&
+  bool get _canShowSpecial {
+    return widget.specialItemLabel.trim().isNotEmpty &&
         (widget.showSpecialAlways ||
             (widget.showSpecialWhenEmpty && _items.isEmpty));
+  }
 
-    if (canShowSpecial) {
-      list.add(
-        DropdownMenuItem<String>(
-          value: _kSpecialValue,
-          child: Row(
-            children: [
-              const Icon(Icons.add, size: 18),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  widget.specialItemLabel,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-        ),
+  List<String> get _allValues {
+    return [
+      ..._items,
+      if (_canShowSpecial) _kSpecialValue,
+    ];
+  }
+
+  EdgeInsetsGeometry get _effectiveContentPadding {
+    if (widget.contentPadding != null) {
+      return widget.contentPadding!;
+    }
+
+    if (widget.height == null) {
+      return const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 14,
       );
     }
 
-    return list;
+    return const EdgeInsets.symmetric(
+      horizontal: 10,
+      vertical: 0,
+    );
+  }
+
+  OutlineInputBorder _border({
+    required Color color,
+    required double width,
+  }) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(widget.borderRadius),
+      borderSide: BorderSide(
+        color: color,
+        width: width,
+      ),
+    );
+  }
+
+  double _safeWidth(
+      double? width, {
+        required double fallback,
+      }) {
+    if (width != null && width.isFinite && width > 0) {
+      return width;
+    }
+
+    return fallback;
+  }
+
+  double _safeBalloonWidth({
+    required double fieldWidth,
+  }) {
+    final configuredWidth = widget.balloonWidth;
+
+    if (configuredWidth != null &&
+        configuredWidth.isFinite &&
+        configuredWidth > 0) {
+      return configuredWidth;
+    }
+
+    if (fieldWidth.isFinite && fieldWidth > 0) {
+      return fieldWidth.clamp(180.0, 360.0).toDouble();
+    }
+
+    return 220.0;
   }
 
   Future<void> _handleAddNewItem({
@@ -257,6 +394,8 @@ class _DropDownChangeState extends State<DropDownChange> {
 
     _handlingSpecialAction = true;
 
+    _closeBalloon();
+
     if (mounted) {
       setState(() {
         _selected = previousSelected;
@@ -265,8 +404,7 @@ class _DropDownChangeState extends State<DropDownChange> {
       });
     }
 
-    // Essencial: espera o menu do Dropdown fechar antes de abrir o Dialog.
-    await Future<void>.delayed(const Duration(milliseconds: 120));
+    await Future<void>.delayed(const Duration(milliseconds: 80));
 
     if (!mounted) {
       _handlingSpecialAction = false;
@@ -409,128 +547,620 @@ class _DropDownChangeState extends State<DropDownChange> {
     return result;
   }
 
+  void _toggleBalloon() {
+    if (_balloonOpen) {
+      _closeBalloon();
+      return;
+    }
+
+    _openBalloon();
+  }
+
+  void _openBalloon() {
+    if (!mounted) return;
+    if (_handlingSpecialAction) return;
+    if (widget.enabled == false) return;
+
+    _closeBalloon();
+
+    final overlay = Overlay.of(context);
+    final overlayBox = overlay.context.findRenderObject();
+    final targetBox = _fieldKey.currentContext?.findRenderObject();
+
+    if (overlayBox is! RenderBox || targetBox is! RenderBox) {
+      return;
+    }
+
+    if (!overlayBox.attached || !targetBox.attached) {
+      return;
+    }
+
+    if (!targetBox.hasSize || !overlayBox.hasSize) {
+      return;
+    }
+
+    final fieldWidth = targetBox.size.width;
+    final balloonWidth = _safeBalloonWidth(fieldWidth: fieldWidth);
+
+    _overlayEntry = OverlayEntry(
+      builder: (overlayContext) {
+        if (!mounted || !targetBox.attached || !overlayBox.attached) {
+          return const SizedBox.shrink();
+        }
+
+        if (!targetBox.hasSize || !overlayBox.hasSize) {
+          return const SizedBox.shrink();
+        }
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _closeBalloon,
+                onPanDown: (_) {
+                  if (widget.closeBalloonOnScroll) {
+                    _closeBalloon();
+                  }
+                },
+                child: const SizedBox.expand(),
+              ),
+            ),
+            BalloonChange(
+              targetBox: targetBox,
+              overlayBox: overlayBox,
+              width: balloonWidth,
+              maxHeight: widget.menuMaxHeight,
+              tipSide: widget.balloonTipSide,
+              topGap: 4,
+              screenMargin: 8,
+              showHeader: false,
+              title: null,
+              headerIcon: null,
+              items: _buildBalloonItems(),
+              emptyIcon: Icons.list_alt_rounded,
+              emptyMessage: 'Nenhum item encontrado.',
+            ),
+          ],
+        );
+      },
+    );
+
+    overlay.insert(_overlayEntry!);
+
+    if (mounted) {
+      setState(() {
+        _balloonOpen = true;
+      });
+    }
+  }
+
+  void _scheduleRebuildBalloon() {
+    if (!mounted) return;
+    if (_scheduledBalloonRebuild) return;
+
+    _scheduledBalloonRebuild = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduledBalloonRebuild = false;
+
+      if (!mounted) return;
+
+      _rebuildBalloon();
+    });
+  }
+
+  void _rebuildBalloon() {
+    if (!mounted) return;
+
+    final entry = _overlayEntry;
+
+    if (entry == null) return;
+
+    entry.markNeedsBuild();
+  }
+
+  void _closeBalloon() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+
+    if (_balloonOpen && mounted) {
+      setState(() {
+        _balloonOpen = false;
+      });
+    } else {
+      _balloonOpen = false;
+    }
+  }
+
+  List<BalloonTileData> _buildBalloonItems() {
+    final values = _allValues;
+
+    return values.map((value) {
+      final isSpecial = value == _kSpecialValue;
+
+      if (isSpecial) {
+        return BalloonTileData(
+          id: value,
+          icon: Icons.add_rounded,
+          accentColor: const Color(0xFF2563EB),
+          highlighted: false,
+          title: Text(
+            widget.specialItemLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF2563EB),
+              fontWeight: FontWeight.w800,
+              fontSize: 12.5,
+            ),
+          ),
+          onTap: () async {
+            final previousSelected = _selected;
+            final previousControllerText = widget.controller.text;
+
+            await _handleAddNewItem(
+              previousSelected: previousSelected,
+              previousControllerText: previousControllerText,
+            );
+          },
+        );
+      }
+
+      final selected = value == _selected;
+      final isGrey = widget.greyItems.contains(value);
+      final accent =
+      selected ? const Color(0xFF2563EB) : const Color(0xFF475569);
+
+      return BalloonTileData(
+        id: value,
+        icon: selected
+            ? Icons.check_circle_rounded
+            : Icons.radio_button_unchecked_rounded,
+        accentColor: isGrey ? Colors.grey : accent,
+        highlighted: selected,
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                style: TextStyle(
+                  color: isGrey ? Colors.grey : const Color(0xFF0F172A),
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  fontSize: 12.5,
+                  height: 1.0,
+                ),
+              ),
+            ),
+            if (widget.onDetailsTap != null) ...[
+              const SizedBox(width: 4),
+              _ActionIconButton(
+                icon: Icons.info_outline_rounded,
+                tooltip: 'Detalhes',
+                color: const Color(0xFF64748B),
+                onTap: () async {
+                  _closeBalloon();
+                  await widget.onDetailsTap!(context, value);
+                },
+              ),
+            ],
+            if (widget.onEditItem != null) ...[
+              const SizedBox(width: 4),
+              _ActionIconButton(
+                icon: Icons.edit_outlined,
+                tooltip: 'Editar',
+                color: const Color(0xFF64748B),
+                onTap: () async {
+                  _closeBalloon();
+                  await widget.onEditItem!(context, value);
+                },
+              ),
+            ],
+            if (widget.onDeleteItem != null) ...[
+              const SizedBox(width: 4),
+              _ActionIconButton(
+                icon: Icons.delete_outline_rounded,
+                tooltip: 'Excluir',
+                color: const Color(0xFFDC2626),
+                onTap: () async {
+                  _closeBalloon();
+                  await widget.onDeleteItem!(context, value);
+                },
+              ),
+            ],
+          ],
+        ),
+        onTap: () {
+          setState(() {
+            _selected = value;
+            widget.controller.text = value;
+            _lastControllerText = value;
+          });
+
+          widget.onChanged?.call(value);
+          _closeBalloon();
+        },
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!widget.useBalloon) {
+      return _LegacyDropdown(
+        controller: widget.controller,
+        items: _items,
+        selected: _selected,
+        enabled: widget.enabled,
+        validator: widget.validator,
+        width: _safeWidth(widget.width, fallback: 160),
+        height: widget.height,
+        labelText: widget.labelText,
+        labelStyle: widget.labelStyle,
+        labelFontSize: widget.labelFontSize,
+        valueColor: widget.valueColor,
+        valueFontSize: widget.valueFontSize,
+        valueFontWeight: widget.valueFontWeight,
+        fillColor: widget.fillColor,
+        greyItems: widget.greyItems,
+        menuMaxHeight: widget.menuMaxHeight,
+        tooltipMessage: widget.tooltipMessage,
+        borderRadius: widget.borderRadius,
+        borderColor: widget.borderColor,
+        focusedBorderColor: widget.focusedBorderColor,
+        errorBorderColor: widget.errorBorderColor,
+        borderWidth: widget.borderWidth,
+        contentPadding: widget.contentPadding,
+        textAlignVertical: widget.textAlignVertical,
+        onChanged: (value) {
+          setState(() {
+            _selected = value;
+            widget.controller.text = value ?? '';
+            _lastControllerText = value ?? '';
+          });
+
+          widget.onChanged?.call(value);
+        },
+      );
+    }
+
     final isEnabled = widget.enabled ?? true;
 
-    final items = _buildItemsInternal();
+    final effectiveBorderColor = widget.borderColor ?? Colors.grey.shade500;
+    final effectiveFocusedColor = widget.focusedBorderColor ?? Colors.blue;
 
-    final safeSelected = items.any((e) => e.value == _selected) &&
-        _selected != _kSpecialValue
-        ? _selected
-        : null;
+    final safeWidth = _safeWidth(widget.width, fallback: 160);
+
+    final valueStyle = _selected == null
+        ? TextStyle(
+      color: widget.valueColor ?? Colors.black,
+      fontWeight: widget.valueFontWeight ?? FontWeight.normal,
+      fontSize: widget.valueFontSize,
+      height: 1.0,
+    )
+        : _styleFor(_selected!, asSelected: true);
 
     return SizedBox(
-      width: widget.width ?? 160,
+      key: _fieldKey,
+      width: safeWidth,
+      height: widget.height,
       child: Tooltip(
         message: widget.tooltipMessage ?? '',
+        child: TextFormField(
+          controller: widget.controller,
+          enabled: isEnabled,
+          readOnly: true,
+          style: valueStyle,
+          onTap: isEnabled ? _toggleBalloon : null,
+          textAlignVertical:
+          widget.textAlignVertical ?? TextAlignVertical.center,
+          validator: (_) {
+            return widget.validator?.call(widget.controller.text.trim());
+          },
+          decoration: InputDecoration(
+            fillColor:
+            isEnabled ? widget.fillColor ?? Colors.white : Colors.grey.shade200,
+            filled: true,
+            labelText: widget.labelText,
+            labelStyle: widget.labelStyle ??
+                TextStyle(
+                  color: isEnabled ? Colors.grey : Colors.grey.shade500,
+                  fontSize: widget.labelFontSize,
+                  height: 1.0,
+                ),
+            floatingLabelBehavior: FloatingLabelBehavior.auto,
+            hintStyle: TextStyle(
+              color: isEnabled ? Colors.grey : Colors.grey.shade400,
+              fontSize: widget.valueFontSize,
+              height: 1.0,
+            ),
+            isDense: widget.height != null,
+            contentPadding: _effectiveContentPadding,
+            suffixIcon: Icon(
+              _balloonOpen
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              size: 20,
+              color: isEnabled ? Colors.grey.shade700 : Colors.grey.shade400,
+            ),
+            suffixIconConstraints: BoxConstraints(
+              minWidth: 34,
+              minHeight: widget.height ?? 48,
+            ),
+            enabledBorder: _border(
+              color: isEnabled ? effectiveBorderColor : Colors.grey.shade400,
+              width: widget.borderWidth,
+            ),
+            focusedBorder: _border(
+              color: isEnabled ? effectiveFocusedColor : Colors.grey.shade400,
+              width: widget.borderWidth,
+            ),
+            errorBorder: _border(
+              color: widget.errorBorderColor,
+              width: widget.borderWidth,
+            ),
+            focusedErrorBorder: _border(
+              color: widget.errorBorderColor,
+              width: widget.borderWidth,
+            ),
+            disabledBorder: _border(
+              color: Colors.grey.shade400,
+              width: widget.borderWidth,
+            ),
+            border: _border(
+              color: Colors.grey.shade400,
+              width: widget.borderWidth,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionIconButton extends StatelessWidget {
+  const _ActionIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 15,
+        child: Padding(
+          padding: const EdgeInsets.all(3),
+          child: Icon(
+            icon,
+            size: 16,
+            color: color,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LegacyDropdown extends StatelessWidget {
+  const _LegacyDropdown({
+    required this.controller,
+    required this.items,
+    required this.selected,
+    required this.enabled,
+    required this.validator,
+    required this.width,
+    required this.height,
+    required this.labelText,
+    required this.labelStyle,
+    required this.labelFontSize,
+    required this.valueColor,
+    required this.valueFontSize,
+    required this.valueFontWeight,
+    required this.fillColor,
+    required this.greyItems,
+    required this.menuMaxHeight,
+    required this.tooltipMessage,
+    required this.borderRadius,
+    required this.borderColor,
+    required this.focusedBorderColor,
+    required this.errorBorderColor,
+    required this.borderWidth,
+    required this.contentPadding,
+    required this.textAlignVertical,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final List<String> items;
+  final String? selected;
+  final bool? enabled;
+  final String? Function(String?)? validator;
+  final double? width;
+  final double? height;
+  final String? labelText;
+  final TextStyle? labelStyle;
+  final double labelFontSize;
+  final Color? valueColor;
+  final double valueFontSize;
+  final FontWeight? valueFontWeight;
+  final Color? fillColor;
+  final Set<String> greyItems;
+  final double menuMaxHeight;
+  final String? tooltipMessage;
+  final double borderRadius;
+  final Color? borderColor;
+  final Color? focusedBorderColor;
+  final Color errorBorderColor;
+  final double borderWidth;
+  final EdgeInsetsGeometry? contentPadding;
+  final TextAlignVertical? textAlignVertical;
+  final ValueChanged<String?> onChanged;
+
+  TextStyle _styleFor(String value, {bool asSelected = false}) {
+    final isGrey = greyItems.contains(value);
+
+    return TextStyle(
+      color: valueColor ?? (isGrey ? Colors.grey : Colors.black),
+      fontWeight:
+      valueFontWeight ?? (asSelected ? FontWeight.w500 : FontWeight.normal),
+      fontSize: valueFontSize,
+      height: 1.0,
+    );
+  }
+
+  OutlineInputBorder _border({
+    required Color color,
+    required double width,
+  }) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(borderRadius),
+      borderSide: BorderSide(
+        color: color,
+        width: width,
+      ),
+    );
+  }
+
+  EdgeInsetsGeometry get _effectiveContentPadding {
+    if (contentPadding != null) {
+      return contentPadding!;
+    }
+
+    if (height == null) {
+      return const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 14,
+      );
+    }
+
+    return const EdgeInsets.symmetric(
+      horizontal: 10,
+      vertical: 0,
+    );
+  }
+
+  double _safeWidth(
+      double? width, {
+        required double fallback,
+      }) {
+    if (width != null && width.isFinite && width > 0) {
+      return width;
+    }
+
+    return fallback;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = enabled ?? true;
+
+    final effectiveBorderColor = borderColor ?? Colors.grey.shade500;
+    final effectiveFocusedColor = focusedBorderColor ?? Colors.blue;
+
+    final safeSelected = items.contains(selected) ? selected : null;
+    final safeWidth = _safeWidth(width, fallback: 160);
+
+    return SizedBox(
+      width: safeWidth,
+      height: height,
+      child: Tooltip(
+        message: tooltipMessage ?? '',
         child: DropdownButtonFormField<String>(
           key: ValueKey(
-            'dropdown-${widget.labelText ?? ""}-${safeSelected ?? "null"}-${_items.length}',
+            'legacy-dropdown-${labelText ?? ""}-${safeSelected ?? "null"}-${items.length}',
           ),
-          isDense: true,
+          isDense: height != null,
           isExpanded: true,
-          menuMaxHeight: widget.menuMaxHeight,
+          menuMaxHeight: menuMaxHeight,
           dropdownColor: Colors.white,
-
-          // Mantém controlado e impede o valor especial de ficar selecionado.
           initialValue: safeSelected,
-
-          validator: (val) {
-            if (val == _kSpecialValue) return null;
-            return widget.validator?.call(val);
-          },
+          validator: validator,
           selectedItemBuilder: (ctx) {
-            final values = items.map((e) => e.value!).toList();
-
-            return values.map((v) {
-              final isSpecial = v == _kSpecialValue;
-              final text = isSpecial ? widget.specialItemLabel : v;
-
-              final style = isSpecial
-                  ? const TextStyle(
-                fontWeight: FontWeight.w100,
-                color: Colors.grey,
-              )
-                  : _styleFor(v, asSelected: true);
-
+            return items.map((v) {
               return Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  text,
+                  v,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   softWrap: false,
-                  style: style,
+                  style: _styleFor(v, asSelected: true),
                 ),
               );
             }).toList();
           },
-          items: items,
-          onChanged: !isEnabled || _handlingSpecialAction
-              ? null
-              : (selected) async {
-            final previousSelected = _selected;
-            final previousControllerText = widget.controller.text;
-
-            if (selected == _kSpecialValue) {
-              await _handleAddNewItem(
-                previousSelected: previousSelected,
-                previousControllerText: previousControllerText,
-              );
-              return;
-            }
-
-            setState(() {
-              _selected = selected;
-              widget.controller.text = selected ?? '';
-              _lastControllerText = selected ?? '';
-            });
-
-            widget.onChanged?.call(selected);
-          },
+          items: items.map((value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(
+                value,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                softWrap: false,
+                style: _styleFor(value),
+              ),
+            );
+          }).toList(),
+          onChanged: isEnabled
+              ? (value) {
+            controller.text = value ?? '';
+            onChanged(value);
+          }
+              : null,
           iconSize: 20,
           decoration: InputDecoration(
-            fillColor: isEnabled ? Colors.white : Colors.grey.shade200,
+            fillColor: isEnabled ? fillColor ?? Colors.white : Colors.grey.shade200,
             filled: true,
-            labelText: widget.labelText,
-            labelStyle: TextStyle(
-              color: isEnabled ? Colors.grey : Colors.grey.shade500,
-            ),
+            labelText: labelText,
+            labelStyle: labelStyle ??
+                TextStyle(
+                  color: isEnabled ? Colors.grey : Colors.grey.shade500,
+                  fontSize: labelFontSize,
+                  height: 1.0,
+                ),
             hintStyle: TextStyle(
               color: isEnabled ? Colors.grey : Colors.grey.shade400,
+              fontSize: valueFontSize,
+              height: 1.0,
             ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 14,
+            isDense: height != null,
+            contentPadding: _effectiveContentPadding,
+            enabledBorder: _border(
+              color: isEnabled ? effectiveBorderColor : Colors.grey.shade400,
+              width: borderWidth,
             ),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(
-                color: isEnabled ? Colors.grey : Colors.grey.shade400,
-              ),
-              borderRadius: BorderRadius.circular(10),
+            focusedBorder: _border(
+              color: isEnabled ? effectiveFocusedColor : Colors.grey.shade400,
+              width: borderWidth,
             ),
-            focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(
-                color: isEnabled ? Colors.blue : Colors.grey.shade400,
-              ),
-              borderRadius: BorderRadius.circular(10),
+            errorBorder: _border(
+              color: errorBorderColor,
+              width: borderWidth,
             ),
-            errorBorder: OutlineInputBorder(
-              borderSide: const BorderSide(color: Colors.red),
-              borderRadius: BorderRadius.circular(10),
+            focusedErrorBorder: _border(
+              color: errorBorderColor,
+              width: borderWidth,
             ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.red.shade700),
-              borderRadius: BorderRadius.circular(10),
+            disabledBorder: _border(
+              color: Colors.grey.shade400,
+              width: borderWidth,
             ),
-            disabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey.shade400),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            border: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey.shade400),
-              borderRadius: BorderRadius.circular(10),
+            border: _border(
+              color: Colors.grey.shade400,
+              width: borderWidth,
             ),
           ),
         ),

@@ -1,6 +1,7 @@
 // ==============================
 // lib/screens/contracts/validity/validity_form_section.dart
 // ==============================
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
@@ -11,8 +12,8 @@ import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/list/files/box_list_files.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/box_list_files.dart';
 
 class ValidityFormSection extends StatefulWidget {
   final ContractData contractData;
@@ -63,6 +64,18 @@ class ValidityFormSection extends StatefulWidget {
 }
 
 class _ValidityFormSectionState extends State<ValidityFormSection> {
+  static const String ordemInicio = 'ORDEM DE INÍCIO';
+  static const String ordemParalisacao = 'ORDEM DE PARALISAÇÃO';
+  static const String ordemReinicio = 'ORDEM DE REINÍCIO';
+  static const String ordemFinalizacao = 'ORDEM DE FINALIZAÇÃO';
+
+  static const List<String> _officialOrderTypes = <String>[
+    ordemInicio,
+    ordemParalisacao,
+    ordemReinicio,
+    ordemFinalizacao,
+  ];
+
   late final TextEditingController _orderCtrl;
   late final TextEditingController _orderTypeCtrl;
   late final TextEditingController _orderDateCtrl;
@@ -84,46 +97,36 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
   void didUpdateWidget(covariant ValidityFormSection oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final oldSel = oldWidget.state.selectedValidity;
-    final newSel = widget.state.selectedValidity;
+    final oldSelected = oldWidget.state.selectedValidity;
+    final newSelected = widget.state.selectedValidity;
 
-    final oldNext = oldWidget.state.nextOrderNumber;
-    final newNext = widget.state.nextOrderNumber;
+    final oldNextOrder = oldWidget.state.nextOrderNumber;
+    final newNextOrder = widget.state.nextOrderNumber;
 
-    if (!identical(oldSel, newSel) || oldNext != newNext) {
+    final orderOptionsChanged =
+        oldWidget.state.orderNumberOptions != widget.state.orderNumberOptions;
+
+    final greyItemsChanged =
+        oldWidget.state.greyOrderItems != widget.state.greyOrderItems;
+
+    final orderTypesChanged =
+        oldWidget.state.availableOrderTypes != widget.state.availableOrderTypes;
+
+    final attachmentsChanged =
+        oldWidget.state.attachments.length != widget.state.attachments.length;
+
+    if (!identical(oldSelected, newSelected) ||
+        oldNextOrder != newNextOrder ||
+        orderOptionsChanged ||
+        greyItemsChanged ||
+        orderTypesChanged) {
       _applyFromState(resetSelectedAttachment: true);
-    }
-  }
-
-  void _applyFromState({bool resetSelectedAttachment = false}) {
-    final ValidityData? v = widget.state.selectedValidity;
-
-    if (v == null) {
-      _orderCtrl.text = widget.state.nextOrderNumber.toString();
-      _orderTypeCtrl.clear();
-      _orderDateCtrl.clear();
-    } else {
-      _orderCtrl.text = v.orderNumber?.toString() ?? '';
-      _orderTypeCtrl.text = v.ordertype ?? '';
-      _orderDateCtrl.text = v.orderdate != null
-          ? SipGedFormatDates.dateToDdMMyyyy(v.orderdate!)
-          : '';
+      return;
     }
 
-    if (resetSelectedAttachment && mounted) {
-      setState(() {
-        _selectedSideIndex = null;
-      });
-    } else {
-      _selectedSideIndex = null;
+    if (attachmentsChanged) {
+      _ensureSelectedIndexValid(widget.state.attachments.length);
     }
-  }
-
-  bool get _isFormValid {
-    final hasType = _orderTypeCtrl.text.trim().isNotEmpty;
-    final dt = SipGedFormatDates.ddMMyyyyToDate(_orderDateCtrl.text);
-
-    return hasType && dt != null;
   }
 
   @override
@@ -135,17 +138,101 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
     super.dispose();
   }
 
+  void _applyFromState({bool resetSelectedAttachment = false}) {
+    final ValidityData? selected = widget.state.selectedValidity;
+
+    if (selected == null) {
+      _orderCtrl.text = widget.state.nextOrderNumber.toString();
+      _orderTypeCtrl.clear();
+      _orderDateCtrl.clear();
+    } else {
+      _orderCtrl.text = selected.orderNumber?.toString() ?? '';
+      _orderTypeCtrl.text = selected.ordertype?.trim() ?? '';
+      _orderDateCtrl.text = selected.orderdate != null
+          ? SipGedFormatDates.dateToDdMMyyyy(selected.orderdate!)
+          : '';
+    }
+
+    if (resetSelectedAttachment) {
+      if (mounted) {
+        setState(() {
+          _selectedSideIndex = null;
+        });
+      } else {
+        _selectedSideIndex = null;
+      }
+    }
+  }
+
+  List<String> get _orderTypeItems {
+    final items = <String>[];
+
+    for (final item in widget.state.availableOrderTypes) {
+      final clean = item.trim();
+
+      if (clean.isEmpty) continue;
+      if (!items.contains(clean)) items.add(clean);
+    }
+
+    final selectedType = widget.state.selectedValidity?.ordertype?.trim();
+
+    if (selectedType != null &&
+        selectedType.isNotEmpty &&
+        !items.contains(selectedType)) {
+      items.insert(0, selectedType);
+    }
+
+    return List<String>.unmodifiable(items);
+  }
+
+  bool get _hasValidOfficialOrderType {
+    final type = _orderTypeCtrl.text.trim();
+
+    if (type.isEmpty) return false;
+
+    return _officialOrderTypes.contains(type);
+  }
+
+  bool get _hasValidOrderDate {
+    final date = SipGedFormatDates.ddMMyyyyToDate(_orderDateCtrl.text);
+
+    return date != null;
+  }
+
+  bool get _isFormValid {
+    return _hasValidOfficialOrderType && _hasValidOrderDate;
+  }
+
   void _ensureSelectedIndexValid(int len) {
     if (_selectedSideIndex == null) return;
 
     if (len <= 0) {
-      setState(() => _selectedSideIndex = null);
+      if (mounted) {
+        setState(() {
+          _selectedSideIndex = null;
+        });
+      } else {
+        _selectedSideIndex = null;
+      }
+
       return;
     }
 
     if (_selectedSideIndex! >= len) {
-      setState(() => _selectedSideIndex = len - 1);
+      if (mounted) {
+        setState(() {
+          _selectedSideIndex = len - 1;
+        });
+      } else {
+        _selectedSideIndex = len - 1;
+      }
     }
+  }
+
+  Future<void> _handleSavePressed() async {
+    if (!_isFormValid) return;
+
+    await widget.onSaveOrUpdate();
   }
 
   @override
@@ -168,6 +255,8 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
           spaceBetweenReserved: 12.0,
         );
 
+        final orderTypeItems = _orderTypeItems;
+
         final camposWrap = Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -179,19 +268,26 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
               greyItems: state.greyOrderItems,
               controller: _orderCtrl,
               enabled: widget.isEditable && !widget.isSaving,
-              onChanged: widget.onChangedOrderNumber,
+              onChanged: (value) {
+                _orderCtrl.text = value ?? '';
+                widget.onChangedOrderNumber(value);
+                setState(() {});
+              },
             ),
             DropDownChange(
               width: inputWidth,
               labelText: 'Tipo da ordem',
-              items: state.availableOrderTypes,
+              items: orderTypeItems,
               controller: _orderTypeCtrl,
-              enabled: state.availableOrderTypes.isNotEmpty &&
+              enabled: orderTypeItems.isNotEmpty &&
                   widget.isEditable &&
                   !widget.isSaving,
               onChanged: (value) {
-                _orderTypeCtrl.text = value ?? '';
-                widget.onChangedOrderType(value);
+                final clean = value?.trim();
+
+                _orderTypeCtrl.text = clean ?? '';
+                widget.onChangedOrderType(clean);
+
                 setState(() {});
               },
             ),
@@ -202,8 +298,14 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
               labelText: 'Data da ordem',
               enabled: widget.isEditable && !widget.isSaving,
               validator: (_) {
-                final d = SipGedFormatDates.ddMMyyyyToDate(_orderDateCtrl.text);
-                return d == null ? 'Data inválida' : null;
+                final date =
+                SipGedFormatDates.ddMMyyyyToDate(_orderDateCtrl.text);
+
+                if (date == null) {
+                  return 'Data inválida';
+                }
+
+                return null;
               },
               onChanged: (date) {
                 final text = date != null
@@ -212,6 +314,7 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
 
                 _orderDateCtrl.text = text;
                 widget.onChangedOrderDate(text);
+
                 setState(() {});
               },
             ),
@@ -232,9 +335,7 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
             const SizedBox(width: 12),
             TextButton.icon(
               onPressed: widget.isEditable && !widget.isSaving && _isFormValid
-                  ? () async {
-                await widget.onSaveOrUpdate();
-              }
+                  ? _handleSavePressed
                   : null,
               icon: const Icon(Icons.save),
               label: Text(

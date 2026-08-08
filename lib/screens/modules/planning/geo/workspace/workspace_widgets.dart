@@ -5,8 +5,13 @@ import 'package:intl/intl.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_documents_repository.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_filter.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_state.dart';
+
+import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
+import 'package:sipged/_blocs/system/notification/notification_data.dart';
+import 'package:sipged/_blocs/system/notification/notification_type.dart';
 
 import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
@@ -17,10 +22,19 @@ import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/cards/simple/simple_card.dart';
 
 import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
+import 'package:sipged/_widgets/charts/cost_ruler/cost_ruler.dart';
 import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
+import 'package:sipged/_widgets/charts/gauges/gauge_chart_change.dart';
+import 'package:sipged/_widgets/charts/horizontal_bars/horizontal_bars.dart';
 import 'package:sipged/_widgets/charts/lines/line_chart_changed.dart';
+import 'package:sipged/_widgets/charts/radar/radar_chart_changed.dart';
+import 'package:sipged/_widgets/charts/radar/radar_series_data.dart';
 import 'package:sipged/_widgets/charts/treemap/treemap_chart_changed.dart';
 import 'package:sipged/_widgets/charts/treemap/treemap_class.dart';
+import 'package:sipged/_widgets/input/switch_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/box_list_files.dart';
 
 class WorkspaceWidgets extends StatelessWidget {
   const WorkspaceWidgets({
@@ -640,6 +654,262 @@ class WorkspaceWidgets extends StatelessWidget {
     );
   }
 
+  Widget _buildHorizontalBars(
+      BuildContext context,
+      WorkspaceFilter? activeFilter,
+      ) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final labels = item.resolvedLabels ?? const <String>[];
+    final values = item.resolvedValues ?? const <double>[];
+
+    final data = <String, int>{};
+
+    for (var i = 0; i < labels.length && i < values.length; i++) {
+      data[labels[i]] = values[i].round();
+    }
+
+    final title = item.resolvedTitle?.trim();
+
+    return ColoredBox(
+      color: isDark ? const Color(0xFF121212) : Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (title != null && title.isNotEmpty) ...[
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            Expanded(
+              child: RepaintBoundary(
+                child: HorizontalBars(
+                  data: data,
+                  highlightKey: _selectedLabelFromFilter(activeFilter),
+                  onTapKey: (label) {
+                    _handleInteractiveLabelSelection(context, label);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRadar(
+      BuildContext context,
+      WorkspaceFilter? activeFilter,
+      ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final labels = item.resolvedLabels ?? const <String>[];
+    final values = item.resolvedValues ?? const <double>[];
+
+    final hasMatchingData =
+        labels.isNotEmpty && labels.length == values.length;
+
+    final seriesName = item.resolvedTitle?.trim().isNotEmpty == true
+        ? item.resolvedTitle!.trim()
+        : 'Série';
+
+    return ColoredBox(
+      color: isDark ? const Color(0xFF121212) : Colors.white,
+      child: Center(
+        child: RepaintBoundary(
+          child: RadarChartChanged(
+            labels: labels,
+            datasets: hasMatchingData
+                ? [
+              RadarSeriesData(
+                name: seriesName,
+                values: values,
+                color: SipGedTheme.chartPaletteColors(0),
+              ),
+            ]
+                : const [],
+            widthGraphic: size.width,
+            larguraCard: size.width,
+            alturaCard: size.height,
+            useExternalLegend: false,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGauge(
+      BuildContext context,
+      WorkspaceFilter? activeFilter,
+      ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rawValue = double.tryParse(item.resolvedValue ?? '');
+    final percent = rawValue == null ? null : (rawValue / 100).clamp(0.0, 1.0);
+
+    return ColoredBox(
+      color: isDark ? const Color(0xFF121212) : Colors.white,
+      child: Center(
+        child: RepaintBoundary(
+          child: GaugeChartChange(
+            centerLabel: percent,
+            headerLabel: item.resolvedTitle,
+            footerLabel: item.resolvedSubtitle,
+            widthGraphic: size.width,
+            heightGraphic: size.height,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCostRuler(
+      BuildContext context,
+      WorkspaceFilter? activeFilter,
+      ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final values = item.resolvedValues ?? const <double>[];
+    final title = item.resolvedTitle?.trim().isNotEmpty == true
+        ? item.resolvedTitle!.trim()
+        : 'Régua de custo';
+
+    if (values.length != 2) {
+      return ColoredBox(
+        color: isDark ? const Color(0xFF121212) : Colors.white,
+        child: _buildPendingWidget(
+          context,
+          icon: Icons.straighten_rounded,
+          title: title,
+          subtitle: 'Arraste os campos de valor e divisor para calcular a régua.',
+        ),
+      );
+    }
+
+    return ColoredBox(
+      color: isDark ? const Color(0xFF121212) : Colors.white,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: CostRuler(
+            value: values[0],
+            divisor: values[1],
+            title: title,
+            unitLabel: item.resolvedSubtitle,
+            width: size.width,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwitcher(
+      BuildContext context,
+      WorkspaceFilter? activeFilter,
+      ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final textOn = _textProperty('textOn') ?? 'Ligado';
+    final textOff = _textProperty('textOff') ?? 'Desligado';
+
+    final isOn = _isFilterFromThisItem(activeFilter) &&
+        activeFilter!.label.trim().toUpperCase() == textOn.trim().toUpperCase();
+
+    return ColoredBox(
+      color: isDark ? const Color(0xFF121212) : Colors.white,
+      child: Center(
+        child: SwitchChange(
+          value: isOn,
+          textOn: textOn,
+          textOff: textOff,
+          onChanged: (value) {
+            final cubit = context.read<WorkspaceCubit>();
+
+            if (!value) {
+              cubit.clearFilter();
+              return;
+            }
+
+            cubit.toggleItemFilter(
+              itemId: item.id,
+              label: textOn,
+              value: null,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+      BuildContext context,
+      WorkspaceFilter? activeFilter,
+      ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ColoredBox(
+      color: isDark ? const Color(0xFF121212) : Colors.white,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: _WorkspaceTextField(
+            width: size.width - 24,
+            labelText: _textProperty('labelText') ?? item.resolvedTitle ?? 'Texto',
+            hintText: _textProperty('hintText') ?? 'Digite um valor',
+            prefixText: _textProperty('prefixText'),
+            onSubmitted: (text) {
+              final trimmed = text.trim();
+              final cubit = context.read<WorkspaceCubit>();
+
+              if (trimmed.isEmpty) {
+                cubit.clearFilter();
+                return;
+              }
+
+              cubit.toggleItemFilter(
+                itemId: item.id,
+                label: trimmed,
+                value: null,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocuments(
+      BuildContext context,
+      WorkspaceFilter? activeFilter,
+      ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final title = item.resolvedTitle?.trim().isNotEmpty == true
+        ? item.resolvedTitle!.trim()
+        : 'Documentos';
+
+    return ColoredBox(
+      color: isDark ? const Color(0xFF121212) : Colors.white,
+      child: Center(
+        child: _WorkspaceDocumentsBox(
+          key: ValueKey('workspace_documents_${item.id}'),
+          workspaceItemId: item.id,
+          title: title,
+          width: size.width,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocSelector<WorkspaceCubit, WorkspaceState, WorkspaceFilter?>(
@@ -671,67 +941,25 @@ class WorkspaceWidgets extends StatelessWidget {
             return _buildTimeField(context, activeFilter);
 
           case CatalogType.costRuler:
-            return _buildPendingWidget(
-              context,
-              icon: Icons.straighten_rounded,
-              title: item.resolvedTitle?.trim().isNotEmpty == true
-                  ? item.resolvedTitle!.trim()
-                  : 'Régua de custo',
-            );
+            return _buildCostRuler(context, activeFilter);
 
           case CatalogType.gauge:
-            return _buildPendingWidget(
-              context,
-              icon: Icons.speed_rounded,
-              title: item.resolvedTitle?.trim().isNotEmpty == true
-                  ? item.resolvedTitle!.trim()
-                  : 'Gauge',
-            );
+            return _buildGauge(context, activeFilter);
 
           case CatalogType.horizontalBars:
-            return _buildPendingWidget(
-              context,
-              icon: Icons.view_stream_rounded,
-              title: item.resolvedTitle?.trim().isNotEmpty == true
-                  ? item.resolvedTitle!.trim()
-                  : 'Barras horizontais',
-            );
+            return _buildHorizontalBars(context, activeFilter);
 
           case CatalogType.radar:
-            return _buildPendingWidget(
-              context,
-              icon: Icons.radar_rounded,
-              title: item.resolvedTitle?.trim().isNotEmpty == true
-                  ? item.resolvedTitle!.trim()
-                  : 'Radar',
-            );
+            return _buildRadar(context, activeFilter);
 
           case CatalogType.switcher:
-            return _buildPendingWidget(
-              context,
-              icon: Icons.toggle_on_rounded,
-              title: item.resolvedTitle?.trim().isNotEmpty == true
-                  ? item.resolvedTitle!.trim()
-                  : 'Switch',
-            );
+            return _buildSwitcher(context, activeFilter);
 
           case CatalogType.textField:
-            return _buildPendingWidget(
-              context,
-              icon: Icons.text_fields_rounded,
-              title: item.resolvedTitle?.trim().isNotEmpty == true
-                  ? item.resolvedTitle!.trim()
-                  : 'Campo de texto',
-            );
+            return _buildTextField(context, activeFilter);
 
-          case CatalogType.pagedTable:
-            return _buildPendingWidget(
-              context,
-              icon: Icons.table_rows_rounded,
-              title: item.resolvedTitle?.trim().isNotEmpty == true
-                  ? item.resolvedTitle!.trim()
-                  : 'Tabela paginada',
-            );
+          case CatalogType.documents:
+            return _buildDocuments(context, activeFilter);
         }
       },
     );
@@ -795,6 +1023,54 @@ class _WorkspaceDateFieldState extends State<_WorkspaceDateField> {
   }
 }
 
+class _WorkspaceTextField extends StatefulWidget {
+  const _WorkspaceTextField({
+    required this.labelText,
+    required this.hintText,
+    required this.onSubmitted,
+    this.prefixText,
+    this.width,
+  });
+
+  final String labelText;
+  final String hintText;
+  final String? prefixText;
+  final ValueChanged<String> onSubmitted;
+  final double? width;
+
+  @override
+  State<_WorkspaceTextField> createState() => _WorkspaceTextFieldState();
+}
+
+class _WorkspaceTextFieldState extends State<_WorkspaceTextField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomTextField(
+      controller: _controller,
+      width: widget.width,
+      labelText: widget.labelText,
+      hintText: widget.hintText,
+      prefixText: widget.prefixText,
+      textInputAction: TextInputAction.done,
+      onSubmitted: widget.onSubmitted,
+    );
+  }
+}
+
 class _WorkspaceTimeField extends StatefulWidget {
   const _WorkspaceTimeField({
     required this.labelText,
@@ -833,6 +1109,190 @@ class _WorkspaceTimeFieldState extends State<_WorkspaceTimeField> {
       hint: widget.hintText,
       enabled: true,
       onChanged: widget.onChanged,
+    );
+  }
+}
+
+/// Widget "Documentos" do catálogo da Área de trabalho — lista de anexos
+/// lidos/gravados diretamente no Firebase Storage (sem coleção paralela
+/// no Firestore), reaproveitando o `BoxListFiles` já usado em outros
+/// módulos do app (DFD, medições, empenhos etc.).
+class _WorkspaceDocumentsBox extends StatefulWidget {
+  const _WorkspaceDocumentsBox({
+    super.key,
+    required this.workspaceItemId,
+    required this.title,
+    required this.width,
+  });
+
+  final String workspaceItemId;
+  final String title;
+  final double width;
+
+  @override
+  State<_WorkspaceDocumentsBox> createState() => _WorkspaceDocumentsBoxState();
+}
+
+class _WorkspaceDocumentsBoxState extends State<_WorkspaceDocumentsBox> {
+  final WorkspaceDocumentsRepository _repository =
+  WorkspaceDocumentsRepository();
+
+  bool _loading = true;
+  double? _uploadProgress;
+  int? _selectedIndex;
+  List<Attachment> _items = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WorkspaceDocumentsBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.workspaceItemId != widget.workspaceItemId) {
+      _refresh();
+    }
+  }
+
+  void _notify(String title, String message, {bool isError = false}) {
+    if (!mounted) return;
+
+    context.read<NotificationLocalCubit>().show(
+      NotificationData(
+        title: title,
+        subtitle: message,
+        type: isError ? NotificationStatus.error : NotificationStatus.warning,
+        leadingLabel: 'Documentos',
+      ),
+    );
+  }
+
+  Future<void> _refresh() async {
+    if (!mounted) return;
+
+    setState(() => _loading = true);
+
+    try {
+      final list = await _repository.listDocuments(
+        workspaceItemId: widget.workspaceItemId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _items = list;
+
+        if (_selectedIndex != null && _selectedIndex! >= _items.length) {
+          _selectedIndex = _items.isEmpty ? null : _items.length - 1;
+        }
+      });
+    } catch (_) {
+      _notify('Erro', 'Falha ao carregar os documentos.', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _addDocument() async {
+    setState(() => _uploadProgress = 0.0);
+
+    try {
+      final attachment = await _repository.uploadDocument(
+        workspaceItemId: widget.workspaceItemId,
+        onProgress: (progress) {
+          if (mounted) {
+            setState(() => _uploadProgress = progress);
+          }
+        },
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _items = <Attachment>[..._items, attachment]
+          ..sort((a, b) => a.label.compareTo(b.label));
+
+        _selectedIndex = _items.indexWhere(
+              (item) => item.path == attachment.path,
+        );
+
+        if (_selectedIndex == -1) {
+          _selectedIndex = _items.length - 1;
+        }
+      });
+    } catch (error) {
+      final text = error.toString();
+
+      if (text.contains('Nenhum arquivo selecionado')) {
+        return;
+      }
+
+      _notify('Erro', 'Falha no upload do documento.', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _uploadProgress = null);
+      }
+    }
+  }
+
+  Future<void> _deleteAt(int index) async {
+    if (index < 0 || index >= _items.length) return;
+
+    final fileName = _items[index].label;
+
+    final ok = await _repository.deleteDocument(
+      workspaceItemId: widget.workspaceItemId,
+      fileName: fileName,
+    );
+
+    if (!mounted) return;
+
+    if (ok) {
+      setState(() {
+        final list = <Attachment>[..._items]..removeAt(index);
+        _items = list;
+
+        if (_items.isEmpty) {
+          _selectedIndex = null;
+        } else if (_selectedIndex != null) {
+          if (_selectedIndex! == index) {
+            _selectedIndex = (index - 1).clamp(0, _items.length - 1);
+          } else if (_selectedIndex! > index) {
+            _selectedIndex = _selectedIndex! - 1;
+          }
+        }
+      });
+    } else {
+      _notify('Erro', 'Não foi possível excluir o documento.', isError: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final panelWidth = widget.width.clamp(220.0, 420.0).toDouble();
+
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: BoxListFiles(
+        title: widget.title,
+        items: _items,
+        width: panelWidth,
+        selectedIndex: _selectedIndex,
+        onAddPressed: _addDocument,
+        onDelete: _deleteAt,
+        loading: _loading,
+        uploadProgress: _uploadProgress,
+        onItemsChanged: (newItems) {
+          final cast = newItems.whereType<Attachment>().toList();
+          if (!mounted) return;
+          setState(() => _items = cast);
+        },
+      ),
     );
   }
 }

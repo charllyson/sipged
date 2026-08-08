@@ -21,6 +21,19 @@ class LayerShareUserOption {
   }
 }
 
+/// Empresa (tenant) que pode ser associada a uma camada/grupo — só uma
+/// informação organizacional definida pelo dono, sem implicar restrição de
+/// acesso por conta própria.
+class LayerTenantOption {
+  final String id;
+  final String name;
+
+  const LayerTenantOption({
+    required this.id,
+    required this.name,
+  });
+}
+
 class SharingMenu extends StatefulWidget {
   final List<LayerShareUserOption> allUsers;
   final String? ownerId;
@@ -34,6 +47,15 @@ class SharingMenu extends StatefulWidget {
       Map<String, LayerSharePermission> permissionsByUserId,
       )? onChanged;
 
+  /// Empresas disponíveis para associar a esta camada/grupo (tipicamente as
+  /// empresas às quais o usuário atual tem acesso).
+  final List<LayerTenantOption> availableTenants;
+
+  /// Empresa atualmente associada (ou null, se nenhuma).
+  final String? selectedTenantId;
+
+  final ValueChanged<String?>? onTenantChanged;
+
   const SharingMenu({
     super.key,
     required this.allUsers,
@@ -44,6 +66,9 @@ class SharingMenu extends StatefulWidget {
     this.isLoadingUsers = false,
     this.loadUsersError,
     this.onChanged,
+    this.availableTenants = const [],
+    this.selectedTenantId,
+    this.onTenantChanged,
   });
 
   @override
@@ -294,6 +319,67 @@ class _SharingMenuState extends State<SharingMenu> {
     );
   }
 
+  Widget _buildTenantSelector() {
+    final tenants = widget.availableTenants;
+    final selectedId = (widget.selectedTenantId ?? '').trim();
+
+    final validSelectedId = tenants.any((tenant) => tenant.id == selectedId)
+        ? selectedId
+        : null;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.apartment_outlined, color: Colors.grey.shade700, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: tenants.isEmpty
+                ? Text(
+              'Nenhuma empresa disponível para associar.',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 12.5,
+              ),
+            )
+                : DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                value: validSelectedId,
+                isExpanded: true,
+                isDense: true,
+                hint: const Text('Nenhuma empresa associada'),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Nenhuma empresa associada'),
+                  ),
+                  ...tenants.map(
+                        (tenant) => DropdownMenuItem<String?>(
+                      value: tenant.id,
+                      child: Text(
+                        tenant.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: widget.onTenantChanged == null
+                    ? null
+                    : (value) => widget.onTenantChanged!(value),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSelectedUsersList() {
     final selectedUsers = _selectedUsers;
 
@@ -468,6 +554,27 @@ class _SharingMenuState extends State<SharingMenu> {
                     ),
                     const SizedBox(height: 8),
                     _buildOwnerCard(),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Empresa associada',
+                      style: TextStyle(
+                        color: Colors.grey.shade900,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Informação organizacional definida pelo proprietário — não '
+                      'restringe quem enxerga a camada por conta própria.',
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildTenantSelector(),
                     const SizedBox(height: 18),
                     if (widget.isLoadingUsers) ...[
                       Container(

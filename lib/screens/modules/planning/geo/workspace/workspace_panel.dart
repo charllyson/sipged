@@ -385,6 +385,17 @@ class WorkspacePanelState extends State<WorkspacePanel> {
               widget.onItemsChanged?.call(state.items);
             },
           ),
+          BlocListener<WorkspaceCubit, WorkspaceState>(
+            listenWhen: (previous, current) => previous.error != current.error,
+            listener: (context, state) {
+              final message = state.error?.trim();
+              if (message == null || message.isEmpty) return;
+
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(SnackBar(content: Text(message)));
+            },
+          ),
         ],
         child: WorkspaceCanvas(
           pendingCatalogItem: widget.pendingCatalogItem,

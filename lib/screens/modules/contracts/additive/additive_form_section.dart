@@ -109,6 +109,7 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
     }
 
     final t = widget.typeOfAdditiveCtrl.text;
+
     if (t != _currentType) {
       _currentType = t;
     }
@@ -122,22 +123,32 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
 
   void _syncTypeFromController() {
     final t = widget.typeOfAdditiveCtrl.text;
+
     if (t == _currentType) return;
+
     setState(() => _currentType = t);
   }
 
   bool _exibeValor() {
-    return const ['VALOR', 'REEQUÍLIBRIO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
-        .contains(_currentType.toUpperCase());
+    return const [
+      'VALOR',
+      'REEQUÍLIBRIO',
+      'RATIFICAÇÃO',
+      'RENOVAÇÃO',
+    ].contains(_currentType.toUpperCase());
   }
 
   bool _exibePrazo() {
-    return const ['PRAZO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
-        .contains(_currentType.toUpperCase());
+    return const [
+      'PRAZO',
+      'RATIFICAÇÃO',
+      'RENOVAÇÃO',
+    ].contains(_currentType.toUpperCase());
   }
 
   void _onTypeChanged(String? value) {
     final v = (value ?? '').trim();
+
     widget.typeOfAdditiveCtrl.text = v;
 
     if (!_exibeValor()) {

@@ -2,12 +2,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_labels.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_simple.dart';
 
+import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
+import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
@@ -68,8 +71,12 @@ class LayerPropertiesDialog extends StatefulWidget {
       width: dialogWidth,
       contentPadding: const EdgeInsets.only(bottom: 12),
       barrierDismissible: true,
-      usePointerInterceptor: true,
       useSafeArea: false,
+      dialogWrapper: (dialog) {
+        return PointerInterceptor(
+          child: dialog,
+        );
+      },
       child: SizedBox(
         width: dialogWidth,
         height: dialogHeight,
@@ -136,6 +143,10 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
 
   List<LayerShareUserOption> _availableShareUsers = const [];
 
+  late String? _selectedTenantId;
+  List<LayerTenantOption> _availableTenants = const [];
+  bool _didTryLoadTenants = false;
+
   bool _isLoadingUsers = false;
   String? _loadUsersError;
   bool _didTryLoadUsers = false;
@@ -157,6 +168,8 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
       widget.availableShareUsers,
     );
 
+    _selectedTenantId = widget.current.tenantId;
+
     _syncFromCurrent(widget.current);
     _sanitizeSharingState();
   }
@@ -168,6 +181,11 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
     if (!_didTryLoadUsers && _availableShareUsers.isEmpty) {
       _didTryLoadUsers = true;
       _loadUsersFromCubit();
+    }
+
+    if (!_didTryLoadTenants) {
+      _didTryLoadTenants = true;
+      _loadTenants();
     }
   }
 
@@ -185,6 +203,8 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
       );
 
       _sanitizeSharingState();
+
+      _selectedTenantId = widget.current.tenantId;
 
       _selectedTab = LayerPropertiesTab.general;
     }
@@ -291,6 +311,37 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
     }
   }
 
+  void _loadTenants() {
+    if (!mounted) return;
+
+    try {
+      final tenantCubit = context.read<TenantCubit>();
+      final tenants = tenantCubit.availableTenants
+          .map(_mapTenantToOption)
+          .where((tenant) => tenant.id.trim().isNotEmpty)
+          .toList(growable: false);
+
+      setState(() {
+        _availableTenants = tenants;
+      });
+    } catch (_) {
+      // TenantCubit indisponível neste contexto — mantém a lista vazia,
+      // o seletor de empresa simplesmente não aparece com opções.
+    }
+  }
+
+  LayerTenantOption _mapTenantToOption(TenantData tenant) {
+    final id = (tenant.tenantId ?? tenant.id).trim();
+
+    final name = (tenant.fantasyName ?? tenant.companyName ?? tenant.label)
+        .trim();
+
+    return LayerTenantOption(
+      id: id,
+      name: name.isEmpty ? id : name,
+    );
+  }
+
   LayerShareUserOption _mapUserToShareOption(UserData user) {
     final uid = (user.uid ?? '').trim();
     final fullName = user.fullName.trim();
@@ -379,6 +430,8 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
       iconKey: firstSymbol?.iconKey ?? widget.current.iconKey,
       colorValue: _resolveColorValue(firstSymbol),
       ownerId: ownerId,
+      tenantId: _selectedTenantId,
+      clearTenantId: _selectedTenantId == null,
       sharedUserIds: sanitizedSharedUserIds,
       sharedPermissionsByUserId: sanitizedPermissions,
     );
@@ -454,6 +507,13 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
               _selectedShareUserIds = userIds;
               _sharedPermissionsByUserId = permissions;
               _sanitizeSharingState();
+            });
+          },
+          availableTenants: _availableTenants,
+          selectedTenantId: _selectedTenantId,
+          onTenantChanged: (tenantId) {
+            setState(() {
+              _selectedTenantId = tenantId;
             });
           },
         );

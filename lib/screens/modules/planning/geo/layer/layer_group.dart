@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
+import 'package:sipged/_widgets/texts/marquee_text.dart';
 
 class LayerGroup extends StatelessWidget {
   final LayerData group;
@@ -14,6 +15,12 @@ class LayerGroup extends StatelessWidget {
   final VoidCallback onToggleExpand;
   final VoidCallback onToggleGroupVisibility;
 
+  /// Enquadra (zoom) o mapa nas feições de todas as camadas deste grupo.
+  ///
+  /// Disparado por clique direito (desktop/web), duplo clique/toque ou
+  /// clique/toque e segurar (mobile).
+  final VoidCallback? onZoomToGroup;
+
   const LayerGroup({
     super.key,
     required this.group,
@@ -26,6 +33,7 @@ class LayerGroup extends StatelessWidget {
     required this.onTap,
     required this.onToggleExpand,
     required this.onToggleGroupVisibility,
+    this.onZoomToGroup,
   });
 
   @override
@@ -42,6 +50,9 @@ class LayerGroup extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      onDoubleTap: onZoomToGroup,
+      onLongPress: onZoomToGroup,
+      onSecondaryTap: onZoomToGroup,
       child: SizedBox(
         height: rowHeight,
         child: ColoredBox(
@@ -80,10 +91,8 @@ class LayerGroup extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    group.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: MarqueeText(
+                    text: group.title,
                     style: TextStyle(
                       color: textColor,
                       fontWeight: FontWeight.w600,

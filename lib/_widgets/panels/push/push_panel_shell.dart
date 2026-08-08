@@ -16,15 +16,24 @@ class PushPanelShell extends StatelessWidget {
     this.highlightResizeEdge = false,
   });
 
+  // Mesmo padrão visual do cabeçalho dos painéis de docking
+  // (ver DockPanelHeader) — altura, cores, espaçamentos e tipografia
+  // idênticos, para que "Área de trabalho", "Catálogo", "Ferramentas" e
+  // "Atributos" fiquem visualmente consistentes.
   @override
   Widget build(BuildContext context) {
-    const headerHeight = 40.0;
+    const headerHeight = 30.0;
+
+    const headerColor = Color(0xFFF2F3F5);
+    final borderColor = Colors.black.withValues(alpha: 0.08);
+    final textColor = Colors.black.withValues(alpha: 0.85);
+    final buttonColor = Colors.black54;
 
     return Material(
       color: Colors.white,
       elevation: 0,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
           border: Border(
             left: BorderSide(
@@ -37,58 +46,43 @@ class PushPanelShell extends StatelessWidget {
           children: [
             Container(
               height: headerHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF5F6F8), // 🔥 cinza bem suave (melhor que F3F4F6)
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: headerColor,
                 border: Border(
-                  bottom: BorderSide(
-                    width: 0.8,
-                    color: Color(0xFFD6DAE1),
-                  ),
+                  bottom: BorderSide(color: borderColor),
                 ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  const SizedBox(width: 3),
                   Icon(
                     icon,
                     size: 16,
-                    color: Color(0xFF4B5563),
+                    color: textColor,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF374151),
-                          height: 1.0,
-                        ),
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
                       ),
                     ),
                   ),
-                  SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: IconButton(
-                      tooltip: 'Fechar',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 28,
-                        minHeight: 28,
-                      ),
-                      splashRadius: 16,
-                      onPressed: onClose,
-                      icon: const Icon(
-                        Icons.close,
-                        size: 16,
-                        color: Color(0xFF6B7280),
-                      ),
+                  IconButton(
+                    tooltip: 'Fechar',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onClose,
+                    icon: Icon(
+                      Icons.close,
+                      size: 14,
+                      color: buttonColor,
                     ),
                   ),
                 ],

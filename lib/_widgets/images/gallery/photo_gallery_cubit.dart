@@ -6,9 +6,8 @@ import 'photo_gallery_state.dart';
 
 class PhotoGalleryCubit extends Cubit<PhotoGalleryState> {
   PhotoGalleryCubit({
-    required PhotoGalleryRepository repository,
-  })  : _repository = repository,
-        super(PhotoGalleryState.initial());
+    required this._repository,
+  })  : super(PhotoGalleryState.initial());
 
   final PhotoGalleryRepository _repository;
 

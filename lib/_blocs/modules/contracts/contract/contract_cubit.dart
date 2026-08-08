@@ -1,3 +1,5 @@
+// lib/_blocs/modules/contracts/contract/contract_cubit.dart
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'contract_data.dart';
@@ -11,15 +13,17 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 
 class ContractCubit extends Cubit<ContractState> {
   ContractCubit({
-    required ContractRepository repository,
-  })  : _repository = repository,
-        super(ContractState.initial());
+    required this._repository,
+  })  : super(ContractState.initial());
 
   final ContractRepository _repository;
 
   List<ContractData> get allProcesses => state.allProcesses;
+
   ContractData? get selectedProcess => state.selectedProcess;
+
   bool get isLoading => state.loading;
+
   bool get isInitialized => state.initialized;
 
   String get activePermissionModule {
@@ -230,15 +234,6 @@ class ContractCubit extends Cubit<ContractState> {
     final uid = (user.uid ?? '').trim();
 
     if (uid.isEmpty) return null;
-
-    final raw = user.userSnap?.data();
-
-    if (raw is Map<String, dynamic>) {
-      return UserPermissionData.fromMap(
-        uid: uid,
-        map: raw,
-      );
-    }
 
     return UserPermissionData(
       uid: uid,
@@ -452,14 +447,14 @@ class ContractCubit extends Cubit<ContractState> {
     }
   }
 
-  Future<void> delete(String id) async {
+  Future<bool> delete(String id) async {
     final cleanId = id.trim();
 
-    if (cleanId.isEmpty) return;
+    if (cleanId.isEmpty) return false;
 
     final cleanTenantId = _activeTenantOrEmitError();
 
-    if (cleanTenantId == null) return;
+    if (cleanTenantId == null) return false;
 
     emit(
       state.copyWith(
@@ -480,7 +475,7 @@ class ContractCubit extends Cubit<ContractState> {
       final shouldClearSelected =
           (state.selectedProcess?.id ?? '').trim() == cleanId;
 
-      if (isClosed) return;
+      if (isClosed) return true;
 
       emit(
         state.copyWith(
@@ -490,8 +485,10 @@ class ContractCubit extends Cubit<ContractState> {
           clearErrorMessage: true,
         ),
       );
+
+      return true;
     } catch (e) {
-      if (isClosed) return;
+      if (isClosed) return false;
 
       emit(
         state.copyWith(
@@ -499,6 +496,8 @@ class ContractCubit extends Cubit<ContractState> {
           errorMessage: 'Erro ao excluir contrato: $e',
         ),
       );
+
+      return false;
     }
   }
 

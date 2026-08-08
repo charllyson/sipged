@@ -489,14 +489,30 @@ class FeatureCubit extends Cubit<FeatureState> {
         importColumns: const [],
         importFieldMapping: const {},
         importProgress: 0.0,
+        importIsNewFile: true,
         clearSelection: true,
         clearError: true,
+        clearImportWarning: true,
       ),
     );
 
     try {
       final raw = await _repository.pickAndParseRawFeatures();
       final result = _repository.buildImportedFeatures(raw);
+      final skipped = result.$3;
+
+      if (result.$1.isEmpty) {
+        _emitIfChanged(
+          state.copyWith(
+            importStatus: FeatureImportStatus.failure,
+            error: skipped > 0
+                ? 'Nenhuma feição com geometria válida foi encontrada no '
+                    'arquivo ($skipped registro(s) sem geometria utilizável).'
+                : 'Nenhuma feição foi encontrada no arquivo.',
+          ),
+        );
+        return;
+      }
 
       _emitIfChanged(
         state.copyWith(
@@ -504,8 +520,13 @@ class FeatureCubit extends Cubit<FeatureState> {
           importFeatures: result.$1,
           importColumns: result.$2,
           importProgress: 0.0,
+          importWarning: skipped > 0
+              ? '$skipped feição(ões) do arquivo foram ignoradas por não '
+                  'terem geometria válida.'
+              : null,
           clearSelection: true,
           clearError: true,
+          clearImportWarning: skipped == 0,
         ),
       );
     } catch (e) {
@@ -525,8 +546,10 @@ class FeatureCubit extends Cubit<FeatureState> {
         importColumns: const [],
         importFieldMapping: const {},
         importProgress: 0.0,
+        importIsNewFile: false,
         clearSelection: true,
         clearError: true,
+        clearImportWarning: true,
       ),
     );
 
@@ -938,12 +961,19 @@ class FeatureCubit extends Cubit<FeatureState> {
         );
       }).toList(growable: false);
 
+      // Quando a sessão veio de um arquivo recém-importado (KML/KMZ/
+      // GeoJSON/SHP), fechamos o diálogo automaticamente após salvar com
+      // sucesso (status `success`, observado por `AttributePage`). Quando é
+      // uma edição de feições já existentes no Firestore, o diálogo
+      // permanece aberto para permitir mais edições (`previewReady`).
       _emitIfChanged(
         state.copyWith(
           selected: nextSelection,
           featuresByLayer: nextFeaturesByLayer,
           availableFieldsByLayer: nextAvailableFields,
-          importStatus: FeatureImportStatus.previewReady,
+          importStatus: state.importIsNewFile
+              ? FeatureImportStatus.success
+              : FeatureImportStatus.previewReady,
           importFeatures: List<FeatureData>.unmodifiable(refreshedImportFeatures),
           importProgress: 0.0,
           clearError: true,

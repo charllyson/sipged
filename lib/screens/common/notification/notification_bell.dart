@@ -1,6 +1,7 @@
 // lib/_widgets/notification/notification_bell.dart
 // Ajuste o path acima se o seu arquivo estiver em outro diretório.
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -1084,33 +1085,19 @@ class _ActorPhotoLeading extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: hasPhoto
-          ? Image.network(
-        photoUrl.trim(),
+          ? CachedNetworkImage(
+        imageUrl: photoUrl.trim(),
         width: 38,
         height: 38,
         fit: BoxFit.cover,
-        gaplessPlayback: true,
-        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-          if (wasSynchronouslyLoaded || frame != null) {
-            return child;
-          }
-
+        placeholder: (context, url) {
           return _ActorFallbackLeading(
             initials: initials,
             fallbackIcon: fallbackIcon,
             accentColor: accentColor,
           );
         },
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-
-          return _ActorFallbackLeading(
-            initials: initials,
-            fallbackIcon: fallbackIcon,
-            accentColor: accentColor,
-          );
-        },
-        errorBuilder: (context, error, stackTrace) {
+        errorWidget: (context, url, error) {
           return _ActorFallbackLeading(
             initials: hasInitials ? initials : '',
             fallbackIcon: fallbackIcon,

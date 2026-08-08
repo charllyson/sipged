@@ -1,6 +1,6 @@
-// lib/_blocs/modules/contracts/contract/contract_data.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
 
 class ContractData {
@@ -444,5 +444,123 @@ class ContractData {
         'id: $id, '
         'participantsInfo: ${participantsInfo.length}'
         ')';
+  }
+
+  static const String statusTodos = 'TODOS';
+  static const String statusEmAndamento = 'EM ANDAMENTO';
+  static const String statusAIniciar = 'A INICIAR';
+  static const String statusConcluido = 'CONCLUÍDO';
+  static const String statusEmProjeto = 'EM PROJETO';
+  static const String statusParalisado = 'PARALISADO';
+  static const String statusCancelado = 'CANCELADO';
+  static const String statusSemStatus = 'SEM STATUS';
+
+  static const List<String> statusMenuKeys = <String>[
+    statusEmAndamento,
+    statusAIniciar,
+    statusConcluido,
+    statusEmProjeto,
+    statusParalisado,
+    statusCancelado,
+  ];
+
+  static final Map<
+      String,
+      ({
+      String label,
+      String title,
+      Color color,
+      IconData icon,
+      })> statusInfo = <String,
+      ({
+      String label,
+      String title,
+      Color color,
+      IconData icon,
+      })>{
+    statusTodos: (
+    label: 'Todos',
+    title: 'Todas as Demandas',
+    color: Colors.black,
+    icon: Icons.list_alt_rounded,
+    ),
+    statusEmAndamento: (
+    label: 'Contratos em andamento',
+    title: 'Demandas em Andamento',
+    color: Colors.orange,
+    icon: Icons.timelapse_rounded,
+    ),
+    statusAIniciar: (
+    label: 'Contratos a iniciar',
+    title: 'Demandas a Iniciar',
+    color: Colors.blue,
+    icon: Icons.flag_circle_rounded,
+    ),
+    statusConcluido: (
+    label: 'Contratos concluídos',
+    title: 'Demandas Concluídas',
+    color: Colors.green,
+    icon: Icons.check_circle_rounded,
+    ),
+    statusEmProjeto: (
+    label: 'Demandas em projeto',
+    title: 'Demandas em Projeto',
+    color: Colors.indigo,
+    icon: Icons.assignment_outlined,
+    ),
+    statusParalisado: (
+    label: 'Contratos paralisados',
+    title: 'Demandas Paralisadas',
+    color: Colors.red,
+    icon: Icons.pause_circle_filled_rounded,
+    ),
+    statusCancelado: (
+    label: 'Contratos cancelados',
+    title: 'Demandas Canceladas',
+    color: Colors.grey,
+    icon: Icons.cancel_rounded,
+    ),
+    statusSemStatus: (
+    label: 'Sem status',
+    title: 'Demandas sem Status',
+    color: Colors.grey,
+    icon: Icons.help_outline_rounded,
+    ),
+  };
+
+  static List<(String, String)> get statusMenu {
+    return statusMenuKeys
+        .map((key) => (statusInfo[key]!.label, key))
+        .toList(growable: false);
+  }
+
+  static List<String> get statusKeys {
+    return statusMenuKeys;
+  }
+
+  static Map<String, Color> get statusColors {
+    return statusInfo.map(
+          (key, value) => MapEntry(key, value.color),
+    );
+  }
+
+  static Color getColorByStatus(String status) {
+    return statusInfo[status]?.color ?? Colors.blueGrey;
+  }
+
+  static IconData iconStatus(String status) {
+    return statusInfo[status]?.icon ?? Icons.folder_copy_rounded;
+  }
+
+  static String getTitleByStatus(String status) {
+    return statusInfo[status]?.title ?? 'Outro';
+  }
+
+  static String getLabelByStatus(String status) {
+    return statusInfo[status]?.label ?? status;
+  }
+
+  static bool isKnownStatus(String status) {
+    return statusInfo.containsKey(status);
   }
 }

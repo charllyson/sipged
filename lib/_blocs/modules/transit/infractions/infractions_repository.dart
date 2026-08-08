@@ -7,14 +7,11 @@ class InfractionsRepository {
   InfractionsRepository({
     FirebaseFirestore? db,
     FirebaseAuth? auth,
-    String? tenantId,
-    String? baseCollectionPath,
-    bool enableLegacyFallback = true,
+    this._tenantId,
+    this._baseCollectionPath,
+    this._enableLegacyFallback = true,
   })  : _db = db ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance,
-        _tenantId = tenantId,
-        _baseCollectionPath = baseCollectionPath,
-        _enableLegacyFallback = enableLegacyFallback;
+        _auth = auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;

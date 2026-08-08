@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/overlays/balloon/balloon_tip.dart';
@@ -9,21 +11,17 @@ class BalloonPosition {
     required this.tipCenterX,
     required this.tipCenterY,
     required this.popupWidth,
+    required this.popupMaxHeight,
+    required this.tipSide,
   });
 
   final double left;
   final double top;
-
-  /// Usado quando a ponta está em cima ou embaixo.
   final double tipCenterX;
-
-  /// Usado quando a ponta está na esquerda ou direita.
   final double tipCenterY;
-
-  /// Largura real do overlay.
-  /// Em top/bottom é igual ao width.
-  /// Em left/right é width + tipHeight.
   final double popupWidth;
+  final double popupMaxHeight;
+  final BalloonTipSide tipSide;
 }
 
 class BalloonPopup extends StatelessWidget {
@@ -32,6 +30,8 @@ class BalloonPopup extends StatelessWidget {
     required this.width,
     required this.maxHeight,
     required this.child,
+    this.minHeight,
+    this.forceMaxHeight = false,
     this.tipSide = BalloonTipSide.top,
     this.tipCenterX,
     this.tipCenterY,
@@ -60,13 +60,11 @@ class BalloonPopup extends StatelessWidget {
 
   final double width;
   final double maxHeight;
+  final double? minHeight;
+  final bool forceMaxHeight;
 
   final BalloonTipSide tipSide;
-
-  /// Usado para top/bottom.
   final double? tipCenterX;
-
-  /// Usado para left/right.
   final double? tipCenterY;
 
   final Widget child;
@@ -85,6 +83,8 @@ class BalloonPopup extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final List<BoxShadow> boxShadow;
 
+  static const double _minUsableHeight = 120;
+
   static double _safeClamp(
       double value,
       double min,
@@ -94,14 +94,104 @@ class BalloonPopup extends StatelessWidget {
     return value.clamp(min, max).toDouble();
   }
 
-  /// Calcula posição usando um widget como âncora.
-  /// Ideal para sino, avatar, botão, ícone etc.
+  static double _resolveMaxHeight({
+    required double requestedMaxHeight,
+    required double availableHeight,
+  }) {
+    if (requestedMaxHeight <= 0) {
+      return _minUsableHeight;
+    }
+
+    if (availableHeight <= 0) {
+      return math.min(requestedMaxHeight, _minUsableHeight);
+    }
+
+    if (availableHeight < _minUsableHeight) {
+      return math.max(availableHeight, 72);
+    }
+
+    return math.min(requestedMaxHeight, availableHeight);
+  }
+
+  static BalloonTipSide _resolveAutoTipSide({
+    required BalloonTipSide preferredSide,
+    required bool autoFlip,
+    required Offset anchor,
+    required Size overlaySize,
+    required double balloonWidth,
+    required double maxHeight,
+    required double topGap,
+    required double screenMargin,
+    required double tipHeight,
+    Size? targetSize,
+    Offset? targetOffset,
+  }) {
+    if (!autoFlip) {
+      return preferredSide;
+    }
+
+    final hasTargetBox = targetSize != null && targetOffset != null;
+
+    final targetTop = hasTargetBox ? targetOffset.dy : anchor.dy;
+    final targetBottom = hasTargetBox
+        ? targetOffset.dy + targetSize.height
+        : anchor.dy;
+
+    final targetLeft = hasTargetBox ? targetOffset.dx : anchor.dx;
+    final targetRight = hasTargetBox
+        ? targetOffset.dx + targetSize.width
+        : anchor.dx;
+
+    final availableBelow = overlaySize.height -
+        targetBottom -
+        topGap -
+        tipHeight -
+        screenMargin;
+
+    final availableAbove = targetTop - topGap - tipHeight - screenMargin;
+
+    final availableRight = overlaySize.width -
+        targetRight -
+        topGap -
+        tipHeight -
+        screenMargin;
+
+    final availableLeft = targetLeft - topGap - tipHeight - screenMargin;
+
+    switch (preferredSide) {
+      case BalloonTipSide.top:
+        if (availableBelow < maxHeight && availableAbove > availableBelow) {
+          return BalloonTipSide.bottom;
+        }
+        return BalloonTipSide.top;
+
+      case BalloonTipSide.bottom:
+        if (availableAbove < maxHeight && availableBelow > availableAbove) {
+          return BalloonTipSide.top;
+        }
+        return BalloonTipSide.bottom;
+
+      case BalloonTipSide.left:
+        if (availableRight < balloonWidth && availableLeft > availableRight) {
+          return BalloonTipSide.right;
+        }
+        return BalloonTipSide.left;
+
+      case BalloonTipSide.right:
+        if (availableLeft < balloonWidth && availableRight > availableLeft) {
+          return BalloonTipSide.left;
+        }
+        return BalloonTipSide.right;
+    }
+  }
+
   static BalloonPosition calculatePosition({
     required RenderBox targetBox,
     required RenderBox overlayBox,
     required double balloonWidth,
     required double maxHeight,
     BalloonTipSide tipSide = BalloonTipSide.top,
+    bool autoFlip = true,
     double topGap = 0,
     double screenMargin = 8,
     double tipWidth = 18,
@@ -126,6 +216,7 @@ class BalloonPopup extends StatelessWidget {
       balloonWidth: balloonWidth,
       maxHeight: maxHeight,
       tipSide: tipSide,
+      autoFlip: autoFlip,
       topGap: topGap,
       screenMargin: screenMargin,
       tipWidth: tipWidth,
@@ -137,40 +228,49 @@ class BalloonPopup extends StatelessWidget {
     );
   }
 
-  /// Calcula posição usando um ponto local dentro do overlay.
-  ///
-  /// Ideal para mapa, gráfico, polygon center, marker, canvas etc.
   static BalloonPosition calculatePositionFromLocalPoint({
     required Offset anchor,
     required Size overlaySize,
     required double balloonWidth,
     required double maxHeight,
     BalloonTipSide tipSide = BalloonTipSide.top,
+    bool autoFlip = true,
     double topGap = 0,
     double screenMargin = 8,
     double tipWidth = 18,
     double tipHeight = 10,
     double tipHorizontalMargin = 20,
     double tipVerticalMargin = 20,
-
-    /// Opcional.
-    /// Quando vier de um RenderBox, ajuda a posicionar abaixo/acima do widget.
     Size? targetSize,
-
-    /// Opcional.
-    /// Quando vier de um RenderBox, ajuda a posicionar com base no canto do widget.
     Offset? targetOffset,
   }) {
     final resolvedTargetSize = targetSize ?? Size.zero;
     final resolvedTargetOffset = targetOffset ?? anchor;
+
+    final resolvedTipSide = _resolveAutoTipSide(
+      preferredSide: tipSide,
+      autoFlip: autoFlip,
+      anchor: anchor,
+      overlaySize: overlaySize,
+      balloonWidth: balloonWidth,
+      maxHeight: maxHeight,
+      topGap: topGap,
+      screenMargin: screenMargin,
+      tipHeight: tipHeight,
+      targetSize: targetSize,
+      targetOffset: targetOffset,
+    );
 
     double safeLeft;
     double safeTop;
     double safeTipCenterX = balloonWidth / 2;
     double safeTipCenterY = maxHeight / 2;
     double popupWidth = balloonWidth;
+    double popupMaxHeight = maxHeight;
 
-    switch (tipSide) {
+    final hasTargetBox = targetSize != null && targetOffset != null;
+
+    switch (resolvedTipSide) {
       case BalloonTipSide.top:
         popupWidth = balloonWidth;
 
@@ -183,11 +283,19 @@ class BalloonPopup extends StatelessWidget {
           maxLeft,
         );
 
-        final hasTargetBox = targetSize != null && targetOffset != null;
-
         safeTop = hasTargetBox
             ? resolvedTargetOffset.dy + resolvedTargetSize.height + topGap
             : anchor.dy + topGap;
+
+        final availableHeight = overlaySize.height -
+            safeTop -
+            tipHeight -
+            screenMargin;
+
+        popupMaxHeight = _resolveMaxHeight(
+          requestedMaxHeight: maxHeight,
+          availableHeight: availableHeight,
+        );
 
         final rawTipCenterX = anchor.dx - safeLeft;
 
@@ -211,13 +319,21 @@ class BalloonPopup extends StatelessWidget {
           maxLeft,
         );
 
-        final hasTargetBox = targetSize != null && targetOffset != null;
+        final targetTop = hasTargetBox ? resolvedTargetOffset.dy : anchor.dy;
 
-        final rawTop = hasTargetBox
-            ? resolvedTargetOffset.dy - maxHeight - tipHeight - topGap
-            : anchor.dy - maxHeight - tipHeight - topGap;
+        final availableHeight = targetTop -
+            topGap -
+            tipHeight -
+            screenMargin;
 
-        final maxTop = overlaySize.height - maxHeight - tipHeight - screenMargin;
+        popupMaxHeight = _resolveMaxHeight(
+          requestedMaxHeight: maxHeight,
+          availableHeight: availableHeight,
+        );
+
+        final rawTop = targetTop - popupMaxHeight - tipHeight - topGap;
+        final maxTop =
+            overlaySize.height - popupMaxHeight - tipHeight - screenMargin;
 
         safeTop = _safeClamp(
           rawTop,
@@ -238,15 +354,21 @@ class BalloonPopup extends StatelessWidget {
       case BalloonTipSide.left:
         popupWidth = balloonWidth + tipHeight;
 
-        final hasTargetBox = targetSize != null && targetOffset != null;
-
         final rawLeft = hasTargetBox
             ? resolvedTargetOffset.dx + resolvedTargetSize.width + topGap
             : anchor.dx + topGap;
 
-        final rawTop = anchor.dy - (maxHeight / 2);
+        final availableHeight = overlaySize.height -
+            (screenMargin * 2);
 
-        final maxTop = overlaySize.height - maxHeight - screenMargin;
+        popupMaxHeight = _resolveMaxHeight(
+          requestedMaxHeight: maxHeight,
+          availableHeight: availableHeight,
+        );
+
+        final rawTop = anchor.dy - (popupMaxHeight / 2);
+
+        final maxTop = overlaySize.height - popupMaxHeight - screenMargin;
         final maxLeft = overlaySize.width - popupWidth - screenMargin;
 
         safeLeft = _safeClamp(
@@ -266,7 +388,7 @@ class BalloonPopup extends StatelessWidget {
         safeTipCenterY = _safeClamp(
           rawTipCenterY,
           tipVerticalMargin,
-          maxHeight - tipVerticalMargin,
+          popupMaxHeight - tipVerticalMargin,
         );
 
         break;
@@ -274,15 +396,21 @@ class BalloonPopup extends StatelessWidget {
       case BalloonTipSide.right:
         popupWidth = balloonWidth + tipHeight;
 
-        final hasTargetBox = targetSize != null && targetOffset != null;
-
         final rawLeft = hasTargetBox
             ? resolvedTargetOffset.dx - popupWidth - topGap
             : anchor.dx - popupWidth - topGap;
 
-        final rawTop = anchor.dy - (maxHeight / 2);
+        final availableHeight = overlaySize.height -
+            (screenMargin * 2);
 
-        final maxTop = overlaySize.height - maxHeight - screenMargin;
+        popupMaxHeight = _resolveMaxHeight(
+          requestedMaxHeight: maxHeight,
+          availableHeight: availableHeight,
+        );
+
+        final rawTop = anchor.dy - (popupMaxHeight / 2);
+
+        final maxTop = overlaySize.height - popupMaxHeight - screenMargin;
         final maxLeft = overlaySize.width - popupWidth - screenMargin;
 
         safeLeft = _safeClamp(
@@ -302,7 +430,7 @@ class BalloonPopup extends StatelessWidget {
         safeTipCenterY = _safeClamp(
           rawTipCenterY,
           tipVerticalMargin,
-          maxHeight - tipVerticalMargin,
+          popupMaxHeight - tipVerticalMargin,
         );
 
         break;
@@ -314,6 +442,8 @@ class BalloonPopup extends StatelessWidget {
       tipCenterX: safeTipCenterX,
       tipCenterY: safeTipCenterY,
       popupWidth: popupWidth,
+      popupMaxHeight: popupMaxHeight,
+      tipSide: resolvedTipSide,
     );
   }
 
@@ -335,6 +465,17 @@ class BalloonPopup extends StatelessWidget {
       tipVerticalMargin,
       maxHeight - tipVerticalMargin,
     );
+  }
+
+  double get _resolvedMinHeight {
+    if (forceMaxHeight) return maxHeight;
+
+    final value = minHeight ?? 0;
+
+    if (value <= 0) return 0;
+    if (value > maxHeight) return maxHeight;
+
+    return value;
   }
 
   @override
@@ -500,6 +641,7 @@ class BalloonPopup extends StatelessWidget {
     return Container(
       width: width,
       constraints: BoxConstraints(
+        minHeight: _resolvedMinHeight,
         maxHeight: maxHeight,
       ),
       padding: padding,

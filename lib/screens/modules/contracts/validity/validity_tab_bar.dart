@@ -1,10 +1,12 @@
+// lib/screens/modules/contracts/validity/validity_tab_bar_page.dart
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
+import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 import 'package:sipged/screens/modules/contracts/validity/validity_page.dart';
-import 'package:sipged/_widgets/menu/tab/contract_tab_descriptor.dart';
 
 class ValidityTabBarPage extends StatelessWidget {
   final ContractData? contractData;
@@ -28,10 +30,14 @@ class ValidityTabBarPage extends StatelessWidget {
         ContractTabDescriptor(
           label: 'Vigências',
           requireSavedContract: true,
-          builder: (c) => ValidityPage(
-            key: ValueKey(c?.id),
-            contractData: c!,
-          ),
+          builder: (contract) {
+            return ValidityPage(
+              key: ValueKey<String>(
+                'validity-page-${contract?.id ?? 'sem-contrato'}',
+              ),
+              contractData: contract!,
+            );
+          },
         ),
       ],
     );

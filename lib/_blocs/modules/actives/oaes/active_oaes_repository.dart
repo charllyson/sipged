@@ -377,7 +377,7 @@ class ActiveOaesRepository {
       throw Exception('tenantId é obrigatório para anexar arquivo de OAE.');
     }
 
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       allowMultiple: false,
       type: allowedExtensions == null ? FileType.any : FileType.custom,
       allowedExtensions: allowedExtensions,

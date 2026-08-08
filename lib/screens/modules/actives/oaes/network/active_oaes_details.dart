@@ -1,9 +1,8 @@
-// lib/screens/modules/actives/oaes/network/active_oaes_details.dart
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
@@ -21,7 +20,6 @@ import 'package:sipged/_widgets/images/carousel/photo_picker_square.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/box_list_files.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
-import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'package:sipged/screens/modules/actives/oaes/card_3d.dart';
 import 'package:sipged/screens/modules/actives/oaes/network/details_panel_body.dart';
@@ -87,15 +85,32 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
 
   bool _busy = false;
 
+  // Cache das linhas de detalhe (`_buildEntries`), recalculadas só quando
+  // `widget.data` muda de verdade (ver `didUpdateWidget`). Antes, `build()`
+  // qualquer coisa não relacionada mudava (ex.: `_busy` ligando/desligando
+  // durante upload/exclusão de foto, filtro de data), mesmo sem o OAE em si
+  // ter mudado.
+  late List<MapEntry<String, String>> _entries;
+
+  static const CarouselPhotoTheme _carouselTheme = CarouselPhotoTheme(
+    itemSize: 96,
+    spacing: 10,
+  );
+
   @override
   void initState() {
     super.initState();
+    _entries = _buildEntries(widget.data);
     _loadInitialPhotos();
   }
 
   @override
   void didUpdateWidget(covariant ActiveOaesDetails oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (!identical(oldWidget.data, widget.data)) {
+      _entries = _buildEntries(widget.data);
+    }
 
     final oldId = oldWidget.data.id;
     final newId = widget.data.id;
@@ -358,11 +373,90 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     ];
   }
 
+  Widget _buildPhotoPicker() {
+    return PhotoPickerSquare(
+      enabled: !_busy,
+      onPickFromCamera: _addPhotoFromPhoto,
+      onPickFromGallery: _addPhotoFromPhoto,
+
+      /// Volta a permitir edição/corte livre e proporções.
+      editorMaxScale: 5.0,
+      editorExportQuality: 88,
+      editorCircleCrop: false,
+      editorAspectRatios: const <double>[
+        1.0,
+        4 / 3,
+        3 / 2,
+        16 / 9,
+      ],
+
+      /// Redução de resolução/peso antes do upload.
+      imageQuality: 88,
+      maxWidth: 1920,
+      maxHeight: 1920,
+
+      /// Para OAE, a localização já vem do ativo, mas manter ligado
+      /// permite que fotos tiradas em campo carreguem metadados próprios.
+      resolveAddressFromPhotoGps: true,
+      captureLocationWhenCameraHasNoGps: true,
+    );
+  }
+
+  Widget _buildPhotosCarousel() {
+    final bool hasAdder = widget.isEditable;
+    final int offset = hasAdder ? 1 : 0;
+    final int itemCount = _filtered.length + offset;
+
+    if (itemCount == 0) {
+      return const SizedBox.shrink();
+    }
+
+    return SizedBox(
+      height: _carouselTheme.itemSize,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: itemCount,
+        separatorBuilder: (_, _) => SizedBox(width: _carouselTheme.spacing),
+        itemBuilder: (context, index) {
+          if (hasAdder && index == 0) {
+            return _buildPhotoPicker();
+          }
+
+          final att = _filtered[index - offset];
+          final photo = att.toPhotoData();
+
+          return CarouselPhotoThumb(
+            photo: photo,
+            theme: _carouselTheme,
+            onTap: () async {
+              final photos = _filtered
+                  .map((a) => a.toPhotoData())
+                  .toList(growable: false);
+
+              if (photos.isEmpty) return;
+
+              final start = (index - offset).clamp(0, photos.length - 1);
+
+              await showPhotoGalleryDialog(
+                context,
+                photos: photos,
+                initialIndex: start,
+              );
+            },
+            onRemove: widget.isEditable && !_busy
+                ? () => _handleDelete(att)
+                : null,
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = widget.data;
-    final entries = _buildEntries(d);
-    final carouselTheme = const CarouselPhotoTheme();
+    final entries = _entries;
 
     return Scaffold(
       body: Stack(
@@ -377,31 +471,35 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
                 child: SizedBox(
                   width: sideWidth,
-                  child: BoxListFiles(
-                    title: widget.titleSideList,
-                    items: widget.sideItems,
-                    selectedIndex: widget.selectedSideIndex,
-                    openOnTap: false,
-                    onAddPressed: widget.isEditable && !_busy
-                        ? () => _wrapBusy(widget.onAddSideItem)
-                        : null,
-                    onTap: !_busy
-                        ? (i) => _wrapBusyIndex(widget.onTapSideItem, i)
-                        : null,
-                    onDelete: widget.isEditable && !_busy
-                        ? (i) => _wrapBusyIndex(widget.onDeleteSideItem, i)
-                        : null,
-                    enableRename: widget.isEditable,
-                    onRenamePersist: widget.onRenamePersist,
-                    onItemsChanged: widget.onItemsChanged,
-                    loading: widget.sideLoading,
-                    uploadProgress: widget.sideUploadProgress,
-                    width: sideWidth,
+                  child: RepaintBoundary(
+                    child: BoxListFiles(
+                      title: widget.titleSideList,
+                      items: widget.sideItems,
+                      selectedIndex: widget.selectedSideIndex,
+                      openOnTap: false,
+                      onAddPressed: widget.isEditable && !_busy
+                          ? () => _wrapBusy(widget.onAddSideItem)
+                          : null,
+                      onTap: !_busy
+                          ? (i) => _wrapBusyIndex(widget.onTapSideItem, i)
+                          : null,
+                      onDelete: widget.isEditable && !_busy
+                          ? (i) => _wrapBusyIndex(widget.onDeleteSideItem, i)
+                          : null,
+                      enableRename: widget.isEditable,
+                      onRenamePersist: widget.onRenamePersist,
+                      onItemsChanged: widget.onItemsChanged,
+                      loading: widget.sideLoading,
+                      uploadProgress: widget.sideUploadProgress,
+                      width: sideWidth,
+                    ),
                   ),
                 ),
               );
 
-              final details = DetailsPanelBody(entries: entries);
+              final details = RepaintBoundary(
+                child: DetailsPanelBody(entries: entries),
+              );
 
               final header = Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
@@ -411,8 +509,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                 ),
               );
 
-              final double photosHeight = carouselTheme.itemSize;
-
               return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Column(
@@ -421,59 +517,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                     header,
                     const Divider(height: 1),
                     const SizedBox(height: 12),
-                    SizedBox(
-                      height: photosHeight,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        itemCount: (_filtered.isEmpty ? 0 : _filtered.length) +
-                            (widget.isEditable ? 1 : 0),
-                        separatorBuilder: (_, _) => const SizedBox(width: 10),
-                        itemBuilder: (context, index) {
-                          final bool hasAdder = widget.isEditable;
-                          final int offset = hasAdder ? 1 : 0;
-
-                          if (hasAdder && index == 0) {
-                            return PhotoPickerSquare(
-                              enabled: !_busy,
-                              onPickFromCamera: _addPhotoFromPhoto,
-                              onPickFromGallery: _addPhotoFromPhoto,
-                              editorMaxScale: 5.0,
-                              editorExportQuality: 100,
-                              editorCircleCrop: false,
-                              editorAspectRatios: const [1, 4 / 3, 16 / 9],
-                            );
-                          }
-
-                          final att = _filtered[index - offset];
-                          final photo = att.toPhotoData();
-
-                          return CarouselPhotoThumb(
-                            photo: photo,
-                            theme: carouselTheme,
-                            onTap: () async {
-                              final photos = _filtered
-                                  .map((a) => a.toPhotoData())
-                                  .toList(growable: false);
-
-                              if (photos.isEmpty) return;
-
-                              final start =
-                              (index - offset).clamp(0, photos.length - 1);
-
-                              await showPhotoGalleryDialog(
-                                context,
-                                photos: photos,
-                                initialIndex: start,
-                              );
-                            },
-                            onRemove: widget.isEditable && !_busy
-                                ? () => _handleDelete(att)
-                                : null,
-                          );
-                        },
-                      ),
-                    ),
+                    RepaintBoundary(child: _buildPhotosCarousel()),
                     const SizedBox(height: 12),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0),
@@ -509,9 +553,11 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                     const SectionTitle(text: 'Modelo 3D'),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                      child: OaeModel3DCard(
-                        data: d,
-                        isEditable: widget.isEditable,
+                      child: RepaintBoundary(
+                        child: OaeModel3DCard(
+                          data: d,
+                          isEditable: widget.isEditable,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),

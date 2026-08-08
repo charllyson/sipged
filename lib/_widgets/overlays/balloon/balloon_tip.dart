@@ -10,34 +10,45 @@ enum BalloonTipSide {
 class BalloonTip extends CustomPainter {
   const BalloonTip({
     required this.color,
-    required this.shadowColor,
     this.side = BalloonTipSide.top,
+    this.drawShadow = false,
+    this.shadowColor = Colors.transparent,
   });
 
   final Color color;
-  final Color shadowColor;
   final BalloonTipSide side;
+
+  /// Normalmente deve ficar false.
+  /// Quando false, o tip fica limpo, sem sombra própria,
+  /// parecendo continuação do balão.
+  final bool drawShadow;
+
+  final Color shadowColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final shadowPath = _buildPath(size);
-    final shadowPaint = Paint()
-      ..color = shadowColor
-      ..style = PaintingStyle.fill
-      ..maskFilter = const MaskFilter.blur(
-        BlurStyle.normal,
-        2,
-      );
-
-    canvas.drawPath(
-      shadowPath.shift(_shadowOffset),
-      shadowPaint,
-    );
-
     final path = _buildPath(size);
+
+    if (drawShadow) {
+      final shadowPaint = Paint()
+        ..color = shadowColor
+        ..style = PaintingStyle.fill
+        ..isAntiAlias = true
+        ..maskFilter = const MaskFilter.blur(
+          BlurStyle.normal,
+          1.4,
+        );
+
+      canvas.drawPath(
+        path.shift(_shadowOffset),
+        shadowPaint,
+      );
+    }
+
     final paint = Paint()
       ..color = color
-      ..style = PaintingStyle.fill;
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
 
     canvas.drawPath(path, paint);
   }
@@ -46,10 +57,13 @@ class BalloonTip extends CustomPainter {
     switch (side) {
       case BalloonTipSide.top:
         return const Offset(0, 1);
+
       case BalloonTipSide.bottom:
         return const Offset(0, -1);
+
       case BalloonTipSide.left:
         return const Offset(1, 0);
+
       case BalloonTipSide.right:
         return const Offset(-1, 0);
     }
@@ -90,7 +104,8 @@ class BalloonTip extends CustomPainter {
   @override
   bool shouldRepaint(covariant BalloonTip oldDelegate) {
     return oldDelegate.color != color ||
-        oldDelegate.shadowColor != shadowColor ||
-        oldDelegate.side != side;
+        oldDelegate.side != side ||
+        oldDelegate.drawShadow != drawShadow ||
+        oldDelegate.shadowColor != shadowColor;
   }
 }

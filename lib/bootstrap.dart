@@ -26,9 +26,9 @@ import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
 
-import 'package:sipged/_services/my_location/nominatim_cubit.dart';
-import 'package:sipged/_services/my_location/nominatim_geocoder.dart';
-import 'package:sipged/_services/my_location/nominatim_repository.dart';
+import 'package:sipged/_widgets/map/my_location/nominatim_cubit.dart';
+import 'package:sipged/_widgets/map/my_location/nominatim_geocoder.dart';
+import 'package:sipged/_widgets/map/my_location/nominatim_repository.dart';
 
 import 'package:sipged/_blocs/system/notification/notification_push.dart';
 import 'package:sipged/_blocs/system/notification/bell/notification_bell_cubit.dart';
@@ -40,8 +40,8 @@ import 'package:sipged/_blocs/system/notification/remote/notification_remote_rep
 import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-import 'package:sipged/_blocs/system/login/login_cubit.dart';
-import 'package:sipged/_blocs/system/login/login_repository.dart';
+import 'package:sipged/screens/common/login/sign_in/login_cubit.dart';
+import 'package:sipged/screens/common/login/sign_in/login_repository.dart';
 import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
@@ -223,12 +223,13 @@ Future<void> bootstrapAndRunApp() async {
               create: (_) => UserRepository(),
             ),
 
+            // Não fazemos warmup aqui: a lista de usuários é carregada
+            // (via GatePage._loadStartupData) só depois que o usuário está
+            // autenticado, evitando ler a coleção `users` (200 docs) e abrir
+            // um listener em tempo real a cada boot do app, mesmo deslogado.
             BlocProvider<UserCubit>(
               create: (ctx) => UserCubit(
                 ctx.read<UserRepository>(),
-              )..warmup(
-                listenRealtime: true,
-                bindCurrentUser: true,
               ),
             ),
 

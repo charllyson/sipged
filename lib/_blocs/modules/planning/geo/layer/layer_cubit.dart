@@ -69,6 +69,7 @@ class LayerCubit extends Cubit<LayerState> {
       tree: tree,
     );
 
+    final previousTree = state.tree;
     final immutableTree = List<LayerData>.unmodifiable(tree);
     final immutableActiveIds = Set<String>.unmodifiable(syncedActiveIds);
 
@@ -82,7 +83,13 @@ class LayerCubit extends Cubit<LayerState> {
     );
 
     try {
-      await _repository.saveTree(tree);
+      // Grava só os nós que mudaram (criados, removidos, editados,
+      // reordenados ou que trocaram de grupo pai) em vez da árvore inteira —
+      // cada camada/grupo é seu próprio documento em geo/catalog/nodes.
+      await _repository.persistTreeDiff(
+        previous: previousTree,
+        next: tree,
+      );
 
       _emitIfChanged(
         state.copyWith(
@@ -168,12 +175,30 @@ class LayerCubit extends Cubit<LayerState> {
       List<LayerData> tree, {
         bool force = false,
       }) async {
-    final all = flattenAllNodes(tree: tree);
-    final result = <String, bool>{};
+    // Resolve em paralelo (com deduplicação por coleção), no mesmo padrão de
+    // refreshAllLayerData, em vez de aguardar uma consulta Firestore por vez.
+    final leaves = flattenAllNodes(tree: tree)
+        .where((item) => !item.isGroup)
+        .toList(growable: false);
 
-    for (final node in all) {
-      if (node.isGroup) continue;
-      result[node.id] = await hasDataForLayer(node, force: force);
+    final uniquePaths = <String>{};
+    for (final layer in leaves) {
+      final path = (layer.effectiveCollectionPath ?? '').trim();
+      if (path.isNotEmpty) uniquePaths.add(path);
+    }
+
+    final resolvedByPath = <String, bool>{};
+
+    await Future.wait(
+      uniquePaths.map((path) async {
+        resolvedByPath[path] = await _resolvePath(path, force: force);
+      }),
+    );
+
+    final result = <String, bool>{};
+    for (final layer in leaves) {
+      final path = (layer.effectiveCollectionPath ?? '').trim();
+      result[layer.id] = path.isEmpty ? false : (resolvedByPath[path] ?? false);
     }
 
     return Map<String, bool>.unmodifiable(result);

@@ -1,3 +1,5 @@
+// lib/_widgets/DataTime/time_field_change.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -63,6 +65,11 @@ class TimeFieldChange extends StatelessWidget {
   }
 
   Future<void> _selectTime(BuildContext context) async {
+    if (!enabled) return;
+
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     final DateTime base =
         _parseTime(controller?.text ?? '') ??
             initialValue ??
@@ -74,9 +81,71 @@ class TimeFieldChange extends StatelessWidget {
               min ?? 0,
             );
 
+    final customTheme = theme.copyWith(
+      colorScheme: scheme.copyWith(
+        primary: scheme.secondary,
+        onPrimary: scheme.onSecondary,
+        secondary: scheme.secondary,
+        onSecondary: scheme.onSecondary,
+        surface: scheme.surface,
+        onSurface: scheme.onSurface,
+      ),
+      timePickerTheme: TimePickerThemeData(
+        backgroundColor: scheme.surface,
+        hourMinuteColor: WidgetStateColor.resolveWith(
+              (states) {
+            if (states.contains(WidgetState.selected)) {
+              return scheme.secondary;
+            }
+
+            return const Color(0xFFF1F5F9);
+          },
+        ),
+        hourMinuteTextColor: WidgetStateColor.resolveWith(
+              (states) {
+            if (states.contains(WidgetState.selected)) {
+              return scheme.onSecondary;
+            }
+
+            return scheme.onSurface;
+          },
+        ),
+        dialHandColor: scheme.secondary,
+        dialBackgroundColor: const Color(0xFFF1F5F9),
+        entryModeIconColor: scheme.secondary,
+        dayPeriodColor: WidgetStateColor.resolveWith(
+              (states) {
+            if (states.contains(WidgetState.selected)) {
+              return scheme.secondary;
+            }
+
+            return const Color(0xFFF1F5F9);
+          },
+        ),
+        dayPeriodTextColor: WidgetStateColor.resolveWith(
+              (states) {
+            if (states.contains(WidgetState.selected)) {
+              return scheme.onSecondary;
+            }
+
+            return scheme.onSurface;
+          },
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: scheme.surface,
+      ),
+    );
+
     final TimeOfDay? selectedTime = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(base),
+      builder: (context, child) {
+        return Theme(
+          data: customTheme,
+          child: child!,
+        );
+      },
     );
 
     if (selectedTime == null) return;
@@ -102,6 +171,8 @@ class TimeFieldChange extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     if (controller != null &&
         initialValue != null &&
         controller!.text.isEmpty) {
@@ -125,7 +196,7 @@ class TimeFieldChange extends StatelessWidget {
           enabled: enabled,
           readOnly: true,
           style: TextStyle(
-            color: valueColor ?? Colors.black,
+            color: valueColor ?? scheme.onSurface,
           ),
           onTap: enabled ? () => _selectTime(context) : null,
           validator: (_) {
@@ -135,7 +206,11 @@ class TimeFieldChange extends StatelessWidget {
             onSaved?.call(_parseTime(controller?.text ?? ''));
           },
           decoration: InputDecoration(
-            labelStyle: const TextStyle(color: Colors.grey),
+            labelStyle: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
             filled: true,
             fillColor: Colors.white,
             labelText: labelText,
@@ -144,27 +219,39 @@ class TimeFieldChange extends StatelessWidget {
             suffixIcon: suffix ??
                 const Icon(
                   Icons.access_time_rounded,
-                  color: Colors.grey,
+                  color: Color(0xFF64748B),
                 ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10.0),
-              borderSide: const BorderSide(color: Colors.grey),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10.0),
-              borderSide: const BorderSide(color: Colors.grey),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10.0),
-              borderSide: const BorderSide(color: Colors.blue),
+              borderSide: BorderSide(
+                color: scheme.secondary,
+                width: 1.4,
+              ),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10.0),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: BorderSide(
+                color: scheme.error,
+                width: 1.4,
+              ),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10.0),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: BorderSide(
+                color: scheme.error,
+              ),
             ),
           ),
         );

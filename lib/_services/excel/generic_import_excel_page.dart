@@ -4,10 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
-import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 class GenericImportExcelPage extends StatefulWidget {
@@ -108,7 +108,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
     });
 
     try {
-      final result = await FilePicker.platform.pickFiles();
+      final result = await FilePicker.pickFiles();
 
       if (result == null) {
         _debug('Importação cancelada pelo usuário.');

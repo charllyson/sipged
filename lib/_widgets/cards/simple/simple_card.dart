@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart';
+
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 class SimpleCard extends StatelessWidget {
@@ -60,50 +60,47 @@ class SimpleCard extends StatelessWidget {
                   ),
                   SizedBox(height: isVerySmall ? 10 : 14),
                 ],
-
-                _hasLabel
-                    ? Text(
-                  label!.trim(),
-                  maxLines: isVerySmall ? 1 : 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: labelFontSize,
-                    fontWeight: FontWeight.w600,
-                    height: 1.1,
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.82)
-                        : const Color(0xFF374151),
+                if (_hasLabel)
+                  Text(
+                    label!.trim(),
+                    maxLines: isVerySmall ? 1 : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: labelFontSize,
+                      fontWeight: FontWeight.w600,
+                      height: 1.1,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.82)
+                          : const Color(0xFF374151),
+                    ),
+                  )
+                else
+                  _SimpleCardSkeletonBox(
+                    isDark: isDark,
+                    height: isVerySmall ? 18 : 20,
+                    width: isVerySmall ? 120 : 170,
+                    borderRadius: 4,
                   ),
-                )
-                    : _SimpleCardShimmerBox(
-                  isDark: isDark,
-                  height: isVerySmall ? 18 : 20,
-                  width: isVerySmall ? 120 : 170,
-                  borderRadius: 4,
-                ),
-
                 SizedBox(height: isVerySmall ? 8 : 10),
-
-                _hasValue
-                    ? Text(
-                  value!.trim(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: valueFontSize,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                    color: isDark
-                        ? Colors.white
-                        : const Color(0xFF111827),
+                if (_hasValue)
+                  Text(
+                    value!.trim(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: valueFontSize,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                      color: isDark ? Colors.white : const Color(0xFF111827),
+                    ),
+                  )
+                else
+                  _SimpleCardSkeletonBox(
+                    isDark: isDark,
+                    height: isVerySmall ? 28 : (isSmall ? 34 : 40),
+                    width: isVerySmall ? 90 : 130,
+                    borderRadius: 6,
                   ),
-                )
-                    : _SimpleCardShimmerBox(
-                  isDark: isDark,
-                  height: isVerySmall ? 28 : (isSmall ? 34 : 40),
-                  width: isVerySmall ? 90 : 130,
-                  borderRadius: 6,
-                ),
               ],
             ),
           );
@@ -113,8 +110,8 @@ class SimpleCard extends StatelessWidget {
   }
 }
 
-class _SimpleCardShimmerBox extends StatelessWidget {
-  const _SimpleCardShimmerBox({
+class _SimpleCardSkeletonBox extends StatefulWidget {
+  const _SimpleCardSkeletonBox({
     required this.isDark,
     required this.height,
     required this.width,
@@ -127,24 +124,87 @@ class _SimpleCardShimmerBox extends StatelessWidget {
   final double borderRadius;
 
   @override
+  State<_SimpleCardSkeletonBox> createState() => _SimpleCardSkeletonBoxState();
+}
+
+class _SimpleCardSkeletonBoxState extends State<_SimpleCardSkeletonBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1350),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final baseColor =
-    isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade300;
+    final baseColor = widget.isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.grey.shade300;
 
-    final highlightColor =
-    isDark ? Colors.white.withValues(alpha: 0.16) : Colors.grey.shade100;
+    final highlightColor = widget.isDark
+        ? Colors.white.withValues(alpha: 0.16)
+        : Colors.grey.shade100;
 
-    return Shimmer.fromColors(
-      baseColor: baseColor,
-      highlightColor: highlightColor,
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return ShaderMask(
+          blendMode: BlendMode.srcATop,
+          shaderCallback: (bounds) {
+            final width = bounds.width;
+            final dx = (_controller.value * 2 - 1) * width;
+
+            return LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                baseColor,
+                highlightColor,
+                baseColor,
+              ],
+              stops: const [
+                0.25,
+                0.50,
+                0.75,
+              ],
+              transform: _SimpleCardSlidingGradientTransform(dx),
+            ).createShader(bounds);
+          },
+          child: child,
+        );
+      },
       child: Container(
-        height: height,
-        width: width,
+        height: widget.height,
+        width: widget.width,
         decoration: BoxDecoration(
           color: baseColor,
-          borderRadius: BorderRadius.circular(borderRadius),
+          borderRadius: BorderRadius.circular(widget.borderRadius),
         ),
       ),
     );
+  }
+}
+
+class _SimpleCardSlidingGradientTransform extends GradientTransform {
+  const _SimpleCardSlidingGradientTransform(this.dx);
+
+  final double dx;
+
+  @override
+  Matrix4 transform(Rect bounds, {TextDirection? textDirection}) {
+    return Matrix4.translationValues(dx, 0, 0);
   }
 }

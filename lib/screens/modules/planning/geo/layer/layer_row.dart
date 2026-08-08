@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
+import 'package:sipged/_widgets/texts/marquee_text.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_preview.dart';
 
 class LayerRow extends StatelessWidget {
@@ -13,6 +14,12 @@ class LayerRow extends StatelessWidget {
   final VoidCallback onTap;
   final ValueChanged<bool> onToggleLayer;
 
+  /// Enquadra (zoom) o mapa nas feições desta camada.
+  ///
+  /// Disparado por clique direito (desktop/web), duplo clique/toque ou
+  /// clique/toque e segurar (mobile).
+  final VoidCallback? onZoomToLayer;
+
   const LayerRow({
     super.key,
     required this.layer,
@@ -24,6 +31,7 @@ class LayerRow extends StatelessWidget {
     this.currentUserId,
     required this.onTap,
     required this.onToggleLayer,
+    this.onZoomToLayer,
   });
 
   @override
@@ -34,6 +42,9 @@ class LayerRow extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      onDoubleTap: onZoomToLayer,
+      onLongPress: onZoomToLayer,
+      onSecondaryTap: onZoomToLayer,
       child: SizedBox(
         height: rowHeight,
         child: ColoredBox(
@@ -75,10 +86,8 @@ class LayerRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    layer.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: MarqueeText(
+                    text: layer.title,
                     style: TextStyle(
                       color: textColor,
                       fontWeight: FontWeight.normal,

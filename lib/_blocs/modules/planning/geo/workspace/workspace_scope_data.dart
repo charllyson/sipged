@@ -4,6 +4,10 @@ enum WorkspaceScopeType {
   general,
   layer,
   group,
+
+  /// Área de trabalho de uma única feição selecionada no mapa (dentro de
+  /// uma camada). É o nível mais específico de navegação.
+  feature,
 }
 
 @immutable
@@ -23,6 +27,7 @@ class WorkspaceScopeData {
   bool get isGeneral => type == WorkspaceScopeType.general;
   bool get isLayer => type == WorkspaceScopeType.layer;
   bool get isGroup => type == WorkspaceScopeType.group;
+  bool get isFeature => type == WorkspaceScopeType.feature;
 
   String get collectionName {
     switch (type) {
@@ -32,6 +37,8 @@ class WorkspaceScopeData {
         return 'layer';
       case WorkspaceScopeType.group:
         return 'group';
+      case WorkspaceScopeType.feature:
+        return 'feature';
     }
   }
 

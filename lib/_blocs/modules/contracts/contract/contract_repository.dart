@@ -132,8 +132,9 @@ class ContractRepository {
         ? role!.trim()
         : normalized['role']?.toString().trim();
 
-    normalized['role'] =
-    resolvedRole == null || resolvedRole.isEmpty ? 'COLABORADOR' : resolvedRole;
+    normalized['role'] = resolvedRole == null || resolvedRole.isEmpty
+        ? 'COLABORADOR'
+        : resolvedRole;
 
     normalized['active'] = active ?? true;
 
@@ -581,6 +582,85 @@ class ContractRepository {
     );
   }
 
+  Future<void> _deleteCollectionRecursive({
+    required CollectionReference<Map<String, dynamic>> collectionRef,
+    required List<String> childCollectionNames,
+    int batchSize = 300,
+  }) async {
+    while (true) {
+      final snapshot = await collectionRef.limit(batchSize).get();
+
+      if (snapshot.docs.isEmpty) {
+        return;
+      }
+
+      for (final doc in snapshot.docs) {
+        for (final childName in childCollectionNames) {
+          await _deleteCollectionRecursive(
+            collectionRef: doc.reference.collection(childName),
+            childCollectionNames: childCollectionNames,
+            batchSize: batchSize,
+          );
+        }
+      }
+
+      final batch = _db.batch();
+
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      await batch.commit();
+
+      if (snapshot.docs.length < batchSize) {
+        return;
+      }
+    }
+  }
+
+  Future<void> _deleteContractKnownSubcollections({
+    required String tenantId,
+    required String contractId,
+  }) async {
+    final cleanTenantId = _cleanTenantId(tenantId);
+    final cleanContractId = _cleanContractId(contractId);
+
+    final contractRef = _contractDoc(
+      tenantId: cleanTenantId,
+      contractId: cleanContractId,
+    );
+
+    const childCollections = <String>[
+      'hiring',
+      'dfd',
+      'etp',
+      'tr',
+      'cotacao',
+      'edital',
+      'habilitacao',
+      'dotacao',
+      'minuta',
+      'parecer',
+      'publicacao',
+      'publicacao_extrato',
+      'documentos',
+      'attachments',
+      'files',
+      'measurements',
+      'additives',
+      'apostilles',
+      'validities',
+      'payments',
+    ];
+
+    for (final collectionName in childCollections) {
+      await _deleteCollectionRecursive(
+        collectionRef: contractRef.collection(collectionName),
+        childCollectionNames: childCollections,
+      );
+    }
+  }
+
   Future<void> delete({
     required String tenantId,
     required String id,
@@ -589,6 +669,11 @@ class ContractRepository {
     final cleanId = id.trim();
 
     if (cleanId.isEmpty) return;
+
+    await _deleteContractKnownSubcollections(
+      tenantId: cleanTenantId,
+      contractId: cleanId,
+    );
 
     await _contractDoc(
       tenantId: cleanTenantId,

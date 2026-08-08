@@ -3,6 +3,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_cell_data.dart';
 import 'package:sipged/_blocs/modules/operation/schedule/horizontal/schedule_linear_lane_data.dart';
@@ -376,7 +377,7 @@ class _ScheduleGridState extends State<ScheduleGrid> {
           addAutomaticKeepAlives: false,
           addRepaintBoundaries: true,
           addSemanticIndexes: false,
-          cacheExtent: itemExtent,
+          scrollCacheExtent: ScrollCacheExtent.pixels(itemExtent),
           itemCount: linhas,
           itemExtent: itemExtent,
           itemBuilder: (context, linhaIndex) {
@@ -733,6 +734,9 @@ class _ScheduleGridLinePainter extends CustomPainter {
   final int rowExecSignature;
   final int selectedSignature;
 
+  static const Color _cellBorderColor = Color(0xFFE8E8E8);
+  static const Color _disabledBorderColor = Color(0xFFE0E0E0);
+
   String _cellKey({
     required int estaca,
     required int faixaIndex,
@@ -813,6 +817,15 @@ class _ScheduleGridLinePainter extends CustomPainter {
     return 0.0;
   }
 
+  double _cellBorderWidth() {
+    if (cellWidth >= 18) return 0.8;
+    if (cellWidth >= 12) return 0.65;
+    if (cellWidth >= 8) return 0.45;
+    if (cellWidth >= 5) return 0.30;
+
+    return 0.0;
+  }
+
   double _selectionStrokeWidth() {
     if (cellWidth >= 34) return 2.0;
     if (cellWidth >= 26) return 1.8;
@@ -862,12 +875,19 @@ class _ScheduleGridLinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
+    final fillPaint = Paint()..style = PaintingStyle.fill;
+
+    final cellBorderWidth = _cellBorderWidth();
+
+    final cellBorderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = cellBorderWidth
+      ..color = _cellBorderColor;
 
     final selectionStrokeWidth = _selectionStrokeWidth();
     final selectionDeflate = _selectionDeflate();
 
-    final borderPaint = Paint()
+    final selectionBorderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = selectionStrokeWidth
       ..color = highlightColor;
@@ -901,14 +921,21 @@ class _ScheduleGridLinePainter extends CustomPainter {
         );
 
         if (enabled) {
-          paint.color = getSquareColor(exec);
-          canvas.drawRect(rect, paint);
+          fillPaint.color = getSquareColor(exec);
+          canvas.drawRect(rect, fillPaint);
+
+          if (cellBorderWidth > 0) {
+            canvas.drawRect(rect, cellBorderPaint);
+          }
 
           final selected =
               selectedByEstaca[estaca]?.contains(faixaIndex) == true;
 
           if (selected && selectionStrokeWidth > 0) {
-            canvas.drawRect(rect.deflate(selectionDeflate), borderPaint);
+            canvas.drawRect(
+              rect.deflate(selectionDeflate),
+              selectionBorderPaint,
+            );
           }
 
           _paintCellMarkers(
@@ -1086,6 +1113,15 @@ class _ScheduleGridLinePainter extends CustomPainter {
       ..color = Colors.grey.shade200;
 
     canvas.drawRect(rect, bg);
+
+    if (cellWidth >= 5) {
+      final border = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _cellBorderWidth()
+        ..color = _disabledBorderColor;
+
+      canvas.drawRect(rect, border);
+    }
 
     if (cellWidth < 6) {
       return;

@@ -600,7 +600,7 @@ class ReportPaidRepository {
       throw Exception('paymentId é obrigatório para anexar arquivo.');
     }
 
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const <String>['pdf'],
       withData: true,

@@ -7,8 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
-
 import 'package:sipged/_blocs/modules/contracts/contract/contract_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/contract/contract_state.dart';
@@ -313,6 +311,40 @@ class _ListDemandPageState extends State<ListDemandPage> {
     });
 
     await _saveExpandedToPrefs();
+  }
+
+  void _showSnack({
+    required String message,
+    required Color color,
+  }) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+      ),
+    );
+  }
+
+  void _removeContractFromLocalCache(String id) {
+    final cleanId = id.trim();
+
+    if (cleanId.isEmpty) return;
+
+    _invalidateContractCaches(cleanId);
+
+    for (final entry in _cachedByStatus.entries) {
+      entry.value.removeWhere(
+            (contract) => (contract.id ?? '').trim() == cleanId,
+      );
+    }
+
+    _cachedByStatus.removeWhere(
+          (_, items) => items.isEmpty,
+    );
+
+    _applyLocalSortIfAny();
   }
 
   void _handleSort(int columnIndex) {
@@ -1101,6 +1133,91 @@ class _ListDemandPageState extends State<ListDemandPage> {
     );
   }
 
+  Future<void> _handleDeleteDemand({
+    required ContractCubit processCubit,
+    required PermissionCubit permissionCubit,
+    required UserData currentUser,
+    required ContractData item,
+  }) async {
+    final id = item.id?.trim();
+
+    if (id == null || id.isEmpty) {
+      _showSnack(
+        message: 'Não foi possível excluir: contrato sem ID.',
+        color: Colors.red,
+      );
+      return;
+    }
+
+    final canDelete = _canDeleteDemand(
+      permissionCubit: permissionCubit,
+      currentUser: currentUser,
+      item: item,
+    );
+
+    if (!canDelete) {
+      _showSnack(
+        message: 'Você não tem permissão para excluir esta demanda.',
+        color: Colors.orange,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _loading = true;
+    });
+
+    try {
+      final deleted = await processCubit.delete(id);
+
+      if (!mounted) return;
+
+      if (!deleted) {
+        final message = processCubit.state.errorMessage?.trim();
+
+        _showSnack(
+          message: message == null || message.isEmpty
+              ? 'Não foi possível excluir a demanda.'
+              : message,
+          color: Colors.red,
+        );
+
+        return;
+      }
+
+      setState(() {
+        _removeContractFromLocalCache(id);
+      });
+
+      await _refresh(
+        cubit: processCubit,
+        currentUser: currentUser,
+      );
+
+      if (!mounted) return;
+
+      _showSnack(
+        message: 'Demanda excluída com sucesso.',
+        color: Colors.green,
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      _showSnack(
+        message: 'Erro ao excluir demanda: $e',
+        color: Colors.red,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final processCubit = context.read<ContractCubit>();
@@ -1302,7 +1419,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final visibleSections = GeneralDashboardStyle.statusMenu
+        final visibleSections = ContractData.statusMenu
             .map((status) {
           final label = status.$1;
           final rawKey = status.$2;
@@ -1386,29 +1503,11 @@ class _ListDemandPageState extends State<ListDemandPage> {
                     _handleSort(index);
                   },
                   onDelete: (item) async {
-                    final id = item.id?.trim();
-
-                    if (id == null || id.isEmpty) {
-                      return;
-                    }
-
-                    final canDelete = _canDeleteDemand(
+                    await _handleDeleteDemand(
+                      processCubit: processCubit,
                       permissionCubit: permissionCubit,
                       currentUser: currentUser,
                       item: item,
-                    );
-
-                    if (!canDelete) {
-                      return;
-                    }
-
-                    await processCubit.delete(id);
-
-                    if (!mounted) return;
-
-                    await _refresh(
-                      cubit: processCubit,
-                      currentUser: currentUser,
                     );
                   },
                   onTapItem: (rowContext, contract) {

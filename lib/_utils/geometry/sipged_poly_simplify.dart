@@ -13,9 +13,8 @@ typedef MetersPerPixelFn = double Function(double latitude, double zoom);
 class SipGedPolyline {
   SipGedPolyline({
     int maxCacheEntries = 120,
-    MetersPerPixelFn? metersPerPixelFn,
-  })  : _cache = SipGedLruCache<String, List<LatLng>>(maxEntries: maxCacheEntries),
-        _metersPerPixelFn = metersPerPixelFn;
+    this._metersPerPixelFn,
+  })  : _cache = SipGedLruCache<String, List<LatLng>>(maxEntries: maxCacheEntries);
 
   final SipGedLruCache<String, List<LatLng>> _cache;
   final MetersPerPixelFn? _metersPerPixelFn;

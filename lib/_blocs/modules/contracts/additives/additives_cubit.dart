@@ -189,6 +189,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           sideLoading: false,
           clearUploadProgress: true,
           clearError: true,
+          clearDateOrderWarnings: true,
           isEditable: _canWrite(),
         ),
       );
@@ -205,9 +206,15 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       }) {
     final previousTenantId = _tenantId;
 
-    _currentUser = user ?? _currentUser;
-    _currentPermissions =
-        permissions ?? _permissionsFromUser(user) ?? _currentPermissions;
+    if (user != null) {
+      _currentUser = user;
+    }
+
+    if (permissions != null) {
+      _currentPermissions = permissions;
+    } else {
+      _currentPermissions ??= _permissionsFromUser(user);
+    }
 
     final resolvedTenantId = _cleanOptionalTenantId(tenantId);
 
@@ -240,16 +247,9 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
     if (uid.isEmpty) return null;
 
-    final raw = user.userSnap?.data();
-
-    if (raw is Map<String, dynamic>) {
-      return UserPermissionData.fromMap(
-        uid: uid,
-        map: raw,
-      );
-    }
-
-    return UserPermissionData(uid: uid);
+    return UserPermissionData(
+      uid: uid,
+    );
   }
 
   bool get isEditable => _canWrite();
@@ -343,6 +343,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           sideLoading: false,
           clearUploadProgress: true,
           clearError: true,
+          clearDateOrderWarnings: true,
           isEditable: _canWrite(),
         ),
       );
@@ -361,6 +362,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       final list = await repository.ensureForContract(contractId);
       final orders = _extractExistingOrders(list);
       final next = _computeNextOrder(orders);
+      final warnings = _buildDateOrderWarnings(list);
 
       emit(
         state.copyWith(
@@ -368,6 +370,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           additives: list,
           existingOrders: orders,
           nextAvailableOrder: next,
+          dateOrderWarnings: warnings,
           isEditable: _canWrite(),
           clearError: true,
         ),
@@ -395,6 +398,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     }
 
     final data = state.additives[index];
+
     _selectAdditive(data, index);
   }
 
@@ -506,23 +510,179 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     required String valueText,
     required String addExecText,
     required String addContractText,
+    String? orderText,
   }) {
-    final tipo = typeText.toUpperCase();
-    final obrig = <String>[dateText, processText, typeText];
+    final tipo = typeText.trim().toUpperCase();
+
+    final obrig = <String>[
+      dateText,
+      processText,
+      typeText,
+    ];
 
     if (tipo == 'VALOR' || tipo == 'REEQUÍLIBRIO') {
       obrig.add(valueText);
     } else if (tipo == 'PRAZO') {
-      obrig.addAll([addExecText, addContractText]);
+      obrig.addAll([
+        addExecText,
+        addContractText,
+      ]);
     } else if (tipo == 'RATIFICAÇÃO' || tipo == 'RENOVAÇÃO') {
-      obrig.addAll([valueText, addExecText, addContractText]);
+      obrig.addAll([
+        valueText,
+        addExecText,
+        addContractText,
+      ]);
     }
 
-    final valid = obrig.every((s) => s.trim().isNotEmpty);
+    final order = int.tryParse(
+      (orderText ?? state.selected?.additiveOrder?.toString() ?? '').trim(),
+    ) ??
+        0;
 
-    if (valid != state.formValid) {
-      emit(state.copyWith(formValid: valid));
+    final date = _parseDateText(dateText);
+
+    final sequenceError = _validateDateSequenceForForm(
+      order: order,
+      date: date,
+    );
+
+    final valid = obrig.every((s) => s.trim().isNotEmpty) &&
+        sequenceError == null;
+
+    final nextWarnings = Map<int, String>.from(
+      _buildDateOrderWarnings(state.additives),
+    );
+
+    if (sequenceError != null && order > 0) {
+      nextWarnings[order] = sequenceError;
+    } else if (order > 0) {
+      nextWarnings.remove(order);
     }
+
+    if (valid != state.formValid ||
+        nextWarnings.toString() != state.dateOrderWarnings.toString()) {
+      emit(
+        state.copyWith(
+          formValid: valid,
+          dateOrderWarnings: nextWarnings,
+        ),
+      );
+    }
+  }
+
+  DateTime? _dateOnly(DateTime? value) {
+    if (value == null) return null;
+
+    return DateTime(
+      value.year,
+      value.month,
+      value.day,
+    );
+  }
+
+  DateTime? _parseDateText(String value) {
+    final text = value.trim();
+
+    if (text.isEmpty) return null;
+
+    return SipGedFormatDates.ddMMyyyyToDate(text);
+  }
+
+  Map<int, String> _buildDateOrderWarnings(List<AdditivesData> list) {
+    final ordered = List<AdditivesData>.from(list)
+      ..sort((a, b) => (a.additiveOrder ?? 0).compareTo(b.additiveOrder ?? 0));
+
+    final warnings = <int, String>{};
+
+    AdditivesData? previous;
+
+    for (final current in ordered) {
+      final currentOrder = current.additiveOrder ?? 0;
+      final currentDate = _dateOnly(current.additiveDate);
+
+      if (currentOrder <= 0 || currentDate == null) {
+        previous = current;
+        continue;
+      }
+
+      if (previous != null) {
+        final previousOrder = previous.additiveOrder ?? 0;
+        final previousDate = _dateOnly(previous.additiveDate);
+
+        if (previousOrder > 0 && previousDate != null) {
+          final invalidDate = currentDate.isBefore(previousDate) ||
+              currentDate.isAtSameMomentAs(previousDate);
+
+          if (invalidDate) {
+            warnings[currentOrder] =
+            'A data do $currentOrderº aditivo deve ser maior que a data do $previousOrderº aditivo.';
+          }
+        }
+      }
+
+      previous = current;
+    }
+
+    return warnings;
+  }
+
+  String? _validateDateSequenceForForm({
+    required int order,
+    required DateTime? date,
+  }) {
+    if (order <= 0 || date == null) return null;
+
+    final cleanDate = _dateOnly(date);
+
+    if (cleanDate == null) return null;
+
+    final ordered = List<AdditivesData>.from(state.additives)
+      ..sort((a, b) => (a.additiveOrder ?? 0).compareTo(b.additiveOrder ?? 0));
+
+    AdditivesData? previous;
+    AdditivesData? next;
+
+    for (final item in ordered) {
+      final itemOrder = item.additiveOrder ?? 0;
+
+      if (itemOrder <= 0) continue;
+
+      if (itemOrder < order) {
+        previous = item;
+      }
+
+      if (itemOrder > order) {
+        next = item;
+        break;
+      }
+    }
+
+    final previousOrder = previous?.additiveOrder ?? 0;
+    final previousDate = _dateOnly(previous?.additiveDate);
+
+    if (previousOrder > 0 && previousDate != null) {
+      final invalidPrevious = cleanDate.isBefore(previousDate) ||
+          cleanDate.isAtSameMomentAs(previousDate);
+
+      if (invalidPrevious) {
+        return 'A data do $orderº aditivo deve ser maior que a data do $previousOrderº aditivo.';
+      }
+    }
+
+    final nextOrder = next?.additiveOrder ?? 0;
+    final nextDate = _dateOnly(next?.additiveDate);
+
+    if (nextOrder > 0 && nextDate != null) {
+      final invalidNext = cleanDate.isAfter(nextDate) ||
+          cleanDate.isAtSameMomentAs(nextDate);
+
+      if (invalidNext) {
+        return 'A data do $orderº aditivo deve ser menor que a data do $nextOrderº aditivo.';
+      }
+    }
+
+    return null;
   }
 
   String _onlyDigits(String value) {
@@ -587,6 +747,17 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     try {
       final int order = int.tryParse(orderText.trim()) ?? 0;
 
+      final parsedDate = SipGedFormatDates.ddMMyyyyToDate(dateText);
+
+      final sequenceError = _validateDateSequenceForForm(
+        order: order,
+        date: parsedDate,
+      );
+
+      if (sequenceError != null) {
+        throw Exception(sequenceError);
+      }
+
       final AdditivesData? byOrder = _findByOrder(order);
       final String? resolvedId = state.selected?.id ?? byOrder?.id;
 
@@ -595,7 +766,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         contractId: contractId,
         additiveNumberProcess: processText.trim(),
         additiveOrder: order > 0 ? order : null,
-        additiveDate: SipGedFormatDates.ddMMyyyyToDate(dateText),
+        additiveDate: parsedDate,
         additiveValue: SipGedFormatNumbers.toDouble(valueText),
         additiveValidityContractDays: int.tryParse(
           _onlyDigits(addDaysContractText),
@@ -645,7 +816,11 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
       rethrow;
     } finally {
-      emit(state.copyWith(isSaving: false));
+      emit(
+        state.copyWith(
+          isSaving: false,
+        ),
+      );
     }
   }
 
@@ -702,7 +877,11 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
       rethrow;
     } finally {
-      emit(state.copyWith(isSaving: false));
+      emit(
+        state.copyWith(
+          isSaving: false,
+        ),
+      );
     }
   }
 

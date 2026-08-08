@@ -41,7 +41,7 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
         _jsonData = <Map<String, dynamic>>[];
       });
 
-      final result = await FilePicker.platform.pickFiles();
+      final result = await FilePicker.pickFiles();
 
       if (result == null) {
         _debug('Importação cancelada pelo usuário.');

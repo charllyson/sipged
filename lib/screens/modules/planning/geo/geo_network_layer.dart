@@ -182,4 +182,70 @@ extension _GeoNetworkLayer on _GeoNetworkViewState {
 
     await _openFirestoreTableDialog(layer: layer);
   }
+
+  Future<void> _zoomToLayerOrGroup(
+      String id,
+      List<LayerData> currentTree,
+      ) async {
+    final layersCubit = context.read<LayerCubit>();
+    final featureCubit = context.read<FeatureCubit>();
+
+    final node = layersCubit.findNodeById(id, tree: currentTree);
+    if (node == null) return;
+
+    final leaves = layersCubit
+        .flattenAllNodes(tree: [node])
+        .where((n) => !n.isGroup)
+        .toList(growable: false);
+
+    if (leaves.isEmpty) {
+      _showSnack(context, 'Este grupo não possui camadas com feições.');
+      return;
+    }
+
+    await Future.wait(
+      leaves.map((leaf) => featureCubit.ensureLayerLoaded(leaf)),
+    );
+
+    if (!mounted) return;
+
+    final points = <LatLng>[];
+
+    for (final leaf in leaves) {
+      final features =
+          featureCubit.state.featuresByLayer[leaf.id] ?? const <FeatureData>[];
+
+      for (final feature in features) {
+        points.addAll(feature.markerPoints);
+        for (final part in feature.lineParts) {
+          points.addAll(part);
+        }
+        for (final ring in feature.polygonRings) {
+          points.addAll(ring);
+        }
+      }
+    }
+
+    if (points.isEmpty) {
+      _showSnack(context, 'Nenhuma feição encontrada para enquadrar no mapa.');
+      return;
+    }
+
+    final mapController = controller;
+    if (mapController == null) return;
+
+    try {
+      final bounds = LatLngBounds.fromPoints(points);
+
+      mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.all(60),
+          maxZoom: 19,
+        ),
+      );
+    } catch (_) {
+      // Ignora falhas pontuais de fitCamera (ex.: mapa ainda não pronto).
+    }
+  }
 }

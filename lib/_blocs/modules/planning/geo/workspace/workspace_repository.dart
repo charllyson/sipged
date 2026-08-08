@@ -9,6 +9,28 @@ import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_filter.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_scope_data.dart';
 
+/// Lançada quando [WorkspaceRepository.saveWorkspace] é chamado com uma
+/// versão esperada que não bate mais com a versão salva no Firestore — ou
+/// seja, outra sessão/usuário alterou esse dashboard entre a última leitura
+/// e esta escrita. Quem chama deve recarregar em vez de sobrescrever.
+class WorkspaceConflictException implements Exception {
+  const WorkspaceConflictException();
+
+  @override
+  String toString() =>
+      'A área de trabalho foi alterada por outra sessão. Recarregue antes de salvar.';
+}
+
+class WorkspaceLoadResult {
+  final List<WorkspaceData> items;
+  final int version;
+
+  const WorkspaceLoadResult({
+    required this.items,
+    required this.version,
+  });
+}
+
 class WorkspaceRepository {
   WorkspaceRepository({
     FirebaseFirestore? firestore,
@@ -35,27 +57,41 @@ class WorkspaceRepository {
     return 'geo/workspace/${scope.collectionName}/${scope.documentId}';
   }
 
-  Future<List<WorkspaceData>> loadWorkspace({
+  Future<WorkspaceLoadResult> loadWorkspace({
     required WorkspaceScopeData scope,
   }) async {
     final snap = await _scopeDocRef(scope).get();
 
     if (!snap.exists) {
-      return const <WorkspaceData>[];
+      return const WorkspaceLoadResult(items: <WorkspaceData>[], version: 0);
     }
 
     final data = snap.data() ?? const <String, dynamic>{};
     final rawItems = (data['items'] as List?) ?? const [];
+    final version = (data['version'] as num?)?.toInt() ?? 0;
 
-    return rawItems
+    final items = rawItems
         .whereType<Map>()
         .map((e) => WorkspaceData.fromMap(Map<String, dynamic>.from(e)))
         .toList(growable: false);
+
+    return WorkspaceLoadResult(items: items, version: version);
   }
 
-  Future<void> saveWorkspace({
+  /// Salva o dashboard de forma otimista.
+  ///
+  /// Se [expectedVersion] for informado e não bater com a versão atual do
+  /// documento de escopo no Firestore, a escrita é abortada e uma
+  /// [WorkspaceConflictException] é lançada — em vez de sobrescrever
+  /// silenciosamente uma mudança feita por outra sessão/usuário editando o
+  /// mesmo dashboard. Passe `expectedVersion: null` apenas quando não houver
+  /// uma leitura prévia para comparar.
+  ///
+  /// Retorna a nova versão salva.
+  Future<int> saveWorkspace({
     required WorkspaceScopeData scope,
     required List<WorkspaceData> items,
+    required int? expectedVersion,
   }) async {
     final uid = _auth.currentUser?.uid ?? '';
     final scopeRef = _scopeDocRef(scope);
@@ -65,9 +101,19 @@ class WorkspaceRepository {
         .map((e) => e.copyWithoutResolvedData().toMap())
         .toList(growable: false);
 
-    await _firestore.runTransaction((transaction) async {
+    return _firestore.runTransaction<int>((transaction) async {
       final rootSnap = await transaction.get(rootRef);
       final scopeSnap = await transaction.get(scopeRef);
+
+      final currentVersion = scopeSnap.exists
+          ? ((scopeSnap.data()?['version'] as num?)?.toInt() ?? 0)
+          : 0;
+
+      if (expectedVersion != null && currentVersion != expectedVersion) {
+        throw const WorkspaceConflictException();
+      }
+
+      final nextVersion = currentVersion + 1;
 
       final rootData = rootSnap.data() ?? const <String, dynamic>{};
 
@@ -77,10 +123,13 @@ class WorkspaceRepository {
           (rootData['totalLayerScopes'] as num?)?.toInt() ?? 0;
       final totalGroupScopes =
           (rootData['totalGroupScopes'] as num?)?.toInt() ?? 0;
+      final totalFeatureScopes =
+          (rootData['totalFeatureScopes'] as num?)?.toInt() ?? 0;
 
       var nextGeneral = totalGeneralScopes;
       var nextLayer = totalLayerScopes;
       var nextGroup = totalGroupScopes;
+      var nextFeature = totalFeatureScopes;
 
       final isNewScopeDoc = !scopeSnap.exists;
 
@@ -95,10 +144,13 @@ class WorkspaceRepository {
           case WorkspaceScopeType.group:
             nextGroup += 1;
             break;
+          case WorkspaceScopeType.feature:
+            nextFeature += 1;
+            break;
         }
       }
 
-      final totalScopes = nextGeneral + nextLayer + nextGroup;
+      final totalScopes = nextGeneral + nextLayer + nextGroup + nextFeature;
 
       final rootPayload = <String, dynamic>{
         'module': 'geo_workspace',
@@ -115,6 +167,7 @@ class WorkspaceRepository {
         'totalGeneralScopes': nextGeneral,
         'totalLayerScopes': nextLayer,
         'totalGroupScopes': nextGroup,
+        'totalFeatureScopes': nextFeature,
       };
 
       if (!rootSnap.exists) {
@@ -135,6 +188,7 @@ class WorkspaceRepository {
         'scopePath': _scopePath(scope),
         'itemCount': cleanItems.length,
         'items': cleanItems,
+        'version': nextVersion,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': uid,
       };
@@ -149,6 +203,8 @@ class WorkspaceRepository {
         scopePayload,
         SetOptions(merge: true),
       );
+
+      return nextVersion;
     });
   }
 
@@ -221,6 +277,14 @@ class WorkspaceRepository {
           fallbackSort: 'descending',
         );
 
+      case CatalogType.radar:
+        return _resolveGroupedChart(
+          item: item,
+          featuresByLayer: featuresByLayer,
+          activeFilter: activeFilter,
+          titleKey: 'title',
+        );
+
       case CatalogType.treemap:
         return _resolveGroupedChart(
           item: item,
@@ -255,51 +319,40 @@ class WorkspaceRepository {
         );
 
       case CatalogType.costRuler:
-        return _resolvePendingItem(
+        return _resolveCostRulerItem(
           item: item,
-          titleKey: 'title',
-          fallbackTitle: 'Régua de custo',
-          subtitle: 'Componente em implementação',
+          featuresByLayer: featuresByLayer,
+          activeFilter: activeFilter,
         );
 
       case CatalogType.gauge:
-        return _resolvePendingItem(
+        return _resolveGaugeItem(
           item: item,
-          titleKey: 'headerLabel',
-          fallbackTitle: 'Gauge',
-          subtitle: 'Componente em implementação',
-        );
-
-      case CatalogType.radar:
-        return _resolvePendingItem(
-          item: item,
-          titleKey: 'title',
-          fallbackTitle: 'Radar',
-          subtitle: 'Componente em implementação',
+          featuresByLayer: featuresByLayer,
+          activeFilter: activeFilter,
         );
 
       case CatalogType.switcher:
-        return _resolvePendingItem(
+        return _resolveInputField(
           item: item,
           titleKey: 'textOn',
           fallbackTitle: 'Switch',
-          subtitle: 'Componente em implementação',
+          subtitle: item.getNullableTextProperty('textOff'),
         );
 
       case CatalogType.textField:
-        return _resolvePendingItem(
+        return _resolveInputField(
           item: item,
           titleKey: 'labelText',
           fallbackTitle: 'Campo de texto',
-          subtitle: 'Componente em implementação',
+          subtitle: item.getNullableTextProperty('hintText'),
         );
 
-      case CatalogType.pagedTable:
-        return _resolvePendingItem(
+      case CatalogType.documents:
+        return _resolveInputField(
           item: item,
           titleKey: 'title',
-          fallbackTitle: 'Tabela paginada',
-          subtitle: 'Componente em implementação',
+          fallbackTitle: 'Documentos',
         );
     }
   }
@@ -678,21 +731,143 @@ class WorkspaceRepository {
     );
   }
 
-  WorkspaceData _resolvePendingItem({
+  WorkspaceData _resolveGaugeItem({
     required WorkspaceData item,
-    required String titleKey,
-    required String fallbackTitle,
-    String? subtitle,
+    required Map<String, List<FeatureData>> featuresByLayer,
+    required WorkspaceFilter? activeFilter,
   }) {
-    final title = item.getNullableTextProperty(titleKey) ?? fallbackTitle;
+    final sourceLayerId = item.sourceLayerId;
+    final title = item.getNullableTextProperty('headerLabel');
+    final subtitle = item.getNullableTextProperty('footerLabel');
+
+    if (sourceLayerId == null || sourceLayerId.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        subtitle: subtitle,
+        label: null,
+        value: null,
+      );
+    }
+
+    final allFeatures = featuresByLayer[sourceLayerId] ?? const <FeatureData>[];
+
+    if (allFeatures.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        subtitle: subtitle,
+        label: null,
+        value: null,
+      );
+    }
+
+    final filteredFeatures = applyFilterToItemFeatures(
+      item: item,
+      features: allFeatures,
+      activeFilter: activeFilter,
+    );
+
+    final valueField = item.getBindingFieldName('centerValue');
+
+    if (valueField == null || valueField.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        subtitle: subtitle,
+        label: null,
+        value: null,
+      );
+    }
+
+    // Percentual médio do campo vinculado entre as feições filtradas.
+    final resolvedValue = _aggregateSingleField(
+      features: filteredFeatures,
+      valueField: valueField,
+      aggregation: 'Média',
+    );
 
     return item.copyWithResolvedData(
       title: title,
       subtitle: subtitle,
       label: null,
-      value: null,
-      labels: null,
-      values: null,
+      value: resolvedValue,
+    );
+  }
+
+  WorkspaceData _resolveCostRulerItem({
+    required WorkspaceData item,
+    required Map<String, List<FeatureData>> featuresByLayer,
+    required WorkspaceFilter? activeFilter,
+  }) {
+    final sourceLayerId = item.sourceLayerId;
+    final title = item.getNullableTextProperty('title');
+    final unitLabel = item.getNullableTextProperty('unitLabel');
+
+    if (sourceLayerId == null || sourceLayerId.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        subtitle: unitLabel,
+        values: null,
+      );
+    }
+
+    final allFeatures = featuresByLayer[sourceLayerId] ?? const <FeatureData>[];
+
+    if (allFeatures.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        subtitle: unitLabel,
+        values: null,
+      );
+    }
+
+    final filteredFeatures = applyFilterToItemFeatures(
+      item: item,
+      features: allFeatures,
+      activeFilter: activeFilter,
+    );
+
+    final valueField = item.getBindingFieldName('valueField');
+    final divisorField = item.getBindingFieldName('divisorField');
+
+    if (valueField == null ||
+        valueField.isEmpty ||
+        divisorField == null ||
+        divisorField.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        subtitle: unitLabel,
+        values: null,
+      );
+    }
+
+    final rawValue = _aggregateSingleField(
+      features: filteredFeatures,
+      valueField: valueField,
+      aggregation: 'Soma',
+    );
+
+    final rawDivisor = _aggregateSingleField(
+      features: filteredFeatures,
+      valueField: divisorField,
+      aggregation: 'Soma',
+    );
+
+    final value = double.tryParse(rawValue ?? '');
+    final divisor = double.tryParse(rawDivisor ?? '');
+
+    if (value == null || divisor == null) {
+      return item.copyWithResolvedData(
+        title: title,
+        subtitle: unitLabel,
+        values: const <double>[],
+      );
+    }
+
+    // Codifica valor e divisor como uma lista de 2 posições — reaproveita
+    // o campo resolvedValues sem precisar de um novo campo no modelo.
+    return item.copyWithResolvedData(
+      title: title,
+      subtitle: unitLabel,
+      values: [value, divisor],
     );
   }
 
@@ -722,11 +897,14 @@ class WorkspaceRepository {
       case CatalogType.gauge:
       case CatalogType.switcher:
       case CatalogType.textField:
-      case CatalogType.pagedTable:
         return item.getBindingFieldName('labelField') ??
             item.getBindingFieldName('label') ??
             item.getBindingFieldName('dateField') ??
             item.getBindingFieldName('timeField');
+
+      case CatalogType.documents:
+        // Widget de arquivos: não tem binding com dados de feição.
+        return null;
     }
   }
 

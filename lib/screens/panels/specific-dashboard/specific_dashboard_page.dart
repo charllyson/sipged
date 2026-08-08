@@ -3,11 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// ===== SIGED: Models / Stores / Blocs / Cubits =====
+// ===== SIPGED: Models / Stores / Blocs / Cubits =====
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 // Cubit específico do dashboard detalhado
 import 'package:sipged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
+
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_repository.dart';
@@ -17,6 +18,7 @@ import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_me
 // Validity
 import 'package:sipged/_blocs/modules/contracts/validity/validity_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
 
 // DFD Repo usado pelo SpecificDashboardCubit
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
@@ -31,15 +33,14 @@ import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
+
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_apostilles.dart';
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_contract.dart';
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_metrics.dart';
-
-// Linha de charts de acompanhamento físico
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_schedules.dart';
 
 // Timeline
-import 'package:sipged/screens/modules/contracts/validity/timeline_class.dart';
+import 'package:sipged/screens/modules/contracts/validity/validity_timeline.dart';
 
 class SpecificDashboardPage extends StatefulWidget {
   const SpecificDashboardPage({
@@ -78,13 +79,33 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     return contractId;
   }
 
+  Widget _buildTimeline() {
+    return BlocBuilder<ValidityCubit, ValidityState>(
+      builder: (context, state) {
+        final cubit = context.read<ValidityCubit>();
+
+        return ValidityTimeline(
+          contract: state.contract ?? widget.contractData,
+          validities: state.validities,
+          additives: state.additives,
+          publicacao: cubit.publicacaoExtrato,
+          dataFinalContrato: cubit.dataFinalContrato,
+          dataFinalExecucao: cubit.dataFinalExecucao,
+          dfdStatus: null,
+          isLoading: state.isLoading,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final contractId = _resolveRequiredContractId();
 
     return BlocBuilder<PermissionCubit, PermissionState>(
       buildWhen: (previous, current) {
-        return previous.activeTenantId != current.activeTenantId;
+        return previous.activeTenantId != current.activeTenantId ||
+            previous.current != current.current;
       },
       builder: (context, permissionState) {
         final tenantId = _resolveRequiredTenantId(permissionState);
@@ -122,10 +143,10 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                   repository: ValidityRepository(
                     tenantId: tenantId,
                   ),
-                  initialTenantId: tenantId
-                )..loadForContract(
-                    contractId,
-                );
+                  initialPermissions: permissionState.current,
+                  initialTenantId: tenantId,
+                  moduleId: 'contracts_validity',
+                )..loadForContract(contractId);
               },
             ),
           ],
@@ -147,21 +168,31 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 12),
-                      const TimelineClass(dfdStatus: null),
 
-                      const SectionTitle(text: 'Resumo do Geral do contrato'),
+                      _buildTimeline(),
+
+                      const SectionTitle(
+                        text: 'Resumo do Geral do contrato',
+                      ),
                       const SpecificDashboardContractSummary(),
+
                       const SizedBox(height: 12),
+
                       const SpecificDashboardApostillesSummary(),
 
-                      const SectionTitle(text: 'Acompanhamento físico'),
+                      const SectionTitle(
+                        text: 'Acompanhamento físico',
+                      ),
                       SpecificDashboardSchedules(
                         contract: widget.contractData,
                         tenantId: tenantId,
                       ),
 
-                      const SectionTitle(text: 'Métricas'),
+                      const SectionTitle(
+                        text: 'Métricas',
+                      ),
                       const SpecificDashboardMetrics(),
+
                       const SizedBox(height: 40),
                     ],
                   ),

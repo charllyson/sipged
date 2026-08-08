@@ -511,7 +511,7 @@ class TermoArquivamentoRepository {
       throw Exception('Caminho inválido para upload do termo de arquivamento.');
     }
 
-    final picked = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
       withData: true,

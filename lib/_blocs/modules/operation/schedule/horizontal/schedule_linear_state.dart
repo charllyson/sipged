@@ -880,61 +880,6 @@ class ScheduleLinearState extends Equatable {
     return const <String>[];
   }
 
-  static const double _kMaxWhiteBlendOldest = 0.60;
-
-  DateTime? _dateForShade(ScheduleLinearCellData cell) {
-    final dtTaken = cell.takenAt ??
-        (cell.takenAtMs != null
-            ? DateTime.fromMillisecondsSinceEpoch(cell.takenAtMs!)
-            : null);
-
-    return dtTaken ?? cell.updatedAt ?? cell.createdAt;
-  }
-
-  int _channel255(double normalized) {
-    return (normalized * 255.0).round().clamp(0, 255);
-  }
-
-  Color _blendWithWhite(Color base, double amount) {
-    final alpha = amount.clamp(0.0, 1.0);
-
-    int mix(int c, int w, double a) {
-      return (c + ((w - c) * a)).round().clamp(0, 255);
-    }
-
-    final baseR = _channel255(base.r);
-    final baseG = _channel255(base.g);
-    final baseB = _channel255(base.b);
-    final baseA = _channel255(base.a);
-
-    final r = mix(baseR, 255, alpha);
-    final g = mix(baseG, 255, alpha);
-    final b = mix(baseB, 255, alpha);
-
-    return Color.fromARGB(baseA, r, g, b);
-  }
-
-  Color _shadeRelative(Color base, DateTime? date) {
-    final minDLocal = minDate;
-    final maxDLocal = maxDate;
-
-    if (date == null || minDLocal == null || maxDLocal == null) {
-      return base;
-    }
-
-    final totalMs =
-        maxDLocal.millisecondsSinceEpoch - minDLocal.millisecondsSinceEpoch;
-
-    if (totalMs <= 0) return base;
-
-    final posMs = date.millisecondsSinceEpoch - minDLocal.millisecondsSinceEpoch;
-    final t = (posMs / totalMs).clamp(0.0, 1.0);
-
-    final blend = _kMaxWhiteBlendOldest * (1.0 - t);
-
-    return _blendWithWhite(base, blend);
-  }
-
   ScheduleLinearServicesData? _serviceMetaForCell(ScheduleLinearCellData cell) {
     final rawKey = cell.serviceKey.toLowerCase().trim();
 
@@ -951,37 +896,29 @@ class ScheduleLinearState extends Equatable {
 
   Color squareColor(ScheduleLinearCellData cell) {
     if (dateFilterActive && !matchesActiveDateFilter(cell)) {
-      return const Color(0xFFE0E0E0);
+      return const Color(0xFFF7F7F7);
     }
-
-    late final Color base;
 
     if (isGeral) {
       if (cell.isConcluido || cell.isEmAndamento) {
         final meta = _serviceMetaForCell(cell);
-        base = meta?.color ?? ScheduleLinearServicesData.defaultServiceColor;
-      } else {
-        base = const Color(0xFFE0E0E0);
-      }
-    } else {
-      switch (cell.status) {
-        case ScheduleLinearCellStatus.concluido:
-          base = Colors.green;
-          break;
 
-        case ScheduleLinearCellStatus.emAndamento:
-          base = Colors.orange;
-          break;
-
-        case ScheduleLinearCellStatus.aIniciar:
-          base = const Color(0xFFE0E0E0);
-          break;
+        return meta?.color ?? ScheduleLinearServicesData.defaultServiceColor;
       }
+
+      return const Color(0xFFF7F7F7);
     }
 
-    final date = _dateForShade(cell);
+    switch (cell.status) {
+      case ScheduleLinearCellStatus.concluido:
+        return Colors.green;
 
-    return _shadeRelative(base, date);
+      case ScheduleLinearCellStatus.emAndamento:
+        return Colors.orange;
+
+      case ScheduleLinearCellStatus.aIniciar:
+        return const Color(0xFFF7F7F7);
+    }
   }
 }
 

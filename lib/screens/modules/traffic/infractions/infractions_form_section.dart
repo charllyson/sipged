@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
-
-import '../../../../_widgets/layout/responsive_utils.dart';
-import '../../../../_widgets/DataTime/date_field_change.dart';
-import '../../../../_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 
 class InfractionsFormSection extends StatelessWidget {
   final bool isEditable;

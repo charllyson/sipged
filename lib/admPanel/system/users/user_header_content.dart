@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/system/permission/permission_data.dart' as perm;
 import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/screens/common/login/sign_up/widgets/avatar_shell.dart';
+import 'package:sipged/_widgets/images/avatar/avatar_shell.dart';
 
 class UserHeaderContent extends StatelessWidget {
   const UserHeaderContent({

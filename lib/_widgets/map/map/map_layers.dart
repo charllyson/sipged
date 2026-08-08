@@ -10,6 +10,7 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_simple.dart';
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 import 'package:sipged/_widgets/draw/shapes/shape_painter.dart';
+import 'package:sipged/_widgets/map/marker/selected_feature_pulse.dart';
 
 class MapLayers {
   MapLayers._();
@@ -917,13 +918,8 @@ class MapLayers {
                       alignment: Alignment.center,
                       children: [
                         if (isSelected)
-                          Container(
-                            width: markerWidth * 0.60,
-                            height: markerHeight * 0.60,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.black.withValues(alpha: 0.10),
-                            ),
+                          SelectedFeaturePulse(
+                            size: math.max(markerWidth, markerHeight),
                           ),
                         ...symbols.reversed.map(
                               (symbol) => buildSymbolWidget(

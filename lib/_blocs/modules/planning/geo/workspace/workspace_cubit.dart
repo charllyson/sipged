@@ -66,7 +66,8 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     );
 
     try {
-      final persisted = await repository.loadWorkspace(scope: nextScope);
+      final loadResult = await repository.loadWorkspace(scope: nextScope);
+      final persisted = loadResult.items;
 
       if (isClosed || requestId != _loadRequestId) return;
 
@@ -94,6 +95,12 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
           isLoading: false,
           loaded: true,
           dataVersion: state.dataVersion + 1,
+          // Se havia mudanças locais ainda não persistidas durante o load,
+          // mantém a versão conhecida (será revalidada na próxima escrita);
+          // caso contrário, adota a versão que acabamos de ler do servidor.
+          scopeVersion: hasLocalChangesDuringLoad
+              ? state.scopeVersion
+              : loadResult.version,
           clearSelectedItem: true,
           clearGuides: true,
           clearActiveFilter: true,
@@ -119,6 +126,9 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
           isLoading: false,
           loaded: true,
           dataVersion: state.dataVersion + 1,
+          // Load falhou — não sabemos a versão real do servidor, então a
+          // próxima gravação não deve fazer checagem de conflito.
+          scopeVersion: -1,
           clearSelectedItem: true,
           clearGuides: true,
           clearActiveFilter: true,
@@ -590,16 +600,63 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     if (!_dirty || isClosed) return;
     _dirty = false;
 
-    emit(state.copyWith(isSaving: true));
+    final scopeAtSave = state.scope;
+    final expectedVersion = state.scopeVersion < 0 ? null : state.scopeVersion;
+
+    emit(state.copyWith(isSaving: true, clearError: true));
 
     try {
-      await repository.saveWorkspace(
-        scope: state.scope,
+      final newVersion = await repository.saveWorkspace(
+        scope: scopeAtSave,
         items: state.items,
+        expectedVersion: expectedVersion,
       );
-    } finally {
+
       if (!isClosed) {
-        emit(state.copyWith(isSaving: false));
+        emit(state.copyWith(isSaving: false, scopeVersion: newVersion));
+      }
+    } on WorkspaceConflictException {
+      // Outra sessão/usuário alterou esse mesmo dashboard nesse meio tempo.
+      // Em vez de sobrescrever silenciosamente, descarta a escrita otimista
+      // local e recarrega a versão mais recente do servidor.
+      if (isClosed) return;
+
+      try {
+        final loadResult = await repository.loadWorkspace(scope: scopeAtSave);
+
+        if (isClosed || state.scope != scopeAtSave) {
+          return;
+        }
+
+        final normalized = _normalizeItemsForPanel(
+          loadResult.items,
+          state.panelSize,
+        );
+        final resolved = repository.resolveAllItems(
+          items: normalized,
+          featuresByLayer: state.featuresByLayer,
+          activeFilter: state.activeFilter,
+        );
+
+        emit(
+          state.copyWith(
+            items: resolved,
+            isSaving: false,
+            scopeVersion: loadResult.version,
+            dataVersion: state.dataVersion + 1,
+            error: 'A área de trabalho foi alterada por outra sessão. O '
+                'painel foi atualizado — refaça a última alteração se '
+                'necessário.',
+          ),
+        );
+      } catch (e) {
+        if (!isClosed) {
+          emit(state.copyWith(isSaving: false, error: e.toString()));
+        }
+      }
+    } catch (e) {
+      if (!isClosed) {
+        emit(state.copyWith(isSaving: false, error: e.toString()));
       }
     }
   }

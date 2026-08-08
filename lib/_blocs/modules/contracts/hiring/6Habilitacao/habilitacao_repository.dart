@@ -397,7 +397,7 @@ class HabilitacaoRepository {
       throw Exception('Caminho inválido para upload da habilitação.');
     }
 
-    final picked = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
       withData: true,

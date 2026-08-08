@@ -4,8 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
-import 'package:sipged/_widgets/map/bloc/map_data.dart';
-import 'package:sipged/_widgets/map/bloc/map_state.dart';
+import 'package:sipged/_widgets/map/controllers/map_data.dart';
+import 'package:sipged/_widgets/map/controllers/map_state.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_panel.dart';
 
 class LayerDrawer extends StatelessWidget {
@@ -24,6 +24,7 @@ class LayerDrawer extends StatelessWidget {
     required this.onRemoveSelected,
     required this.onConnectLayer,
     required this.onOpenTable,
+    required this.onZoomToLayer,
     this.currentUserId,
     this.title = 'Camadas',
   });
@@ -55,6 +56,7 @@ class LayerDrawer extends StatelessWidget {
   final FutureOr<void> Function(String id) onRemoveSelected;
   final FutureOr<void> Function(String id) onConnectLayer;
   final FutureOr<void> Function(String id) onOpenTable;
+  final FutureOr<void> Function(String id) onZoomToLayer;
 
   void _runVoid(FutureOr<void> Function() action) {
     unawaited(Future<void>.sync(action));
@@ -359,6 +361,9 @@ class LayerDrawer extends StatelessWidget {
                         },
                         onOpenTable: (id) {
                           _runVoid(() => onOpenTable(id));
+                        },
+                        onZoomToLayer: (id) {
+                          _runVoid(() => onZoomToLayer(id));
                         },
                       ),
                     ),

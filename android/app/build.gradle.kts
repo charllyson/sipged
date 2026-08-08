@@ -1,12 +1,18 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+
+    // Processa o google-services.json deste módulo Android.
+    id("com.google.gms.google-services")
+
+    // O plugin Flutter deve permanecer depois dos plugins Android e Kotlin.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
+    // Mantido nesta etapa para não mover ou renomear a MainActivity.
     namespace = "sisgeo.charllyson.sisgeo"
+
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,20 +26,20 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "sisgeo.charllyson.sisgeo"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // Deve corresponder ao app Android cadastrado no Firebase.
+        applicationId = "com.charllyson.sisgeo"
+
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
+
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Configuração temporária já existente.
+            // A assinatura release será tratada separadamente no F09.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

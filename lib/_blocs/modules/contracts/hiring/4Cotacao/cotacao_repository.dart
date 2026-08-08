@@ -387,7 +387,7 @@ class CotacaoRepository {
       throw Exception('Caminho inválido para upload da cotação.');
     }
 
-    final picked = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
       withData: true,

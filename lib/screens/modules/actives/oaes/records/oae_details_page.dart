@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:flutter_map/flutter_map.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
@@ -20,9 +22,7 @@ import 'package:sipged/_widgets/input/auto_complete_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
-import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
+ import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'oae_map_section.dart';
 

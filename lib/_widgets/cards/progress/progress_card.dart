@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 class ProgressCard extends StatelessWidget {
   const ProgressCard({
@@ -43,11 +42,7 @@ class ProgressCard extends StatelessWidget {
     final normalizedProgress = progress?.clamp(0.0, 1.0);
 
     final Widget indicator = normalizedProgress == null
-        ? const LoadingTreeDots(
-      size: 22,
-      strokeWidth: 2.5,
-      centered: false,
-    )
+        ? const CircularProgressIndicator()
         : SizedBox(
       width: 180,
       child: Column(

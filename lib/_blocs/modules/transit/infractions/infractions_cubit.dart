@@ -665,7 +665,10 @@ class InfractionsCubit extends Cubit<InfractionsState> {
       latitudeCtrl.text = position.latitude.toStringAsFixed(6);
       longitudeCtrl.text = position.longitude.toStringAsFixed(6);
 
-      final placemarks = await geo.placemarkFromCoordinates(
+      final geo.Geocoding geocoding = geo.Geocoding();
+
+      final List<geo.Placemark> placemarks =
+      await geocoding.placemarkFromCoordinates(
         position.latitude,
         position.longitude,
       );

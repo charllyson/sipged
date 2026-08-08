@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 
@@ -477,19 +478,17 @@ class _MapPreviewImage extends StatelessWidget {
       );
     }
 
-    return Image.network(
-      data.previewUrl,
+    return CachedNetworkImage(
+      imageUrl: data.previewUrl,
       fit: BoxFit.cover,
       filterQuality: FilterQuality.medium,
-      errorBuilder: (context, error, stackTrace) {
+      errorWidget: (context, url, error) {
         return _MapPreviewFallback(
           data: data,
           iconSize: iconSize,
         );
       },
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-
+      placeholder: (context, url) {
         return _MapPreviewFallback(
           data: data,
           iconSize: iconSize,

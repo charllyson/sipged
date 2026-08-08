@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -18,8 +20,7 @@ import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
-import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:sipged/_widgets/list/files/attachment.dart';
+ import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 import 'package:sipged/screens/modules/actives/oaes/network/active_oaes_details.dart';
@@ -361,6 +362,12 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
       title: titulo,
       width: 1100,
       barrierDismissible: true,
+      useSafeArea: true,
+      dialogWrapper: (dialog) {
+        return PointerInterceptor(
+          child: dialog,
+        );
+      },
       child: ConstrainedBox(
         constraints: const BoxConstraints(
           maxWidth: 1100,

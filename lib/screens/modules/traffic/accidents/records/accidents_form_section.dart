@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
+import 'package:sipged/_widgets/DataTime/date_field_change.dart';
+import 'package:sipged/_widgets/dropdown/drop_down_change.dart';
 
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
-import '../../../../../_widgets/layout/responsive_utils.dart';
-import '../../../../../_widgets/DataTime/date_field_change.dart';
-import '../../../../../_widgets/input/text_field_change.dart';
-import '../../../../../_widgets/dropdown/drop_down_change.dart';
-import '../../../../../_blocs/modules/transit/accidents/accidents_data.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 
 class AccidentsFormSection extends StatefulWidget {
   final bool isEditable;

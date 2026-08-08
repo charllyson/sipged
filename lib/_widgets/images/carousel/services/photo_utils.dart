@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image/image.dart' as img;
 
 import 'package:sipged/_widgets/images/carousel/models/photo_data.dart';
 import 'package:sipged/_widgets/images/carousel/services/photo_exif_service.dart';
@@ -16,6 +17,16 @@ enum ImgFmt {
   gif,
   bmp,
   unknown,
+}
+
+class PhotoImageSize {
+  const PhotoImageSize({
+    required this.width,
+    required this.height,
+  });
+
+  final int width;
+  final int height;
 }
 
 class PhotoUtils {
@@ -166,6 +177,49 @@ class PhotoUtils {
     }
   }
 
+  static Future<PhotoImageSize?> readImageSize(Uint8List bytes) async {
+    try {
+      final decoded = await compute(_decodeImageSize, bytes);
+      return decoded;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<Uint8List> resizeForUpload(
+      Uint8List bytes, {
+        int maxSide = 1600,
+        int quality = 82,
+      }) async {
+    if (bytes.isEmpty) return bytes;
+
+    return compute(
+      _resizeJpegWorker,
+      _ResizeArgs(
+        bytes: bytes,
+        maxSide: maxSide,
+        quality: quality,
+      ),
+    );
+  }
+
+  static Future<Uint8List> buildThumbnail(
+      Uint8List bytes, {
+        int maxSide = 360,
+        int quality = 68,
+      }) async {
+    if (bytes.isEmpty) return bytes;
+
+    return compute(
+      _resizeJpegWorker,
+      _ResizeArgs(
+        bytes: bytes,
+        maxSide: maxSide,
+        quality: quality,
+      ),
+    );
+  }
+
   static Future<PhotoData> buildPhotoDataFromBytes({
     required Uint8List original,
     required String originalName,
@@ -173,6 +227,10 @@ class PhotoUtils {
     DateTime? fallbackTakenAt,
     int? uploadedAtMs,
     String? uploadedBy,
+    bool reduceForUpload = false,
+    int uploadMaxSide = 1600,
+    int uploadQuality = 82,
+    bool stamped = false,
   }) async {
     final safeName = sanitizeName(
       originalName.trim().isNotEmpty ? originalName.trim() : 'foto.jpg',
@@ -186,18 +244,26 @@ class PhotoUtils {
       data = await toJpegPreservingExif(data);
     }
 
-    final finalName = fmt == ImgFmt.jpeg ? safeName : ensureJpgExtension(safeName);
+    if (reduceForUpload) {
+      data = await resizeForUpload(
+        data,
+        maxSide: uploadMaxSide,
+        quality: uploadQuality,
+      );
+    }
+
+    final finalName = ensureJpgExtension(safeName);
 
     final extracted = await PhotoExifService.extract(
-      data,
+      original,
       name: finalName,
     );
 
-    final extractedName = extracted.name?.trim() ?? '';
+    final size = await readImageSize(data);
 
     return PhotoData.fromBytes(
       id: id ?? DateTime.now().microsecondsSinceEpoch.toString(),
-      name: extractedName.isNotEmpty ? extractedName : finalName,
+      name: finalName,
       bytes: data,
       takenAt: extracted.takenAt ??
           parseDateFromFileName(finalName) ??
@@ -207,8 +273,74 @@ class PhotoUtils {
       make: extracted.make,
       model: extracted.model,
       orientation: extracted.orientation,
+      width: size?.width,
+      height: size?.height,
+      sizeBytes: data.length,
+      stamped: stamped,
       uploadedAtMs: uploadedAtMs,
       uploadedBy: uploadedBy,
     );
   }
+}
+
+class _ResizeArgs {
+  const _ResizeArgs({
+    required this.bytes,
+    required this.maxSide,
+    required this.quality,
+  });
+
+  final Uint8List bytes;
+  final int maxSide;
+  final int quality;
+}
+
+PhotoImageSize? _decodeImageSize(Uint8List bytes) {
+  final decoded = img.decodeImage(bytes);
+
+  if (decoded == null) return null;
+
+  return PhotoImageSize(
+    width: decoded.width,
+    height: decoded.height,
+  );
+}
+
+Uint8List _resizeJpegWorker(_ResizeArgs args) {
+  final decoded = img.decodeImage(args.bytes);
+
+  if (decoded == null) return args.bytes;
+
+  final baked = img.bakeOrientation(decoded);
+
+  final maxSide = args.maxSide <= 0 ? 1600 : args.maxSide;
+
+  final width = baked.width;
+  final height = baked.height;
+
+  final currentMax = width > height ? width : height;
+
+  img.Image output = baked;
+
+  if (currentMax > maxSide) {
+    if (width >= height) {
+      output = img.copyResize(
+        baked,
+        width: maxSide,
+        interpolation: img.Interpolation.average,
+      );
+    } else {
+      output = img.copyResize(
+        baked,
+        height: maxSide,
+        interpolation: img.Interpolation.average,
+      );
+    }
+  }
+
+  final encoder = img.JpegEncoder(
+    quality: args.quality.clamp(1, 100),
+  );
+
+  return Uint8List.fromList(encoder.encode(output));
 }

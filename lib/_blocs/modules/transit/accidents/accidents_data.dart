@@ -630,7 +630,7 @@ class AccidentsData extends Equatable {
   factory AccidentsData.fromDocument(DocumentSnapshot snapshot) {
     final raw = snapshot.data() as Map<String, dynamic>?;
     final map = <String, dynamic>{
-      if (raw != null) ...raw,
+      ...?raw,
       'id': snapshot.id,
       'recordPath': snapshot.reference.path,
     };

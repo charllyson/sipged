@@ -1,4 +1,5 @@
 // lib/screens/contracts/additives/additive_table_section.dart
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
@@ -15,6 +16,12 @@ class AdditiveTableSection extends StatelessWidget {
   final bool isLoading;
   final AdditivesData? selectedItem;
 
+  /// Mapa vindo do Cubit.
+  ///
+  /// Chave: ordem do aditivo.
+  /// Valor: mensagem do alerta.
+  final Map<int, String> dateOrderWarnings;
+
   const AdditiveTableSection({
     super.key,
     required this.onTapItem,
@@ -22,31 +29,52 @@ class AdditiveTableSection extends StatelessWidget {
     required this.additives,
     required this.isLoading,
     this.selectedItem,
+    this.dateOrderWarnings = const <int, String>{},
   });
 
   String _txt(String? value) {
     final text = (value ?? '').trim();
+
     if (text.isEmpty || text.toLowerCase() == 'null') return '-';
+
     return text;
   }
 
   String _date(DateTime? value) {
     if (value == null) return '-';
+
     return SipGedFormatDates.dateToDdMMyyyy(value);
   }
 
   String _money(double? value) {
     if (value == null) return '-';
+
     return SipGedFormatMoney.doubleToText(value);
   }
 
   String _intText(int? value) {
     if (value == null) return '-';
+
     return value.toString();
+  }
+
+  String _alertIcon(AdditivesData item) {
+    final order = item.additiveOrder ?? 0;
+
+    if (order <= 0) return '✅';
+
+    final warning = dateOrderWarnings[order]?.trim();
+
+    if (warning == null || warning.isEmpty) {
+      return '✅';
+    }
+
+    return '⚠️';
   }
 
   String _itemKey(AdditivesData item) {
     final id = (item.id ?? '').trim();
+
     if (id.isNotEmpty) return id;
 
     return [
@@ -57,6 +85,32 @@ class AdditiveTableSection extends StatelessWidget {
       _intText(item.additiveValidityContractDays),
       _intText(item.additiveValidityExecutionDays),
     ].join('|');
+  }
+
+  List<AdditivesData> _sortedAdditives() {
+    final sorted = List<AdditivesData>.from(additives);
+
+    sorted.sort(
+          (a, b) {
+        final orderA = a.additiveOrder ?? 0;
+        final orderB = b.additiveOrder ?? 0;
+
+        if (orderA != orderB) {
+          return orderA.compareTo(orderB);
+        }
+
+        final dateA = a.additiveDate;
+        final dateB = b.additiveDate;
+
+        if (dateA == null && dateB == null) return 0;
+        if (dateA == null) return 1;
+        if (dateB == null) return -1;
+
+        return dateA.compareTo(dateB);
+      },
+    );
+
+    return sorted;
   }
 
   @override
@@ -72,10 +126,12 @@ class AdditiveTableSection extends StatelessWidget {
       );
     }
 
+    final sortedAdditives = _sortedAdditives();
+
     return Stack(
       children: [
         PagedTableChanged<AdditivesData>(
-          listData: additives,
+          listData: sortedAdditives,
           getKey: _itemKey,
           selectedKey: selectedItem != null ? _itemKey(selectedItem!) : null,
           keepSelectionInternally: false,
@@ -83,9 +139,13 @@ class AdditiveTableSection extends StatelessWidget {
           enablePagination: false,
           initialRowsPerPage: 10,
           rowsPerPageOptions: const [10, 25, 50, 100],
-          sortColumnIndex: 0,
+
+          // A coluna 0 agora é ALERTA.
+          // A coluna 1 é ORDEM, então a ordenação visual fica pela ordem do aditivo.
+          sortColumnIndex: 1,
           sortAscending: true,
-          minTableWidth: 906,
+
+          minTableWidth: 986,
           defaultColumnWidth: 150,
           actionsColumnWidth: 56,
           colorHeadTable: const Color(0xFF091D68),
@@ -96,6 +156,12 @@ class AdditiveTableSection extends StatelessWidget {
           onTapItem: onTapItem,
           onDelete: onDelete,
           columns: [
+            PagedColum<AdditivesData>(
+              title: 'ALERTA',
+              getter: _alertIcon,
+              textAlign: TextAlign.center,
+              width: 80,
+            ),
             PagedColum<AdditivesData>(
               title: 'ORDEM',
               getter: (a) => _intText(a.additiveOrder),
@@ -134,8 +200,7 @@ class AdditiveTableSection extends StatelessWidget {
             ),
           ],
         ),
-
-        if (isLoading && additives.isNotEmpty)
+        if (isLoading && sortedAdditives.isNotEmpty)
           Positioned.fill(
             child: Container(
               color: Colors.white.withValues(alpha: 0.65),

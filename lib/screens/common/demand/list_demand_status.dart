@@ -52,55 +52,13 @@ class ListDemandStatus extends StatelessWidget {
   final Map<String, EditalData?> editalByContractId;
   final Map<String, PublicacaoExtratoData?> pubByContractId;
 
-  String _norm(String value) {
-    return value.trim().toUpperCase();
-  }
-
-  Color _badgeColor(String key) {
-    switch (_norm(key)) {
-      case 'TODOS':
-        return Colors.blue;
-      case 'A INICIAR':
-        return Colors.orange;
-      case 'EM ANDAMENTO':
-        return Colors.indigo;
-      case 'CONCLUÍDO':
-      case 'CONCLUIDO':
-        return Colors.green;
-      case 'SEM STATUS':
-        return Colors.grey;
-      case 'EM PROJETO':
-        return Colors.deepPurple;
-      default:
-        return Colors.blueGrey;
-    }
-  }
-
-  IconData _iconForStatus(String key) {
-    switch (_norm(key)) {
-      case 'TODOS':
-        return Icons.list_alt_rounded;
-      case 'A INICIAR':
-        return Icons.flag_circle_rounded;
-      case 'EM ANDAMENTO':
-        return Icons.timelapse_rounded;
-      case 'CONCLUÍDO':
-      case 'CONCLUIDO':
-        return Icons.check_circle_rounded;
-      case 'SEM STATUS':
-        return Icons.help_outline_rounded;
-      case 'EM PROJETO':
-        return Icons.assignment_outlined;
-      default:
-        return Icons.folder_copy_rounded;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final key = _norm(statusKey);
+    final key = statusKey.trim();
     final total = items.length;
-    final color = _badgeColor(key);
+
+    final color = ContractData.getColorByStatus(key);
+    final icon = ContractData.iconStatus(key);
 
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -137,7 +95,7 @@ class ListDemandStatus extends StatelessWidget {
               borderRadius: BorderRadius.circular(13),
             ),
             child: Icon(
-              _iconForStatus(key),
+              icon,
               color: color,
               size: 21,
             ),

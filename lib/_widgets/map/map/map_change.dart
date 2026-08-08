@@ -19,7 +19,7 @@ import 'package:sipged/_widgets/map/map/map_layers.dart';
 
 import 'package:sipged/_widgets/map/my_location/my_location.dart';
 import 'package:sipged/_widgets/map/my_location/pin_user_location.dart';
-import 'package:sipged/_widgets/map/pin/pin_changed.dart';
+import 'package:sipged/_widgets/pin/pin_changed.dart';
 import 'package:sipged/_widgets/map/search/search_map.dart';
 
 typedef MapExternalPolylineTooltipCallback = FutureOr<void> Function({

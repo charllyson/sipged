@@ -26,7 +26,7 @@ enum CatalogType {
   timeField,
   switcher,
   textField,
-  pagedTable,
+  documents,
 }
 
 abstract final class CatalogIconMapper {
@@ -72,6 +72,13 @@ class CatalogData {
   final IconData? icon;
   final String? description;
 
+  /// Quando true, o item aparece esmaecido e não arrastável no catálogo,
+  /// com tooltip "Em breve" — usado para widgets cujo funcionamento ainda
+  /// não foi implementado de ponta a ponta (ex.: exige um recurso maior,
+  /// como colunas dinâmicas com binding, que ainda não existe no modelo
+  /// de propriedades).
+  final bool comingSoon;
+
   final String? key;
   final String? label;
   final CatalogPropertyType? type;
@@ -89,6 +96,7 @@ class CatalogData {
     this.title = '',
     this.icon,
     this.description,
+    this.comingSoon = false,
     this.key,
     this.label,
     this.type,
@@ -108,6 +116,7 @@ class CatalogData {
     String? title,
     IconData? icon,
     String? description,
+    bool? comingSoon,
     String? key,
     String? label,
     CatalogPropertyType? type,
@@ -124,6 +133,7 @@ class CatalogData {
       title: title ?? this.title,
       icon: icon ?? this.icon,
       description: description ?? this.description,
+      comingSoon: comingSoon ?? this.comingSoon,
       key: key ?? this.key,
       label: label ?? this.label,
       type: type ?? this.type,
@@ -217,6 +227,7 @@ class CatalogData {
         other.title == title &&
         other.icon == icon &&
         other.description == description &&
+        other.comingSoon == comingSoon &&
         other.key == key &&
         other.label == label &&
         other.type == type &&
@@ -235,6 +246,7 @@ class CatalogData {
     title,
     icon,
     description,
+    comingSoon,
     key,
     label,
     type,
@@ -279,8 +291,8 @@ extension ComponentTypeMapper on CatalogType {
         return 'input_switch';
       case CatalogType.textField:
         return 'input_text_field';
-      case CatalogType.pagedTable:
-        return 'table_paged';
+      case CatalogType.documents:
+        return 'widget_documents';
     }
   }
 
@@ -314,8 +326,8 @@ extension ComponentTypeMapper on CatalogType {
         return 'Switch';
       case CatalogType.textField:
         return 'Campo de texto';
-      case CatalogType.pagedTable:
-        return 'Tabela paginada';
+      case CatalogType.documents:
+        return 'Documentos';
     }
   }
 
@@ -349,8 +361,8 @@ extension ComponentTypeMapper on CatalogType {
         return const Size(180, 90);
       case CatalogType.textField:
         return const Size(320, 90);
-      case CatalogType.pagedTable:
-        return const Size(760, 360);
+      case CatalogType.documents:
+        return const Size(320, 320);
     }
   }
 
@@ -384,8 +396,8 @@ extension ComponentTypeMapper on CatalogType {
         return CatalogType.switcher;
       case 'input_text_field':
         return CatalogType.textField;
-      case 'table_paged':
-        return CatalogType.pagedTable;
+      case 'widget_documents':
+        return CatalogType.documents;
       default:
         return null;
     }
@@ -761,19 +773,13 @@ extension ComponentTypeMapper on CatalogType {
           ),
         ];
 
-      case CatalogType.pagedTable:
+      case CatalogType.documents:
         return const [
           CatalogData(
             key: 'title',
             label: 'Título',
             type: CatalogPropertyType.text,
-            hint: 'Título da tabela',
-          ),
-          CatalogData(
-            key: 'rowsPerPage',
-            label: 'Linhas por página',
-            type: CatalogPropertyType.number,
-            hint: 'Ex.: 10, 25, 50',
+            hint: 'Título exibido no cabeçalho',
           ),
         ];
     }
@@ -867,10 +873,10 @@ abstract final class CatalogRegistry {
       description: 'Entrada textual',
     ),
     CatalogData(
-      id: 'table_paged',
-      title: 'Tabela paginada',
+      id: 'widget_documents',
+      title: 'Documentos',
       icon: Icons.table_rows_rounded,
-      description: 'Tabela com paginação',
+      description: 'Lista de arquivos anexados (Firebase Storage)',
     ),
   ];
 
@@ -935,6 +941,12 @@ abstract final class CatalogRegistry {
           icon: Icons.straighten_rounded,
           description: 'Indicador comparativo por faixa',
         ),
+        CatalogData(
+          id: 'widget_documents',
+          title: 'Documentos',
+          icon: Icons.table_rows_rounded,
+          description: 'Lista de arquivos anexados (Firebase Storage)',
+        ),
       ],
       'Filtros e entradas': const [
         CatalogData(
@@ -966,14 +978,6 @@ abstract final class CatalogRegistry {
           title: 'Campo de texto',
           icon: Icons.text_fields_rounded,
           description: 'Entrada textual',
-        ),
-      ],
-      'Tabelas': const [
-        CatalogData(
-          id: 'table_paged',
-          title: 'Tabela paginada',
-          icon: Icons.table_rows_rounded,
-          description: 'Tabela com paginação',
         ),
       ],
     };

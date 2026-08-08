@@ -2,10 +2,10 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
-import 'package:sipged/_widgets/draggable/draggable_header.dart';
-import 'package:sipged/_widgets/draggable/draggable_placeholder.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_tabs.dart';
+import 'package:sipged/_widgets/panels/draggable/draggable_header.dart';
+import 'package:sipged/_widgets/panels/draggable/draggable_placeholder.dart';
 import 'package:sipged/_widgets/resize/resize_handle_widget.dart';
 
 class DockPanelGroup extends StatelessWidget {

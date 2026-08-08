@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_binding.dart';
@@ -15,15 +16,16 @@ import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_scope_data.dart';
-import 'package:sipged/_widgets/map/bloc/map_cubit.dart';
-import 'package:sipged/_widgets/map/bloc/map_data.dart';
-import 'package:sipged/_widgets/map/bloc/map_state.dart';
+import 'package:sipged/_widgets/map/controllers/map_cubit.dart';
+import 'package:sipged/_widgets/map/controllers/map_data.dart';
+import 'package:sipged/_widgets/map/controllers/map_state.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
-import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
-import 'package:sipged/_blocs/system/panels/push/push_panel_data.dart';
-import 'package:sipged/_blocs/system/panels/push/push_panels_controller.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_data.dart';
+import 'package:sipged/_widgets/texts/panel_breadcrumb.dart';
+import 'package:sipged/_widgets/panels/push/push_panel_data.dart';
+import 'package:sipged/_widgets/panels/push/push_panels_controller.dart';
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/map/map/map_cache.dart';
@@ -135,6 +137,22 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
       return WorkspaceScopeData(
         type: WorkspaceScopeType.group,
         id: node.id,
+      );
+    }
+
+    // Se além da camada uma feição dela estiver selecionada no mapa, a área
+    // de trabalho fica restrita a essa feição — nível mais específico da
+    // navegação (raiz > camada > feição).
+    final selectedFeature = context.read<FeatureCubit>().state.selected;
+    final featureId = selectedFeature?.feature.id?.trim();
+
+    if (selectedFeature != null &&
+        selectedFeature.layerId == node.id &&
+        featureId != null &&
+        featureId.isNotEmpty) {
+      return WorkspaceScopeData(
+        type: WorkspaceScopeType.feature,
+        id: featureId,
       );
     }
 
@@ -661,6 +679,12 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
               },
               onOpenTable: (id) {
                 return _openLayerTable(
+                  id,
+                  mapData.currentTree,
+                );
+              },
+              onZoomToLayer: (id) {
+                return _zoomToLayerOrGroup(
                   id,
                   mapData.currentTree,
                 );

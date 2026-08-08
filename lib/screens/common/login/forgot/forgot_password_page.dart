@@ -1,27 +1,29 @@
+// lib/screens/common/login/forgot/forgot_password_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/login/login_cubit.dart';
+import 'package:sipged/_widgets/buttons/circle_button_change.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
-
-import 'package:sipged/_widgets/buttons/circle_button_change.dart';
-import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/images/logos/sipged_logo.dart';
-import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
+import 'package:sipged/screens/common/login/forgot/forgot_cubit.dart';
+import 'package:sipged/screens/common/login/forgot/forgot_state.dart';
 
-class ForgotPasswordPage extends StatefulWidget {
-  const ForgotPasswordPage({super.key});
+class ForgotPasswordPage extends StatelessWidget {
+  const ForgotPasswordPage({
+    super.key,
+    ForgotCubit? cubit,
+  }) : _externalCubit = cubit;
 
-  @override
-  State<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
-}
+  final ForgotCubit? _externalCubit;
 
-class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   static const Gradient _defaultGradient = LinearGradient(
     colors: [
       Color.fromARGB(255, 27, 32, 51),
@@ -31,12 +33,36 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     end: Alignment.bottomRight,
   );
 
+  @override
+  Widget build(BuildContext context) {
+    final externalCubit = _externalCubit;
+
+    if (externalCubit != null) {
+      externalCubit.preloadLastEmail();
+
+      return BlocProvider<ForgotCubit>.value(
+        value: externalCubit,
+        child: const _ForgotPasswordView(),
+      );
+    }
+
+    return BlocProvider<ForgotCubit>(
+      create: (_) => ForgotCubit()..preloadLastEmail(),
+      child: const _ForgotPasswordView(),
+    );
+  }
+}
+
+class _ForgotPasswordView extends StatefulWidget {
+  const _ForgotPasswordView();
+
+  @override
+  State<_ForgotPasswordView> createState() => _ForgotPasswordViewState();
+}
+
+class _ForgotPasswordViewState extends State<_ForgotPasswordView> {
   late final TextEditingController _emailCtrl;
   late final FocusNode _emailFocus;
-
-  bool _hasEmail = false;
-  bool _loading = false;
-  bool _didPreload = false;
 
   @override
   void initState() {
@@ -44,45 +70,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     _emailCtrl = TextEditingController();
     _emailFocus = FocusNode();
-
-    _emailCtrl.addListener(_handleEmailChanged);
-
-    _preloadEmail();
-  }
-
-  void _handleEmailChanged() {
-    final has = _emailCtrl.text.trim().isNotEmpty;
-
-    if (has != _hasEmail) {
-      setState(() => _hasEmail = has);
-    }
-  }
-
-  Future<void> _preloadEmail() async {
-    if (_didPreload) return;
-
-    _didPreload = true;
-
-    final cubit = context.read<LoginCubit>();
-    final last = await cubit.loadLastEmail();
-
-    if (!mounted) return;
-
-    if (last != null && last.trim().isNotEmpty) {
-      _emailCtrl.text = last.trim();
-      _emailCtrl.selection = TextSelection.fromPosition(
-        TextPosition(offset: _emailCtrl.text.length),
-      );
-
-      setState(() => _hasEmail = true);
-    } else {
-      _emailFocus.requestFocus();
-    }
   }
 
   @override
   void dispose() {
-    _emailCtrl.removeListener(_handleEmailChanged);
     _emailCtrl.dispose();
     _emailFocus.dispose();
 
@@ -111,155 +102,143 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     );
   }
 
-  bool _isValidEmail(String email) {
-    final cleanEmail = email.trim();
-
-    if (cleanEmail.isEmpty) return false;
-
-    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(cleanEmail);
-  }
-
   Future<void> _send() async {
-    final email = _emailCtrl.text.trim().toLowerCase();
+    final ok = await context.read<ForgotCubit>().send();
 
-    if (!_isValidEmail(email)) {
+    if (!mounted) return;
+
+    final forgotState = context.read<ForgotCubit>().state;
+
+    if (ok) {
       _notify(
-        'Informe um e-mail válido',
-        subtitle: 'Ex: usuario@dominio.com',
-        status: NotificationStatus.error,
-      );
-
-      _emailFocus.requestFocus();
-      return;
-    }
-
-    setState(() => _loading = true);
-
-    try {
-      final loginCubit = context.read<LoginCubit>();
-
-      await loginCubit.recoverPass(email);
-
-      if (!mounted) return;
-
-      _notify(
-        'Link de redefinição enviado',
+        forgotState.successMessage ?? 'Link de redefinição enviado',
         subtitle: 'Verifique sua caixa de entrada e spam.',
         status: NotificationStatus.success,
       );
 
       Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
+      return;
+    }
 
+    final error = forgotState.errorMessage;
+
+    if (error != null && error.trim().isNotEmpty) {
       _notify(
         'Não foi possível enviar o link',
-        subtitle: e.toString(),
+        subtitle: error,
         status: NotificationStatus.error,
       );
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
     }
+
+    _emailFocus.requestFocus();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBody: true,
-      appBar: UpBar(
-        showPhotoMenu: false,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 10),
-          child: CircleButtonChange(
-            icon: Icons.arrow_back,
-            tooltip: 'Voltar',
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-        ),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: _defaultGradient,
-        ),
-        child: Stack(
-          children: [
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final width = MediaQuery.of(context).size.width;
-                  final maxWidth = width >= 520 ? 420.0 : double.infinity;
+    return BlocConsumer<ForgotCubit, ForgotState>(
+      listenWhen: (previous, current) {
+        return previous.data.email != current.data.email;
+      },
+      listener: (context, state) {
+        if (_emailCtrl.text == state.data.email) return;
 
-                  return Center(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: maxWidth),
-                      child: SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        padding: EdgeInsets.only(
-                          left: 22,
-                          right: 22,
-                          top: 18,
-                          bottom:
-                          18 + MediaQuery.of(context).viewInsets.bottom,
-                        ),
+        _emailCtrl.text = state.data.email;
+        _emailCtrl.selection = TextSelection.fromPosition(
+          TextPosition(
+            offset: _emailCtrl.text.length,
+          ),
+        );
+
+        if (state.data.email.trim().isEmpty) {
+          _emailFocus.requestFocus();
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          extendBody: true,
+          appBar: UpBar(
+            showPhotoMenu: false,
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: CircleButtonChange(
+                icon: Icons.arrow_back,
+                tooltip: 'Voltar',
+                onPressed: state.isLoading
+                    ? null
+                    : () => Navigator.of(context).maybePop(),
+              ),
+            ),
+          ),
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: ForgotPasswordPage._defaultGradient,
+            ),
+            child: Stack(
+              children: [
+                SafeArea(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = MediaQuery.of(context).size.width;
+                      final maxWidth = width >= 520 ? 420.0 : double.infinity;
+
+                      return Center(
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
-                            minHeight: constraints.maxHeight,
+                            maxWidth: maxWidth,
                           ),
-                          child: IntrinsicHeight(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                const SizedBox(height: 8),
-                                const SipgedLogo(),
-                                const SizedBox(height: 24),
-                                _buildForgotCard(context),
-                                const Spacer(),
-                                const SizedBox(height: 12),
-                              ],
+                          child: SingleChildScrollView(
+                            physics: const ClampingScrollPhysics(),
+                            padding: EdgeInsets.only(
+                              left: 22,
+                              right: 22,
+                              top: 18,
+                              bottom:
+                              18 + MediaQuery.of(context).viewInsets.bottom,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight,
+                              ),
+                              child: IntrinsicHeight(
+                                child: Column(
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.stretch,
+                                  children: [
+                                    const SizedBox(height: 8),
+                                    const SipgedLogo(),
+                                    const SizedBox(height: 24),
+                                    _buildForgotCard(
+                                      context: context,
+                                      state: state,
+                                    ),
+                                    const Spacer(),
+                                    const SizedBox(height: 12),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            if (_loading)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black54,
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      LoadingTreeDots(
-                        size: 22,
-                        strokeWidth: 2.6,
-                        color: Colors.white,
-                        centered: false,
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        'Enviando...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
-              ),
-          ],
-        ),
-      ),
+                if (state.isLoading) const _ForgotLoadingOverlay(),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildForgotCard(BuildContext context) {
+  Widget _buildForgotCard({
+    required BuildContext context,
+    required ForgotState state,
+  }) {
+    final hasEmail = state.data.email.trim().isNotEmpty;
+
     return BasicCard(
       isDark: false,
       child: Padding(
@@ -286,16 +265,17 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               controller: _emailCtrl,
               focusNode: _emailFocus,
               textInputAction: TextInputAction.done,
+              onChanged: context.read<ForgotCubit>().changeEmail,
               onSubmitted: (_) {
-                if (!_loading) {
+                if (!state.isLoading) {
                   _send();
                 }
               },
               labelText: 'E-mail',
               hintText: 'Digite seu e-mail',
               keyboardType: TextInputType.emailAddress,
-              enabled: !_loading,
-              suffix: _hasEmail
+              enabled: !state.isLoading,
+              suffix: hasEmail
                   ? Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: SizedBox.square(
@@ -305,10 +285,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     iconSize: 18,
                     icon: Icons.clear,
                     tooltip: 'Limpar',
-                    onPressed: _loading
+                    onPressed: state.isLoading
                         ? null
                         : () {
-                      _emailCtrl.clear();
+                      context.read<ForgotCubit>().clearEmail();
                       _emailFocus.requestFocus();
                     },
                   ),
@@ -316,12 +296,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               )
                   : null,
             ),
+            if (state.errorMessage != null &&
+                state.errorMessage!.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                state.errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFFDC2626),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             SizedBox(
               height: 48,
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _loading ? null : _send,
+                onPressed: state.canSubmit ? _send : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   disabledBackgroundColor: Colors.blue.withValues(alpha: 0.35),
@@ -330,7 +323,27 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: const Text(
+                child: state.isLoading
+                    ? const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    LoadingTreeDots(
+                      size: 18,
+                      strokeWidth: 2,
+                      color: Colors.white,
+                      centered: false,
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      'Enviando...',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                )
+                    : const Text(
                   'Enviar link',
                   style: TextStyle(
                     color: Colors.white,
@@ -341,10 +354,43 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             ),
             const SizedBox(height: 10),
             TextButton(
-              onPressed: _loading ? null : () => Navigator.of(context).pop(),
+              onPressed:
+              state.isLoading ? null : () => Navigator.of(context).pop(),
               child: const Text(
                 'Voltar para o login',
                 style: TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ForgotLoadingOverlay extends StatelessWidget {
+  const _ForgotLoadingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black54,
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            LoadingTreeDots(
+              size: 22,
+              strokeWidth: 2.6,
+              color: Colors.white,
+              centered: false,
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Enviando...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
               ),
             ),
           ],

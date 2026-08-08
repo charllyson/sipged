@@ -13,8 +13,6 @@ import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 
 import 'package:sipged/screens/modules/actives/roads/network/active_roads_details.dart';
-
-import 'package:sipged/_widgets/draw/shimmer/map_shimmer.dart';
 import 'package:sipged/_widgets/map/map/map_change.dart';
 
 import 'package:sipged/_widgets/overlays/balloon/balloon_change.dart';
@@ -253,7 +251,7 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
         state.loadStatus == ActiveRoadsLoadStatus.loading && !state.initialized;
 
     if (isInitialLoading) {
-      return const MapShimmer();
+      return const CircularProgressIndicator();
     }
 
     return ValueListenableBuilder<double>(

@@ -2,6 +2,7 @@
 
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 class InitialSetupLogo extends StatelessWidget {
@@ -40,10 +41,10 @@ class InitialSetupLogo extends StatelessWidget {
     if (url != null && url.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Image.network(
-          url,
+        child: CachedNetworkImage(
+          imageUrl: url,
           fit: BoxFit.contain,
-          errorBuilder: (_, _, _) {
+          errorWidget: (_, _, _) {
             return const Icon(
               Icons.image_not_supported_outlined,
               size: 34,

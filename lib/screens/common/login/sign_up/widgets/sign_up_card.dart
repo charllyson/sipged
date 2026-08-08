@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 
 import 'package:sipged/_widgets/DataTime/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/screens/common/login/sign_up/sign_up.dart';
+ import 'package:sipged/screens/common/login/sign_up/sign_up_data.dart';
 import 'package:sipged/screens/common/login/sign_up/widgets/edit_user_danger_actions.dart';
-import 'package:sipged/screens/common/login/sign_up/widgets/photo_picker_block.dart';
+import 'package:sipged/_widgets/images/avatar/photo_picker_block.dart';
 import 'package:sipged/screens/common/login/sign_up/widgets/sign_up_actions.dart';
 import 'package:sipged/screens/common/login/sign_up/widgets/sign_up_section_title.dart';
 import 'package:sipged/screens/common/login/sign_up/widgets/sign_up_top_banner.dart';

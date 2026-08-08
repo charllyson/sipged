@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sipged/_widgets/input/text_field_in_line.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -26,7 +27,6 @@ import 'package:sipged/_services/files/dxf/dxf_to_geo.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
-import 'package:sipged/_widgets/input/text_field_in_line.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
 import 'package:sipged/screens/modules/operation/schedule/common/header/schedule_status.dart';
@@ -811,7 +811,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
   Future<void> _pickAndReplace() async {
     final civilBloc = context.read<CivilScheduleBloc>();
 
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const <String>['dxf'],
       withData: true,
@@ -1236,7 +1236,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
         ? _statusFromProgress(initialProgress)
         : _statusFromKey(statusKey);
 
-    var polygonId = _polygonIdByIndex[polyIndex];
+    String? polygonId = _polygonIdByIndex[polyIndex];
 
     if (polygonId == '__pending__') {
       _notify(
@@ -1249,7 +1249,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     }
 
     if (polygonId == null || polygonId.trim().isEmpty) {
-      final feature = widget.controller.features[polyIndex];
+      final feature = controller.features[polyIndex];
 
       final points = feature.points
           .map(
@@ -1269,9 +1269,26 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
         currentUserId: _uid,
       );
 
+      if (!mounted) return;
+
       _polygonIdByIndex[polyIndex] = polygonId;
 
       civilBloc.add(const CivilRefreshRequested());
+    }
+
+    // Pode ter ocorrido um await durante a criação do polígono.
+    // Não use o BuildContext caso o widget já tenha sido desmontado.
+    if (!mounted) return;
+
+    final resolvedPolygonId = polygonId;
+
+    if (resolvedPolygonId.trim().isEmpty) {
+      _notify(
+        title: 'Polígono inválido',
+        subtitle: 'Não foi possível identificar o polígono selecionado.',
+        type: NotificationStatus.error,
+      );
+      return;
     }
 
     await showModalBottomSheet<void>(
@@ -1305,7 +1322,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                     ScheduleApplyTarget(
                       estaca: polyIndex,
                       faixaIndex: 0,
-                      polygonId: polygonId,
+                      polygonId: resolvedPolygonId,
                       name: currentName,
                       existingUrls: existingUrls,
                       existingMetaByUrl: existingMetaByUrl,
@@ -1318,7 +1335,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                   initialProgress: initialProgress,
                   onDelete: () {
                     civilBloc.add(
-                      CivilPolygonDeleteRequested(polygonId!),
+                      CivilPolygonDeleteRequested(resolvedPolygonId),
                     );
 
                     if (navigator.canPop()) {

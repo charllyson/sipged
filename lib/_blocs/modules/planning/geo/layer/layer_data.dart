@@ -134,6 +134,12 @@ class LayerData {
   /// autenticado atual quando carregar/salvar.
   final String? ownerId;
 
+  /// Empresa (tenant) à qual o proprietário associou esta camada/grupo,
+  /// opcional. Definido manualmente pelo dono via a aba de compartilhamento
+  /// — não implica isolamento de acesso por si só, é só uma informação
+  /// organizacional (a quem essa camada "pertence").
+  final String? tenantId;
+
   /// Lista de usuários com quem esta camada/grupo foi compartilhada.
   final List<String> sharedUserIds;
 
@@ -163,6 +169,7 @@ class LayerData {
     this.labelLayers = const [],
     this.ruleBasedLabels = const [],
     this.ownerId,
+    this.tenantId,
     this.sharedUserIds = const [],
     this.sharedPermissionsByUserId = const {},
   });
@@ -296,6 +303,8 @@ class LayerData {
     List<GeoLabelRuleData>? ruleBasedLabels,
     String? ownerId,
     bool clearOwnerId = false,
+    String? tenantId,
+    bool clearTenantId = false,
     List<String>? sharedUserIds,
     Map<String, LayerSharePermission>? sharedPermissionsByUserId,
   }) {
@@ -320,6 +329,7 @@ class LayerData {
       labelLayers: labelLayers ?? this.labelLayers,
       ruleBasedLabels: ruleBasedLabels ?? this.ruleBasedLabels,
       ownerId: clearOwnerId ? null : (ownerId ?? this.ownerId),
+      tenantId: clearTenantId ? null : (tenantId ?? this.tenantId),
       sharedUserIds: sharedUserIds ?? this.sharedUserIds,
       sharedPermissionsByUserId:
       sharedPermissionsByUserId ?? this.sharedPermissionsByUserId,
@@ -349,6 +359,7 @@ class LayerData {
       'ruleBasedLabels':
       ruleBasedLabels.map((e) => e.toMap()).toList(growable: false),
       'ownerId': ownerId,
+      'tenantId': tenantId,
       'sharedUserIds': sharedUserIds,
       'sharedPermissionsByUserId': sharedPermissionsByUserId.map(
             (key, value) => MapEntry(key, value.name),
@@ -437,6 +448,9 @@ class LayerData {
       ownerId: (map['ownerId'] ?? '').toString().trim().isEmpty
           ? null
           : (map['ownerId'] ?? '').toString().trim(),
+      tenantId: (map['tenantId'] ?? '').toString().trim().isEmpty
+          ? null
+          : (map['tenantId'] ?? '').toString().trim(),
       sharedUserIds: sharedUserIds,
       sharedPermissionsByUserId: permissions,
     );
@@ -665,6 +679,7 @@ class LayerData {
         listEquals(other.labelLayers, labelLayers) &&
         listEquals(other.ruleBasedLabels, ruleBasedLabels) &&
         other.ownerId == ownerId &&
+        other.tenantId == tenantId &&
         listEquals(other.sharedUserIds, sharedUserIds) &&
         mapEquals(
           other.sharedPermissionsByUserId,
@@ -693,6 +708,7 @@ class LayerData {
     Object.hashAll(labelLayers),
     Object.hashAll(ruleBasedLabels),
     ownerId,
+    tenantId,
     Object.hashAll(sharedUserIds),
     Object.hashAll(
       sharedPermissionsByUserId.entries.map(

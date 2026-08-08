@@ -127,7 +127,7 @@ class CivilScheduleRepository {
 
   Map<String, dynamic> _deleteableTakenAtMap(int? takenAtMs) {
     return <String, dynamic>{
-      if (takenAtMs != null) 'takenAtMs': takenAtMs,
+      'takenAtMs': ?takenAtMs,
       if (takenAtMs == null) 'takenAtMs': FieldValue.delete(),
     };
   }
@@ -150,14 +150,14 @@ class CivilScheduleRepository {
       'id': photo.id,
       'url': url,
       'name': photo.name.trim().isNotEmpty ? photo.name.trim() : storedName,
-      if (takenAtMs != null) 'takenAtMs': takenAtMs,
-      if (takenAtMs != null) 'takenAt': takenAtMs,
+      'takenAtMs': ?takenAtMs,
+      'takenAt': ?takenAtMs,
       if (photo.lat != null) 'lat': photo.lat,
       if (photo.lng != null) 'lng': photo.lng,
       if (photo.make != null) 'make': photo.make,
       if (photo.model != null) 'model': photo.model,
       if (photo.orientation != null) 'orientation': photo.orientation,
-      if (uploadedAtMs != null) 'uploadedAtMs': uploadedAtMs,
+      'uploadedAtMs': ?uploadedAtMs,
       if (uploadedBy != null && uploadedBy.trim().isNotEmpty)
         'uploadedBy': uploadedBy,
     };
@@ -216,11 +216,11 @@ class CivilScheduleRepository {
     await _docMetaBoard(cleanContractId).set({
       'tenantId': tenantId,
       'contractId': cleanContractId,
-      if (pageCount != null) 'page_count': pageCount,
+      'page_count': ?pageCount,
       if (pageCount == null) 'page_count': FieldValue.delete(),
-      if (dxfBounds != null) 'dxf_bounds': dxfBounds,
+      'dxf_bounds': ?dxfBounds,
       if (dxfBounds == null) 'dxf_bounds': FieldValue.delete(),
-      if (pdfInfo != null) 'pdf_info': pdfInfo,
+      'pdf_info': ?pdfInfo,
       if (pdfInfo == null) 'pdf_info': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
@@ -282,9 +282,9 @@ class CivilScheduleRepository {
         'comentario': cleanComment,
       if (cleanComment == null || cleanComment.isEmpty)
         'comentario': FieldValue.delete(),
-      if (areaM2 != null) 'area_m2': areaM2,
+      'area_m2': ?areaM2,
       if (areaM2 == null) 'area_m2': FieldValue.delete(),
-      if (perimeterM != null) 'perimeter_m': perimeterM,
+      'perimeter_m': ?perimeterM,
       if (perimeterM == null) 'perimeter_m': FieldValue.delete(),
       'points': points.map((point) {
         return <String, double?>{

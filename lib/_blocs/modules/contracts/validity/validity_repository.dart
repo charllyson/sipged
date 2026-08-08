@@ -1,5 +1,3 @@
-// lib/_blocs/modules/contracts/validity/validity_repository.dart
-
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,7 +11,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_e
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/registers/register_class.dart';
+import 'package:sipged/_blocs/system/notification/register_class.dart';
 
 class ValidityRepository {
   ValidityRepository({
@@ -28,6 +26,18 @@ class ValidityRepository {
           tenantId,
           context: 'ValidityRepository.constructor',
         );
+
+  static const String ordemInicio = 'ORDEM DE INÍCIO';
+  static const String ordemParalisacao = 'ORDEM DE PARALISAÇÃO';
+  static const String ordemReinicio = 'ORDEM DE REINÍCIO';
+  static const String ordemFinalizacao = 'ORDEM DE FINALIZAÇÃO';
+
+  static const List<String> tiposDeOrdem = <String>[
+    ordemInicio,
+    ordemParalisacao,
+    ordemReinicio,
+    ordemFinalizacao,
+  ];
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
@@ -153,6 +163,23 @@ class ValidityRepository {
     return text.isEmpty ? null : text;
   }
 
+  String? _cleanOrderType(String? value) {
+    final text = value?.trim();
+
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+
+    if (!tiposDeOrdem.contains(text)) {
+      throw ArgumentError(
+        'Tipo de ordem inválido: "$text". '
+            'Use um dos valores oficiais: ${tiposDeOrdem.join(', ')}.',
+      );
+    }
+
+    return text;
+  }
+
   Future<List<ContractData>> getAllContracts() async {
     _requireTenantId();
 
@@ -212,6 +239,16 @@ class ValidityRepository {
       throw Exception('Contrato não informado');
     }
 
+    final cleanOrderType = _cleanOrderType(data.ordertype);
+
+    if (cleanOrderType == null) {
+      throw Exception('Tipo da ordem é obrigatório.');
+    }
+
+    if (data.orderdate == null) {
+      throw Exception('Data da ordem é obrigatória.');
+    }
+
     final contractRef = _contractDoc(uidContract);
 
     await contractRef.set(
@@ -235,6 +272,7 @@ class ValidityRepository {
 
     data.id = validityId;
     data.uidContract = uidContract;
+    data.ordertype = cleanOrderType;
 
     final snapshot = await docRef.get();
 
@@ -344,7 +382,7 @@ class ValidityRepository {
       throw Exception('contractId é obrigatório para carregar vigências.');
     }
 
-    final snapshot = await _ordersCol(contractId).orderBy('ordernumber').get();
+    final snapshot = await _ordersCol(contractId).orderBy('orderNumber').get();
 
     final list = snapshot.docs
         .map((doc) => ValidityData.fromDocument(snapshot: doc))
@@ -558,7 +596,7 @@ class ValidityRepository {
   }
 
   Future<(Uint8List, String)> pickFileBytes() async {
-    final result = await FilePicker.platform.pickFiles(withData: true);
+    final result = await FilePicker.pickFiles(withData: true);
 
     if (result == null || result.files.isEmpty) {
       throw Exception('Nenhum arquivo selecionado.');
@@ -875,7 +913,7 @@ class ValidityRepository {
     required void Function(double progress) onProgress,
     PublicacaoExtratoData? extrato,
   }) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: <String>['pdf'],
       withData: true,
@@ -1111,19 +1149,22 @@ class ValidityRepository {
 
     int diasParalisados = 0;
 
-    for (int i = 0; i < sorted.length; i++) {
+    for (int i = 1; i < sorted.length; i++) {
       final atual = sorted[i];
-      final tipoAtual = (atual.ordertype ?? '').toUpperCase();
-
-      if (!tipoAtual.contains('REINÍCIO') || i <= 0) continue;
-
       final anterior = sorted[i - 1];
-      final tipoAnterior = (anterior.ordertype ?? '').toUpperCase();
 
-      if (!tipoAnterior.contains('PARALISA')) continue;
-      if (atual.orderdate == null || anterior.orderdate == null) continue;
+      final tipoAtual = atual.ordertype?.trim();
+      final tipoAnterior = anterior.ordertype?.trim();
 
-      final diff = atual.orderdate!.difference(anterior.orderdate!).inDays;
+      if (tipoAtual != ordemReinicio) continue;
+      if (tipoAnterior != ordemParalisacao) continue;
+
+      final dataAtual = atual.orderdate;
+      final dataAnterior = anterior.orderdate;
+
+      if (dataAtual == null || dataAnterior == null) continue;
+
+      final diff = dataAtual.difference(dataAnterior).inDays;
 
       if (diff > 0) {
         diasParalisados += diff;
@@ -1176,16 +1217,20 @@ class ValidityRepository {
             (a, b) => (a.orderNumber ?? 0).compareTo(b.orderNumber ?? 0),
       );
 
-    final ordemInicio = sorted
-        .firstWhere(
-          (validity) {
-        return (validity.ordertype ?? '').toUpperCase().contains('INÍCIO');
-      },
-      orElse: () => ValidityData(orderdate: null),
-    )
-        .orderdate;
+    ValidityData? ordemInicioData;
 
-    if (ordemInicio == null) return null;
+    for (final validity in sorted) {
+      final tipo = validity.ordertype?.trim();
+
+      if (tipo == ordemInicio) {
+        ordemInicioData = validity;
+        break;
+      }
+    }
+
+    final ordemInicioDate = ordemInicioData?.orderdate;
+
+    if (ordemInicioDate == null) return null;
 
     final diasParalisados = calcularDiasParalisados(sorted);
     final diasExecucaoInicial = _toIntFromText(tr?.prazoExecucaoDias);
@@ -1200,7 +1245,7 @@ class ValidityRepository {
     final totalDias =
         diasExecucaoInicial + diasExecucaoAditivos + diasParalisados;
 
-    return ordemInicio.add(
+    return ordemInicioDate.add(
       Duration(days: totalDias),
     );
   }

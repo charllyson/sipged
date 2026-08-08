@@ -2,10 +2,11 @@
 // ou:
 // lib/screens/common/login/sign_in/tenant_selection_page.dart
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/login/login_cubit.dart';
+import 'package:sipged/screens/common/login/sign_in/login_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart';
 import 'package:sipged/_blocs/system/tenant/tenant_data.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
@@ -123,17 +124,15 @@ class _TenantSelectionPageState extends State<TenantSelectionPage> {
         width: size,
         height: size,
         color: Colors.white,
-        child: Image.network(
-          logoUrl,
+        child: CachedNetworkImage(
+          imageUrl: logoUrl,
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, _, _) {
+          errorWidget: (_, _, _) {
             return _buildTenantLogoFallback(size: size);
           },
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-
+          placeholder: (context, url) {
             return Center(
               child: SizedBox.square(
                 dimension: size * 0.38,

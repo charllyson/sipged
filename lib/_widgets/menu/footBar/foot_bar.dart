@@ -1,10 +1,15 @@
+// lib/_widgets/menu/footBar/foot_bar.dart
+
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/system/user/user_data.dart';
+
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/ia/ai_chat_sheet.dart';
 import 'package:sipged/_widgets/ia/ai_futuristic_button.dart';
+
 import 'package:sipged/screens/common/login/sign_up/sign_up.dart';
+import 'package:sipged/screens/common/login/sign_up/sign_up_data.dart';
 
 enum FootBarMode {
   defaultMode,

@@ -134,15 +134,20 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
     final featuresToken =
     _featuresByLayerToken(genericState.featuresByLayer).toString();
 
+    final headerInfo = _buildWorkspaceHeaderInfo(
+      scope: scope,
+      genericState: genericState,
+    );
+
     return [
       base.copyWith(
+        title: headerInfo.plainTitle,
+        titleBuilder: headerInfo.breadcrumbBuilder,
         shrinkWrapOnMainAxis: false,
         items: [
           DockPanelData(
             id: 'workspace_area_main',
-            title: scope.isGeneral
-                ? 'Área de trabalho - Geral'
-                : 'Área de trabalho - ${scope.documentId}',
+            title: headerInfo.plainTitle,
             icon: Icons.space_dashboard_outlined,
             contentToken: 'workspace_area_main_${scopeKey}_$featuresToken',
             contentPadding: EdgeInsets.zero,
@@ -167,6 +172,112 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
         activeItemId: 'workspace_area_main',
       ),
     ];
+  }
+
+  /// Monta o título (texto simples, usado para detecção de mudança de
+  /// layout) e o "builder" de breadcrumb navegável (raiz "/" > camada/grupo
+  /// > feição) exibidos no cabeçalho do painel Área de trabalho, de acordo
+  /// com o escopo atualmente selecionado.
+  _WorkspaceHeaderInfo _buildWorkspaceHeaderInfo({
+    required WorkspaceScopeData scope,
+    required FeatureState genericState,
+  }) {
+    if (scope.isGeneral) {
+      return const _WorkspaceHeaderInfo(plainTitle: 'Área de trabalho');
+    }
+
+    final layersCubit = context.read<LayerCubit>();
+
+    String? layerId;
+    String? featureTitle;
+
+    if (scope.isFeature) {
+      final selected = genericState.selected;
+      layerId = selected?.layerId;
+      featureTitle = selected == null
+          ? null
+          : _resolveDisplaySafeFeatureTitle(selected.feature);
+    } else {
+      layerId = scope.id;
+    }
+
+    final layerNode = (layerId != null && layerId.trim().isNotEmpty)
+        ? layersCubit.findNodeById(layerId)
+        : null;
+
+    // Nunca cai para o id bruto do documento/camada — se não houver um
+    // título amigável, usa um rótulo genérico em vez de expor o id.
+    final rawLayerTitle = layerNode?.title.trim();
+    final layerTitle = (rawLayerTitle != null && rawLayerTitle.isNotEmpty)
+        ? rawLayerTitle
+        : 'Camada';
+
+    final resolvedFeatureTitle =
+        (featureTitle != null && featureTitle.trim().isNotEmpty)
+            ? featureTitle.trim()
+            : 'Feição sem título';
+
+    final pathSegments = [
+      layerTitle,
+      if (scope.isFeature) resolvedFeatureTitle,
+    ];
+
+    final plainTitle = 'Área de trabalho / ${pathSegments.join(' / ')}';
+
+    final items = <BreadcrumbItem>[
+      BreadcrumbItem(
+        label: layerTitle,
+        onTap: scope.isFeature
+            ? () => context.read<FeatureCubit>().clearSelection()
+            : null,
+      ),
+      if (scope.isFeature) BreadcrumbItem(label: resolvedFeatureTitle),
+    ];
+
+    Widget breadcrumbBuilder(BuildContext context, TextStyle style) {
+      return PanelBreadcrumb(
+        style: style,
+        onRootTap: () {
+          context.read<FeatureCubit>().clearSelection();
+          context.read<MapCubit>().selectLayerPanelItem('');
+        },
+        items: items,
+      );
+    }
+
+    return _WorkspaceHeaderInfo(
+      plainTitle: plainTitle,
+      breadcrumbBuilder: breadcrumbBuilder,
+    );
+  }
+
+  /// Mesma busca por um campo "amigável" que [FeatureData.title] faz, mas
+  /// sem o fallback final para o id bruto do documento — usado apenas para
+  /// texto exibido ao usuário (ex.: o breadcrumb do painel Área de
+  /// trabalho), onde nunca queremos vazar o id interno do Firestore.
+  String? _resolveDisplaySafeFeatureTitle(FeatureData feature) {
+    const candidateKeys = [
+      'title',
+      'titulo',
+      'name',
+      'nome',
+      'label',
+      'descricao',
+      'description',
+      'codigo',
+      'processo',
+    ];
+
+    for (final key in candidateKeys) {
+      final value =
+          feature.editedProperties[key] ?? feature.originalProperties[key];
+
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString().trim();
+      }
+    }
+
+    return null;
   }
 
   Widget _buildActionButton({
@@ -221,4 +332,18 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
       ),
     ];
   }
+}
+
+/// Resultado de [_GeoNetworkBuilders._buildWorkspaceHeaderInfo]: o texto
+/// simples (usado para detectar mudança de layout do dock) e, quando
+/// aplicável, um builder de breadcrumb navegável para o cabeçalho.
+class _WorkspaceHeaderInfo {
+  final String plainTitle;
+  final Widget Function(BuildContext context, TextStyle style)?
+  breadcrumbBuilder;
+
+  const _WorkspaceHeaderInfo({
+    required this.plainTitle,
+    this.breadcrumbBuilder,
+  });
 }

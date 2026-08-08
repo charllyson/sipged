@@ -2,6 +2,7 @@
 
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
@@ -50,6 +51,7 @@ class _CarouselPhotoThumbState extends State<CarouselPhotoThumb> {
 
     if (oldWidget.photo.id != widget.photo.id ||
         oldWidget.photo.url != widget.photo.url ||
+        oldWidget.photo.thumbUrl != widget.photo.thumbUrl ||
         oldWidget.photo.bytes != widget.photo.bytes) {
       _prepareIfNeeded(force: true);
     }
@@ -57,14 +59,15 @@ class _CarouselPhotoThumbState extends State<CarouselPhotoThumb> {
 
   void _prepareIfNeeded({bool force = false}) {
     final photo = widget.photo;
+    final previewUrl = photo.bestPreviewUrl;
 
-    if (!photo.isUrl || !kIsWeb) {
+    if (previewUrl == null || !kIsWeb) {
       _webBytesFuture = null;
       _cachedUrl = null;
       return;
     }
 
-    final url = photo.url!.trim();
+    final url = previewUrl.trim();
 
     if (!force && _cachedUrl == url && _webBytesFuture != null) {
       return;
@@ -105,6 +108,26 @@ class _CarouselPhotoThumbState extends State<CarouselPhotoThumb> {
               onTap: widget.onTap,
               child: _buildImage(size),
             ),
+            if (widget.photo.stamped)
+              Positioned(
+                left: 4,
+                bottom: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Icon(
+                    Icons.verified_rounded,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             if (widget.onRemove != null)
               Positioned(
                 right: 4,
@@ -156,28 +179,29 @@ class _CarouselPhotoThumbState extends State<CarouselPhotoThumb> {
         height: size,
         fit: BoxFit.cover,
         gaplessPlayback: true,
+        cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
         errorBuilder: (_, _, _) => _errorBox(size),
       );
     }
 
-    if (photo.isUrl) {
-      final url = photo.url!.trim();
+    final previewUrl = photo.bestPreviewUrl;
+
+    if (previewUrl != null && previewUrl.trim().isNotEmpty) {
+      final url = previewUrl.trim();
 
       if (!kIsWeb) {
         if (photo.looksHeic) {
           return _heicPlaceholder(size);
         }
 
-        return Image.network(
-          url,
+        return CachedNetworkImage(
+          imageUrl: url,
           width: size,
           height: size,
           fit: BoxFit.cover,
-          gaplessPlayback: true,
-          loadingBuilder: (context, child, progress) {
-            return progress == null ? child : _loadingBox(size);
-          },
-          errorBuilder: (_, _, _) => _errorBox(size),
+          memCacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+          placeholder: (_, _) => _loadingBox(size),
+          errorWidget: (_, _, _) => _errorBox(size),
         );
       }
 
@@ -206,6 +230,7 @@ class _CarouselPhotoThumbState extends State<CarouselPhotoThumb> {
             height: size,
             fit: BoxFit.cover,
             gaplessPlayback: true,
+            cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
             errorBuilder: (_, _, _) => _errorBox(size),
           );
         },

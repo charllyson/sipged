@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/login/login_cubit.dart';
-import 'package:sipged/_blocs/system/login/login_state.dart';
+import 'package:sipged/screens/common/login/sign_in/login_cubit.dart';
+import 'package:sipged/screens/common/login/sign_in/login_state.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
@@ -16,7 +16,7 @@ import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/screens/common/login/forgot/forgot_password_page.dart';
 import 'package:sipged/screens/common/login/sign_in/sign_in_button.dart';
 import 'package:sipged/screens/common/login/sign_in/system_invite_floating_button.dart';
-import 'package:sipged/screens/common/login/system_presentation_page.dart';
+import 'package:sipged/screens/common/system_presentation_page.dart';
 
 class SignIn extends StatefulWidget {
   const SignIn({super.key});

@@ -20,8 +20,6 @@ import 'package:sipged/_blocs/system/notification/helpers/notification_schedule.
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/notification/notification_data.dart';
 import 'package:sipged/_blocs/system/notification/notification_type.dart';
-
-import 'package:sipged/_widgets/draw/shimmer/map_shimmer.dart';
 import 'package:sipged/_widgets/map/map/map_change.dart';
 
 import 'package:sipged/screens/modules/operation/schedule/common/header/schedule_status.dart';
@@ -1754,7 +1752,7 @@ class _ScheduleLinearMapState extends State<ScheduleLinearMap> {
         }
 
         if (!st.initialized || st.savingOrImporting) {
-          return const MapShimmer();
+          return const CircularProgressIndicator();
         }
 
         final lines = _linesFromState(st);

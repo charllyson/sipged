@@ -1,5 +1,3 @@
-// lib/_widgets/overlays/balloon/balloon_body.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/overlays/balloon/balloon_empty.dart';
@@ -14,6 +12,8 @@ class BalloonBody extends StatelessWidget {
     required this.width,
     required this.maxHeight,
     required this.items,
+    this.minHeight,
+    this.forceMaxHeight = false,
     this.title,
     this.showHeader = true,
     this.tipSide = BalloonTipSide.top,
@@ -31,20 +31,16 @@ class BalloonBody extends StatelessWidget {
 
   final double width;
   final double maxHeight;
+  final double? minHeight;
+  final bool forceMaxHeight;
 
   final BalloonTipSide tipSide;
 
   final double? tipCenterX;
   final double? tipCenterY;
 
-  /// Se false, oculta totalmente o header,
-  /// mesmo que title, headerIcon ou action estejam preenchidos.
   final bool showHeader;
-
-  /// Opcional. Se null ou vazio, não renderiza texto no header.
   final String? title;
-
-  /// Opcional. Se null, não renderiza ícone no header.
   final IconData? headerIcon;
 
   final String? actionLabel;
@@ -82,11 +78,13 @@ class BalloonBody extends StatelessWidget {
     return BalloonPopup(
       width: width,
       maxHeight: maxHeight,
+      minHeight: minHeight,
+      forceMaxHeight: forceMaxHeight,
       tipSide: tipSide,
       tipCenterX: tipCenterX,
       tipCenterY: tipCenterY,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: forceMaxHeight ? MainAxisSize.max : MainAxisSize.min,
         children: [
           if (_hasHeader) ...[
             BalloonHeader(
@@ -128,13 +126,14 @@ class BalloonBody extends StatelessWidget {
               )
             else
               Flexible(
+                fit: forceMaxHeight ? FlexFit.tight : FlexFit.loose,
                 child: ScrollConfiguration(
                   behavior: ScrollConfiguration.of(context).copyWith(
                     scrollbars: false,
                   ),
                   child: ListView.separated(
                     padding: EdgeInsets.zero,
-                    shrinkWrap: true,
+                    shrinkWrap: !forceMaxHeight,
                     physics: const ClampingScrollPhysics(),
                     itemCount: items.length,
                     separatorBuilder: (_, _) {

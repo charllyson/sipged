@@ -51,6 +51,15 @@ class CatalogSection extends StatelessWidget {
             final itemId = item.id;
             final selected = selectedItemId == itemId;
 
+            if (item.comingSoon) {
+              return IconButtonChanged(
+                icon: item.icon ?? Icons.widgets_outlined,
+                tooltip: '${item.title} — Em breve',
+                selected: false,
+                enabled: false,
+              );
+            }
+
             final card = IconButtonChanged(
               icon: item.icon ?? Icons.widgets_outlined,
               tooltip: item.title,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
 typedef IdOf<T> = String? Function(T item);
 typedef TextOf<T> = String Function(T item);

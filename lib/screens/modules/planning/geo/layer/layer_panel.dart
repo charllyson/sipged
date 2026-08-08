@@ -39,6 +39,11 @@ class LayerPanel extends StatefulWidget {
 
   final VoidCallback? onClearSelection;
 
+  /// Enquadra (zoom) o mapa nas feições da camada/grupo com o id
+  /// informado. Disparado por clique direito, duplo clique/toque ou
+  /// clique/toque e segurar em uma linha do painel.
+  final void Function(String id)? onZoomToLayer;
+
   const LayerPanel({
     super.key,
     required this.layers,
@@ -59,6 +64,7 @@ class LayerPanel extends StatefulWidget {
     this.selectedId,
     this.onSelectedChanged,
     this.onClearSelection,
+    this.onZoomToLayer,
   });
 
   @override
@@ -727,6 +733,9 @@ class _LayerPanelState extends State<LayerPanel>
                 widget.onToggleLayer(leaf.id, shouldEnable);
               }
             },
+            onZoomToGroup: widget.onZoomToLayer == null
+                ? null
+                : () => widget.onZoomToLayer?.call(entry.id),
           );
         },
       );
@@ -742,6 +751,9 @@ class _LayerPanelState extends State<LayerPanel>
       currentUserId: widget.currentUserId,
       onTap: () => _selectItem(entry.id),
       onToggleLayer: (value) => widget.onToggleLayer(entry.id, value),
+      onZoomToLayer: widget.onZoomToLayer == null
+          ? null
+          : () => widget.onZoomToLayer?.call(entry.id),
     );
   }
 }

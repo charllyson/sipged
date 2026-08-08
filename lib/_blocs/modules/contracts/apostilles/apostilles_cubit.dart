@@ -202,9 +202,15 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       }) {
     final previousTenantId = _tenantId;
 
-    _currentUser = user ?? _currentUser;
-    _currentPermissions =
-        permissions ?? _permissionsFromUser(user) ?? _currentPermissions;
+    if (user != null) {
+      _currentUser = user;
+    }
+
+    if (permissions != null) {
+      _currentPermissions = permissions;
+    } else {
+      _currentPermissions ??= _permissionsFromUser(user);
+    }
 
     final cleanTenantId = tenantId?.trim();
 
@@ -239,7 +245,9 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   }) {
     final previousTenantId = _tenantId;
 
-    _currentPermissions = permissions ?? _currentPermissions;
+    if (permissions != null) {
+      _currentPermissions = permissions;
+    }
 
     final cleanTenantId = tenantId?.trim();
 
@@ -274,16 +282,9 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
     if (uid.isEmpty) return null;
 
-    final raw = user.userSnap?.data();
-
-    if (raw is Map<String, dynamic>) {
-      return UserPermissionData.fromMap(
-        uid: uid,
-        map: raw,
-      );
-    }
-
-    return UserPermissionData(uid: uid);
+    return UserPermissionData(
+      uid: uid,
+    );
   }
 
   bool _canWrite() {
@@ -293,40 +294,42 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       return !enforcePermissions;
     }
 
+    final activeTenantId = _requireTenantId();
+
     if (permissions.isGlobalSuperUser ||
-        permissions.isSuperUserForTenant(_tenantId)) {
+        permissions.isSuperUserForTenant(activeTenantId)) {
       return true;
     }
 
     return permissions.canModuleString(
       module: moduleId,
       action: 'create',
-      tenantId: _tenantId,
+      tenantId: activeTenantId,
     ) ||
         permissions.canModuleString(
           module: moduleId,
           action: 'edit',
-          tenantId: _tenantId,
+          tenantId: activeTenantId,
         ) ||
         permissions.canModuleString(
           module: moduleId,
           action: 'delete',
-          tenantId: _tenantId,
+          tenantId: activeTenantId,
         ) ||
         permissions.canModuleString(
           module: 'apostilles',
           action: 'create',
-          tenantId: _tenantId,
+          tenantId: activeTenantId,
         ) ||
         permissions.canModuleString(
           module: 'apostilles',
           action: 'edit',
-          tenantId: _tenantId,
+          tenantId: activeTenantId,
         ) ||
         permissions.canModuleString(
           module: 'apostilles',
           action: 'delete',
-          tenantId: _tenantId,
+          tenantId: activeTenantId,
         );
   }
 
@@ -337,20 +340,22 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       return !enforcePermissions;
     }
 
+    final activeTenantId = _requireTenantId();
+
     if (permissions.isGlobalSuperUser ||
-        permissions.isSuperUserForTenant(_tenantId)) {
+        permissions.isSuperUserForTenant(activeTenantId)) {
       return true;
     }
 
     return permissions.canModuleString(
       module: moduleId,
       action: 'delete',
-      tenantId: _tenantId,
+      tenantId: activeTenantId,
     ) ||
         permissions.canModuleString(
           module: 'apostilles',
           action: 'delete',
-          tenantId: _tenantId,
+          tenantId: activeTenantId,
         );
   }
 
@@ -377,7 +382,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   }
 
   Future<void> loadApostilles() async {
-    _syncRepositoryTenant();
+    _requireTenantId();
 
     final cId = contract.id?.trim();
 
@@ -432,6 +437,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     }
 
     final data = state.apostilles[index];
+
     _selectApostille(data, index);
   }
 
@@ -559,7 +565,11 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         valueText.trim().isNotEmpty;
 
     if (valid != state.formValid) {
-      emit(state.copyWith(formValid: valid));
+      emit(
+        state.copyWith(
+          formValid: valid,
+        ),
+      );
     }
   }
 
@@ -608,7 +618,12 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       throw Exception('Contrato não informado para salvar o apostilamento.');
     }
 
-    emit(state.copyWith(isSaving: true, clearError: true));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        clearError: true,
+      ),
+    );
 
     try {
       final order = int.tryParse(orderText.trim()) ?? 0;
@@ -664,7 +679,11 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
       rethrow;
     } finally {
-      emit(state.copyWith(isSaving: false));
+      emit(
+        state.copyWith(
+          isSaving: false,
+        ),
+      );
     }
   }
 
@@ -682,7 +701,12 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       throw Exception('Nenhum apostilamento selecionado para exclusão.');
     }
 
-    emit(state.copyWith(isSaving: true, clearError: true));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        clearError: true,
+      ),
+    );
 
     try {
       final result = ApostilleDeleteResult(
@@ -724,12 +748,16 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
       rethrow;
     } finally {
-      emit(state.copyWith(isSaving: false));
+      emit(
+        state.copyWith(
+          isSaving: false,
+        ),
+      );
     }
   }
 
   Future<void> reloadAttachments() async {
-    _syncRepositoryTenant();
+    _requireTenantId();
 
     final cId = contract.id?.trim();
     final selected = state.selected;
@@ -1018,7 +1046,9 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
       emit(
         state.copyWith(
-          selected: apostille.copyWith(attachments: list),
+          selected: apostille.copyWith(
+            attachments: list,
+          ),
           sideAttachments: list,
           sideLoading: false,
           clearUploadProgress: true,

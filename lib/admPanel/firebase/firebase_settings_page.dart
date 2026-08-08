@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/adm/firebase_admin_cubit.dart';
-import 'package:sipged/_blocs/system/adm/firebase_admin_data.dart';
-import 'package:sipged/_blocs/system/adm/firebase_admin_state.dart';
+import 'package:sipged/admPanel/bloc/firebase_admin_cubit.dart';
+import 'package:sipged/admPanel/bloc/firebase_admin_data.dart';
+import 'package:sipged/admPanel/bloc/firebase_admin_state.dart';
 
 import 'package:sipged/_services/excel/excel_import_controller.dart';
 

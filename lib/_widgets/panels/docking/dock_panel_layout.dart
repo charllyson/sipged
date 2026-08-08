@@ -2,8 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
-import 'package:sipged/_blocs/system/panels/docking/dock_panel_state.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_data.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_state.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_region.dart';
 
 class DockPanelLayout extends StatelessWidget {

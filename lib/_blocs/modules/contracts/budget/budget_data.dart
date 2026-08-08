@@ -78,8 +78,8 @@ class BudgetSchema {
 
   BudgetSchema._({
     required this.columns,
-    required Map<String, int> indexByName,
-  }) : _indexByName = indexByName;
+    required this._indexByName,
+  });
 
   factory BudgetSchema(List<BudgetColumn> columns) {
     final normalizedColumns = List<BudgetColumn>.unmodifiable(columns);

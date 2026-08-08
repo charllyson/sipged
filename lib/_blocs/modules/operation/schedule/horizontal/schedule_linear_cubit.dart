@@ -132,7 +132,7 @@ class ScheduleLinearCubit extends Cubit<ScheduleLinearState> {
   }
 
   Future<Map<String, dynamic>?> _pickGeoJsonMap() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const <String>[
         'geojson',

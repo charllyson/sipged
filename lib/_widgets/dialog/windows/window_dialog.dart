@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/buttons/window_button_change.dart';
+import 'package:sipged/_widgets/dialog/windows/window_button_change.dart';
 
 class WindowDialog extends StatefulWidget {
   final Widget child;

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_repository.dart';
@@ -11,8 +12,7 @@ import 'package:sipged/_blocs/system/tenant/tenant_cubit.dart';
 import 'package:sipged/_blocs/system/tenant/tenant_state.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
-import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+ import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 import 'active_roads_map.dart';
 import 'active_roads_panel.dart';

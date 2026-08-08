@@ -4,9 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/adm/firebase_admin_cubit.dart';
-import 'package:sipged/_blocs/system/adm/firebase_admin_data.dart';
-import 'package:sipged/_blocs/system/adm/firebase_admin_state.dart';
+import 'package:sipged/admPanel/bloc/firebase_admin_cubit.dart';
+import 'package:sipged/admPanel/bloc/firebase_admin_data.dart';
+import 'package:sipged/admPanel/bloc/firebase_admin_state.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';

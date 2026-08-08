@@ -222,15 +222,29 @@ class NotificationDispatcher {
 
     if (recipients.isEmpty) return;
 
+    // Resolve as preferências de canal de todos os destinatários em paralelo
+    // (antes era um `await` por usuário, em série). `resolveEnabledChannels`
+    // já cacheia por `userId::sourceKey` (ver `_resolveEnabledChannelsForUser`),
+    // então chamadas concorrentes para o mesmo usuário/fonte reaproveitam a
+    // mesma leitura em vez de duplicá-la. `Future.wait` preserva a ordem da
+    // lista de entrada, então o agrupamento abaixo fica idêntico ao da versão
+    // sequencial — só mais rápido para notificações com muitos destinatários.
+    final resolvedChannelsByUser = await Future.wait(
+      recipients.map((userId) async {
+        final enabledChannels = await resolveEnabledChannels(
+          userId: userId,
+          channels: requestedChannels,
+        );
+
+        return MapEntry(userId, _remoteChannelsOnly(enabledChannels));
+      }),
+    );
+
     final groupedByChannels = <String, _NotificationRecipientGroup>{};
 
-    for (final userId in recipients) {
-      final enabledChannels = await resolveEnabledChannels(
-        userId: userId,
-        channels: requestedChannels,
-      );
-
-      final cleanChannels = _remoteChannelsOnly(enabledChannels);
+    for (final entry in resolvedChannelsByUser) {
+      final userId = entry.key;
+      final cleanChannels = entry.value;
 
       if (cleanChannels.isEmpty) continue;
 

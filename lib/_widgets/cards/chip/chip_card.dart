@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_utils/formatters/sipged_format_money.dart';
+typedef ChipCardValueFormatter = String Function(double value);
 
 class ChipCard extends StatelessWidget {
   const ChipCard(
@@ -9,6 +9,7 @@ class ChipCard extends StatelessWidget {
       this.icon, {
         super.key,
         this.textValue,
+        this.valueFormatter,
         this.formatAsMoney = true,
         this.showTitle = true,
         this.separator = ': ',
@@ -36,22 +37,29 @@ class ChipCard extends StatelessWidget {
 
   /// Valor textual customizado.
   ///
-  /// Use quando o conteúdo não for dinheiro/número simples.
+  /// Use quando o conteúdo não for número simples.
   /// Exemplo: "3 faixa(s)", "12 serviço(s)", "Ativo".
   final String? textValue;
 
-  /// Quando true, formata [value] como dinheiro.
+  /// Formatador externo para o valor numérico.
+  ///
+  /// Exemplo no SIPGED:
+  /// valueFormatter: SipGedFormatMoney.doubleToText
+  ///
+  /// Assim o ChipCard não depende de regras específicas do projeto.
+  final ChipCardValueFormatter? valueFormatter;
+
+  /// Mantido por compatibilidade com usos antigos.
+  ///
+  /// Quando [valueFormatter] for informado, ele terá prioridade.
+  /// Quando [formatAsMoney] for true e [valueFormatter] for null,
+  /// o fallback genérico será value.toStringAsFixed(2).
   final bool formatAsMoney;
 
   /// Quando false, mostra apenas o valor resolvido, sem "title: ".
-  ///
-  /// Útil para substituir chips pequenos como:
-  /// "3 faixa(s)" ou "2 serviço(s)".
   final bool showTitle;
 
   /// Separador entre título e valor.
-  ///
-  /// Padrão: ": ".
   final String separator;
 
   final String? tooltip;
@@ -73,21 +81,33 @@ class ChipCard extends StatelessWidget {
   final TextOverflow overflow;
 
   String get _resolvedValue {
-    if (textValue != null) return textValue!;
+    final customText = textValue?.trim();
 
-    if (value == null) return '-';
+    if (customText != null && customText.isNotEmpty) {
+      return customText;
+    }
+
+    final numericValue = value;
+
+    if (numericValue == null) {
+      return '-';
+    }
+
+    if (valueFormatter != null) {
+      return valueFormatter!(numericValue);
+    }
 
     if (formatAsMoney) {
-      return SipGedFormatMoney.doubleToText(value!);
+      return numericValue.toStringAsFixed(2);
     }
 
-    final isInteger = value! % 1 == 0;
+    final isInteger = numericValue % 1 == 0;
 
     if (isInteger) {
-      return value!.toInt().toString();
+      return numericValue.toInt().toString();
     }
 
-    return value!.toString();
+    return numericValue.toString();
   }
 
   String get _resolvedLabel {
@@ -106,10 +126,8 @@ class ChipCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     final resolvedBackgroundColor = backgroundColor ?? Colors.grey.shade100;
-
     final resolvedForegroundColor =
         foregroundColor ?? theme.colorScheme.onSurface;
-
     final resolvedBorderColor = borderColor ?? Colors.grey.shade400;
 
     final chip = Chip(
@@ -152,18 +170,23 @@ class ChipCard extends StatelessWidget {
 
     final result = onTap == null
         ? chip
-        : InkWell(
-      borderRadius: BorderRadius.circular(borderRadius),
-      onTap: onTap,
-      child: chip,
+        : Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(borderRadius),
+        onTap: onTap,
+        child: chip,
+      ),
     );
 
-    if (tooltip == null || tooltip!.trim().isEmpty) {
+    final cleanTooltip = tooltip?.trim();
+
+    if (cleanTooltip == null || cleanTooltip.isEmpty) {
       return result;
     }
 
     return Tooltip(
-      message: tooltip!,
+      message: cleanTooltip,
       child: result,
     );
   }

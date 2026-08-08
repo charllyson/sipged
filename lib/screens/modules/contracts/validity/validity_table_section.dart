@@ -1,4 +1,7 @@
+// lib/screens/modules/contracts/validity/validity_table_section.dart
+
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_utils/formatters/sipged_format_dates.dart';
 import 'package:sipged/_widgets/table/paged/paged_colum.dart';
@@ -20,18 +23,28 @@ class ValidityTableSection extends StatelessWidget {
 
   String _txt(String? value) {
     final text = (value ?? '').trim();
-    if (text.isEmpty || text.toLowerCase() == 'null') return '-';
+
+    if (text.isEmpty || text.toLowerCase() == 'null') {
+      return '-';
+    }
+
     return text;
   }
 
   String _date(DateTime? value) {
-    if (value == null) return '-';
+    if (value == null) {
+      return '-';
+    }
+
     return SipGedFormatDates.dateToDdMMyyyy(value);
   }
 
   String _itemKey(ValidityData item) {
     final id = (item.id ?? '').trim();
-    if (id.isNotEmpty) return id;
+
+    if (id.isNotEmpty) {
+      return id;
+    }
 
     return [
       item.orderNumber?.toString() ?? '-',
@@ -71,6 +84,7 @@ class ValidityTableSection extends StatelessWidget {
       onTapItem: onTapItem,
       onDelete: (item) async {
         final id = (item.id ?? '').trim();
+
         if (id.isNotEmpty) {
           await onDelete(id);
         }

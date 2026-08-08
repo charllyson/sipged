@@ -1,8 +1,6 @@
 // lib/_widgets/images/carousel/photo_picker_square.dart
 
 import 'dart:io' show Platform;
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +9,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
- import 'package:sipged/_services/my_location/nominatim_cubit.dart';
+import 'package:sipged/_widgets/map/my_location/nominatim_cubit.dart';
 import 'package:sipged/_widgets/images/carousel/custom_camera_page.dart';
 import 'package:sipged/_widgets/images/carousel/models/photo_data.dart';
 import 'package:sipged/_widgets/images/carousel/services/photo_utils.dart';
@@ -25,11 +23,11 @@ class PhotoPickerSquare extends StatefulWidget {
     this.onPickFromCamera,
     this.onPickFromGallery,
     this.onPickMultipleFromGallery,
-    this.imageQuality = 90,
-    this.maxWidth,
-    this.maxHeight,
+    this.imageQuality = 88,
+    this.maxWidth = 1920,
+    this.maxHeight = 1920,
     this.editorMaxScale = 5.0,
-    this.editorExportQuality = 90,
+    this.editorExportQuality = 88,
     this.editorCircleCrop = false,
     this.editorAspectRatios,
     this.uploadedBy,
@@ -44,10 +42,14 @@ class PhotoPickerSquare extends StatefulWidget {
   final Future<void> Function(PhotoData photo)? onPickFromGallery;
   final Future<void> Function(List<PhotoData> photos)? onPickMultipleFromGallery;
 
+  /// Usado somente na captura/seleção para reduzir peso.
+  /// Não abre editor automaticamente.
   final int? imageQuality;
   final double? maxWidth;
   final double? maxHeight;
 
+  /// Mantido por compatibilidade, mas este widget NÃO abre editor.
+  /// O editor deve ser chamado ao clicar na thumb do carrossel.
   final double editorMaxScale;
   final int editorExportQuality;
   final bool editorCircleCrop;
@@ -55,13 +57,7 @@ class PhotoPickerSquare extends StatefulWidget {
 
   final String? uploadedBy;
 
-  /// Resolve endereço a partir da latitude/longitude da foto.
   final bool resolveAddressFromPhotoGps;
-
-  /// Para foto tirada pela câmera interna.
-  ///
-  /// O pacote camera geralmente não grava GPS no EXIF. Nesse caso,
-  /// capturamos a localização atual no momento da foto e associamos ao PhotoData.
   final bool captureLocationWhenCameraHasNoGps;
 
   @override
@@ -116,10 +112,7 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       barrierColor: const Color(0x99000000),
       builder: (_) {
         dialogPushed = true;
-
-        return _PhotoPickerBlockingDialog(
-          message: message,
-        );
+        return _PhotoPickerBlockingDialog(message: message);
       },
     );
 
@@ -191,7 +184,9 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
                 ListTile(
                   leading: const Icon(Icons.photo_library_outlined),
                   title: const Text('Escolher da galeria'),
-                  subtitle: const Text('Selecionar uma ou várias fotos'),
+                  subtitle: const Text(
+                    'Selecionar uma ou várias fotos sem abrir edição',
+                  ),
                   onTap: () async {
                     Navigator.of(sheetContext).pop();
 
@@ -247,14 +242,12 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       task: () async {
         try {
           final cubit = context.read<NominatimCubit>();
-
           return await cubit.getUserCurrentLocation();
         } catch (e, s) {
           debugPrint(
             '[PhotoPickerSquare] Não foi possível capturar localização atual: $e',
           );
           debugPrintStack(stackTrace: s);
-
           return null;
         }
       },
@@ -333,9 +326,12 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
     final withAddress = await _resolveAddressIntoPhotoMeta(withCoords);
 
     /// Importante:
-    /// Aqui NÃO carimbamos os bytes.
-    /// O carimbo visual aparece no preview/galeria.
-    /// O carimbo definitivo é gerado somente no salvamento/upload.
+    /// Aqui NÃO abre PhotoEditorPage.
+    /// Aqui NÃO abre PhotoPreviewPage.
+    /// Aqui NÃO carimba a imagem.
+    ///
+    /// A foto entra direto no carousel como thumb em memória.
+    /// A edição/corte/carimbo deve acontecer somente no clique da thumb.
     return withAddress;
   }
 
@@ -348,9 +344,9 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       if (kIsWeb) {
         final file = await _picker.pickImage(
           source: ImageSource.camera,
-          imageQuality: null,
-          maxWidth: null,
-          maxHeight: null,
+          imageQuality: widget.imageQuality,
+          maxWidth: widget.maxWidth,
+          maxHeight: widget.maxHeight,
         );
 
         if (file == null) return;
@@ -372,9 +368,9 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
         final file = await _picker.pickImage(
           source: ImageSource.camera,
           preferredCameraDevice: CameraDevice.rear,
-          imageQuality: null,
-          maxWidth: null,
-          maxHeight: null,
+          imageQuality: widget.imageQuality,
+          maxWidth: widget.maxWidth,
+          maxHeight: widget.maxHeight,
         );
 
         if (file == null) return;
@@ -408,9 +404,9 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       }
 
       final files = await _picker.pickMultiImage(
-        imageQuality: null,
-        maxWidth: null,
-        maxHeight: null,
+        imageQuality: widget.imageQuality,
+        maxWidth: widget.maxWidth,
+        maxHeight: widget.maxHeight,
       );
 
       if (files.isEmpty) return;
@@ -438,6 +434,10 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
 
       if (photos.isEmpty || !mounted) return;
 
+      /// Aqui é o ponto principal:
+      /// várias fotos selecionadas são enviadas diretamente ao carousel.
+      /// Não abre preview.
+      /// Não abre editor.
       if (widget.onPickMultipleFromGallery != null) {
         await widget.onPickMultipleFromGallery!(photos);
         return;
@@ -661,7 +661,7 @@ class _PhotoPickerBusyContent extends StatelessWidget {
         ),
         SizedBox(height: 8),
         Text(
-          'Abrindo...',
+          'Processando...',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12,

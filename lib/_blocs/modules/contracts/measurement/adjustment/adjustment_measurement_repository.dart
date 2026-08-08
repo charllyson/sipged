@@ -515,7 +515,7 @@ class AdjustmentMeasurementRepository {
   }
 
   Future<(Uint8List bytes, String originalName)> pickFileBytes() async {
-    final result = await FilePicker.platform.pickFiles(withData: true);
+    final result = await FilePicker.pickFiles(withData: true);
 
     if (result == null || result.files.single.bytes == null) {
       throw Exception('Nenhum arquivo selecionado ou arquivo vazio.');
@@ -690,7 +690,7 @@ class AdjustmentMeasurementRepository {
   }) async {
     _requireTenant();
 
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['pdf'],
       withData: true,

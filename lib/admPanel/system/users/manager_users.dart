@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/module/module_catalog.dart';
 import 'package:sipged/_blocs/system/notification/local/notification_local_cubit.dart';
 import 'package:sipged/_blocs/system/permission/permission_data.dart' as perm;
@@ -20,6 +19,7 @@ import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/screens/common/login/sign_up/sign_up_data.dart';
 
 import 'package:sipged/screens/common/login/sign_up/widgets/manager_users_error_panel.dart';
 import 'package:sipged/admPanel/system/users/permission_user_card.dart';
@@ -70,7 +70,6 @@ class _ManagerUsersState extends State<ManagerUsers> {
 
     await _reloadPermissionsForUsers(users);
   }
-
 
   Future<void> _reloadAll() async {
     if (!mounted) return;
@@ -168,7 +167,6 @@ class _ManagerUsersState extends State<ManagerUsers> {
     });
 
     try {
-      final loginCubit = context.read<LoginCubit>();
       final userCubit = context.read<UserCubit>();
       final userRepository = context.read<UserRepository>();
       final notificationLocalCubit = context.read<NotificationLocalCubit>();
@@ -184,9 +182,6 @@ class _ManagerUsersState extends State<ManagerUsers> {
               ],
               child: MultiBlocProvider(
                 providers: [
-                  BlocProvider<LoginCubit>.value(
-                    value: loginCubit,
-                  ),
                   BlocProvider<UserCubit>.value(
                     value: userCubit,
                   ),
@@ -195,7 +190,7 @@ class _ManagerUsersState extends State<ManagerUsers> {
                   ),
                 ],
                 child: SignUp(
-                  userData: UserData(),
+                  userData: UserData.empty(),
                   mode: SignUpMode.adminCreateUser,
                 ),
               ),
@@ -221,7 +216,6 @@ class _ManagerUsersState extends State<ManagerUsers> {
   Future<void> _openEditUserPage(UserData user) async {
     if (!mounted) return;
 
-    final loginCubit = context.read<LoginCubit>();
     final userCubit = context.read<UserCubit>();
     final userRepository = context.read<UserRepository>();
     final notificationLocalCubit = context.read<NotificationLocalCubit>();
@@ -237,9 +231,6 @@ class _ManagerUsersState extends State<ManagerUsers> {
             ],
             child: MultiBlocProvider(
               providers: [
-                BlocProvider<LoginCubit>.value(
-                  value: loginCubit,
-                ),
                 BlocProvider<UserCubit>.value(
                   value: userCubit,
                 ),
@@ -248,7 +239,7 @@ class _ManagerUsersState extends State<ManagerUsers> {
                 ),
               ],
               child: SignUp(
-                userData: user,
+                userData: user.copyDetached(),
                 mode: SignUpMode.editUser,
               ),
             ),

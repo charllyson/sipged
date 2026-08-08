@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:sipged/_widgets/cards/expandable/expandable_card.dart';
+import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
+
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Progress/progress_data.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
-import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 
-import 'package:sipged/_widgets/cards/expandable/expandable_card.dart';
-import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 
 class GeneralDashboardSummary extends StatelessWidget {
   const GeneralDashboardSummary({super.key});
@@ -23,12 +26,22 @@ class GeneralDashboardSummary extends StatelessWidget {
       final apostila = state.totaisStatusApostilas[status] ?? 0.0;
 
       return ExpandableCard(
-        subTitles: const ['Inicial', 'Aditivo', 'Apostila'],
-        title: ProgressData.getTitleByStatus(status),
-        icon: GeneralDashboardStyle.iconStatus(status),
-        colorIcon: GeneralDashboardStyle.getColorByStatus(status),
-        valoresIndividuais: [inicial, aditivo, apostila],
+        subTitles: const [
+          'Inicial',
+          'Aditivo',
+          'Apostila',
+        ],
+        title: ContractData.getTitleByStatus(status),
+        icon: ContractData.iconStatus(status),
+        colorIcon: ContractData.getColorByStatus(status),
+        valoresIndividuais: [
+          inicial,
+          aditivo,
+          apostila,
+        ],
         loading: !state.initialized,
+        formatAsCurrency: true,
+        valueFormatter: SipGedFormatMoney.doubleToText,
       );
     }).toList();
 
@@ -37,21 +50,10 @@ class GeneralDashboardSummary extends StatelessWidget {
       sidePadding: 12,
       gap: 8,
       verticalGap: 12,
-
-      // Todos flex no desktop (dividem o espaço igualmente)
       fixedWidths: List<double?>.filled(cards.length, null),
-
-      // Summary cards NÃO precisam de scroll no mobile
       enableScrollOnSmall: false,
-
       children: List.generate(cards.length, (index) {
         return (context, m, i) {
-          // Mobile: largura total
-          if (m.isSmall) {
-            return cards[i];
-          }
-
-          // Desktop/Tablet: ocupa a largura calculada
           return cards[i];
         };
       }),

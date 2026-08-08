@@ -6,9 +6,8 @@ import 'expropriation_state.dart';
 
 class ExpropriationCubit extends Cubit<ExpropriationState> {
   ExpropriationCubit({
-    required ExpropriationRepository repository,
-  })  : _repository = repository,
-        super(ExpropriationState.initial());
+    required this._repository,
+  })  : super(ExpropriationState.initial());
 
   final ExpropriationRepository _repository;
 

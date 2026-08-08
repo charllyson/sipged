@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_utils/formatters/sipged_format_money.dart';
+import 'package:sipged/_widgets/texts/divider_text.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
@@ -15,8 +17,7 @@ import 'package:sipged/_blocs/system/permission/permission_cubit.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/cards/expandable/expandable_card.dart';
-import 'package:sipged/_widgets/texts/divider_text.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+ import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 import 'package:sipged/screens/panels/overview-dashboard/list_resumed.dart';
 
@@ -354,6 +355,7 @@ class _GeneralDashboardPageState extends State<GeneralDashboardPage> {
                                 ],
                                 loading: !state.initialized || state.isLoading,
                                 formatAsCurrency: true,
+                                valueFormatter: SipGedFormatMoney.doubleToText,
                               ),
                             ),
 

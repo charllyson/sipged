@@ -1,9 +1,10 @@
-// lib/screens/modules/contracts/additives/additive_page.dart
+// lib/screens/modules/contracts/additive/additive_page.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
@@ -26,7 +27,6 @@ import 'package:sipged/_utils/formatters/sipged_format_money.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'additive_form_section.dart';
 import 'additive_graph_section.dart';
@@ -131,6 +131,7 @@ class _AdditivePageState extends State<AdditivePage> {
 
     void recomputeValidity() {
       _cubit.updateFormValidity(
+        orderText: _orderCtrl.text,
         typeText: _typeCtrl.text,
         dateText: _dateCtrl.text,
         processText: _processCtrl.text,
@@ -154,6 +155,7 @@ class _AdditivePageState extends State<AdditivePage> {
       await _loadContractDisplayData();
 
       if (!mounted) return;
+
       recomputeValidity();
     });
   }
@@ -355,10 +357,10 @@ class _AdditivePageState extends State<AdditivePage> {
         final surname =
         (meta['surname'] ?? meta['sobrenome'] ?? '').toString().trim();
 
-        final composed = <String>[name, surname]
-            .where((item) => item.trim().isNotEmpty)
-            .join(' ')
-            .trim();
+        final composed = <String>[
+          name,
+          surname,
+        ].where((item) => item.trim().isNotEmpty).join(' ').trim();
 
         if (composed.isNotEmpty) return composed;
 
@@ -545,6 +547,18 @@ class _AdditivePageState extends State<AdditivePage> {
     }
   }
 
+  void _recomputeFormValidity() {
+    _cubit.updateFormValidity(
+      orderText: _orderCtrl.text,
+      typeText: _typeCtrl.text,
+      dateText: _dateCtrl.text,
+      processText: _processCtrl.text,
+      valueText: _valueCtrl.text,
+      addExecText: _addDaysExecCtrl.text,
+      addContractText: _addDaysContractCtrl.text,
+    );
+  }
+
   void _fillForm(AdditivesData additive) {
     _lastFilledId = additive.id;
 
@@ -564,14 +578,7 @@ class _AdditivePageState extends State<AdditivePage> {
     _addDaysContractCtrl.text =
         additive.additiveValidityContractDays?.toString() ?? '';
 
-    _cubit.updateFormValidity(
-      typeText: _typeCtrl.text,
-      dateText: _dateCtrl.text,
-      processText: _processCtrl.text,
-      valueText: _valueCtrl.text,
-      addExecText: _addDaysExecCtrl.text,
-      addContractText: _addDaysContractCtrl.text,
-    );
+    _recomputeFormValidity();
   }
 
   void _clearForm({bool keepOrder = false}) {
@@ -590,14 +597,7 @@ class _AdditivePageState extends State<AdditivePage> {
 
     _selectedAttachmentIndex = null;
 
-    _cubit.updateFormValidity(
-      typeText: _typeCtrl.text,
-      dateText: _dateCtrl.text,
-      processText: _processCtrl.text,
-      valueText: _valueCtrl.text,
-      addExecText: _addDaysExecCtrl.text,
-      addContractText: _addDaysContractCtrl.text,
-    );
+    _recomputeFormValidity();
   }
 
   Future<void> _save() async {
@@ -669,14 +669,7 @@ class _AdditivePageState extends State<AdditivePage> {
 
     _cubit.createNewAdditive();
 
-    _cubit.updateFormValidity(
-      typeText: _typeCtrl.text,
-      dateText: _dateCtrl.text,
-      processText: _processCtrl.text,
-      valueText: _valueCtrl.text,
-      addExecText: _addDaysExecCtrl.text,
-      addContractText: _addDaysContractCtrl.text,
-    );
+    _recomputeFormValidity();
   }
 
   void _ensureSelectedAttachmentIndexValid(int newLen) {
@@ -887,6 +880,69 @@ class _AdditivePageState extends State<AdditivePage> {
     }
   }
 
+  void _handleClear(AdditivesState state) {
+    _cubit.createNewAdditive();
+    _clearForm();
+
+    _orderCtrl.text = state.nextAvailableOrder.toString();
+
+    _recomputeFormValidity();
+  }
+
+  void _handleOrderChanged(String? value) {
+    if (value == null) return;
+
+    _orderCtrl.text = value;
+
+    final order = int.tryParse(value.trim()) ?? 0;
+
+    _cubit.selectAdditiveByOrder(order);
+    _cubit.reloadAttachments();
+
+    if (_cubit.state.selected == null) {
+      _clearForm(keepOrder: true);
+    } else {
+      _fillForm(_cubit.state.selected!);
+    }
+
+    _recomputeFormValidity();
+  }
+
+  void _handleGraphSelection(AdditivesState state, int index) {
+    if (index < 0) {
+      _cubit.createNewAdditive();
+      _clearForm();
+
+      _orderCtrl.text = state.nextAvailableOrder.toString();
+
+      _recomputeFormValidity();
+
+      return;
+    }
+
+    _cubit.selectAdditiveByIndex(index);
+    _cubit.reloadAttachments();
+
+    final selected = _cubit.state.selected;
+
+    if (selected?.additiveOrder != null) {
+      _orderCtrl.text = selected!.additiveOrder.toString();
+    }
+
+    _recomputeFormValidity();
+  }
+
+  void _handleTableTap(AdditivesData additive) {
+    _cubit.selectAdditive(additive);
+    _cubit.reloadAttachments();
+
+    if (additive.additiveOrder != null) {
+      _orderCtrl.text = additive.additiveOrder.toString();
+    }
+
+    _recomputeFormValidity();
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<AdditivesCubit>.value(
@@ -983,53 +1039,11 @@ class _AdditivePageState extends State<AdditivePage> {
                                       _addDaysContractCtrl,
                                       sideLoading: state.sideLoading,
                                       uploadProgress: state.uploadProgress,
-                                      onSave: _save,
-                                      onClear: () {
-                                        _cubit.createNewAdditive();
-                                        _clearForm();
-
-                                        _orderCtrl.text =
-                                            state.nextAvailableOrder.toString();
-
-                                        _cubit.updateFormValidity(
-                                          typeText: _typeCtrl.text,
-                                          dateText: _dateCtrl.text,
-                                          processText: _processCtrl.text,
-                                          valueText: _valueCtrl.text,
-                                          addExecText: _addDaysExecCtrl.text,
-                                          addContractText:
-                                          _addDaysContractCtrl.text,
-                                        );
-                                      },
+                                       onSave: _save,
+                                      onClear: () => _handleClear(state),
                                       orderOptions: state.orderOptions,
                                       greyOrderItems: state.greyOrderItems,
-                                      onChangedOrder: (value) {
-                                        if (value == null) return;
-
-                                        _orderCtrl.text = value;
-
-                                        final order =
-                                            int.tryParse(value.trim()) ?? 0;
-
-                                        _cubit.selectAdditiveByOrder(order);
-                                        _cubit.reloadAttachments();
-
-                                        if (_cubit.state.selected == null) {
-                                          _clearForm(keepOrder: true);
-                                        } else {
-                                          _fillForm(_cubit.state.selected!);
-                                        }
-
-                                        _cubit.updateFormValidity(
-                                          typeText: _typeCtrl.text,
-                                          dateText: _dateCtrl.text,
-                                          processText: _processCtrl.text,
-                                          valueText: _valueCtrl.text,
-                                          addExecText: _addDaysExecCtrl.text,
-                                          addContractText:
-                                          _addDaysContractCtrl.text,
-                                        );
-                                      },
+                                      onChangedOrder: _handleOrderChanged,
                                       sideItems: state.sideAttachments,
                                       selectedSideIndex:
                                       _selectedAttachmentIndex,
@@ -1066,28 +1080,10 @@ class _AdditivePageState extends State<AdditivePage> {
                                       values: values,
                                       selectedIndex: state.selectedIndex,
                                       onSelectIndex: (index) {
-                                        if (index < 0) {
-                                          _cubit.createNewAdditive();
-                                          _clearForm();
-
-                                          _orderCtrl.text = state
-                                              .nextAvailableOrder
-                                              .toString();
-
-                                          return;
-                                        }
-
-                                        _cubit.selectAdditiveByIndex(index);
-                                        _cubit.reloadAttachments();
-
-                                        final selected =
-                                            _cubit.state.selected;
-
-                                        if (selected?.additiveOrder != null) {
-                                          _orderCtrl.text = selected!
-                                              .additiveOrder
-                                              .toString();
-                                        }
+                                        _handleGraphSelection(
+                                          state,
+                                          index,
+                                        );
                                       },
                                     ),
                                   const SectionTitle(
@@ -1097,16 +1093,9 @@ class _AdditivePageState extends State<AdditivePage> {
                                     additives: state.additives,
                                     isLoading: isLoading,
                                     selectedItem: state.selected,
-                                    onTapItem: (additive) {
-                                      _cubit.selectAdditive(additive);
-                                      _cubit.reloadAttachments();
-
-                                      if (additive.additiveOrder != null) {
-                                        _orderCtrl.text = additive
-                                            .additiveOrder
-                                            .toString();
-                                      }
-                                    },
+                                    dateOrderWarnings:
+                                    state.dateOrderWarnings,
+                                    onTapItem: _handleTableTap,
                                     onDelete: _deleteAdditive,
                                   ),
                                   const SizedBox(height: 20),

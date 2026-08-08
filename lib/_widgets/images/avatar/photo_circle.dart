@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
@@ -33,13 +34,12 @@ class PhotoCircle extends StatelessWidget {
           padding: EdgeInsets.all(borderWidth),
           child: ClipOval(
             child: (photoUrl != null && photoUrl.isNotEmpty)
-                ? Image.network(
-              photoUrl,
+                ? CachedNetworkImage(
+              imageUrl: photoUrl,
               fit: BoxFit.cover,
               width: size,
               height: size,
-              errorBuilder: (context, error, stackTrace) =>
-                  _defaultAvatar(),
+              errorWidget: (context, url, error) => _defaultAvatar(),
             )
                 : _defaultAvatar(),
           ),

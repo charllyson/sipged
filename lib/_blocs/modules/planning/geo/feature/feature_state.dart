@@ -50,6 +50,17 @@ class FeatureState {
   final double importProgress;
   final Map<String, String> importFieldMapping;
 
+  /// Aviso não bloqueante sobre a última importação (ex.: N feições sem
+  /// geometria válida foram ignoradas). Diferente de [error]: a
+  /// pré-visualização continua disponível normalmente.
+  final String? importWarning;
+
+  /// `true` quando a sessão de importação atual veio de um arquivo (KML/
+  /// KMZ/GeoJSON/SHP) recém-selecionado pelo usuário, em vez de uma edição
+  /// de feições já existentes no Firestore. Usado para decidir se o diálogo
+  /// deve fechar automaticamente após salvar com sucesso.
+  final bool importIsNewFile;
+
   /// Incremente sempre que algo que impacta renderização do mapa mudar.
   final int visualRevision;
 
@@ -66,6 +77,8 @@ class FeatureState {
     this.importColumns = const [],
     this.importProgress = 0.0,
     this.importFieldMapping = const {},
+    this.importWarning,
+    this.importIsNewFile = false,
     this.visualRevision = 0,
   });
 
@@ -93,10 +106,13 @@ class FeatureState {
     List<FeatureImport>? importColumns,
     double? importProgress,
     Map<String, String>? importFieldMapping,
+    String? importWarning,
+    bool? importIsNewFile,
     int? visualRevision,
     bool clearError = false,
     bool clearSelection = false,
     bool clearImportSession = false,
+    bool clearImportWarning = false,
   }) {
     return FeatureState(
       featuresByLayer: featuresByLayer ?? this.featuresByLayer,
@@ -121,6 +137,12 @@ class FeatureState {
       importFieldMapping: clearImportSession
           ? const {}
           : (importFieldMapping ?? this.importFieldMapping),
+      importWarning: (clearImportSession || clearImportWarning)
+          ? null
+          : (importWarning ?? this.importWarning),
+      importIsNewFile: clearImportSession
+          ? false
+          : (importIsNewFile ?? this.importIsNewFile),
       visualRevision: visualRevision ?? this.visualRevision,
     );
   }
@@ -142,6 +164,8 @@ class FeatureState {
         _deepEq.equals(other.importColumns, importColumns) &&
         other.importProgress == importProgress &&
         _deepEq.equals(other.importFieldMapping, importFieldMapping) &&
+        other.importWarning == importWarning &&
+        other.importIsNewFile == importIsNewFile &&
         other.visualRevision == visualRevision;
   }
 
@@ -159,6 +183,8 @@ class FeatureState {
     _deepEq.hash(importColumns),
     importProgress,
     _deepEq.hash(importFieldMapping),
+    importWarning,
+    importIsNewFile,
     visualRevision,
   );
 }

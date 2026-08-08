@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -214,12 +215,12 @@ class _ToastActorLeading extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: hasPhoto
-          ? Image.network(
-        photoUrl.trim(),
+          ? CachedNetworkImage(
+        imageUrl: photoUrl.trim(),
         width: 34,
         height: 34,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
+        errorWidget: (context, url, error) {
           return _ToastActorFallback(
             initials: initials,
             fallbackIcon: fallbackIcon,

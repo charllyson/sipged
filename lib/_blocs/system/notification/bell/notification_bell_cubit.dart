@@ -11,9 +11,8 @@ import 'notification_bell_state.dart';
 
 class NotificationBellCubit extends Cubit<NotificationBellState> {
   NotificationBellCubit({
-    required NotificationRemoteRepository repository,
-  })  : _repository = repository,
-        super(const NotificationBellState());
+    required this._repository,
+  })  : super(const NotificationBellState());
 
   final NotificationRemoteRepository _repository;
 

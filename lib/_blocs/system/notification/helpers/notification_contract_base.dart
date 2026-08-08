@@ -159,7 +159,7 @@ class NotificationContractBase {
     Set<NotificationChannel>? channels,
   }) {
     final resolvedChannels = <NotificationChannel>{
-      if (channels != null) ...channels,
+      ...?channels,
       if (delivery != null) ...delivery.channels,
       if (channels == null && delivery == null) NotificationChannel.local,
       if (saveInBell) NotificationChannel.bell,

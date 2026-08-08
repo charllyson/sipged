@@ -3,6 +3,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
@@ -27,8 +28,7 @@ import 'package:sipged/_widgets/dialog/show_dialogs/show_window_dialog.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/screens/modules/contracts/validity/timeline_class.dart';
+ import 'package:sipged/screens/modules/contracts/validity/validity_timeline.dart';
 
 import 'validity_form_section.dart';
 import 'validity_table_section.dart';
@@ -77,6 +77,16 @@ class _ValidityPageState extends State<ValidityPage> {
     }
 
     return _contractId;
+  }
+
+  String? get _dfdStatus {
+    final status = _dfdData?.statusDemanda?.trim();
+
+    if (status == null || status.isEmpty) {
+      return null;
+    }
+
+    return status;
   }
 
   @override
@@ -443,7 +453,7 @@ class _ValidityPageState extends State<ValidityPage> {
 
                   try {
                     final tempRepo = ValidityRepository(
-                      tenantId: _activeTenantId,
+                      tenantId: tenantId,
                     );
 
                     final (bytes, originalName) = await tempRepo.pickFileBytes();
@@ -742,7 +752,16 @@ class _ValidityPageState extends State<ValidityPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SizedBox(height: 12),
-                                const TimelineClass(),
+                                ValidityTimeline(
+                                  contract: state.contract,
+                                  validities: state.validities,
+                                  additives: state.additives,
+                                  publicacao: cubit.publicacaoExtrato,
+                                  dataFinalContrato: cubit.dataFinalContrato,
+                                  dataFinalExecucao: cubit.dataFinalExecucao,
+                                  dfdStatus: _dfdStatus,
+                                  isLoading: state.isLoading,
+                                ),
                                 const SectionTitle(
                                   text: 'Cadastrar validades no sistema',
                                 ),

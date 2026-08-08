@@ -508,21 +508,6 @@ class TenantRepository {
     return _cleanStringList(updated);
   }
 
-  List<String> _deleteStringItem({
-    required List<String> list,
-    required String value,
-  }) {
-    final clean = value.trim();
-
-    if (clean.isEmpty) {
-      throw ArgumentError('Item inválido.');
-    }
-
-    return _cleanStringList(
-      list.where((e) => e.trim().toLowerCase() != clean.toLowerCase()),
-    );
-  }
-
   String _labelFromMap({
     required String id,
     required Map<String, dynamic> data,
@@ -557,13 +542,98 @@ class TenantRepository {
     return _cleanStringList(values);
   }
 
-  Future<void> _updateTenantArrayField({
+  /// Cria/normaliza um item de catálogo (unidades, rodovias, regiões, etc.)
+  /// dentro de uma transação: lê o array atual, mescla o novo item (mantendo
+  /// a deduplicação por nome sem diferenciar maiúsculas/minúsculas) e grava
+  /// de volta — tudo atômico. Isso elimina a corrida de "dois usuários
+  /// editando ao mesmo tempo sobrescrevendo um ao outro" que existia no
+  /// padrão antigo de ler fora da transação e escrever depois.
+  Future<String> _createCatalogItem({
     required String field,
-    required List<String> values,
+    required List<String> Function(TenantData?) selector,
+    required String label,
   }) async {
+    final cleanLabel = label.trim();
+
+    if (cleanLabel.isEmpty) {
+      throw ArgumentError('O nome não pode ser vazio.');
+    }
+
+    await _firestore.runTransaction((tx) async {
+      final snap = await tx.get(_tenantRef);
+
+      final profile =
+      snap.exists && snap.data() != null ? TenantData.fromDoc(snap) : null;
+
+      final updated = _replaceOrAppendString(selector(profile), cleanLabel);
+
+      tx.set(
+        _tenantRef,
+        {
+          field: updated,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': _currentUserId,
+        },
+        SetOptions(merge: true),
+      );
+    });
+
+    return cleanLabel;
+  }
+
+  /// Renomeia um item de catálogo dentro de uma transação (mesma proteção
+  /// de corrida do `_createCatalogItem`).
+  Future<String> _renameCatalogItem({
+    required String field,
+    required List<String> Function(TenantData?) selector,
+    required String oldLabel,
+    required String newLabel,
+  }) async {
+    final cleanNewLabel = newLabel.trim();
+
+    await _firestore.runTransaction((tx) async {
+      final snap = await tx.get(_tenantRef);
+
+      final profile =
+      snap.exists && snap.data() != null ? TenantData.fromDoc(snap) : null;
+
+      final updated = _renameStringItem(
+        list: selector(profile),
+        oldValue: oldLabel,
+        newValue: newLabel,
+      );
+
+      tx.set(
+        _tenantRef,
+        {
+          field: updated,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': _currentUserId,
+        },
+        SetOptions(merge: true),
+      );
+    });
+
+    return cleanNewLabel;
+  }
+
+  /// Remove um item de catálogo com `FieldValue.arrayRemove`, sem precisar
+  /// ler o documento inteiro antes — Firestore resolve a remoção no
+  /// servidor, então isso já é atômico e mais barato que o padrão antigo de
+  /// "ler tudo → filtrar → escrever tudo".
+  Future<void> _deleteCatalogItem({
+    required String field,
+    required String label,
+  }) async {
+    final cleanLabel = label.trim();
+
+    if (cleanLabel.isEmpty) {
+      throw ArgumentError('Item inválido.');
+    }
+
     await _tenantRef.set(
       {
-        field: _cleanStringList(values),
+        field: FieldValue.arrayRemove([cleanLabel]),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': _currentUserId,
       },
@@ -1084,122 +1154,66 @@ class TenantRepository {
     return deleteCompanyProfile();
   }
 
-  Future<String> createUnit(String label) async {
-    final profile = await loadTenantProfile();
-    final updated = _replaceOrAppendString(profile?.units ?? const [], label);
-
-    await _updateTenantArrayField(
+  Future<String> createUnit(String label) {
+    return _createCatalogItem(
       field: 'units',
-      values: updated,
+      selector: (p) => p?.units ?? const [],
+      label: label,
     );
-
-    return label.trim();
   }
 
-  Future<String> updateUnitName(String oldLabel, String newLabel) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _renameStringItem(
-      list: profile?.units ?? const [],
-      oldValue: oldLabel,
-      newValue: newLabel,
-    );
-
-    await _updateTenantArrayField(
+  Future<String> updateUnitName(String oldLabel, String newLabel) {
+    return _renameCatalogItem(
       field: 'units',
-      values: updated,
-    );
-
-    return newLabel.trim();
-  }
-
-  Future<void> deleteUnit(String label) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _deleteStringItem(
-      list: profile?.units ?? const [],
-      value: label,
-    );
-
-    await _updateTenantArrayField(
-      field: 'units',
-      values: updated,
+      selector: (p) => p?.units ?? const [],
+      oldLabel: oldLabel,
+      newLabel: newLabel,
     );
   }
 
-  Future<String> createRoad(String label) async {
-    final profile = await loadTenantProfile();
-    final updated = _replaceOrAppendString(profile?.roads ?? const [], label);
+  Future<void> deleteUnit(String label) {
+    return _deleteCatalogItem(field: 'units', label: label);
+  }
 
-    await _updateTenantArrayField(
+  Future<String> createRoad(String label) {
+    return _createCatalogItem(
       field: 'roads',
-      values: updated,
+      selector: (p) => p?.roads ?? const [],
+      label: label,
     );
-
-    return label.trim();
   }
 
-  Future<String> updateRoadName(String oldLabel, String newLabel) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _renameStringItem(
-      list: profile?.roads ?? const [],
-      oldValue: oldLabel,
-      newValue: newLabel,
-    );
-
-    await _updateTenantArrayField(
+  Future<String> updateRoadName(String oldLabel, String newLabel) {
+    return _renameCatalogItem(
       field: 'roads',
-      values: updated,
+      selector: (p) => p?.roads ?? const [],
+      oldLabel: oldLabel,
+      newLabel: newLabel,
     );
-
-    return newLabel.trim();
   }
 
-  Future<void> deleteRoad(String label) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _deleteStringItem(
-      list: profile?.roads ?? const [],
-      value: label,
-    );
-
-    await _updateTenantArrayField(
-      field: 'roads',
-      values: updated,
-    );
+  Future<void> deleteRoad(String label) {
+    return _deleteCatalogItem(field: 'roads', label: label);
   }
 
   Future<String> createRegion(
       String label, {
         List<String> municipios = const <String>[],
-      }) async {
-    final profile = await loadTenantProfile();
-    final updated = _replaceOrAppendString(profile?.regions ?? const [], label);
-
-    await _updateTenantArrayField(
+      }) {
+    return _createCatalogItem(
       field: 'regions',
-      values: updated,
+      selector: (p) => p?.regions ?? const [],
+      label: label,
     );
-
-    return label.trim();
   }
 
-  Future<String> updateRegionName(String oldLabel, String newLabel) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _renameStringItem(
-      list: profile?.regions ?? const [],
-      oldValue: oldLabel,
-      newValue: newLabel,
-    );
-
-    await _updateTenantArrayField(
+  Future<String> updateRegionName(String oldLabel, String newLabel) {
+    return _renameCatalogItem(
       field: 'regions',
-      values: updated,
+      selector: (p) => p?.regions ?? const [],
+      oldLabel: oldLabel,
+      newLabel: newLabel,
     );
-
-    return newLabel.trim();
   }
 
   Future<String> updateRegionMunicipios(
@@ -1209,187 +1223,91 @@ class TenantRepository {
     return label.trim();
   }
 
-  Future<void> deleteRegion(String label) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _deleteStringItem(
-      list: profile?.regions ?? const [],
-      value: label,
-    );
-
-    await _updateTenantArrayField(
-      field: 'regions',
-      values: updated,
-    );
+  Future<void> deleteRegion(String label) {
+    return _deleteCatalogItem(field: 'regions', label: label);
   }
 
-  Future<String> createFundingSource(String label) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _replaceOrAppendString(
-      profile?.fundingSources ?? const [],
-      label,
-    );
-
-    await _updateTenantArrayField(
+  Future<String> createFundingSource(String label) {
+    return _createCatalogItem(
       field: 'fundingSources',
-      values: updated,
+      selector: (p) => p?.fundingSources ?? const [],
+      label: label,
     );
-
-    return label.trim();
   }
 
   Future<String> updateFundingSourceName(
       String oldLabel,
       String newLabel,
-      ) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _renameStringItem(
-      list: profile?.fundingSources ?? const [],
-      oldValue: oldLabel,
-      newValue: newLabel,
-    );
-
-    await _updateTenantArrayField(
+      ) {
+    return _renameCatalogItem(
       field: 'fundingSources',
-      values: updated,
-    );
-
-    return newLabel.trim();
-  }
-
-  Future<void> deleteFundingSource(String label) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _deleteStringItem(
-      list: profile?.fundingSources ?? const [],
-      value: label,
-    );
-
-    await _updateTenantArrayField(
-      field: 'fundingSources',
-      values: updated,
+      selector: (p) => p?.fundingSources ?? const [],
+      oldLabel: oldLabel,
+      newLabel: newLabel,
     );
   }
 
-  Future<String> createProgram(String label) async {
-    final profile = await loadTenantProfile();
+  Future<void> deleteFundingSource(String label) {
+    return _deleteCatalogItem(field: 'fundingSources', label: label);
+  }
 
-    final updated = _replaceOrAppendString(
-      profile?.programs ?? const [],
-      label,
-    );
-
-    await _updateTenantArrayField(
+  Future<String> createProgram(String label) {
+    return _createCatalogItem(
       field: 'programs',
-      values: updated,
+      selector: (p) => p?.programs ?? const [],
+      label: label,
     );
-
-    return label.trim();
   }
 
   Future<String> updateProgramName(
       String oldLabel,
       String newLabel,
-      ) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _renameStringItem(
-      list: profile?.programs ?? const [],
-      oldValue: oldLabel,
-      newValue: newLabel,
-    );
-
-    await _updateTenantArrayField(
+      ) {
+    return _renameCatalogItem(
       field: 'programs',
-      values: updated,
-    );
-
-    return newLabel.trim();
-  }
-
-  Future<void> deleteProgram(String label) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _deleteStringItem(
-      list: profile?.programs ?? const [],
-      value: label,
-    );
-
-    await _updateTenantArrayField(
-      field: 'programs',
-      values: updated,
+      selector: (p) => p?.programs ?? const [],
+      oldLabel: oldLabel,
+      newLabel: newLabel,
     );
   }
 
-  Future<String> createExpenseNature(String label) async {
-    final profile = await loadTenantProfile();
+  Future<void> deleteProgram(String label) {
+    return _deleteCatalogItem(field: 'programs', label: label);
+  }
 
-    final updated = _replaceOrAppendString(
-      profile?.expenseNatures ?? const [],
-      label,
-    );
-
-    await _updateTenantArrayField(
+  Future<String> createExpenseNature(String label) {
+    return _createCatalogItem(
       field: 'expenseNatures',
-      values: updated,
+      selector: (p) => p?.expenseNatures ?? const [],
+      label: label,
     );
-
-    return label.trim();
   }
 
   Future<String> updateExpenseNatureName(
       String oldLabel,
       String newLabel,
-      ) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _renameStringItem(
-      list: profile?.expenseNatures ?? const [],
-      oldValue: oldLabel,
-      newValue: newLabel,
-    );
-
-    await _updateTenantArrayField(
+      ) {
+    return _renameCatalogItem(
       field: 'expenseNatures',
-      values: updated,
+      selector: (p) => p?.expenseNatures ?? const [],
+      oldLabel: oldLabel,
+      newLabel: newLabel,
     );
-
-    return newLabel.trim();
   }
 
-  Future<void> deleteExpenseNature(String label) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _deleteStringItem(
-      list: profile?.expenseNatures ?? const [],
-      value: label,
-    );
-
-    await _updateTenantArrayField(
-      field: 'expenseNatures',
-      values: updated,
-    );
+  Future<void> deleteExpenseNature(String label) {
+    return _deleteCatalogItem(field: 'expenseNatures', label: label);
   }
 
   Future<String> createCompanyBody(
       String label, {
         String? cnpj,
-      }) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _replaceOrAppendString(
-      profile?.companyBodies ?? const [],
-      label,
-    );
-
-    await _updateTenantArrayField(
+      }) {
+    return _createCatalogItem(
       field: 'companyBodies',
-      values: updated,
+      selector: (p) => p?.companyBodies ?? const [],
+      label: label,
     );
-
-    return label.trim();
   }
 
   Future<String> createPartner(
@@ -1405,21 +1323,13 @@ class TenantRepository {
   Future<String> updateCompanyBodyName(
       String oldLabel,
       String newLabel,
-      ) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _renameStringItem(
-      list: profile?.companyBodies ?? const [],
-      oldValue: oldLabel,
-      newValue: newLabel,
-    );
-
-    await _updateTenantArrayField(
+      ) {
+    return _renameCatalogItem(
       field: 'companyBodies',
-      values: updated,
+      selector: (p) => p?.companyBodies ?? const [],
+      oldLabel: oldLabel,
+      newLabel: newLabel,
     );
-
-    return newLabel.trim();
   }
 
   Future<String> updatePartnerName(
@@ -1455,18 +1365,8 @@ class TenantRepository {
     );
   }
 
-  Future<void> deleteCompanyBody(String label) async {
-    final profile = await loadTenantProfile();
-
-    final updated = _deleteStringItem(
-      list: profile?.companyBodies ?? const [],
-      value: label,
-    );
-
-    await _updateTenantArrayField(
-      field: 'companyBodies',
-      values: updated,
-    );
+  Future<void> deleteCompanyBody(String label) {
+    return _deleteCatalogItem(field: 'companyBodies', label: label);
   }
 
   Future<void> deletePartner(String label) {

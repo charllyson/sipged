@@ -1,8 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+// lib/_blocs/system/user/user_data.dart
 
-import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:flutter/material.dart';
 
 List<String> _stringListFromDynamic(dynamic value) {
   if (value == null) return const <String>[];
@@ -20,7 +18,21 @@ List<String> _stringListFromDynamic(dynamic value) {
 
   if (value is Map) {
     final list = value.entries
-        .where((entry) => entry.value == true || entry.value != null)
+        .where((entry) {
+      final raw = entry.value;
+
+      if (raw is Map) {
+        final enabled = raw['enabled'];
+        final active = raw['active'];
+        final allowed = raw['allowed'];
+
+        if (enabled == false || active == false || allowed == false) {
+          return false;
+        }
+      }
+
+      return raw == true || raw != null;
+    })
         .map((entry) => entry.key.toString().trim())
         .where((e) => e.isNotEmpty)
         .toSet()
@@ -56,56 +68,8 @@ List<String> _cleanStringList(Iterable<String> values) {
   return list;
 }
 
-class UserData extends ChangeNotifier {
-  String? uid;
-  String? name;
-  String? surname;
-  String? cpf;
-  String? email;
-  String? password;
-  String? gender;
-
-  String? urlPhoto;
-  XFile? filePhoto;
-
-  String? cellPhone;
-
-  String? baseRole;
-  String? baseProfile;
-
-  DateTime? createUser;
-  DateTime? dateToBirthday;
-
-  bool? themeDark;
-  GeoPoint? geoPoint;
-
-  DocumentSnapshot<Map<String, dynamic>>? userSnap;
-
-  bool? profileWork;
-  bool? profileLegal;
-
-  bool? isActive;
-  bool? isBlocked;
-  bool? isDeleted;
-
-  DateTime? deactivatedAt;
-  DateTime? blockedAt;
-  DateTime? deletedAt;
-
-  String? deactivatedReason;
-  String? blockedReason;
-  String? deletedReason;
-
-  /// Empresas/tenants que o usuário pode acessar.
-  final List<String> tenantIds;
-
-  /// Empresa padrão do usuário.
-  final String? primaryTenantId;
-
-  /// Última empresa selecionada pelo usuário.
-  final String? activeTenantId;
-
-  UserData({
+class UserData {
+  const UserData({
     this.uid,
     this.name,
     this.surname,
@@ -114,15 +78,13 @@ class UserData extends ChangeNotifier {
     this.password,
     this.gender,
     this.urlPhoto,
-    this.filePhoto,
     this.cellPhone,
+    this.baseRole,
+    this.baseProfile,
     this.createUser,
     this.dateToBirthday,
     this.themeDark,
     this.geoPoint,
-    this.userSnap,
-    this.baseRole,
-    this.baseProfile,
     this.profileWork = false,
     this.profileLegal = false,
     this.isActive = true,
@@ -137,7 +99,55 @@ class UserData extends ChangeNotifier {
     this.tenantIds = const <String>[],
     this.primaryTenantId,
     this.activeTenantId,
+    this.rawData = const <String, dynamic>{},
   });
+
+  final String? uid;
+  final String? name;
+  final String? surname;
+  final String? cpf;
+  final String? email;
+  final String? password;
+  final String? gender;
+
+  final String? urlPhoto;
+  final String? cellPhone;
+
+  final String? baseRole;
+  final String? baseProfile;
+
+  final DateTime? createUser;
+  final DateTime? dateToBirthday;
+
+  final bool? themeDark;
+
+  /// Mantido como Object para não acoplar o modelo a GeoPoint/Firebase.
+  /// No SIPGED, o user_firebase.dart pode salvar e carregar GeoPoint aqui.
+  final Object? geoPoint;
+
+  final bool? profileWork;
+  final bool? profileLegal;
+
+  final bool? isActive;
+  final bool? isBlocked;
+  final bool? isDeleted;
+
+  final DateTime? deactivatedAt;
+  final DateTime? blockedAt;
+  final DateTime? deletedAt;
+
+  final String? deactivatedReason;
+  final String? blockedReason;
+  final String? deletedReason;
+
+  final List<String> tenantIds;
+
+  final String? primaryTenantId;
+  final String? activeTenantId;
+
+  /// Substitui o antigo userSnap.data().
+  /// Mantém dados extras vindos do banco sem acoplar o Data ao Firestore.
+  final Map<String, dynamic> rawData;
 
   bool get isDeletedStatus => isDeleted == true;
 
@@ -152,6 +162,15 @@ class UserData extends ChangeNotifier {
   }
 
   bool get hasAnyTenantAccess => tenantIds.isNotEmpty;
+
+  bool get hasValidUid => (uid ?? '').trim().isNotEmpty;
+
+  String get fullName {
+    final n = (name ?? '').trim();
+    final s = (surname ?? '').trim();
+
+    return [n, s].where((e) => e.isNotEmpty).join(' ').trim();
+  }
 
   bool hasTenantAccess(String? tenantId) {
     final clean = tenantId?.trim();
@@ -218,79 +237,9 @@ class UserData extends ChangeNotifier {
     return const Color(0xFFBFDBFE);
   }
 
-  static BgPalette paletteForUser(UserData? user) {
-    return const BgPalette(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFF7FBFF),
-          Color(0xFFE3F2FD),
-        ],
-      ),
-    );
-  }
-
-  factory UserData.fromDocument({
-    required DocumentSnapshot<Map<String, dynamic>> snapshot,
-  }) {
-    if (!snapshot.exists) {
-      throw Exception('Documento do usuário não encontrado');
-    }
-
-    final data = snapshot.data();
-
-    if (data == null) {
-      throw Exception('Dados do usuário estão vazios');
-    }
-
-    final tenantIds = _stringListFromDynamic(
-      data['tenantIds'] ??
-          data['tenants'] ??
-          data['companies'] ??
-          data['companyIds'] ??
-          data['allowedTenants'],
-    );
-
-    return UserData(
-      uid: snapshot.id,
-      name: data['name'] as String?,
-      surname: data['surname'] as String?,
-      cpf: data['cpf'] as String?,
-      email: data['email'] as String?,
-      password: data['password'] as String?,
-      gender: data['gender'] as String?,
-      urlPhoto: (data['photo'] ??
-          data['photoUrl'] ??
-          data['photoURL'] ??
-          data['profilePhotoUrl']) as String?,
-      cellPhone: data['cellPhone'] as String?,
-      themeDark: data['themeDark'] as bool? ?? false,
-      dateToBirthday: (data['dateToBirthday'] as Timestamp?)?.toDate(),
-      createUser: (data['createUser'] as Timestamp?)?.toDate(),
-      geoPoint: data['geoPoint'] as GeoPoint?,
-      baseRole: data['baseRole'] as String?,
-      baseProfile: data['baseProfile'] as String?,
-      userSnap: snapshot,
-      profileWork: data['profileWork'] as bool? ?? false,
-      profileLegal: data['profileLegal'] as bool? ?? false,
-      isActive: data['isActive'] as bool? ?? true,
-      isBlocked: data['isBlocked'] as bool? ?? false,
-      isDeleted: data['isDeleted'] as bool? ?? false,
-      deactivatedAt: (data['deactivatedAt'] as Timestamp?)?.toDate(),
-      blockedAt: (data['blockedAt'] as Timestamp?)?.toDate(),
-      deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
-      deactivatedReason: data['deactivatedReason'] as String?,
-      blockedReason: data['blockedReason'] as String?,
-      deletedReason: data['deletedReason'] as String?,
-      tenantIds: tenantIds,
-      primaryTenantId: data['primaryTenantId']?.toString().trim(),
-      activeTenantId: data['activeTenantId']?.toString().trim(),
-    );
-  }
-
   Map<String, dynamic> toMap() {
-    return {
+    return <String, dynamic>{
+      ...rawData,
       'name': name,
       'surname': surname,
       'email': email,
@@ -304,11 +253,8 @@ class UserData extends ChangeNotifier {
       'cellPhone': cellPhone,
       'themeDark': themeDark ?? false,
       'geoPoint': geoPoint,
-      'dateToBirthday':
-      dateToBirthday != null ? Timestamp.fromDate(dateToBirthday!) : null,
-      'createUser':
-      createUser != null ? Timestamp.fromDate(createUser!) : Timestamp.now(),
-      'lastSignIn': Timestamp.now(),
+      'dateToBirthday': dateToBirthday,
+      'createUser': createUser,
       'baseRole': baseRole,
       'baseProfile': baseProfile,
       'profileWork': profileWork ?? false,
@@ -316,10 +262,9 @@ class UserData extends ChangeNotifier {
       'isActive': isActive ?? true,
       'isBlocked': isBlocked ?? false,
       'isDeleted': isDeleted ?? false,
-      'deactivatedAt':
-      deactivatedAt != null ? Timestamp.fromDate(deactivatedAt!) : null,
-      'blockedAt': blockedAt != null ? Timestamp.fromDate(blockedAt!) : null,
-      'deletedAt': deletedAt != null ? Timestamp.fromDate(deletedAt!) : null,
+      'deactivatedAt': deactivatedAt,
+      'blockedAt': blockedAt,
+      'deletedAt': deletedAt,
       'deactivatedReason': deactivatedReason,
       'blockedReason': blockedReason,
       'deletedReason': deletedReason,
@@ -327,42 +272,6 @@ class UserData extends ChangeNotifier {
       'primaryTenantId': primaryTenantId,
       'activeTenantId': activeTenantId,
     };
-  }
-
-  UserData copyDetached() {
-    return UserData(
-      uid: uid,
-      name: name,
-      surname: surname,
-      cpf: cpf,
-      email: email,
-      password: password,
-      gender: gender,
-      urlPhoto: urlPhoto,
-      filePhoto: filePhoto,
-      cellPhone: cellPhone,
-      createUser: createUser,
-      dateToBirthday: dateToBirthday,
-      themeDark: themeDark,
-      geoPoint: geoPoint,
-      userSnap: userSnap,
-      baseRole: baseRole,
-      baseProfile: baseProfile,
-      profileWork: profileWork,
-      profileLegal: profileLegal,
-      isActive: isActive,
-      isBlocked: isBlocked,
-      isDeleted: isDeleted,
-      deactivatedAt: deactivatedAt,
-      blockedAt: blockedAt,
-      deletedAt: deletedAt,
-      deactivatedReason: deactivatedReason,
-      blockedReason: blockedReason,
-      deletedReason: deletedReason,
-      tenantIds: tenantIds,
-      primaryTenantId: primaryTenantId,
-      activeTenantId: activeTenantId,
-    );
   }
 
   UserData copyWith({
@@ -374,13 +283,11 @@ class UserData extends ChangeNotifier {
     String? password,
     String? gender,
     String? urlPhoto,
-    XFile? filePhoto,
     String? cellPhone,
     DateTime? createUser,
     DateTime? dateToBirthday,
     bool? themeDark,
-    GeoPoint? geoPoint,
-    DocumentSnapshot<Map<String, dynamic>>? userSnap,
+    Object? geoPoint,
     String? baseRole,
     String? baseProfile,
     bool? profileWork,
@@ -397,6 +304,9 @@ class UserData extends ChangeNotifier {
     List<String>? tenantIds,
     String? primaryTenantId,
     String? activeTenantId,
+    Map<String, dynamic>? rawData,
+    bool clearPrimaryTenantId = false,
+    bool clearActiveTenantId = false,
   }) {
     return UserData(
       uid: uid ?? this.uid,
@@ -407,13 +317,11 @@ class UserData extends ChangeNotifier {
       password: password ?? this.password,
       gender: gender ?? this.gender,
       urlPhoto: urlPhoto ?? this.urlPhoto,
-      filePhoto: filePhoto ?? this.filePhoto,
       cellPhone: cellPhone ?? this.cellPhone,
       createUser: createUser ?? this.createUser,
       dateToBirthday: dateToBirthday ?? this.dateToBirthday,
       themeDark: themeDark ?? this.themeDark,
       geoPoint: geoPoint ?? this.geoPoint,
-      userSnap: userSnap ?? this.userSnap,
       baseRole: baseRole ?? this.baseRole,
       baseProfile: baseProfile ?? this.baseProfile,
       profileWork: profileWork ?? this.profileWork,
@@ -428,58 +336,23 @@ class UserData extends ChangeNotifier {
       blockedReason: blockedReason ?? this.blockedReason,
       deletedReason: deletedReason ?? this.deletedReason,
       tenantIds: tenantIds ?? this.tenantIds,
-      primaryTenantId: primaryTenantId ?? this.primaryTenantId,
-      activeTenantId: activeTenantId ?? this.activeTenantId,
+      primaryTenantId:
+      clearPrimaryTenantId ? null : primaryTenantId ?? this.primaryTenantId,
+      activeTenantId:
+      clearActiveTenantId ? null : activeTenantId ?? this.activeTenantId,
+      rawData: rawData ?? this.rawData,
     );
   }
 
-  void update({
-    String? name,
-    String? surname,
-    String? cpf,
-    String? email,
-    String? gender,
-    String? urlPhoto,
-    XFile? filePhoto,
-    String? cellPhone,
-    bool? themeDark,
-    GeoPoint? geoPoint,
-    DateTime? dateToBirthday,
-    String? baseRole,
-    String? baseProfile,
-    bool? profileWork,
-    bool? profileLegal,
-    bool? isActive,
-    bool? isBlocked,
-    bool? isDeleted,
-    List<String>? tenantIds,
-    String? primaryTenantId,
-    String? activeTenantId,
-  }) {
-    this.name = name ?? this.name;
-    this.surname = surname ?? this.surname;
-    this.cpf = cpf ?? this.cpf;
-    this.email = email ?? this.email;
-    this.gender = gender ?? this.gender;
-    this.urlPhoto = urlPhoto ?? this.urlPhoto;
-    this.filePhoto = filePhoto ?? this.filePhoto;
-    this.cellPhone = cellPhone ?? this.cellPhone;
-    this.themeDark = themeDark ?? this.themeDark;
-    this.geoPoint = geoPoint ?? this.geoPoint;
-    this.dateToBirthday = dateToBirthday ?? this.dateToBirthday;
-    this.baseRole = baseRole ?? this.baseRole;
-    this.baseProfile = baseProfile ?? this.baseProfile;
-    this.profileWork = profileWork ?? this.profileWork;
-    this.profileLegal = profileLegal ?? this.profileLegal;
-    this.isActive = isActive ?? this.isActive;
-    this.isBlocked = isBlocked ?? this.isBlocked;
-    this.isDeleted = isDeleted ?? this.isDeleted;
-
-    notifyListeners();
+  UserData copyDetached() {
+    return copyWith(
+      rawData: Map<String, dynamic>.from(rawData),
+      tenantIds: List<String>.from(tenantIds),
+    );
   }
 
   static UserData empty() {
-    return UserData(
+    return const UserData(
       uid: null,
       name: '',
       surname: '',
@@ -488,13 +361,11 @@ class UserData extends ChangeNotifier {
       password: null,
       gender: null,
       urlPhoto: null,
-      filePhoto: null,
       cellPhone: '',
       createUser: null,
       dateToBirthday: null,
       themeDark: false,
       geoPoint: null,
-      userSnap: null,
       baseRole: null,
       baseProfile: null,
       profileWork: false,
@@ -502,18 +373,32 @@ class UserData extends ChangeNotifier {
       isActive: true,
       isBlocked: false,
       isDeleted: false,
-      tenantIds: const <String>[],
+      tenantIds: <String>[],
       primaryTenantId: null,
       activeTenantId: null,
+      rawData: <String, dynamic>{},
     );
   }
 
-  String get fullName {
-    final n = (name ?? '').trim();
-    final s = (surname ?? '').trim();
+  static List<String> tenantIdsFromRawData(Map<String, dynamic> data) {
+    final ids = <String>[
+      ..._stringListFromDynamic(data['tenantIds']),
+      ..._stringListFromDynamic(data['allowedTenantIds']),
+      ..._stringListFromDynamic(data['accessibleTenantIds']),
+      ..._stringListFromDynamic(data['companyIds']),
+      ..._stringListFromDynamic(data['allowedCompanyIds']),
+      ..._stringListFromDynamic(data['accessibleCompanyIds']),
+      ..._stringListFromDynamic(data['tenantAccess']),
+      ..._stringListFromDynamic(data['tenantsAccess']),
+      ..._stringListFromDynamic(data['companyAccess']),
+      ..._stringListFromDynamic(data['companiesAccess']),
+      ..._stringListFromDynamic(data['tenantRoles']),
+      ..._stringListFromDynamic(data['tenantModuleOverrides']),
+      ..._stringListFromDynamic(data['tenants']),
+      ..._stringListFromDynamic(data['companies']),
+      ..._stringListFromDynamic(data['allowedTenants']),
+    ];
 
-    return [n, s].where((e) => e.isNotEmpty).join(' ').trim();
+    return _cleanStringList(ids);
   }
-
-  bool get hasValidUid => (uid ?? '').trim().isNotEmpty;
 }

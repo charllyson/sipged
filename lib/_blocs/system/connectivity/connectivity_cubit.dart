@@ -14,9 +14,8 @@ import 'package:sipged/_blocs/system/notification/global/global_banner_type.dart
 
 class ConnectivityCubit extends Cubit<bool> {
   ConnectivityCubit({
-    required GlobalBannerCubit globalBannerCubit,
-  })  : _globalBannerCubit = globalBannerCubit,
-        super(true) {
+    required this._globalBannerCubit,
+  })  : super(true) {
     _start();
   }
 

@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/buttons/slider_button.dart';
@@ -909,25 +910,14 @@ class _PhotoTile extends StatelessWidget {
           children: [
             Hero(
               tag: 'sipged-gallery-photo-${photo.id}',
-              child: Image.network(
-                photo.url,
+              child: CachedNetworkImage(
+                imageUrl: photo.url,
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.medium,
-                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                  if (wasSynchronouslyLoaded || frame != null) {
-                    return child;
-                  }
-
+                placeholder: (context, url) {
                   return const _PhotoLoadingPlaceholder();
                 },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) {
-                    return child;
-                  }
-
-                  return const _PhotoLoadingPlaceholder();
-                },
-                errorBuilder: (context, error, stackTrace) {
+                errorWidget: (context, url, error) {
                   return const _PhotoErrorPlaceholder();
                 },
               ),
@@ -1051,15 +1041,11 @@ class _SipGedPhotoPreviewPageState extends State<SipGedPhotoPreviewPage> {
                     clipBehavior: Clip.none,
                     child: Hero(
                       tag: 'sipged-gallery-photo-${photo.id}',
-                      child: Image.network(
-                        photo.url,
+                      child: CachedNetworkImage(
+                        imageUrl: photo.url,
                         fit: BoxFit.contain,
                         filterQuality: FilterQuality.high,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) {
-                            return child;
-                          }
-
+                        placeholder: (context, url) {
                           return const Center(
                             child: SizedBox(
                               width: 28,
@@ -1071,7 +1057,7 @@ class _SipGedPhotoPreviewPageState extends State<SipGedPhotoPreviewPage> {
                             ),
                           );
                         },
-                        errorBuilder: (context, error, stackTrace) {
+                        errorWidget: (context, url, error) {
                           return const Icon(
                             Icons.broken_image_rounded,
                             color: Colors.white54,

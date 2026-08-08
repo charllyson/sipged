@@ -209,7 +209,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
   }
 
   Future<void> _pickLogo() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowMultiple: false,
       withData: true,

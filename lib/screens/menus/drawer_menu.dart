@@ -3,6 +3,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_widgets/texts/divider_text.dart';
 
 import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/_blocs/system/module/module_catalog.dart';
@@ -18,7 +19,6 @@ import 'package:sipged/_blocs/system/user/user_state.dart';
 
 import 'package:sipged/_widgets/images/logos/sipged_logo.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
-import 'package:sipged/_widgets/texts/divider_text.dart';
 
 import 'package:sipged/screens/menus/menu_sub_item.dart';
 

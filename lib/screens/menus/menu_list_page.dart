@@ -81,6 +81,7 @@ import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civi
 import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_workspace_page.dart';
 
 import 'package:sipged/screens/modules/planning/geo/geo_network_page.dart';
+import 'package:sipged/screens/modules/planning/schedule/schedule_page.dart';
 
 import 'package:sipged/screens/modules/traffic/accidents/dashboard/accident_dashboard_page.dart';
 import 'package:sipged/screens/modules/traffic/accidents/records/accidents_records_network_page.dart';
@@ -375,11 +376,10 @@ class _MenuListPageState extends State<MenuListPage> {
             providers: [
               BlocProvider<CivilScheduleBloc>(
                 create: (_) => CivilScheduleBloc(
-                  tenantId: tenantId
-                )
-                  ..add(
-                    CivilWarmupRequested(contractId),
-                  ),
+                  tenantId: tenantId,
+                )..add(
+                  CivilWarmupRequested(contractId),
+                ),
               ),
               BlocProvider<MapOverlayCubit>(
                 create: (_) => MapOverlayCubit(),
@@ -787,6 +787,12 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleEnum.planningProjectRegistration:
         return const GeoNetworkPage();
+
+      case ModuleEnum.planningGanttSchedule:
+        return SchedulePage(
+            tenantId: tenantId,
+
+        );
 
       case ModuleEnum.trafficAccidentsDashboard:
         return const AccidentDashboardPage();

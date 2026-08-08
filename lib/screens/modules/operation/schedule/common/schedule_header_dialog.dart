@@ -22,7 +22,6 @@ class ScheduleHeaderDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     final primary = theme.colorScheme.primary;
 
     final iconBox = Container(
@@ -69,7 +68,6 @@ class ScheduleHeaderDialog extends StatelessWidget {
           null,
           Icons.view_stream_outlined,
           textValue: '$lanesCount faixa(s)',
-          formatAsMoney: false,
           showTitle: false,
           backgroundColor: primary.withValues(alpha: 0.07),
           foregroundColor: primary,
@@ -92,7 +90,6 @@ class ScheduleHeaderDialog extends StatelessWidget {
           null,
           Icons.layers_outlined,
           textValue: '$servicesCount serviço(s)',
-          formatAsMoney: false,
           showTitle: false,
           backgroundColor: primary.withValues(alpha: 0.07),
           foregroundColor: primary,

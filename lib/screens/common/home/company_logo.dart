@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/loading/loading_tree_dots.dart';
 
@@ -18,15 +19,13 @@ class CompanyLogo extends StatelessWidget {
         child: SizedBox(
           width: 88,
           height: 88,
-          child: Image.network(
-            logoUrl,
+          child: CachedNetworkImage(
+            imageUrl: logoUrl,
             fit: BoxFit.contain,
-            errorBuilder: (_, _, _) {
+            errorWidget: (_, _, _) {
               return _fallbackLogo(borderRadius);
             },
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-
+            placeholder: (context, url) {
               return const SizedBox(
                 width: 88,
                 height: 88,

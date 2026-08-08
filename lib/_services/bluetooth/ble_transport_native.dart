@@ -110,7 +110,10 @@ class _NativeTransport implements LabelBleTransport {
 
     try {
       try { await d.disconnect(); } catch (_) {}
-      await d.connect(autoConnect: false);
+      await d.connect(
+          autoConnect: false,
+          license: License.commercial,
+      );
       try { await d.requestMtu(247); } catch (_) {}
 
       final services = await d.discoverServices();

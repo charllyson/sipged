@@ -403,28 +403,5 @@ class ProgressData {
     'ARTES ESPECIAIS',
   ];
 
-  static String getTitleByStatus(String status) {
-    switch (status) {
-      case 'EM ANDAMENTO':
-        return 'Demandas em Andamento';
 
-      case 'A INICIAR':
-        return 'Demandas a Iniciar';
-
-      case 'CONCLUÍDO':
-        return 'Demandas Concluídas';
-
-      case 'EM PROJETO':
-        return 'Demandas em Projeto';
-
-      case 'PARALISADO':
-        return 'Demandas Paralisadas';
-
-      case 'CANCELADO':
-        return 'Demandas Canceladas';
-
-      default:
-        return 'Outro';
-    }
-  }
 }

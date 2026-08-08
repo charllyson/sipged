@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_data.dart';
 
 class DockPanelHeader extends StatelessWidget {
   final DockPanelData group;
@@ -53,15 +53,26 @@ class DockPanelHeader extends StatelessWidget {
           ],
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              group.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
+            child: Builder(
+              builder: (context) {
+                final titleStyle = TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                );
+
+                final builder = group.titleBuilder;
+                if (builder != null) {
+                  return builder(context, titleStyle);
+                }
+
+                return Text(
+                  group.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: titleStyle,
+                );
+              },
             ),
           ),
           IconButton(

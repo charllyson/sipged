@@ -93,16 +93,16 @@ class BalloonTileData {
   final Widget title;
   final Widget? subtitle;
   final Widget? details;
-
-  /// Pequena informação abaixo da foto/leading.
-  /// Exemplo: Hoje 09:31.
   final Widget? info;
-
   final IconData? icon;
   final Widget? leading;
   final Color? accentColor;
   final bool highlighted;
   final VoidCallback? onTap;
+
+  bool get hasSecondaryContent {
+    return subtitle != null || details != null || info != null;
+  }
 }
 
 class BalloonTile extends StatelessWidget {
@@ -114,7 +114,7 @@ class BalloonTile extends StatelessWidget {
   final BalloonTileData data;
 
   static const TextStyle _defaultTitleStyle = TextStyle(
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: FontWeight.w800,
     color: Color(0xFF1E293B),
   );
@@ -148,6 +148,7 @@ class BalloonTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = data.accentColor ?? Colors.blueGrey.shade700;
+    final hasSecondaryContent = data.hasSecondaryContent;
 
     final backgroundColor = data.highlighted
         ? accent.withValues(alpha: 0.075)
@@ -163,6 +164,9 @@ class BalloonTile extends StatelessWidget {
         onTap: data.onTap,
         borderRadius: BorderRadius.zero,
         child: Container(
+          constraints: const BoxConstraints(
+            minHeight: 44,
+          ),
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.zero,
@@ -171,25 +175,30 @@ class BalloonTile extends StatelessWidget {
               width: data.highlighted ? 1 : 0,
             ),
           ),
-          padding: const EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: 10,
-            vertical: 8,
+            vertical: hasSecondaryContent ? 8 : 6,
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: hasSecondaryContent
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.center,
             children: [
               SizedBox(
-                width: 48,
+                width: 38,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: hasSecondaryContent
+                      ? MainAxisAlignment.start
+                      : MainAxisAlignment.center,
                   children: [
                     SizedBox.square(
-                      dimension: 38,
+                      dimension: 30,
                       child: data.leading ??
                           Container(
                             decoration: BoxDecoration(
                               color: accent.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: accent.withValues(alpha: 0.16),
                                 width: 1,
@@ -198,7 +207,7 @@ class BalloonTile extends StatelessWidget {
                             child: Icon(
                               data.icon ?? Icons.circle_outlined,
                               color: accent,
-                              size: 21,
+                              size: 17,
                             ),
                           ),
                     ),
@@ -215,12 +224,17 @@ class BalloonTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 9),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 1),
+                  padding: EdgeInsets.only(
+                    top: hasSecondaryContent ? 1 : 0,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: hasSecondaryContent
+                        ? MainAxisAlignment.start
+                        : MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       DefaultTextStyle(

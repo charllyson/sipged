@@ -211,6 +211,45 @@ class _AttributePageState extends State<AttributePage> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Column(
                         children: [
+                          if (widget.mode == AttributeMode.importFile &&
+                              (state.importWarning ?? '').trim().isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF4E5),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFFFCC80),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.warning_amber_rounded,
+                                      color: Color(0xFFB26A00),
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        state.importWarning!,
+                                        style: const TextStyle(
+                                          color: Color(0xFF7A4A00),
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           AttributeForm(
                             columns: columnsToShow,
                             controllers: _fieldControllers,

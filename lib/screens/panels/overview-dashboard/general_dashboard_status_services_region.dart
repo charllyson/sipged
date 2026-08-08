@@ -1,14 +1,15 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
+import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
-import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
+import 'package:sipged/_utils/theme/sipged_theme.dart';
 
 import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
 import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 import 'package:sipged/_widgets/charts/radar/radar_chart_changed.dart';
-import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
 class GeneralDashboardStatusServicesRegion extends StatelessWidget {
   final GeneralDashboardCubit cubit;
@@ -26,9 +27,9 @@ class GeneralDashboardStatusServicesRegion extends StatelessWidget {
     final labels = cubit.radarServiceLabels;
 
     final datasets = cubit.radarDatasetsServices(
-      primary: GeneralDashboardStyle.kPrimary,
-      warning: GeneralDashboardStyle.kWarning,
-      success: GeneralDashboardStyle.kSuccess,
+      primary: SipGedTheme.info,
+      warning: SipGedTheme.warning,
+      success: SipGedTheme.success,
     );
 
     return ResponsiveSectionRow(
@@ -63,7 +64,7 @@ class GeneralDashboardStatusServicesRegion extends StatelessWidget {
           return DonutChartChanged(
             legendPosition: DonutLegendPosition.bottom,
             colorsSlices: cubit.labelsStatusGeneralContracts
-                .map(GeneralDashboardStyle.getColorByStatus)
+                .map(ContractData.getColorByStatus)
                 .toList(),
             showPercentageOutside: true,
             labels: cubit.labelsStatusGeneralContracts,

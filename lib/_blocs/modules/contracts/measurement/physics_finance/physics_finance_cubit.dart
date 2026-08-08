@@ -11,11 +11,10 @@ import 'physics_finance_state.dart';
 
 class PhysicsFinanceCubit extends Cubit<PhysicsFinanceState> {
   PhysicsFinanceCubit({
-    required PhysicsFinanceRepository repository,
+    required this._repository,
     required String tenantId,
     AdditivesRepository? additivesRepository,
-  })  : _repository = repository,
-        _additivesRepository = additivesRepository ??
+  })  : _additivesRepository = additivesRepository ??
             AdditivesRepository(
               tenantId: tenantId.trim(),
             ),

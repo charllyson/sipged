@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 
 import 'package:sipged/_blocs/modules/contracts/contract/contract_data.dart';
 
@@ -22,8 +23,7 @@ import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
 
 import 'package:sipged/_widgets/buttons/circle_button_change.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+ import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 import 'package:sipged/screens/modules/operation/schedule/vertical/schedule_civil_controller.dart';
